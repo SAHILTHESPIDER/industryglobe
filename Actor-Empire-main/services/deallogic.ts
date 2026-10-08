@@ -10,7 +10,8 @@ const B = 1_000_000_000;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const absWeek = (p: Player) => (p.age || 18) * 52 + (p.currentWeek || 1);
-
+const hostBiz = (p: any, studioId: string) =>
+p.businesses.find((b: any) => b.sourceStudioId === studioId || (b.mergedStudioIds || []).includes(studioId));
 // ------------------------------------------------------------------ TYPES
 export type DealStructure = 'FULL' | 'MINORITY';
 export type DealStatus =

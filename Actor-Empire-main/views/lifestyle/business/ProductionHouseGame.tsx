@@ -23,6 +23,7 @@ interface ProductionHouseGameProps {
     player: Player;
     onBack: () => void;
     onUpdatePlayer: (p: Player) => void;
+    businessId?: string;
 }
 
 type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY';
@@ -37,14 +38,34 @@ const formatMoney = (val: number) => {
     return `$${val}`;
 };
 
-export const ProductionHouseGame: React.FC<ProductionHouseGameProps> = ({ player, onBack, onUpdatePlayer }) => {
+
+export const ProductionHouseGame: React.FC<ProductionHouseGameProps> = ({ player, onBack, onUpdatePlayer, businessId }) => {
+    const studio = (businessId && player.businesses.find(b => b.id === businessId))
+        || player.businesses.find(b => b.type === 'PRODUCTION_HOUSE');
+
+    if (!studio) return <div className="p-10 text-white">Error: Studio not found.</div>;
+
+    return (
+        <ProductionHouseInner
+            key={studio.id}
+            player={player}
+            studio={studio}
+            onBack={onBack}
+            onUpdatePlayer={onUpdatePlayer}
+        />
+    );
+};
+
+const ProductionHouseInner: React.FC<{
+    player: Player;
+    studio: Business;
+    onBack: () => void;
+    onUpdatePlayer: (p: Player) => void;
+}> = ({ player, studio, onBack, onUpdatePlayer }) => {
     const [view, setView] = useState<StudioView>('DASHBOARD');
     const [selectedProjectDashboard, setSelectedProjectDashboard] = useState<any>(null);
     const [sequelSetupProject, setSequelSetupProject] = useState<{ project: any, isSpinoff: boolean } | null>(null);
-    
-    // Locate the Studio Business
-    const studio = player.businesses.find(b => b.type === 'PRODUCTION_HOUSE');
-    if (!studio) return <div className="p-10 text-white">Error: Studio not found.</div>;
+
     const language = getPlayerLanguage(player);
     const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
 
@@ -521,7 +542,7 @@ export const ProductionHouseGame: React.FC<ProductionHouseGameProps> = ({ player
     }
 
     if (view === 'TALENT') {
-        return <StudioPage player={player} onUpdatePlayer={onUpdatePlayer} onBack={() => setView('DASHBOARD')} />;
+        return <StudioPage player={player} businessId={studio.id} onUpdatePlayer={onUpdatePlayer} onBack={() => setView('DASHBOARD')} />;
     }
 
     if (view === 'IP_MANAGEMENT') {
@@ -1329,36 +1350,42 @@ const StudioFinanceView: React.FC<{
                 <div className="bg-red-950/20 border border-red-500/20 rounded-[2rem] p-6 relative overflow-hidden">
                     <div className="relative z-10">
                         <h3 className="font-bold text-white text-sm uppercase tracking-wide mb-4 flex items-center gap-2"><LogOut size={16} className="text-red-500"/> Exit Strategy</h3>
-                        <div className="space-y-3">
-                            {/* Sell Option */}
-                            <button 
-                                onClick={() => setShowExitModal('SELL')} 
-                                disabled={!sellCheck.success}
-                                className={`w-full p-4 rounded-xl border flex flex-col gap-1 transition-all ${
-                                    sellCheck.success 
-                                    ? 'bg-emerald-900/20 border-emerald-500/50 hover:bg-emerald-900/40 text-left' 
-                                    : 'bg-zinc-900/50 border-zinc-800 opacity-60 cursor-not-allowed text-center'
-                                }`}
-                            >
-                                <div className="flex justify-between items-center w-full">
-                                    <div className={`font-bold text-sm ${sellCheck.success ? 'text-emerald-400' : 'text-zinc-500'}`}>Sell Studio</div>
-                                    {sellCheck.success && <div className="text-xs font-mono font-bold text-white">Est. {formatMoney(sellCheck.payout)}</div>}
-                                </div>
-                                {!sellCheck.success && <div className="text-[10px] text-zinc-500 font-normal">{sellCheck.msg}</div>}
-                            </button>
-                            
-                            {/* Liquidate Option */}
-                            <button 
-                                onClick={() => setShowExitModal('LIQUIDATE')}
-                                className="w-full p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 hover:bg-rose-950/30 transition-all flex flex-col gap-1 text-left"
-                            >
-                                <div className="flex justify-between items-center w-full">
-                                    <div className="font-bold text-sm text-rose-400">Shut Down & Liquidate</div>
-                                    <div className="text-xs font-mono font-bold text-zinc-400">Est. {formatMoney(liquidateCheck.payout)}</div>
-                                </div>
-                                <div className="text-[10px] text-zinc-500 font-normal">Close operations. Assets sold for scrap.</div>
-                            </button>
-                        </div>
+                        {(studio as any).sourceStudioId ? (
+                            <div className="rounded-xl border border-zinc-800 bg-black/30 p-4 text-xs leading-relaxed text-zinc-400">
+                                This studio was acquired. Sell it from <span className="font-bold text-white">Studio Group</span>, because the sale has to settle your acquisition loan and your ownership stake.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {/* Sell Option */}
+                                <button 
+                                    onClick={() => setShowExitModal('SELL')} 
+                                    disabled={!sellCheck.success}
+                                    className={`w-full p-4 rounded-xl border flex flex-col gap-1 transition-all ${
+                                        sellCheck.success 
+                                        ? 'bg-emerald-900/20 border-emerald-500/50 hover:bg-emerald-900/40 text-left' 
+                                        : 'bg-zinc-900/50 border-zinc-800 opacity-60 cursor-not-allowed text-center'
+                                    }`}
+                                >
+                                    <div className="flex justify-between items-center w-full">
+                                        <div className={`font-bold text-sm ${sellCheck.success ? 'text-emerald-400' : 'text-zinc-500'}`}>Sell Studio</div>
+                                        {sellCheck.success && <div className="text-xs font-mono font-bold text-white">Est. {formatMoney(sellCheck.payout)}</div>}
+                                    </div>
+                                    {!sellCheck.success && <div className="text-[10px] text-zinc-500 font-normal">{sellCheck.msg}</div>}
+                                </button>
+
+                                {/* Liquidate Option */}
+                                <button 
+                                    onClick={() => setShowExitModal('LIQUIDATE')}
+                                    className="w-full p-4 rounded-xl border border-rose-500/30 bg-rose-950/10 hover:bg-rose-950/30 transition-all flex flex-col gap-1 text-left"
+                                >
+                                    <div className="flex justify-between items-center w-full">
+                                        <div className="font-bold text-sm text-rose-400">Shut Down & Liquidate</div>
+                                        <div className="text-xs font-mono font-bold text-zinc-400">Est. {formatMoney(liquidateCheck.payout)}</div>
+                                    </div>
+                                    <div className="text-[10px] text-zinc-500 font-normal">Close operations. Assets sold for scrap.</div>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

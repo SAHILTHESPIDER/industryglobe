@@ -8,9 +8,10 @@ interface StudioPageProps {
     player: Player;
     onUpdatePlayer: (player: Player) => void;
     onBack: () => void;
+    businessId?: string;
 }
 
-export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, onBack }) => {
+export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, onBack, businessId }) => {
     const [activeTab, setActiveTab] = useState<'ROSTER' | 'MARKET'>('ROSTER');
     const [selectedNPC, setSelectedNPC] = useState<NPCActor | null>(null);
     const [paymentMode, setPaymentMode] = useState<PaymentMode>('UPFRONT');
@@ -18,8 +19,20 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
     const [offerAmountStr, setOfferAmountStr] = useState<string>('');
     const [negotiationResult, setNegotiationResult] = useState<{ success: boolean, message: string, maintenanceFee?: number } | null>(null);
 
-    const studio = player.businesses.find(b => b.type === 'PRODUCTION_HOUSE');
-    const signedContracts = studio?.studioState?.talentRoster || player.studio?.talentRoster || [];
+    const studio = (businessId && player.businesses.find(b => b.id === businessId))
+        || player.businesses.find(b => b.type === 'PRODUCTION_HOUSE');
+
+    const studioCount = player.businesses.filter(b => b.type === 'PRODUCTION_HOUSE').length;
+    // Only fall back to the legacy global roster when there is a single studio
+    const signedContracts = studio?.studioState?.talentRoster
+        || (studioCount <= 1 ? player.studio?.talentRoster : undefined)
+        || [];
+
+    // Talent signed to ANY of your studios is unavailable on the market
+    const allSignedNpcIds = new Set([
+        ...player.businesses.flatMap(b => b.studioState?.talentRoster || []).map(c => c.npcId),
+        ...(player.studio?.talentRoster || []).map(c => c.npcId),
+    ]);
     
     // Initialize memory if needed
     const studioMemory = player.studioMemory || {};
@@ -27,7 +40,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
     const attempts = studioMemory.attempts || {};
 
     const availableActors = getAvailableTalent(player.currentWeek, 'ACTOR', player.flags.extraNPCs || [])
-        .filter(npc => !signedContracts.some(c => c.npcId === npc.id))
+        .filter(npc => !allSignedNpcIds.has(npc.id))
         .filter(npc => !(cooldowns[npc.id] && cooldowns[npc.id] > player.currentWeek));
 
     const handlePaymentModeChange = (newMode: PaymentMode) => {
@@ -277,7 +290,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                             <div className="space-y-6 relative z-10">
                                 <div className="text-sm leading-relaxed">
                                     <p className="mb-4">
-                                        This Agreement is made and entered into by and between <strong>{player.businesses?.[0]?.name || 'The Studio'}</strong> ("Studio") and <strong>{selectedNPC.name}</strong> ("Artist").
+                                        This Agreement is made and entered into by and between <strong>{studio?.name || 'The Studio'}</strong> ("Studio") and <strong>{selectedNPC.name}</strong> ("Artist").
                                     </p>
                                     
                                     {/* Stats Block */}
