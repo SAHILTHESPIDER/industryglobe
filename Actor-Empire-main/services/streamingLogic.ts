@@ -1,5 +1,5 @@
 
-import { PlatformId, StreamingState, ActiveRelease, ProjectDetails, ProjectType } from '../types';
+import { PlatformId, StreamingState, ActiveRelease, ProjectDetails, ProjectType, StreamingTrend, StreamingLifecycle, LogEntry, NewsItem } from '../types';
 
 export interface PlatformProfile {
     id: PlatformId;
@@ -235,4 +235,295 @@ export const checkStreamingExit = (platformId: PlatformId, views: number, weeks:
     if (weeks > 4 && views < threshold) return true;
 
     return false;
+};
+
+const getSafeWeekGap = (
+    startWeekAbsolute: number | undefined,
+    currentAbsoluteWeek: number,
+    startWeek: number | undefined,
+    currentWeek: number
+) => {
+    if (typeof startWeekAbsolute === 'number') return startWeekAbsolute - currentAbsoluteWeek;
+    if (typeof startWeek === 'number' && currentWeek < startWeek) return startWeek - currentWeek;
+    return 0;
+};
+
+export const getStreamingTrend = (weeklyViews: number[]): StreamingTrend => {
+    if (!Array.isArray(weeklyViews) || weeklyViews.length < 2) return 'STEADY';
+    const latest = Math.max(0, weeklyViews[weeklyViews.length - 1] || 0);
+    const previous = Math.max(1, weeklyViews[weeklyViews.length - 2] || 1);
+    const delta = (latest - previous) / previous;
+    if (delta >= 0.2) return 'SURGING';
+    if (delta >= 0.05) return 'RISING';
+    if (delta <= -0.2) return 'DROPPING';
+    if (delta <= -0.05) return 'COOLING';
+    return 'STEADY';
+};
+
+export const getStreamingLifecycle = (
+    streaming: StreamingState,
+    currentAbsoluteWeek: number,
+    currentWeek: number
+): StreamingLifecycle => {
+    const weeksUntilStart = getSafeWeekGap(
+        streaming.startWeekAbsolute,
+        currentAbsoluteWeek,
+        streaming.startWeek,
+        currentWeek
+    );
+    if (weeksUntilStart > 0) return 'UPCOMING';
+    if (streaming.isLeaving) return 'EXITING';
+    if (streaming.weekOnPlatform <= 1) return 'LAUNCH';
+    if (streaming.weekOnPlatform <= 4) return 'EARLY_RUN';
+    if (streaming.weekOnPlatform <= 12) return 'MID_RUN';
+    return 'LONG_TAIL';
+};
+
+export const projectNextStreamingViews = (
+    platformId: PlatformId,
+    weekOnPlatform: number,
+    projectQuality: number,
+    latestWeeklyViews: number,
+    type: ProjectType,
+    marketDemand: number = 1
+): number => {
+    const safeWeek = Math.max(1, weekOnPlatform);
+    const safeQuality = Math.max(0, Math.min(100, projectQuality));
+    const safeLatestViews = Math.max(0, latestWeeklyViews);
+    const platform = PLATFORMS[platformId];
+
+    if (safeWeek <= 1) {
+        let baseUnit = 2500000 * platform.audienceMult;
+        if (type === 'SERIES') baseUnit *= 2.0;
+        const launchViews = baseUnit * (safeQuality / 50) * getStreamingMarketMultiplier(marketDemand, safeWeek);
+        return Math.floor(Math.min(launchViews, getWeeklyStreamingViewCap(platformId, safeWeek, safeQuality, type)));
+    }
+
+    let decay = 0.85;
+    if (platform.churnRate === 'FAST') decay = 0.75;
+    if (platform.churnRate === 'SLOW') decay = 0.9;
+    if (type === 'SERIES') decay += 0.05;
+    if (safeQuality > 80) decay += 0.05;
+    decay = Math.min(0.98, decay);
+
+    let projection = safeLatestViews * decay;
+    projection *= getStreamingMarketMultiplier(marketDemand, safeWeek);
+    if (safeWeek > 6 && projection > safeLatestViews * 0.98) projection = safeLatestViews * 0.92;
+
+    return Math.floor(Math.min(Math.max(0, projection), getWeeklyStreamingViewCap(platformId, safeWeek, safeQuality, type)));
+};
+
+export const getStreamingStateSnapshot = (
+    streaming: StreamingState,
+    projectQuality: number,
+    type: ProjectType,
+    marketDemand: number,
+    currentAbsoluteWeek: number,
+    currentWeek: number
+): Pick<StreamingState, 'trend' | 'lifecycle' | 'projectedNextViews'> => {
+    const lifecycle = getStreamingLifecycle(streaming, currentAbsoluteWeek, currentWeek);
+    const trend = getStreamingTrend(streaming.weeklyViews || []);
+    const latestWeeklyViews = (streaming.weeklyViews || [])[Math.max(0, (streaming.weeklyViews || []).length - 1)] || 0;
+    const projectedNextViews = lifecycle === 'UPCOMING'
+        ? 0
+        : projectNextStreamingViews(streaming.platformId, streaming.weekOnPlatform, projectQuality, latestWeeklyViews, type, marketDemand);
+
+    return { trend, lifecycle, projectedNextViews };
+};
+
+export interface StreamingDashboardLiveTitle {
+    releaseId: string;
+    name: string;
+    platformId: PlatformId;
+    platformName: string;
+    platformColor: string;
+    weekOnPlatform: number;
+    totalViews: number;
+    latestWeekViews: number;
+    projectedNextViews: number;
+    trend: StreamingTrend;
+    lifecycle: StreamingLifecycle;
+    isLeaving: boolean;
+    streamingRevenue: number;
+    upcomingInWeeks: number;
+}
+
+export interface StreamingDashboardPlatformRow {
+    platformId: PlatformId;
+    platformName: string;
+    platformColor: string;
+    titleCount: number;
+    totalViews: number;
+    totalRevenue: number;
+    avgLatestWeekViews: number;
+}
+
+export interface StreamingDashboardBidRow {
+    releaseId: string;
+    name: string;
+    bidsCount: number;
+    bestBid: number;
+    bestPlatform?: PlatformId;
+}
+
+export interface StreamingDashboardSummary {
+    activeTitles: number;
+    upcomingTitles: number;
+    biddingTitles: number;
+    totalViews: number;
+    totalStreamingRevenue: number;
+    avgLatestWeekViews: number;
+}
+
+export interface StreamingDashboardData {
+    summary: StreamingDashboardSummary;
+    liveTitles: StreamingDashboardLiveTitle[];
+    platformBreakdown: StreamingDashboardPlatformRow[];
+    biddingQueue: StreamingDashboardBidRow[];
+}
+
+export const buildStreamingDashboardData = (
+    activeReleases: ActiveRelease[],
+    currentAbsoluteWeek: number,
+    currentWeek: number
+): StreamingDashboardData => {
+    const safeReleases = Array.isArray(activeReleases) ? activeReleases : [];
+    const liveTitles: StreamingDashboardLiveTitle[] = [];
+    const biddingQueue: StreamingDashboardBidRow[] = [];
+
+    safeReleases.forEach(release => {
+        if (release.distributionPhase === 'STREAMING' && release.streaming) {
+            const platform = PLATFORMS[release.streaming.platformId];
+            const latestWeekViews = release.streaming.weeklyViews[release.streaming.weeklyViews.length - 1] || 0;
+            const lifecycle = release.streaming.lifecycle || getStreamingLifecycle(release.streaming, currentAbsoluteWeek, currentWeek);
+            const trend = release.streaming.trend || getStreamingTrend(release.streaming.weeklyViews);
+            const projectedNextViews = typeof release.streaming.projectedNextViews === 'number'
+                ? release.streaming.projectedNextViews
+                : projectNextStreamingViews(
+                    release.streaming.platformId,
+                    release.streaming.weekOnPlatform,
+                    release.projectDetails.hiddenStats.qualityScore,
+                    latestWeekViews,
+                    release.type
+                );
+            const upcomingInWeeks = getSafeWeekGap(
+                release.streaming.startWeekAbsolute,
+                currentAbsoluteWeek,
+                release.streaming.startWeek,
+                currentWeek
+            );
+
+            liveTitles.push({
+                releaseId: release.id,
+                name: release.name,
+                platformId: release.streaming.platformId,
+                platformName: platform.name,
+                platformColor: platform.color,
+                weekOnPlatform: release.streaming.weekOnPlatform,
+                totalViews: release.streaming.totalViews,
+                latestWeekViews,
+                projectedNextViews,
+                trend,
+                lifecycle,
+                isLeaving: release.streaming.isLeaving,
+                streamingRevenue: release.streamingRevenue || 0,
+                upcomingInWeeks: Math.max(0, upcomingInWeeks)
+            });
+        } else if (release.distributionPhase === 'STREAMING_BIDDING') {
+            const bids = Array.isArray(release.bids) ? release.bids : [];
+            const best = [...bids].sort((a, b) => b.upfront - a.upfront)[0];
+            biddingQueue.push({
+                releaseId: release.id,
+                name: release.name,
+                bidsCount: bids.length,
+                bestBid: best?.upfront || 0,
+                bestPlatform: best?.platformId
+            });
+        }
+    });
+
+    const platformMap = new Map<PlatformId, StreamingDashboardPlatformRow>();
+    liveTitles.forEach(title => {
+        const existing = platformMap.get(title.platformId);
+        if (existing) {
+            existing.titleCount += 1;
+            existing.totalViews += title.totalViews;
+            existing.totalRevenue += title.streamingRevenue;
+            existing.avgLatestWeekViews += title.latestWeekViews;
+        } else {
+            platformMap.set(title.platformId, {
+                platformId: title.platformId,
+                platformName: title.platformName,
+                platformColor: title.platformColor,
+                titleCount: 1,
+                totalViews: title.totalViews,
+                totalRevenue: title.streamingRevenue,
+                avgLatestWeekViews: title.latestWeekViews
+            });
+        }
+    });
+
+    const platformBreakdown = Array.from(platformMap.values())
+        .map(row => ({
+            ...row,
+            avgLatestWeekViews: row.titleCount > 0 ? Math.floor(row.avgLatestWeekViews / row.titleCount) : 0
+        }))
+        .sort((a, b) => b.totalViews - a.totalViews);
+
+    const summary: StreamingDashboardSummary = {
+        activeTitles: liveTitles.length,
+        upcomingTitles: liveTitles.filter(title => title.lifecycle === 'UPCOMING').length,
+        biddingTitles: biddingQueue.length,
+        totalViews: liveTitles.reduce((sum, title) => sum + title.totalViews, 0),
+        totalStreamingRevenue: liveTitles.reduce((sum, title) => sum + title.streamingRevenue, 0),
+        avgLatestWeekViews: liveTitles.length > 0
+            ? Math.floor(liveTitles.reduce((sum, title) => sum + title.latestWeekViews, 0) / liveTitles.length)
+            : 0
+    };
+
+    return { summary, liveTitles, platformBreakdown, biddingQueue };
+};
+
+export interface StreamingFeedItem {
+    id: string;
+    text: string;
+    week: number;
+    year: number;
+    tone: 'positive' | 'negative' | 'neutral';
+}
+
+const isStreamingText = (text: string) =>
+    /stream|netflix|apple tv|disney\+|hulu|youtube|views|platform|bid/i.test(text);
+
+export const buildStreamingEventFeed = (
+    logs: LogEntry[] = [],
+    news: NewsItem[] = [],
+    limit: number = 8
+): StreamingFeedItem[] => {
+    const logFeed: StreamingFeedItem[] = logs
+        .filter(entry => typeof entry.message === 'string' && isStreamingText(entry.message))
+        .map(entry => ({
+            id: `log_${entry.year}_${entry.week}_${entry.message.slice(0, 24)}`,
+            text: entry.message,
+            week: entry.week,
+            year: entry.year,
+            tone: entry.type
+        }));
+
+    const newsFeed: StreamingFeedItem[] = news
+        .filter(entry =>
+            typeof entry.headline === 'string' &&
+            (isStreamingText(entry.headline) || isStreamingText(entry.subtext || ''))
+        )
+        .map(entry => ({
+            id: `news_${entry.id}`,
+            text: `${entry.headline}${entry.subtext ? ` — ${entry.subtext}` : ''}`,
+            week: entry.week,
+            year: entry.year,
+            tone: entry.impactLevel === 'HIGH' ? 'positive' : entry.impactLevel === 'LOW' ? 'neutral' : 'negative'
+        }));
+
+    return [...logFeed, ...newsFeed]
+        .sort((a, b) => (b.year * 52 + b.week) - (a.year * 52 + a.week))
+        .slice(0, limit);
 };
