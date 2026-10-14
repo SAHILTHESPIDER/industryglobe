@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Player, Commitment, InstaPostType, NPCActor, InteractionType, Agent, Manager, Message, SponsorshipActionType, AuditionOpportunity, DatingMatch, InstaPost, Relationship, SponsorshipOffer, NegotiationData, ContractFilm, YoutubeBrandDeal, YoutubeCollabOffer, PregnancyCarrier } from '../../types';
-import { MessageSquare, Search, BarChart3, Camera, Users, Newspaper, TrendingUp, Activity, Heart, Folder, Flame, Gem, Landmark, X, CheckCircle, AlertCircle, BookOpen, Map } from 'lucide-react';
+import { MessageSquare, Search, BarChart3, Camera, Users, Newspaper, TrendingUp, Activity, Heart, Folder, Flame, Gem, Landmark, X, CheckCircle, AlertCircle, BookOpen, Map, Tv } from 'lucide-react';
 import { getPhaseDuration } from '../../services/roleLogic';
 
 // Import sub-apps
@@ -26,6 +26,7 @@ import { getAbsoluteWeek } from '../../services/legacyLogic';
 import { spendPlayerEnergy } from '../../services/premiumLogic';
 import { normalizeUniverseMap } from '../../services/universeLogic';
 import { getPlayerLanguage, t } from '../../services/i18n';
+import { StreamingPage } from './StreamingPage';
 
 // Helper Component for App Icon
 const AppIcon = ({ icon, color, label, onClick, badge, customContent, customBg }: any) => (
@@ -76,7 +77,7 @@ interface MobilePageProps {
 }
 
 export const MobilePage: React.FC<MobilePageProps> = (props) => {
-  const [appMode, setAppMode] = useState<'HOME' | 'CASTLINK' | 'IMDB' | 'BOXOFFICE' | 'INSTAGRAM' | 'X' | 'YOUTUBE' | 'NEWS' | 'TEAM' | 'MESSAGES' | 'FORBES' | 'STOCKS' | 'DATING_FOLDER' | 'SOCIAL_FOLDER' | 'TINDER' | 'LUXE' | 'BANK' | 'GUIDE'>('HOME');
+  const [appMode, setAppMode] = useState<'HOME' | 'CASTLINK' | 'IMDB' | 'BOXOFFICE' | 'STREAMING' | 'INSTAGRAM' | 'X' | 'YOUTUBE' | 'NEWS' | 'TEAM' | 'MESSAGES' | 'FORBES' | 'STOCKS' | 'DATING_FOLDER' | 'SOCIAL_FOLDER' | 'TINDER' | 'LUXE' | 'BANK' | 'GUIDE'>('HOME');
   const [toast, setToast] = useState<{msg: string, color: string} | null>(null);
 
   if (!props.player) return null; 
@@ -456,6 +457,12 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                                 label={tr('mobile.boxOffice')} 
                                 onClick={() => setAppMode('BOXOFFICE')} 
                             />
+                            <AppIcon
+                                icon={<Tv size={26} />}
+                                color="bg-indigo-600"
+                                label={tr('mobile.streaming')}
+                                onClick={() => setAppMode('STREAMING')}
+                            />
                             <AppIcon 
                                 icon={<Users size={26} />} 
                                 color="bg-blue-500" 
@@ -538,6 +545,9 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                 )}
                 {appMode === 'BOXOFFICE' && (
                     <BoxOfficeApp player={props.player} onBack={() => setAppMode('HOME')} />
+                )}
+                {appMode === 'STREAMING' && (
+                    <StreamingPage player={props.player} onBack={() => setAppMode('HOME')} />
                 )}
                 {appMode === 'CASTLINK' && (
                     <CastLinkApp 

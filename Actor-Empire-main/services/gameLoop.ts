@@ -32,7 +32,8 @@ import {
     determineStreamingAcquisition, 
     PLATFORMS, 
     calculateStreamingViewership, 
-    checkStreamingExit 
+    checkStreamingExit,
+    getStreamingStateSnapshot
 } from './streamingLogic';
 import { 
     generateWeeklyNews, 
@@ -3142,7 +3143,29 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         platform.recentHits += 1;
                     }
 
-                    processedReleases.push({ ...rel, distributionPhase: 'STREAMING', totalGross: newTotal, weeklyGross: newWeeklyGross, status: 'FINISHED', streaming: { platformId, weekOnPlatform: 1, totalViews: 0, weeklyViews: [], isLeaving: false } });
+                    const baseStreamingState: StreamingState = {
+                        platformId,
+                        weekOnPlatform: 1,
+                        totalViews: 0,
+                        weeklyViews: [],
+                        isLeaving: false
+                    };
+                    const streamingSnapshot = getStreamingStateSnapshot(
+                        baseStreamingState,
+                        rel.projectDetails.hiddenStats.qualityScore,
+                        rel.type,
+                        1,
+                        getAbsoluteWeek(nextPlayer.age, nextPlayer.currentWeek),
+                        nextPlayer.currentWeek
+                    );
+                    processedReleases.push({
+                        ...rel,
+                        distributionPhase: 'STREAMING',
+                        totalGross: newTotal,
+                        weeklyGross: newWeeklyGross,
+                        status: 'FINISHED',
+                        streaming: { ...baseStreamingState, ...streamingSnapshot }
+                    });
                 }
             } else {
                 processedReleases.push({ ...rel, totalGross: newTotal, weeklyGross: newWeeklyGross, weekNum: rel.weekNum + 1 });
@@ -3159,7 +3182,21 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 (typeof rel.streaming.startWeekAbsolute === 'number' && currentAbsoluteWeek < rel.streaming.startWeekAbsolute) ||
                 (typeof rel.streaming.startWeekAbsolute !== 'number' && rel.streaming.startWeek && nextPlayer.currentWeek < rel.streaming.startWeek)
             ) {
-                processedReleases.push(rel);
+                const waitingSnapshot = getStreamingStateSnapshot(
+                    rel.streaming,
+                    rel.projectDetails.hiddenStats.qualityScore,
+                    rel.type,
+                    1,
+                    currentAbsoluteWeek,
+                    nextPlayer.currentWeek
+                );
+                processedReleases.push({
+                    ...rel,
+                    streaming: {
+                        ...rel.streaming,
+                        ...waitingSnapshot
+                    }
+                });
                 return;
             }
             const streamingStudio = nextPlayer.businesses?.find(b => b.id === rel.projectDetails.studioId && b.type === 'PRODUCTION_HOUSE');
@@ -3229,7 +3266,29 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     earnings: 0, rating: rel.imdbRating || 0, reception: rel.status, projectQuality: rel.projectDetails.hiddenStats.qualityScore, imdbRating: rel.imdbRating, boxOfficeResult: `$${(rel.totalGross/1000000).toFixed(1)}M`, outcomeTier: calculateRunOutcome(rel.totalGross + newStreamingRevenue, rel.budget, rel.imdbRating || 5).tier, subtype: rel.projectDetails.subtype, futurePotential: rel.futurePotential || { sequelChance: 0, franchiseChance: 0, rebootChance: 0, renewalChance: 0, isFranchiseStarter: false, isSequelGreenlit: false, isRenewed: false, seriesStatus: 'N/A', playerReturnStatus: undefined, returnStatusNote: undefined }, studioId: rel.projectDetails.studioId, streamingPlatform: rel.streaming.platformId, totalViews, streamingRevenue: newStreamingRevenue, castList: rel.projectDetails.castList, reviews: rel.projectDetails.reviews, budget: rel.budget, gross: rel.totalGross, genre: rel.projectDetails.genre, format: rel.projectDetails.format, subjectName: rel.projectDetails.subjectName, subjectType: rel.projectDetails.subjectType, description: rel.projectDetails.description, projectType: rel.type, royaltyPercentage: rel.royaltyPercentage, franchiseId: rel.projectDetails.franchiseId, universeId: rel.projectDetails.universeId, universeSagaName: rel.projectDetails.universeSagaName, universePhaseName: rel.projectDetails.universePhaseName, installmentNumber: rel.projectDetails.installmentNumber, directorId: rel.projectDetails.directorId
                 });
             } else {
-                processedReleases.push({ ...rel, streamingRevenue: newStreamingRevenue, streaming: { ...rel.streaming, totalViews, weeklyViews: newWeeklyViews, weekOnPlatform: rel.streaming.weekOnPlatform + 1, isLeaving: newWeeklyViews.length > 20 && newViews < 50000 } });
+                const updatedStreamingState: StreamingState = {
+                    ...rel.streaming,
+                    totalViews,
+                    weeklyViews: newWeeklyViews,
+                    weekOnPlatform: rel.streaming.weekOnPlatform + 1,
+                    isLeaving: newWeeklyViews.length > 20 && newViews < 50000
+                };
+                const streamingSnapshot = getStreamingStateSnapshot(
+                    updatedStreamingState,
+                    rel.projectDetails.hiddenStats.qualityScore,
+                    rel.type,
+                    streamingDemand,
+                    currentAbsoluteWeek,
+                    nextPlayer.currentWeek
+                );
+                processedReleases.push({
+                    ...rel,
+                    streamingRevenue: newStreamingRevenue,
+                    streaming: {
+                        ...updatedStreamingState,
+                        ...streamingSnapshot
+                    }
+                });
             }
         }
     });

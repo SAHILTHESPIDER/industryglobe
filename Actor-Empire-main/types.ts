@@ -42,6 +42,8 @@ export enum Page {
   export type StudioArchetype = 'LEGACY' | 'PRESTIGE' | 'PLATFORM' | 'UNIVERSE_ARCHITECT';
   export type ScriptStatus = 'CONCEPT' | 'IN_DEVELOPMENT' | 'READY' | 'PRODUCED';
   export type PlatformId = 'NETFLIX' | 'APPLE_TV' | 'DISNEY_PLUS' | 'HULU' | 'YOUTUBE';
+  export type StreamingTrend = 'SURGING' | 'RISING' | 'STEADY' | 'COOLING' | 'DROPPING';
+  export type StreamingLifecycle = 'UPCOMING' | 'LAUNCH' | 'EARLY_RUN' | 'MID_RUN' | 'LONG_TAIL' | 'EXITING';
   export type ReleaseScale = 'GLOBAL' | 'MASS' | 'LIMITED';
   export type ReleaseStrategy = 'THEATRICAL' | 'STREAMING_ONLY';
   export type ScreeningStrategy = 'REGIONAL' | 'NATIONAL' | 'INTERNATIONAL';
@@ -524,6 +526,9 @@ export enum Page {
       isLeaving: boolean;
       startWeek?: number;
       startWeekAbsolute?: number;
+      trend?: StreamingTrend;
+      lifecycle?: StreamingLifecycle;
+      projectedNextViews?: number;
   }
   
   export interface FuturePotential {
