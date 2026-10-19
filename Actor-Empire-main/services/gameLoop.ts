@@ -60,6 +60,8 @@ import { getInstagramPostComments, pickInstagramMicroBrand } from './instagramLo
 import { checkForDirectorDecision, checkForProductionCrisis } from './productionService';
 import { processBusinessWeek } from './businessLogic';
 import { getAbsoluteWeek, getRelationshipAge, inferStreamingStartWeekAbsolute } from './legacyLogic';
+import { tickOwnPlatform } from './ownPlatform/week';
+import { migrateOwnPlatformOnLoad } from './ownPlatform/migrate';
 import { hasNoAds, resetWeeklyEnergy, spendPlayerEnergy } from './premiumLogic';
 import { advanceLuxeConnections, advanceTinderConnections } from './datingLogic';
 import { generateNpcVentureRoleOffer, getNpcVentureOfferText } from './npcVentureLogic';
@@ -795,6 +797,9 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     }
     if (!Array.isArray(nextPlayer.studio.talentRoster)) nextPlayer.studio.talentRoster = [];
     if (!nextPlayer.flags) nextPlayer.flags = {};
+    if (nextPlayer.ownPlatform) {
+        nextPlayer = migrateOwnPlatformOnLoad(nextPlayer);
+    }
     if (!Array.isArray(nextPlayer.flags.familyObligations)) nextPlayer.flags.familyObligations = [];
     if (!Array.isArray(nextPlayer.flags.abandonedChildIds)) nextPlayer.flags.abandonedChildIds = [];
     if (!Array.isArray(nextPlayer.flags.hiddenChildren)) nextPlayer.flags.hiddenChildren = [];
@@ -3249,7 +3254,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             }
             const streamingStudio = nextPlayer.businesses?.find(b => b.id === rel.projectDetails.studioId && b.type === 'PRODUCTION_HOUSE');
             const streamingDemand = getProjectMarketDemand(rel.projectDetails, nextPlayer.currentWeek, streamingStudio?.studioState?.marketTrends);
-            const newViews = calculateStreamingViewership(
+            let newViews = calculateStreamingViewership(
                 rel.streaming.platformId,
                 rel.streaming.weekOnPlatform,
                 rel.projectDetails.hiddenStats.qualityScore,
@@ -3257,6 +3262,10 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 rel.type,
                 streamingDemand
             );
+            if (typeof rel.streaming.audienceMult === 'number' && rel.streaming.audienceMult > 0) {
+                const baseReach = PLATFORMS[rel.streaming.platformId]?.audienceMult || 1;
+                newViews = Math.floor(newViews * (rel.streaming.audienceMult / baseReach));
+            }
             const totalViews = rel.streaming.totalViews + newViews;
             const newWeeklyViews = [...rel.streaming.weeklyViews, newViews];
             const shouldExit = checkStreamingExit(rel.streaming.platformId, newViews, rel.streaming.weekOnPlatform);
@@ -3816,6 +3825,16 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         }
     }
     
+    if (nextPlayer.ownPlatform) {
+        try {
+            const platformWeek = tickOwnPlatform(nextPlayer, getAbsoluteWeek(nextPlayer.age, nextPlayer.currentWeek));
+            platformWeek.notes.forEach(note => logsToAdd.push(note));
+            platformWeek.transactions.forEach(entry => addTransaction(entry.amount, 'BUSINESS', entry.description));
+        } catch (error) {
+            console.error('Own platform week failed:', error);
+        }
+    }
+
     if (nextPlayer.currentWeek % 3 === 0) {
         // Updated: usedTitles now includes past projects to prevent repeating famous titles
         const usedTitles = [

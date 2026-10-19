@@ -8,6 +8,7 @@ import { getPlayerLanguage, t } from '../../services/i18n';
 interface StreamingPageProps {
   player: Player;
   onBack: () => void;
+  onOpenRights?: () => void;
 }
 
 const TREND_ICON: Record<StreamingTrend, React.ReactNode> = {
@@ -18,7 +19,7 @@ const TREND_ICON: Record<StreamingTrend, React.ReactNode> = {
   DROPPING: <TrendingDown size={12} className="text-rose-400" />,
 };
 
-export const StreamingPage: React.FC<StreamingPageProps> = ({ player, onBack }) => {
+export const StreamingPage: React.FC<StreamingPageProps> = ({ player, onBack, onOpenRights }) => {
   const language = getPlayerLanguage(player);
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
   const currentAbsoluteWeek = getAbsoluteWeek(player.age, player.currentWeek);
@@ -146,6 +147,9 @@ export const StreamingPage: React.FC<StreamingPageProps> = ({ player, onBack }) 
               <div className="text-right">
                 <div className="text-xs text-zinc-500">{item.bestPlatform ? PLATFORMS[item.bestPlatform].name : tr('streaming.noOffer')}</div>
                 <div className="font-mono text-sm">{item.bestBid > 0 ? formatMoney(item.bestBid) : '--'}</div>
+                {onOpenRights && (
+                  <button onClick={onOpenRights} className="mt-1 text-[10px] font-black uppercase tracking-wider text-[#ffb4b4]">Open the room</button>
+                )}
               </div>
             </div>
           ))}
