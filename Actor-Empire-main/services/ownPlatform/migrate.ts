@@ -148,7 +148,9 @@ const normalizeSlot = (raw: ReleaseSlot | undefined, player: Player): ReleaseSlo
         house: typeof raw.house === 'string' && raw.house.trim() ? raw.house.slice(0, 40) : fresh.house,
         countryId,
         language: typeof raw.language === 'string' && raw.language.trim() ? raw.language : fresh.language,
-        weekOffset: Math.max(0, Math.min(10, Math.round(Number(raw.weekOffset) || fresh.weekOffset))),
+        weekOffset: Number.isFinite(Number(raw.weekOffset))
+            ? Math.max(0, Math.min(10, Math.round(Number(raw.weekOffset))))
+            : fresh.weekOffset,
     };
 };
 

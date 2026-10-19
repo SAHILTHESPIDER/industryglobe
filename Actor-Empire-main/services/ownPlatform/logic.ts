@@ -28,6 +28,7 @@ import {
     STOREFRONTS,
     hashString,
 } from './catalog';
+import { getAbsoluteWeek } from '../legacyLogic';
 
 export const BUILD_WEEKS = 15;
 export const RESERVE_WEEKS = 6;
@@ -660,10 +661,11 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
                     platformId: pending.offer.platformId,
                     streamerName: pending.offer.bidderName,
                     audienceMult: pending.offer.audienceMult,
-                    weekOnPlatform: 1,
+                    weekOnPlatform: (player.ownPlatform?.releaseSlot?.weekOffset || 0) > 0 ? 0 : 1,
                     totalViews: 0,
                     weeklyViews: [],
                     isLeaving: false,
+                    startWeekAbsolute: getAbsoluteWeek(player.age, player.currentWeek) + (player.ownPlatform?.releaseSlot?.weekOffset || 0),
                 },
             };
         }),

@@ -608,7 +608,7 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <ForbesApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />
                 )}
                 {appMode === 'STOCKS' && (
-                    <StocksApp player={props.player} onBack={() => setAppMode('HOME')} onTrade={props.onTradeStock!} onFoundCompany={props.onFoundCompany} onAcquirePlatform={props.onAcquirePlatform} />
+                    <StocksApp player={props.player} onBack={() => setAppMode('HOME')} onTrade={props.onTradeStock!} onFoundCompany={props.onFoundCompany} onOpenCompany={() => { setPlatformPane('launch'); setAppMode('OWN_PLATFORM'); }} onAcquirePlatform={props.onAcquirePlatform} />
                 )}
                 {appMode === 'BANK' && (
                     <BankApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />

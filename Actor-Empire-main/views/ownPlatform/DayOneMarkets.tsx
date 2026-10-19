@@ -150,7 +150,7 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                     <div className="text-3xl font-black" style={{ fontFamily: headingFont }}>{chosen.filter(row => row.regionId === regionId).length}/{regionCountries}</div>
                     <p className="text-sm text-zinc-400 mt-1">{chosen.filter(row => row.regionId === regionId).length} markets selected here. A wider opening means stronger rivals and more launch work.</p>
                     <div className="grid grid-cols-2 gap-3 mt-4">
-                        <Stat label="Streaming viewers" value={`${viewers.toFixed(0)}M`} />
+                        <Stat label="Streaming viewers" value={viewers > 0 ? `${viewers.toFixed(viewers < 10 ? 1 : 0)}M` : '0'} />
                         <Stat label="Regions" value={String(regionsUsed)} />
                         <Stat label="Languages" value={String(new Set(chosen.flatMap(row => row.languages.map(language => language.name))).size)} />
                         <Stat label="Opening rights" value={formatCompact(chosen.reduce((sum, row) => sum + row.accessCost, 0))} />

@@ -129,6 +129,7 @@ const NetworkDesk: React.FC<{ player: Player; quoteHouseholds: number; burn: num
         <div className="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-4">
             <div className="space-y-3">
                 <p className="text-sm text-zinc-400">Servers sit by region. Construction and the weekly burn are the same numbers the build page signs.</p>
+                {state.regions.length === 0 && <p className="text-sm text-zinc-500">Add a day-one market first. The network only has a region once a country is on the opening slate.</p>}
                 <div className="grid sm:grid-cols-2 gap-3">
                     {state.regions.map(region => {
                         const name = LAUNCH_REGIONS.find(row => row.id === region.regionId)?.name || region.regionId;
@@ -212,8 +213,8 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
             </div>
             <div className="grid lg:grid-cols-3 gap-3">
                 <Choice title="Own capital" body="No new money. Commissioning spends the treasury you already have." action="Build from the treasury" onClick={() => onApply(chooseFunding(player, 'OWN'))} />
-                <Choice title="Bank facility" body={`Draw ${formatCompact(FACILITY_USD)}. Interest and a paydown leave every week until the balance is gone.`} action="Draw the facility" onClick={() => onApply(chooseFunding(player, 'BANK'))} />
-                <Choice title="Private equity" body={`${PE_NAME} buys ${Math.round(PE_STAKE * 100)}% at a discount to the ${formatCompact(valuation)} valuation and takes that share of weekly profit.`} action="Sell the stake" onClick={() => onApply(chooseFunding(player, 'EQUITY'))} />
+                <Choice title="Bank facility" body={books?.debt ? `${formatCompact(books.debt)} is still outstanding. A payment leaves every week.` : `Draw ${formatCompact(FACILITY_USD)}. Interest and a paydown leave every week until the balance is gone.`} action={books?.debt ? 'Facility is open' : 'Draw the facility'} onClick={() => onApply(chooseFunding(player, 'BANK'))} />
+                <Choice title="Private equity" body={books?.equitySoldPct ? `${books.pePartner} already owns ${Math.round(books.equitySoldPct * 100)}%.` : `${PE_NAME} buys ${Math.round(PE_STAKE * 100)}% at a discount to the ${formatCompact(valuation)} valuation and takes that share of weekly profit.`} action={books?.equitySoldPct ? 'Stake already sold' : 'Sell the stake'} onClick={() => onApply(chooseFunding(player, 'EQUITY'))} />
             </div>
             <div className="grid lg:grid-cols-2 gap-3">
                 <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">

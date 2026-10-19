@@ -405,16 +405,24 @@ export const updateReleaseSlot = (player: Player, patch: Partial<ReleaseSlot>): 
     if (!player.ownPlatform) return player;
     const current = player.ownPlatform.releaseSlot || defaultReleaseSlot(player);
     const country = patch.countryId ? MARKET_COUNTRIES.find(row => row.id === patch.countryId) : undefined;
+    const weekOffset = patch.weekOffset === undefined
+        ? current.weekOffset
+        : Math.max(0, Math.min(10, Math.round(patch.weekOffset)));
+    const releaseSlot = {
+        ...current,
+        ...patch,
+        language: patch.language || (country ? country.languages[0]?.name || current.language : current.language),
+        weekOffset,
+    };
+    const pending = player.ownPlatform.pendingDeal;
     return {
         ...player,
         ownPlatform: {
             ...player.ownPlatform,
-            releaseSlot: {
-                ...current,
-                ...patch,
-                language: patch.language || (country ? country.languages[0]?.name || current.language : current.language),
-                weekOffset: Math.max(0, Math.min(10, patch.weekOffset ?? current.weekOffset)),
-            },
+            releaseSlot,
+            pendingDeal: pending
+                ? { ...pending, plan: { ...pending.plan, weekendOffset: weekOffset } }
+                : pending,
         },
     };
 };
@@ -456,8 +464,12 @@ export const moveResolution = (player: Player): Player => withIpo(player, ipo =>
 });
 
 export const setIpoTerms = (player: Player, price: number, sharesForSale: number): Player => withIpo(player, ipo => {
-    ipo.price = Math.max(1, Math.round(price * 100) / 100);
-    ipo.sharesForSale = Math.max(100_000, Math.min(2_000_000, Math.round(sharesForSale)));
+    const nextPrice = Number(price);
+    const nextShares = Number(sharesForSale);
+    if (Number.isFinite(nextPrice) && nextPrice > 0) ipo.price = Math.round(nextPrice * 100) / 100;
+    if (Number.isFinite(nextShares) && nextShares > 0) {
+        ipo.sharesForSale = Math.max(100_000, Math.min(2_000_000, Math.round(nextShares)));
+    }
     ipo.valuation = quoteValuation(player);
 });
 
@@ -552,6 +564,10 @@ export const advanceBook = (player: Player): Player => withIpo(player, ipo => {
 
 export const closeBook = (player: Player): { player: Player; error?: string } => {
     if (!player.ownPlatform?.ipo) return { player, error: 'The book is not open.' };
+    if (player.ownPlatform.ipo.stage === 'LISTED' || player.ownPlatform.ipo.stage === 'TRADING') {
+        return { player, error: 'The company is already listed.' };
+    }
+    if (player.ownPlatform.ipo.stage !== 'BOOK') return { player, error: 'The book is not ready to close.' };
     const ipo = player.ownPlatform.ipo;
     const covered = ipo.bookMultiple >= 1;
     const openPrice = covered ? ipo.cap : ipo.floor;
@@ -591,9 +607,15 @@ export const closeBook = (player: Player): { player: Player; error?: string } =>
     };
     if (existing >= 0) next.stocks[existing] = { ...next.stocks[existing], ...listed };
     else next.stocks = [...next.stocks, listed];
+    const founderShares = Math.max(25, Math.round(200 * ipo.founderKeepPct));
+    const portfolio = [...(next.portfolio || [])];
+    const held = portfolio.find(row => row.stockId === 'stk_emp');
+    next.portfolio = held
+        ? portfolio.map(row => row.stockId === 'stk_emp' ? { ...row, shares: row.shares + founderShares } : row)
+        : [...portfolio, { stockId: 'stk_emp', shares: founderShares }];
     log(next, covered
-        ? `${next.ownPlatform.name} listed. The book was covered ${ipo.bookMultiple.toFixed(2)}× and ${formatCompact(raise)} reached the treasury.`
-        : `${next.ownPlatform.name} listed under the floor. The book was not covered. ${formatCompact(raise)} still arrived.`);
+        ? `${next.ownPlatform.name} listed. The book was covered ${ipo.bookMultiple.toFixed(2)}× and ${formatCompact(raise)} reached the treasury. ${founderShares} founder shares are in Stocks.`
+        : `${next.ownPlatform.name} listed under the floor. The book was not covered. ${formatCompact(raise)} still arrived. ${founderShares} founder shares are in Stocks.`);
     return { player: next };
 };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Player } from '../../types';
 import { formatCompact } from '../../services/ownPlatform/logic';
 import {
@@ -31,6 +31,11 @@ export const Boardroom: React.FC<Props> = ({ player, onPlayer }) => {
     const [error, setError] = useState('');
     const [floor, setFloor] = useState(ipo?.floor || 10);
     const [cap, setCap] = useState(ipo?.cap || 16);
+    useEffect(() => {
+        if (!ipo) return;
+        setFloor(ipo.floor);
+        setCap(ipo.cap);
+    }, [ipo?.floor, ipo?.cap, ipo?.stage]);
     if (!state || !ipo) return null;
     const valuation = ipo.valuation || quoteValuation(player);
     const raise = Math.round(ipo.sharesForSale * ipo.price);

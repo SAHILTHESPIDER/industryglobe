@@ -13,10 +13,11 @@ interface StocksAppProps {
   onBack: () => void;
   onTrade: (stockId: string, amount: number) => void;
   onFoundCompany?: () => void;
+  onOpenCompany?: () => void;
   onAcquirePlatform?: (stockId: string) => void;
 }
 
-export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, onFoundCompany, onAcquirePlatform }) => {
+export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, onFoundCompany, onOpenCompany, onAcquirePlatform }) => {
   const [tab, setTab] = useState<'MARKET' | 'PORTFOLIO'>('MARKET');
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const language = getPlayerLanguage(player);
@@ -249,15 +250,15 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
-            <button onClick={() => { if (!player.ownPlatform) onFoundCompany?.(); }} className="w-full text-left bg-zinc-900 border border-emerald-500/30 rounded-xl p-4">
+            <button onClick={() => { if (!player.ownPlatform) onFoundCompany?.(); onOpenCompany?.(); }} className="w-full text-left bg-zinc-900 border border-emerald-500/30 rounded-xl p-4">
                 <div className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Your company</div>
-                <div className="font-bold text-white">{player.ownPlatform?.name || 'Found a company'}</div>
+                <div className="font-bold text-white">{player.ownPlatform?.name || 'Found Empire+'}</div>
                 <div className="text-xs text-zinc-400">
                     {player.ownPlatform?.ipo?.stage === 'LISTED'
-                        ? `${player.ownPlatform.ipo.ticker} is listed. Buy or sell it with the other shares.`
+                        ? `${player.ownPlatform.ipo.ticker} is listed. Open the company, or trade the shares below.`
                         : player.ownPlatform
-                            ? 'Private. Take it public from Empire+ → Operations → Boardroom. Buy other streamers from a media share, or from that same desk.'
-                            : 'Start Empire+ here. Then you can list it, or buy another streaming platform.'}
+                            ? 'Open Empire+. Operations runs the money, the commissions, and the listing.'
+                            : 'Found Empire+ and open it. From there you can fund it, list it, or buy another streaming service.'}
                 </div>
             </button>
             {tab === 'MARKET' && stocks.map(stock => renderStockRow(stock))}

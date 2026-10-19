@@ -13,6 +13,7 @@ import {
     lockRightsDeal,
     rivalWeekends,
 } from '../../services/ownPlatform/logic';
+import { updateReleaseSlot } from '../../services/ownPlatform/studio';
 import { ReleaseCalendar } from './ReleaseCalendar';
 import { Card, headingFont } from './ui';
 
@@ -53,12 +54,18 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
             offer,
             plan,
         };
-        onPlayer({ ...player, ownPlatform: { ...player.ownPlatform, pendingDeal: nextDeal } });
+        const withDeal = { ...player, ownPlatform: { ...player.ownPlatform, pendingDeal: nextDeal } };
+        onPlayer(updateReleaseSlot(withDeal, { title: lot.title }));
         setOpen(false);
     };
 
     if (pending) {
-        return <ReleasePlanner player={player} deal={pending} onPlayer={onPlayer} onError={setError} error={error} />;
+        return (
+            <div className="p-4 lg:p-10 space-y-4">
+                <ReleaseCalendar player={player} onPlayer={onPlayer} />
+                <ReleasePlanner player={player} deal={pending} onPlayer={onPlayer} onError={setError} error={error} />
+            </div>
+        );
     }
 
     return (
