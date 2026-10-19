@@ -115,28 +115,31 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                         </div>
                     )}
                     {dossierOpen && country && (
-                        <div className="rounded-3xl border border-[#ff3b30]/40 bg-[#16141c] p-4">
-                            <div className="flex justify-between gap-3">
-                                <div>
-                                    <div className="text-[11px] uppercase tracking-[0.18em] text-[#ff8a80]">{country.flag} market entry dossier</div>
-                                    <div className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>{country.name}</div>
+                        <div className="fixed inset-0 z-[220] bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setDossierOpen(false)}>
+                            <div className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-3xl border border-[#ff3b30]/40 bg-[#16141c] p-5" onClick={(event) => event.stopPropagation()}>
+                                <div className="flex justify-between gap-3">
+                                    <div>
+                                        <div className="text-[11px] uppercase tracking-[0.18em] text-[#ff8a80]">{country.flag} market entry dossier</div>
+                                        <div className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>{country.name}</div>
+                                        <p className="text-sm text-zinc-400 mt-1">What opening here asks from the company.</p>
+                                    </div>
+                                    <button onClick={() => setDossierOpen(false)} className="text-zinc-400 text-sm">Close</button>
                                 </div>
-                                <button onClick={() => setDossierOpen(false)} className="text-zinc-400 text-sm">Close</button>
+                                <div className="grid grid-cols-3 gap-3 mt-4">
+                                    <Stat label="Tax load" value={country.taxLabel} />
+                                    <Stat label="Opening review" value={country.reviewLabel} />
+                                    <Stat label="Expected time" value={`${country.reviewWeeks} weeks`} />
+                                </div>
+                                <div className="mt-4 text-[11px] uppercase tracking-wider text-zinc-500">What must be cleared</div>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {country.filings.map(item => <span key={item} className="px-3 py-1 rounded-full bg-[#ff3b30]/20 text-xs">{item}</span>)}
+                                </div>
+                                <p className="text-sm text-zinc-300 mt-3">{country.privacyNote}. {country.localContentNote}.</p>
+                                <div className="mt-3 text-sm text-zinc-400">Planned overhead</div>
+                                <div className="text-3xl font-black text-[#ffb4b4]">{formatCompact(compliance)}</div>
+                                <p className="text-xs text-zinc-500">Market access {formatCompact(country.accessCost)} · compliance about {formatCompact(compliance)}. Higher setup spend, but no national launch delay beyond the review.</p>
+                                <button onClick={() => setDossierOpen(false)} className="mt-4 w-full px-6 py-3 rounded-full bg-[#ff4d6a] font-black uppercase tracking-wider text-xs">Got it</button>
                             </div>
-                            <div className="grid sm:grid-cols-3 gap-3 mt-4">
-                                <Stat label="Tax load" value={country.taxLabel} />
-                                <Stat label="Opening review" value={country.reviewLabel} />
-                                <Stat label="Expected time" value={`${country.reviewWeeks} weeks`} />
-                            </div>
-                            <div className="mt-4 text-[11px] uppercase tracking-wider text-zinc-500">What must be cleared</div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {country.filings.map(item => <span key={item} className="px-3 py-1 rounded-full bg-[#ff3b30]/20 text-xs">{item}</span>)}
-                            </div>
-                            <p className="text-sm text-zinc-300 mt-3">{country.privacyNote}. {country.localContentNote}.</p>
-                            <div className="mt-3 text-sm text-zinc-400">Planned overhead</div>
-                            <div className="text-3xl font-black text-[#ffb4b4]">{formatCompact(compliance)}</div>
-                            <p className="text-xs text-zinc-500">Market access {formatCompact(country.accessCost)} · compliance about {formatCompact(compliance)}. Higher setup spend, but no national launch delay beyond the review.</p>
-                            <button onClick={() => setDossierOpen(false)} className="mt-4 w-full sm:w-auto px-6 py-3 rounded-full bg-[#ff4d6a] font-black uppercase tracking-wider text-xs">Got it</button>
                         </div>
                     )}
                     <div className="text-[11px] text-zinc-500">{index + 1} / {regionCountries} in this region · swipe the arrows</div>
