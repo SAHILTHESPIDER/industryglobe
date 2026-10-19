@@ -2,6 +2,7 @@ import { Player, RivalPlatformState } from '../../types';
 import { MARKET_COUNTRIES, hashString } from './catalog';
 import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
 import { normalizeOwnPlatform } from './migrate';
+import { settleBooks } from './studio';
 
 export interface PlatformWeekNote {
     msg: string;
@@ -114,6 +115,21 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     const transactions: PlatformWeekTransaction[] = [];
     const weekKey = `${player.id}:${absoluteWeek}`;
 
+    if (state.releaseSlot && state.releaseSlot.weekOffset > 0) {
+        state.releaseSlot = { ...state.releaseSlot, weekOffset: state.releaseSlot.weekOffset - 1 };
+    }
+    state.catalogue = state.catalogue.map(row => (
+        typeof row.releaseWeekOffset === 'number' && row.releaseWeekOffset > 0
+            ? { ...row, releaseWeekOffset: row.releaseWeekOffset - 1 }
+            : row
+    ));
+    if (state.pendingDeal && state.releaseSlot) {
+        state.pendingDeal = {
+            ...state.pendingDeal,
+            plan: { ...state.pendingDeal.plan, weekendOffset: state.releaseSlot.weekOffset },
+        };
+    }
+
     state.applications = state.applications.map(application => {
         if (application.status !== 'FILED' && application.status !== 'DELAYED') return application;
         if (application.weeksLeft > 1) {
@@ -183,6 +199,10 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             notes.push({ msg: `Viewers are angry about enforcement on ${state.name}. Growth slowed.`, type: 'negative' });
         }
     }
+
+    const books = settleBooks(player);
+    notes.push(...books.notes);
+    transactions.push(...books.transactions);
 
     return { notes, transactions };
 };

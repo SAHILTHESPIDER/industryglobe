@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { OwnPlatformState, Player, RevenueLane } from '../../types';
-import { getCountry, LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
+import { getCountry } from '../../services/ownPlatform/catalog';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
 import { saveMediaBlob } from '../../services/mediaStorage';
 import {
     IDENTITY_PRESETS,
-    MARKET_COUNTRIES,
     STOREFRONTS,
     averagePlanPrice,
     formatCompact,
@@ -17,7 +16,8 @@ import {
     storefrontById,
     syncRegions,
 } from '../../services/ownPlatform/logic';
-import { Card, FooterBar, WorldDots, headingFont } from './ui';
+import { DayOneMarkets } from './DayOneMarkets';
+import { Card, FooterBar, headingFont } from './ui';
 
 const STEPS = ['Markets', 'Clearance', 'Ident', 'Storefront', 'Catalogue', 'Pricing', 'Blueprint'];
 
@@ -31,26 +31,12 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
     const state = player.ownPlatform!;
     const step = state.defineStep;
     const quote = quoteLaunch(player);
-    const [focusId, setFocusId] = useState(state.selectedCountryIds[0] || 'US');
-    const [regionFilter, setRegionFilter] = useState<string>('ALL');
     const locked = state.commissioned;
     const patch = (recipe: (current: OwnPlatformState) => OwnPlatformState) => {
         if (locked && step < 6) return;
         onChange(recipe(state));
     };
     const go = (next: number) => onChange({ ...state, defineStep: Math.max(0, Math.min(6, next)) });
-
-    const countries = MARKET_COUNTRIES.filter(country => regionFilter === 'ALL' || country.regionId === regionFilter);
-    const focus = getCountry(focusId) || countries[0];
-
-    const toggleCountry = (id: string) => {
-        const selected = state.selectedCountryIds.includes(id)
-            ? state.selectedCountryIds.filter(countryId => countryId !== id)
-            : [...state.selectedCountryIds, id];
-        const applications = state.applications.filter(row => selected.includes(row.countryId) || row.status === 'APPROVED' || (row.status === 'CONDITIONS' && row.acceptedConditions));
-        patch(current => syncRegions({ ...current, selectedCountryIds: selected, applications }));
-        setFocusId(id);
-    };
 
     const fileAll = () => {
         const absolute = getAbsoluteWeek(player.age, player.currentWeek);
@@ -104,69 +90,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
             </div>
             <div className="p-4 lg:p-10 flex-1">
                 {step === 0 && (
-                    <div className="grid lg:grid-cols-[200px_minmax(0,1fr)_340px] gap-4">
-                        <div className="flex lg:flex-col gap-2 overflow-x-auto">
-                            <FilterChip active={regionFilter === 'ALL'} label="World" onClick={() => setRegionFilter('ALL')} />
-                            {LAUNCH_REGIONS.map(region => (
-                                <FilterChip key={region.id} active={regionFilter === region.id} label={region.short} onClick={() => setRegionFilter(region.id)} />
-                            ))}
-                        </div>
-                        <div className="space-y-4">
-                            <Card>
-                                <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500 mb-2">Opening footprint · {state.selectedCountryIds.length} chosen</div>
-                                <WorldDots selected={state.selectedCountryIds} />
-                            </Card>
-                            <div className="grid sm:grid-cols-2 gap-3">
-                                {countries.map(country => {
-                                    const on = state.selectedCountryIds.includes(country.id);
-                                    return (
-                                        <Card key={country.id} active={on || focusId === country.id} onClick={() => { setFocusId(country.id); }}>
-                                            <div className="flex justify-between gap-2">
-                                                <div>
-                                                    <div className="text-[10px] uppercase tracking-wider text-zinc-500">{country.difficulty.replace('_', ' ')}</div>
-                                                    <div className="font-black text-lg" style={{ fontFamily: headingFont }}>{country.flag} {country.name}</div>
-                                                </div>
-                                                <button onClick={(event) => { event.stopPropagation(); toggleCountry(country.id); }} className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-full ${on ? 'bg-[#ff3b30]' : 'bg-white/10'}`}>{on ? 'Remove' : 'Add'}</button>
-                                            </div>
-                                            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                                                <Stat label="Audience" value={formatPeople(country.audienceM * 1_000_000)} />
-                                                <Stat label="Growth" value={`+${country.growthPct}%`} />
-                                                <Stat label="Access" value={formatCompact(country.accessCost)} />
-                                            </div>
-                                            <div className="mt-3 space-y-1">
-                                                {country.competitors.map(rival => (
-                                                    <ShareBar key={rival.name} label={rival.name} share={rival.share} />
-                                                ))}
-                                                <ShareBar label="Nobody yet" share={country.unclaimedPct} muted />
-                                            </div>
-                                            <div className="mt-2 text-[11px] text-zinc-400">{country.languages.map(language => `${language.name} ${language.share}%`).join(' · ')}</div>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        {focus && (
-                            <Card className="lg:sticky lg:top-4 h-fit">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">{focus.regionId.replace('_', ' ')}</div>
-                                        <div className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>{focus.flag} {focus.name}</div>
-                                    </div>
-                                    <button onClick={() => toggleCountry(focus.id)} className="text-xs text-zinc-400">{state.selectedCountryIds.includes(focus.id) ? 'Remove from opening day' : 'Add to opening day'}</button>
-                                </div>
-                                <SheetRow label="Tax" value={focus.taxLabel} note={focus.taxNote} />
-                                <SheetRow label="Entry review" value={focus.reviewLabel} note={`${focus.reviewWeeks} weeks`} />
-                                <SheetRow label="Privacy" value={focus.privacyLabel} note={focus.privacyNote} />
-                                <SheetRow label="Local content" value={focus.localContentLabel} note={focus.localContentNote} />
-                                <div className="mt-4 text-sm text-zinc-400">To get in</div>
-                                <div className="text-2xl font-black text-[#ffb4b4]">{formatCompact(focus.accessCost)}</div>
-                                <div className="mt-3 text-[11px] uppercase tracking-wider text-zinc-500">Filings</div>
-                                <ul className="mt-1 text-sm text-zinc-300 space-y-1">
-                                    {focus.filings.map(item => <li key={item}>· {item}</li>)}
-                                </ul>
-                            </Card>
-                        )}
-                    </div>
+                    <DayOneMarkets state={state} locked={locked} onPatch={(recipe) => patch(current => syncRegions(recipe(current)))} />
                 )}
 
                 {step === 1 && (
@@ -407,35 +331,6 @@ const TitleRow: React.FC<{ title: string; meta: string; on: boolean; onClick: ()
         <div className="font-bold">{title}</div>
         <div className="text-xs text-zinc-400">{meta}</div>
     </button>
-);
-
-const FilterChip: React.FC<{ label: string; active: boolean; onClick: () => void }> = ({ label, active, onClick }) => (
-    <button onClick={onClick} className={`px-3 py-2 rounded-full text-xs font-bold uppercase tracking-wider whitespace-nowrap ${active ? 'bg-white text-black' : 'bg-white/5 text-zinc-300'}`}>{label}</button>
-);
-
-const Stat: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div>
-        <div className="text-[10px] uppercase text-zinc-500">{label}</div>
-        <div className="font-bold">{value}</div>
-    </div>
-);
-
-const ShareBar: React.FC<{ label: string; share: number; muted?: boolean }> = ({ label, share, muted }) => (
-    <div className="flex items-center gap-2 text-[11px]">
-        <div className="w-20 truncate text-zinc-400">{label}</div>
-        <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
-            <div className={`h-full ${muted ? 'bg-zinc-500' : 'bg-[#ff3b30]'}`} style={{ width: `${share}%` }} />
-        </div>
-        <div className="w-8 text-right text-zinc-400">{share}%</div>
-    </div>
-);
-
-const SheetRow: React.FC<{ label: string; value: string; note: string }> = ({ label, value, note }) => (
-    <div className="mt-3 border-t border-white/5 pt-3">
-        <div className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</div>
-        <div className="font-bold">{value}</div>
-        <div className="text-xs text-zinc-400">{note}</div>
-    </div>
 );
 
 const StatusPill: React.FC<{ status?: string }> = ({ status }) => {

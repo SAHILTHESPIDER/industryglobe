@@ -1,12 +1,17 @@
 import {
     CloudOrder,
+    IpoState,
     OwnPlatformState,
     Player,
     PricingPlan,
+    ReleaseSlot,
     RevenueLane,
+    StudioBooks,
 } from '../../types';
 import { CLOUD_PROVIDERS, IDENTITY_PRESETS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
 import { REVENUE_LANES, syncRegions } from './logic';
+import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
+import { clampReleaseOffset } from './weeks';
 
 const DEFAULT_PLAN: PricingPlan = {
     id: 'plan-standard',
@@ -55,6 +60,11 @@ export const createOwnPlatform = (player: Player): OwnPlatformState => {
         closedDeals: [],
         lastWeeklyRevenue: 0,
         lastWeeklyBurn: 0,
+        books: emptyBooks(),
+        releaseSlot: defaultReleaseSlot(player),
+        ipo: emptyIpo('Empire+'),
+        ownedStreamers: [],
+        resolvedCommissions: [],
     };
     return syncRegions(state);
 };
@@ -87,7 +97,14 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         applications: Array.isArray(raw.applications) ? raw.applications.filter(row => row && getCountry(row.countryId)) : [],
         identityId: IDENTITY_PRESETS.some(row => row.id === raw.identityId) ? raw.identityId! : created.identityId,
         storefrontId: STOREFRONTS.some(row => row.id === raw.storefrontId) ? raw.storefrontId! : created.storefrontId,
-        catalogue: Array.isArray(raw.catalogue) ? raw.catalogue.filter(row => row && row.title) : [],
+        catalogue: Array.isArray(raw.catalogue)
+            ? raw.catalogue.filter(row => row && row.title).map(row => ({
+                ...row,
+                releaseWeekOffset: Number.isFinite(Number(row.releaseWeekOffset))
+                    ? clampReleaseOffset(Number(row.releaseWeekOffset))
+                    : undefined,
+            }))
+            : [],
         plans: Array.isArray(raw.plans) ? raw.plans.filter(plan => plan && plan.name) : created.plans,
         revenueLanes: asLanes(raw.revenueLanes),
         regions: Array.isArray(raw.regions) ? raw.regions.filter(row => row && row.regionId) : [],
@@ -105,8 +122,61 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         closedDeals: Array.isArray(raw.closedDeals) ? raw.closedDeals : [],
         lastWeeklyRevenue: Number(raw.lastWeeklyRevenue) || 0,
         lastWeeklyBurn: Number(raw.lastWeeklyBurn) || 0,
+        books: normalizeBooks(raw.books),
+        releaseSlot: normalizeSlot(raw.releaseSlot, player),
+        ipo: normalizeIpo(raw.ipo, typeof raw.name === 'string' ? raw.name : created.name),
+        ownedStreamers: Array.isArray(raw.ownedStreamers) ? raw.ownedStreamers.filter(row => row && row.name) : [],
+        resolvedCommissions: Array.isArray(raw.resolvedCommissions) ? raw.resolvedCommissions.filter(row => row && row.id) : [],
     };
     return syncRegions(merged);
+};
+
+const IPO_STAGES: IpoState['stage'][] = ['IDLE', 'RESOLUTION', 'PRICE', 'VOTE', 'FILING', 'BAND', 'ANCHOR', 'BOOK', 'TRADING', 'LISTED'];
+
+const normalizeBooks = (raw: StudioBooks | undefined): StudioBooks => {
+    const fresh = emptyBooks();
+    if (!raw || typeof raw !== 'object') return fresh;
+    return {
+        ...fresh,
+        ...raw,
+        funding: raw.funding === 'BANK' || raw.funding === 'EQUITY' || raw.funding === 'OWN' ? raw.funding : 'OWN',
+        debt: Math.max(0, Number(raw.debt) || 0),
+        equitySoldPct: Math.max(0, Math.min(0.8, Number(raw.equitySoldPct) || 0)),
+        history: Array.isArray(raw.history) ? raw.history.slice(-16) : [],
+        lines: Array.isArray(raw.lines) ? raw.lines.slice(0, 40) : [],
+    };
+};
+
+const normalizeSlot = (raw: ReleaseSlot | undefined, player: Player): ReleaseSlot => {
+    const fresh = defaultReleaseSlot(player);
+    if (!raw || typeof raw !== 'object') return fresh;
+    const countryId = getCountry(raw.countryId) ? raw.countryId : fresh.countryId;
+    return {
+        title: typeof raw.title === 'string' && raw.title.trim() ? raw.title.slice(0, 80) : fresh.title,
+        house: typeof raw.house === 'string' && raw.house.trim() ? raw.house.slice(0, 40) : fresh.house,
+        countryId,
+        language: typeof raw.language === 'string' && raw.language.trim() ? raw.language : fresh.language,
+        weekOffset: Number.isFinite(Number(raw.weekOffset))
+            ? clampReleaseOffset(Number(raw.weekOffset))
+            : fresh.weekOffset,
+        linkedReleaseId: typeof raw.linkedReleaseId === 'string' && raw.linkedReleaseId.trim()
+            ? raw.linkedReleaseId
+            : undefined,
+    };
+};
+
+const normalizeIpo = (raw: IpoState | undefined, name: string): IpoState => {
+    const fresh = emptyIpo(name);
+    if (!raw || typeof raw !== 'object') return fresh;
+    return {
+        ...fresh,
+        ...raw,
+        stage: IPO_STAGES.includes(raw.stage) ? raw.stage : 'IDLE',
+        disclosures: Array.isArray(raw.disclosures) && raw.disclosures.length ? raw.disclosures : fresh.disclosures,
+        votes: Array.isArray(raw.votes) ? raw.votes : [],
+        dayMove: Array.isArray(raw.dayMove) ? raw.dayMove : [],
+        ticker: typeof raw.ticker === 'string' && raw.ticker.trim() ? raw.ticker.slice(0, 5).toUpperCase() : fresh.ticker,
+    };
 };
 
 const clampStep = (value: unknown, max: number) => {

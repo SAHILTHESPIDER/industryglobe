@@ -28,6 +28,8 @@ import {
     STOREFRONTS,
     hashString,
 } from './catalog';
+import { getAbsoluteWeek } from '../legacyLogic';
+import { releaseWeekLabel, releaseWeekParts, titleIsLive, clampReleaseOffset } from './weeks';
 
 export const BUILD_WEEKS = 15;
 export const RESERVE_WEEKS = 6;
@@ -140,9 +142,11 @@ export const averagePlanPrice = (state: OwnPlatformState): number => {
     return total / state.plans.length;
 };
 
+const liveCatalogue = (state: OwnPlatformState) => state.catalogue.filter(title => titleIsLive(title.releaseWeekOffset));
+
 const languageCoverage = (state: OwnPlatformState, country: MarketCountry): number => {
     const storefront = STOREFRONTS.find(row => row.id === state.storefrontId);
-    const languages = new Set(state.catalogue.map(title => title.language));
+    const languages = new Set(liveCatalogue(state).map(title => title.language));
     if (languages.size === 0) return 0.2;
     const matched = country.languages.reduce((sum, language) => (
         languages.has(language.name) || (language.name !== 'English' && languages.has('English') && language.share < 20)
@@ -161,9 +165,9 @@ export const countryPiracy = (state: OwnPlatformState, country: MarketCountry): 
     else if (price > country.affordability * 1.6) piracy += 0.16;
     else if (price > country.affordability) piracy += 0.08;
     piracy += (1 - country.paymentEase) * 0.18;
-    if (state.catalogue.length < 4) piracy += 0.08;
+    if (liveCatalogue(state).length < 4) piracy += 0.08;
     piracy += (1 - languageCoverage(state, country)) * 0.16;
-    const rightsGap = state.catalogue.some(title => title.language === country.languages[0]?.name) ? 0 : 0.06;
+    const rightsGap = liveCatalogue(state).some(title => title.language === country.languages[0]?.name) ? 0 : 0.06;
     piracy += rightsGap;
     piracy -= (state.enforcement / 100) * 0.14;
     return clamp(piracy, 0.02, 0.72);
@@ -246,7 +250,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const machineCount = state.regions.reduce((sum, region) => sum + region.scout + region.workhorse + region.titan, 0) || 1;
     const sustainability = clamp(Math.round(78 - titanCount * 4 - energyMwh / 40 + (weeklyCloud > weeklyMachines ? 6 : 0)), 5, 96);
     const localHit = opened.reduce((sum, country) => sum + (languageCoverage(state, country) > 0.55 ? 4 : 0), 0);
-    const reputation = clamp(Math.round(48 + sustainability * 0.25 + localHit + Math.min(20, state.catalogue.length)), 1, 99);
+    const reputation = clamp(Math.round(48 + sustainability * 0.25 + localHit + Math.min(20, liveCatalogue(state).length)), 1, 99);
 
     const storefront = STOREFRONTS.find(row => row.id === state.storefrontId);
     const discovery = storefront?.discovery ?? 1;
@@ -296,7 +300,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         else if (application.status === 'REJECTED') blockers.push(`${country.name} was rejected. Drop it or file again.`);
     });
     if (!state.storefrontId) blockers.push('Pick a storefront.');
-    if (state.catalogue.length === 0) blockers.push('Put at least one title on the opening shelf.');
+    if (liveCatalogue(state).length === 0) blockers.push('Put at least one title on the opening shelf.');
     if (state.plans.length === 0) blockers.push('Add a price plan.');
     if (countries.length > 0 && totalCapacity <= 0) blockers.push('The network cannot carry a single stream.');
     regionRows.forEach(row => {
@@ -402,7 +406,7 @@ export const rehearseOpeningNight = (state: OwnPlatformState, mode: AudienceMode
         countries,
         failures,
         curve,
-        cataloguePct: clamp(state.catalogue.length / 12, 0.15, 1),
+        cataloguePct: clamp(liveCatalogue(state).length / 12, 0.15, 1),
     };
 };
 
@@ -629,6 +633,8 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
     const incoming = pending.offer.guarantee + pending.offer.funding;
     if (spend > incoming) return { player, error: 'The campaign costs more than the offer brings in.' };
     const net = incoming - spend;
+    const offset = clampReleaseOffset(player.ownPlatform?.releaseSlot?.weekOffset ?? 0);
+    const opening = releaseWeekParts(player.currentWeek, offset);
     const next: Player = {
         ...player,
         ownPlatform: player.ownPlatform ? {
@@ -645,6 +651,8 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
                     netToTreasury: net,
                     week: player.currentWeek,
                     year: player.age,
+                    opensWeek: opening.week,
+                    opensYear: player.age + opening.yearsAhead,
                 },
                 ...(player.ownPlatform.closedDeals || []),
             ].slice(0, 40),
@@ -660,17 +668,18 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
                     platformId: pending.offer.platformId,
                     streamerName: pending.offer.bidderName,
                     audienceMult: pending.offer.audienceMult,
-                    weekOnPlatform: 1,
+                    weekOnPlatform: offset > 0 ? 0 : 1,
                     totalViews: 0,
                     weeklyViews: [],
                     isLeaving: false,
+                    startWeekAbsolute: getAbsoluteWeek(player.age, player.currentWeek) + offset,
                 },
             };
         }),
         logs: [...(player.logs || []), {
             week: player.currentWeek,
             year: player.age,
-            message: `Locked ${pending.title} with ${pending.offer.bidderName}. ${formatCompact(net)} net to the treasury after the campaign.`,
+            message: `Locked ${pending.title} with ${pending.offer.bidderName}. Views begin ${releaseWeekLabel(player.currentWeek, offset)}. ${formatCompact(net)} net to the treasury after the campaign.`,
             type: 'positive' as const,
         }],
     };
