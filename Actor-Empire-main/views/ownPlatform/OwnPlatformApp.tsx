@@ -7,9 +7,10 @@ import { Shell } from './ui';
 import { DefineLaunch } from './DefineLaunch';
 import { BuildPlatform } from './BuildPlatform';
 import { DealRoom } from './DealRoom';
+import { Operations } from './Operations';
 import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
 
-type Pane = 'launch' | 'build' | 'rights' | 'world';
+type Pane = 'launch' | 'build' | 'rights' | 'ops' | 'world';
 
 interface Props {
     player: Player;
@@ -39,7 +40,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const setPlatform = (next: OwnPlatformState) => onUpdatePlayer({ ...player, ownPlatform: next });
     const serviceName = state.name.trim() || 'Empire+';
     const launchTitles = [
-        serviceName,
+        'Day-One Markets',
         'Clear the markets',
         'Choose the sound',
         'Pick a storefront',
@@ -47,14 +48,18 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
         'Set the price',
         'Read the blueprint',
     ];
-    const kicker = pane === 'launch' ? 'Define the launch' : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Film distribution' : 'The world';
+    const kicker = pane === 'launch'
+        ? (state.defineStep === 0 ? serviceName : 'Define the launch')
+        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Film distribution' : pane === 'ops' ? 'Operations' : 'The world';
     const title = pane === 'launch'
         ? launchTitles[state.defineStep] || serviceName
         : pane === 'build'
             ? (state.buildStep === 0 ? 'Lay the network across the world' : state.buildStep === 1 ? 'Then find out what it costs' : state.buildStep === 2 ? 'Rehearse opening night' : 'Sign the build')
             : pane === 'rights'
                 ? 'Who gets the film'
-                : 'Forty desks, one audience';
+                : pane === 'ops'
+                    ? 'Run the company'
+                    : 'Forty desks, one audience';
     const stepLabel = pane === 'launch' ? `${state.defineStep + 1} / 7` : pane === 'build' ? `${state.buildStep + 1} / 4` : '';
 
     return createPortal(
@@ -64,6 +69,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                     ['launch', 'Launch'],
                     ['build', 'Build'],
                     ['rights', 'Rights'],
+                    ['ops', 'Operations'],
                     ['world', 'World'],
                 ] as [Pane, string][]).map(([id, label]) => (
                     <button key={id} onClick={() => setPane(id)} className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${pane === id ? 'bg-white text-black' : 'bg-white/5 text-zinc-400'}`}>{label}</button>
@@ -87,6 +93,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 />
             )}
             {pane === 'rights' && <DealRoom player={player} onPlayer={onUpdatePlayer} />}
+            {pane === 'ops' && <Operations player={player} onPlayer={onUpdatePlayer} />}
             {pane === 'world' && (
                 <div className="p-4 lg:p-10 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-4">
                     <div>

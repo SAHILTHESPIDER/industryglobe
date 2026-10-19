@@ -39,7 +39,8 @@ import { APP_DISPLAY_VERSION } from './services/appVersion';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
 import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
-import { migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
+import { ensureOwnPlatform, migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
+import { purchasePlatform } from './services/ownPlatform/studio';
 import {
   addBreadcrumb,
   markGameCheckpoint,
@@ -1853,6 +1854,20 @@ export const App: React.FC = () => {
       return next;
   });
 
+  const handleFoundCompany = () => handleGenericUpdate(current => {
+      if (current.ownPlatform) return current;
+      const next = ensureOwnPlatform(current);
+      return {
+          ...next,
+          logs: [...(current.logs || []), { week: current.currentWeek, year: current.age, message: `Founded ${next.ownPlatform?.name || 'Empire+'}. It stays private until the board lists it.`, type: 'neutral' as const }],
+      };
+  });
+
+  const handleAcquirePlatform = (stockId: string) => handleGenericUpdate(current => {
+      const withPlatform = ensureOwnPlatform(current);
+      return purchasePlatform(withPlatform, stockId).player;
+  });
+
   const handleTradeStock = (stockId: string, amount: number) => { 
       const msg = amount > 0 ? "Bought stock" : "Sold stock";
       handleGenericUpdate(p => {
@@ -2530,7 +2545,9 @@ export const App: React.FC = () => {
                             onAcceptMessage={(msg)=>handleGenericUpdate(p=>({ ...p, inbox: p.inbox.filter(m=>m.id!==msg.id) }))} 
                             onPerformSponsorship={(id, type)=>handleGenericUpdate(p=>{ const s = p.activeSponsorships.find(x=>x.id===id); if (!s) return p; const next = { ...p }; spendPlayerEnergy(next, s.requirements.energyCost); return next; })}
                             onDeleteMessage={(id)=>handleGenericUpdate(p=>({ ...p, inbox: p.inbox.filter(m=>m.id!==id) }))} 
-                            onTradeStock={handleTradeStock} 
+                            onTradeStock={handleTradeStock}
+                            onFoundCompany={handleFoundCompany}
+                            onAcquirePlatform={handleAcquirePlatform} 
                         />
                     )}
                     {activePage === Page.SETTINGS && (

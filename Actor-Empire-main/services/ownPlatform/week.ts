@@ -2,6 +2,7 @@ import { Player, RivalPlatformState } from '../../types';
 import { MARKET_COUNTRIES, hashString } from './catalog';
 import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
 import { normalizeOwnPlatform } from './migrate';
+import { settleBooks } from './studio';
 
 export interface PlatformWeekNote {
     msg: string;
@@ -183,6 +184,10 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             notes.push({ msg: `Viewers are angry about enforcement on ${state.name}. Growth slowed.`, type: 'negative' });
         }
     }
+
+    const books = settleBooks(player);
+    notes.push(...books.notes);
+    transactions.push(...books.transactions);
 
     return { notes, transactions };
 };

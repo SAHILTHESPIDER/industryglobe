@@ -63,6 +63,8 @@ interface MobilePageProps {
   onPerformSponsorship?: (sponId: string, action: SponsorshipActionType) => void;
   onDeleteMessage?: (id: string) => void;
   onTradeStock?: (stockId: string, amount: number) => void;
+  onFoundCompany?: () => void;
+  onAcquirePlatform?: (stockId: string) => void;
   onUpdatePlayer?: (player: Player) => void; 
   onTriggerBabyNaming?: (pending: {
       partnerId: string;
@@ -606,7 +608,7 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <ForbesApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />
                 )}
                 {appMode === 'STOCKS' && (
-                    <StocksApp player={props.player} onBack={() => setAppMode('HOME')} onTrade={props.onTradeStock!} />
+                    <StocksApp player={props.player} onBack={() => setAppMode('HOME')} onTrade={props.onTradeStock!} onFoundCompany={props.onFoundCompany} onAcquirePlatform={props.onAcquirePlatform} />
                 )}
                 {appMode === 'BANK' && (
                     <BankApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />

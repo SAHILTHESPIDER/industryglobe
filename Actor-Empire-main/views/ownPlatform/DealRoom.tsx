@@ -13,6 +13,7 @@ import {
     lockRightsDeal,
     rivalWeekends,
 } from '../../services/ownPlatform/logic';
+import { ReleaseCalendar } from './ReleaseCalendar';
 import { Card, headingFont } from './ui';
 
 interface Props {
@@ -64,11 +65,12 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
         <div className="p-4 lg:p-10 space-y-4" data-screen="rights-floor">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Rights floor</div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Release strategy</div>
                     <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Distribution</h2>
-                    <p className="text-sm text-zinc-400 max-w-xl mt-2">Theatrical stays with the production house release you already run. Streaming opens a live room. Offers are ranked by what they are worth, not by the number on the cheque.</p>
+                    <p className="text-sm text-zinc-400 max-w-xl mt-2">How will this title meet an audience? Theatrical keeps the run you already plan. Streaming opens a live room. The calendar shows who else opens that week.</p>
                 </div>
             </div>
+            <ReleaseCalendar player={player} onPlayer={onPlayer} />
             <div className="grid lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
                 <div className="space-y-2">
                     {lots.map(item => (
@@ -86,16 +88,18 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
                 <div className="space-y-4">
                     {!choice && (
                         <div className="grid sm:grid-cols-2 gap-3">
-                            <Card onClick={() => setChoice('THEATRICAL')}>
-                                <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Theatrical</div>
+                            <button onClick={() => setChoice('THEATRICAL')} className="text-left rounded-3xl border border-amber-200/20 bg-gradient-to-b from-[#2a2418] to-[#12100c] p-5">
+                                <div className="text-[11px] uppercase tracking-[0.18em] text-amber-200/80">Theatrical</div>
                                 <div className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>Cinemas</div>
-                                <p className="text-sm text-zinc-400 mt-2">A traditional run. The upside and the risk stay in the release you already plan. This choice does not start a new box-office sim.</p>
-                            </Card>
-                            <Card onClick={() => setChoice('STREAMING')}>
-                                <div className="text-[11px] uppercase tracking-[0.18em] text-[#7dd3fc]">Streaming</div>
+                                <p className="text-sm text-zinc-400 mt-2">Traditional run. High risk, high box office. This choice does not start a second gross.</p>
+                                <div className="mt-4 text-[11px] uppercase tracking-wider text-amber-100/80">Continue</div>
+                            </button>
+                            <button onClick={() => setChoice('STREAMING')} className="text-left rounded-3xl border border-sky-300/20 bg-gradient-to-b from-[#142033] to-[#10141c] p-5">
+                                <div className="text-[11px] uppercase tracking-[0.18em] text-sky-200">Streaming</div>
                                 <div className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>The room</div>
-                                <p className="text-sm text-zinc-400 mt-2">Platforms post standing offers. You can take one, or walk out and let every offer die.</p>
-                            </Card>
+                                <p className="text-sm text-zinc-400 mt-2">Guaranteed money up front. Lower prestige, safer cash. Offers are ranked by what they are worth, not the headline cheque.</p>
+                                <div className="mt-4 text-[11px] uppercase tracking-wider text-sky-100">Open the room</div>
+                            </button>
                         </div>
                     )}
                     {choice === 'THEATRICAL' && (

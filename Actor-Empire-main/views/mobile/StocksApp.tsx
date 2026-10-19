@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Player, Stock } from '../../types';
 import { formatMoney } from '../../services/formatUtils';
 import { calculatePortfolioValue } from '../../services/stockLogic';
+import { platformDealForStock } from '../../services/ownPlatform/studio';
+import { formatCompact } from '../../services/ownPlatform/logic';
 import { getPlayerLanguage, t } from '../../services/i18n';
 import { ArrowLeft, TrendingUp, TrendingDown, PieChart, Activity, DollarSign, Lock, AlertTriangle } from 'lucide-react';
 
@@ -10,9 +12,11 @@ interface StocksAppProps {
   player: Player;
   onBack: () => void;
   onTrade: (stockId: string, amount: number) => void;
+  onFoundCompany?: () => void;
+  onAcquirePlatform?: (stockId: string) => void;
 }
 
-export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade }) => {
+export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, onFoundCompany, onAcquirePlatform }) => {
   const [tab, setTab] = useState<'MARKET' | 'PORTFOLIO'>('MARKET');
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const language = getPlayerLanguage(player);
@@ -23,9 +27,11 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade })
   
   // Helpers
   
-  const getHolding = (stockId: string) => player.portfolio.find(p => p.stockId === stockId);
+  const stocks = player.stocks || [];
+  const portfolio = player.portfolio || [];
+  const getHolding = (stockId: string) => portfolio.find(p => p.stockId === stockId);
   
-  const portfolioValue = calculatePortfolioValue(player.portfolio, player.stocks);
+  const portfolioValue = calculatePortfolioValue(portfolio, stocks);
   const cash = player.money;
 
   const renderStockRow = (stock: Stock) => {
@@ -148,11 +154,17 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade })
                       <div className="flex gap-2 mb-3">
                           <input 
                             type="number" 
+                            min={1}
                             placeholder={tr('stocks.shares')} 
                             value={sharesInput}
                             onChange={(e) => setSharesInput(e.target.value)}
                             className="flex-1 bg-black border border-zinc-700 rounded-lg p-3 text-white font-mono focus:outline-none focus:border-blue-500"
                           />
+                      </div>
+                      <div className="flex gap-2 mb-3">
+                          {[1, 10, 100].map(amount => (
+                              <button key={amount} onClick={() => setSharesInput(String(amount))} className="px-3 py-1 rounded-full bg-zinc-800 text-xs font-bold">{amount}</button>
+                          ))}
                       </div>
                       <div className="flex justify-between text-[10px] text-zinc-500 mb-4">
                           <span>{tr('stocks.estValue')}: <span className="text-white font-mono">{formatMoney(isNaN(cost) ? 0 : cost)}</span></span>
@@ -184,6 +196,20 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade })
                               {tr('stocks.buy')}
                           </button>
                       </div>
+                      {(() => {
+                          const deal = platformDealForStock(player, selectedStock);
+                          if (!deal) return selectedStock.playerCompany ? <p className="text-xs text-emerald-300 mt-3">This listing is your company.</p> : null;
+                          const short = player.money < deal.price;
+                          return (
+                              <button
+                                  disabled={short || !onAcquirePlatform}
+                                  onClick={() => onAcquirePlatform?.(selectedStock.id)}
+                                  className="mt-3 w-full py-3 rounded-xl bg-white text-black font-bold text-sm disabled:opacity-40"
+                              >
+                                  {short ? `Platform costs ${formatCompact(deal.price)}` : `Purchase ${deal.name} · ${formatCompact(deal.price)}`}
+                              </button>
+                          );
+                      })()}
                   </div>
               </div>
           </div>
@@ -212,7 +238,7 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade })
                 </div>
                 <div className="flex-1 bg-zinc-950 p-3 rounded-xl border border-zinc-800">
                     <div className="text-[10px] text-zinc-500 uppercase">{tr('stocks.yieldEst')}</div>
-                    <div className="font-mono text-emerald-400 text-sm font-bold">+${(calculatePortfolioValue(player.portfolio, player.stocks) * 0.02).toFixed(0)}/yr</div>
+                    <div className="font-mono text-emerald-400 text-sm font-bold">+${(portfolioValue * 0.02).toFixed(0)}/yr</div>
                 </div>
             </div>
         </div>
@@ -223,14 +249,26 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade })
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
-            {tab === 'MARKET' && player.stocks.map(stock => renderStockRow(stock))}
+            <button onClick={() => { if (!player.ownPlatform) onFoundCompany?.(); }} className="w-full text-left bg-zinc-900 border border-emerald-500/30 rounded-xl p-4">
+                <div className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Your company</div>
+                <div className="font-bold text-white">{player.ownPlatform?.name || 'Found a company'}</div>
+                <div className="text-xs text-zinc-400">
+                    {player.ownPlatform?.ipo?.stage === 'LISTED'
+                        ? `${player.ownPlatform.ipo.ticker} is listed. Buy or sell it with the other shares.`
+                        : player.ownPlatform
+                            ? 'Private. Take it public from Empire+ → Operations → Boardroom. Buy other streamers from a media share, or from that same desk.'
+                            : 'Start Empire+ here. Then you can list it, or buy another streaming platform.'}
+                </div>
+            </button>
+            {tab === 'MARKET' && stocks.map(stock => renderStockRow(stock))}
+            {stocks.length === 0 && <div className="text-center text-zinc-600 mt-6 text-sm">The market has no listings yet.</div>}
             
             {tab === 'PORTFOLIO' && (
-                player.portfolio.length === 0 ? (
+                portfolio.length === 0 ? (
                     <div className="text-center text-zinc-600 mt-10 text-sm">{tr('stocks.noInvestments')}</div>
                 ) : (
-                    player.portfolio.map(item => {
-                        const stock = player.stocks.find(s => s.id === item.stockId);
+                    portfolio.map(item => {
+                        const stock = stocks.find(s => s.id === item.stockId);
                         if (!stock) return null;
                         return renderStockRow(stock);
                     })
