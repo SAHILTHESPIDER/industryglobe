@@ -11,8 +11,10 @@ import {
     Stock,
     StudioBooks,
 } from '../../types';
+import { getAbsoluteWeek } from '../legacyLogic';
 import { MARKET_COUNTRIES, hashString } from './catalog';
 import { formatCompact, quoteLaunch } from './logic';
+import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON } from './weeks';
 
 const FACILITY_USD = 4_000_000;
 const FACILITY_RATE = 0.09;
@@ -84,7 +86,10 @@ const BOARD: { name: string; role: string }[] = [
 ];
 
 const HOUSES = ['Warner Bros.', 'Universal', 'Paramount', 'A24', 'Marvel Studios', 'Blumhouse', 'Nordisk', 'Toho'];
-const RIVAL_TITLES = ['Glass Harbor', 'Kid Mercury', 'Small Mercies', 'Night Market', 'Red Lanterns', 'The Quiet Mile', 'Paper Saints', 'Salt Choir'];
+const RIVAL_TITLES = [
+    'Glass Harbor', 'Kid Mercury', 'Small Mercies', 'Night Market', 'Red Lanterns', 'The Quiet Mile', 'Paper Saints', 'Salt Choir',
+    'Blue Meridian', 'The Last Tram', 'Copper Birds', 'Hotel Silence', 'North of Ordinary', 'Velvet Circuit', 'King of Small Things', 'Low Tide Radio', 'Marigold Office', 'The Borrowed Coat',
+];
 
 export const emptyBooks = (): StudioBooks => ({
     funding: 'OWN',
@@ -352,6 +357,7 @@ export const resolveCommission = (player: Player, id: string, accept: boolean): 
         genre: order.genre,
         language: 'English',
         cost: 0,
+        releaseWeekOffset: Math.min(RELEASE_HORIZON, Math.max(0, Math.round(order.weeks))),
     });
     pushMoney(next, greenlight, `${order.studio} greenlight on ${order.title}`);
     pushLine(next.ownPlatform!.books!, next, greenlight, `${order.studio} paid 25% to start ${order.title}`, 'COMMISSION');
@@ -359,24 +365,35 @@ export const resolveCommission = (player: Player, id: string, accept: boolean): 
     return { player: next };
 };
 
-export const calendarEntries = (player: Player): ReleaseCalendarEntry[] => {
-    const slot = player.ownPlatform?.releaseSlot || defaultReleaseSlot(player);
-    const yoursCountry = MARKET_COUNTRIES.find(row => row.id === slot.countryId);
-    const yours: ReleaseCalendarEntry = {
-        id: 'yours',
-        title: slot.title,
+const slotEntry = (slot: ReleaseSlot, id: string, title: string, language: string, weekOffset: number): ReleaseCalendarEntry => {
+    const country = MARKET_COUNTRIES.find(row => row.id === slot.countryId);
+    return {
+        id,
+        title,
         house: slot.house,
         countryId: slot.countryId,
-        regionId: yoursCountry?.regionId || 'NORTH_AMERICA',
-        language: slot.language,
-        weekOffset: slot.weekOffset,
+        regionId: country?.regionId || 'NORTH_AMERICA',
+        language,
+        weekOffset: clampReleaseOffset(weekOffset),
         yours: true,
         heat: 70,
         clash: false,
     };
+};
+
+export const calendarEntries = (player: Player): ReleaseCalendarEntry[] => {
+    const slot = player.ownPlatform?.releaseSlot || defaultReleaseSlot(player);
+    const yours: ReleaseCalendarEntry[] = [
+        slotEntry(slot, 'slot', slot.title, slot.language, slot.weekOffset),
+        ...(player.ownPlatform?.catalogue || [])
+            .filter(row => Number.isFinite(Number(row.releaseWeekOffset)))
+            .map(row => slotEntry(slot, row.id, row.title, row.language || slot.language, Number(row.releaseWeekOffset))),
+    ];
     const rivals: ReleaseCalendarEntry[] = RIVAL_TITLES.map((title, index) => {
         const country = MARKET_COUNTRIES[(hashString(`${player.id}:cal:${index}`) + index) % MARKET_COUNTRIES.length];
-        const weekOffset = hashString(`${player.id}:week:${title}`) % 8;
+        const weekOffset = index < 8
+            ? hashString(`${player.id}:week:${title}`) % 8
+            : hashString(`${player.id}:year:${title}`) % 52;
         return {
             id: `rival-${index}`,
             title,
@@ -384,21 +401,49 @@ export const calendarEntries = (player: Player): ReleaseCalendarEntry[] => {
             countryId: country.id,
             regionId: country.regionId,
             language: country.languages[0]?.name || 'English',
-            weekOffset,
+            weekOffset: clampReleaseOffset(weekOffset),
             yours: false,
             heat: 40 + (hashString(title) % 55),
             clash: false,
         };
     });
-    const rows = [yours, ...rivals];
-    rows.forEach(row => {
-        if (!row.yours) return;
+    yours.forEach(row => {
         row.clash = rivals.some(other => other.weekOffset === row.weekOffset && (other.countryId === row.countryId || other.regionId === row.regionId));
     });
     rivals.forEach(other => {
-        other.clash = other.weekOffset === yours.weekOffset && (other.countryId === yours.countryId || other.regionId === yours.regionId);
+        other.clash = yours.some(row => row.weekOffset === other.weekOffset && (other.countryId === row.countryId || other.regionId === row.regionId));
     });
-    return rows;
+    return [...yours, ...rivals];
+};
+
+const syncLockedRelease = (player: Player, slot: ReleaseSlot): Player => {
+    const offset = clampReleaseOffset(slot.weekOffset);
+    const parts = releaseWeekParts(player.currentWeek, offset);
+    const startWeekAbsolute = getAbsoluteWeek(player.age, player.currentWeek) + offset;
+    const activeReleases = (player.activeReleases || []).map(release => {
+        if (!slot.linkedReleaseId || release.id !== slot.linkedReleaseId || !release.streaming) return release;
+        return {
+            ...release,
+            streaming: {
+                ...release.streaming,
+                startWeekAbsolute,
+                weekOnPlatform: offset > 0 ? 0 : Math.max(1, release.streaming.weekOnPlatform || 1),
+            },
+        };
+    });
+    if (!player.ownPlatform) return { ...player, activeReleases };
+    return {
+        ...player,
+        activeReleases,
+        ownPlatform: {
+            ...player.ownPlatform,
+            closedDeals: (player.ownPlatform.closedDeals || []).map(deal => (
+                deal.title === slot.title && typeof deal.opensWeek === 'number'
+                    ? { ...deal, opensWeek: parts.week, opensYear: player.age + parts.yearsAhead }
+                    : deal
+            )),
+        },
+    };
 };
 
 export const updateReleaseSlot = (player: Player, patch: Partial<ReleaseSlot>): Player => {
@@ -406,16 +451,19 @@ export const updateReleaseSlot = (player: Player, patch: Partial<ReleaseSlot>): 
     const current = player.ownPlatform.releaseSlot || defaultReleaseSlot(player);
     const country = patch.countryId ? MARKET_COUNTRIES.find(row => row.id === patch.countryId) : undefined;
     const weekOffset = patch.weekOffset === undefined
-        ? current.weekOffset
-        : Math.max(0, Math.min(10, Math.round(patch.weekOffset)));
-    const releaseSlot = {
+        ? clampReleaseOffset(current.weekOffset)
+        : clampReleaseOffset(patch.weekOffset);
+    const releaseSlot: ReleaseSlot = {
         ...current,
         ...patch,
         language: patch.language || (country ? country.languages[0]?.name || current.language : current.language),
         weekOffset,
+        linkedReleaseId: patch.linkedReleaseId !== undefined
+            ? (patch.linkedReleaseId || undefined)
+            : current.linkedReleaseId,
     };
     const pending = player.ownPlatform.pendingDeal;
-    return {
+    const next: Player = {
         ...player,
         ownPlatform: {
             ...player.ownPlatform,
@@ -425,11 +473,34 @@ export const updateReleaseSlot = (player: Player, patch: Partial<ReleaseSlot>): 
                 : pending,
         },
     };
+    return syncLockedRelease(next, releaseSlot);
 };
 
-export const postponeRelease = (player: Player): Player => {
+export const shiftRelease = (player: Player, delta: number): Player => {
     const slot = player.ownPlatform?.releaseSlot || defaultReleaseSlot(player);
-    return updateReleaseSlot(player, { weekOffset: Math.min(10, slot.weekOffset + 1) });
+    return updateReleaseSlot(player, { weekOffset: slot.weekOffset + delta });
+};
+
+export const postponeRelease = (player: Player): Player => shiftRelease(player, 1);
+
+export const moveCatalogueRelease = (player: Player, id: string, weekOffset: number): Player => {
+    if (!player.ownPlatform) return player;
+    const offset = clampReleaseOffset(weekOffset);
+    return {
+        ...player,
+        ownPlatform: {
+            ...player.ownPlatform,
+            catalogue: player.ownPlatform.catalogue.map(row => (
+                row.id === id ? { ...row, releaseWeekOffset: offset } : row
+            )),
+        },
+    };
+};
+
+export const shiftCatalogueRelease = (player: Player, id: string, delta: number): Player => {
+    const row = player.ownPlatform?.catalogue.find(item => item.id === id);
+    const current = Number.isFinite(Number(row?.releaseWeekOffset)) ? Number(row?.releaseWeekOffset) : 0;
+    return moveCatalogueRelease(player, id, current + delta);
 };
 
 const withIpo = (player: Player, recipe: (ipo: IpoState) => void): Player => {
@@ -623,20 +694,55 @@ export const finishTradingDay = (player: Player): Player => withIpo(player, ipo 
     ipo.stage = 'LISTED';
 });
 
-export const titleRows = (player: Player): { title: string; weekly: number; source: string }[] => {
+const dealHasOpened = (player: Player, opensWeek: number | undefined, opensYear: number | undefined): boolean => {
+    if (typeof opensWeek !== 'number') return true;
+    const year = opensYear ?? player.age;
+    if (year < player.age) return true;
+    if (year > player.age) return false;
+    return opensWeek <= player.currentWeek;
+};
+
+export const titleRows = (player: Player): { title: string; weekly: number; source: string; note: string }[] => {
     const state = player.ownPlatform;
     if (!state) return [];
     const pool = Math.max(0, state.lastWeeklyRevenue);
     const titles = [
-        ...state.catalogue.map(row => ({ title: row.title, source: row.source === 'OWNED' ? 'Owned' : 'Licensed' })),
-        ...state.closedDeals.map(row => ({ title: row.title, source: row.bidderName })),
+        ...state.catalogue.map(row => {
+            const waiting = Number.isFinite(Number(row.releaseWeekOffset)) && Number(row.releaseWeekOffset) > 0;
+            return {
+                title: row.title,
+                source: row.source === 'OWNED' ? 'Owned' : 'Licensed',
+                waiting,
+                note: waiting ? `Opens ${releaseWeekLabel(player.currentWeek, Number(row.releaseWeekOffset))}` : '',
+            };
+        }),
+        ...state.closedDeals.map(row => {
+            const waiting = !dealHasOpened(player, row.opensWeek, row.opensYear);
+            const yearNote = (row.opensYear ?? player.age) > player.age ? ' · next year' : '';
+            const label = typeof row.opensWeek === 'number' ? `Week ${row.opensWeek}${yearNote}` : 'later';
+            return {
+                title: row.title,
+                source: row.bidderName,
+                waiting,
+                note: waiting ? `Views begin ${label}` : '',
+            };
+        }),
     ];
     if (!titles.length) return [];
-    return titles.slice(0, 8).map((row, index) => ({
-        title: row.title,
-        source: row.source,
-        weekly: Math.round(pool * ((titles.length - index) / titles.reduce((sum, _, i) => sum + (titles.length - i), 0))),
-    }));
+    const live = titles.filter(row => !row.waiting);
+    const weight = live.reduce((sum, _, index) => sum + (live.length - index), 0);
+    return titles.slice(0, 8).map(row => {
+        if (row.waiting || weight <= 0) {
+            return { title: row.title, source: row.source, weekly: 0, note: row.note };
+        }
+        const index = live.indexOf(row);
+        return {
+            title: row.title,
+            source: row.source,
+            weekly: Math.round(pool * ((live.length - index) / weight)),
+            note: '',
+        };
+    });
 };
 
 export const revenueSplit = (player: Player): { lane: string; amount: number }[] => {

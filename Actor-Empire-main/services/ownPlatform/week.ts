@@ -115,6 +115,21 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     const transactions: PlatformWeekTransaction[] = [];
     const weekKey = `${player.id}:${absoluteWeek}`;
 
+    if (state.releaseSlot && state.releaseSlot.weekOffset > 0) {
+        state.releaseSlot = { ...state.releaseSlot, weekOffset: state.releaseSlot.weekOffset - 1 };
+    }
+    state.catalogue = state.catalogue.map(row => (
+        typeof row.releaseWeekOffset === 'number' && row.releaseWeekOffset > 0
+            ? { ...row, releaseWeekOffset: row.releaseWeekOffset - 1 }
+            : row
+    ));
+    if (state.pendingDeal && state.releaseSlot) {
+        state.pendingDeal = {
+            ...state.pendingDeal,
+            plan: { ...state.pendingDeal.plan, weekendOffset: state.releaseSlot.weekOffset },
+        };
+    }
+
     state.applications = state.applications.map(application => {
         if (application.status !== 'FILED' && application.status !== 'DELAYED') return application;
         if (application.weeksLeft > 1) {

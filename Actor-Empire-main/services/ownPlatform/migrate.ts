@@ -11,6 +11,7 @@ import {
 import { CLOUD_PROVIDERS, IDENTITY_PRESETS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
 import { REVENUE_LANES, syncRegions } from './logic';
 import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
+import { clampReleaseOffset } from './weeks';
 
 const DEFAULT_PLAN: PricingPlan = {
     id: 'plan-standard',
@@ -96,7 +97,14 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         applications: Array.isArray(raw.applications) ? raw.applications.filter(row => row && getCountry(row.countryId)) : [],
         identityId: IDENTITY_PRESETS.some(row => row.id === raw.identityId) ? raw.identityId! : created.identityId,
         storefrontId: STOREFRONTS.some(row => row.id === raw.storefrontId) ? raw.storefrontId! : created.storefrontId,
-        catalogue: Array.isArray(raw.catalogue) ? raw.catalogue.filter(row => row && row.title) : [],
+        catalogue: Array.isArray(raw.catalogue)
+            ? raw.catalogue.filter(row => row && row.title).map(row => ({
+                ...row,
+                releaseWeekOffset: Number.isFinite(Number(row.releaseWeekOffset))
+                    ? clampReleaseOffset(Number(row.releaseWeekOffset))
+                    : undefined,
+            }))
+            : [],
         plans: Array.isArray(raw.plans) ? raw.plans.filter(plan => plan && plan.name) : created.plans,
         revenueLanes: asLanes(raw.revenueLanes),
         regions: Array.isArray(raw.regions) ? raw.regions.filter(row => row && row.regionId) : [],
@@ -149,8 +157,11 @@ const normalizeSlot = (raw: ReleaseSlot | undefined, player: Player): ReleaseSlo
         countryId,
         language: typeof raw.language === 'string' && raw.language.trim() ? raw.language : fresh.language,
         weekOffset: Number.isFinite(Number(raw.weekOffset))
-            ? Math.max(0, Math.min(10, Math.round(Number(raw.weekOffset))))
+            ? clampReleaseOffset(Number(raw.weekOffset))
             : fresh.weekOffset,
+        linkedReleaseId: typeof raw.linkedReleaseId === 'string' && raw.linkedReleaseId.trim()
+            ? raw.linkedReleaseId
+            : undefined,
     };
 };
 

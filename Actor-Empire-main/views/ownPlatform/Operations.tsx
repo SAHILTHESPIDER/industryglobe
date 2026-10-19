@@ -15,6 +15,7 @@ import {
     revenueSplit,
     titleRows,
 } from '../../services/ownPlatform/studio';
+import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { Boardroom } from './Boardroom';
 import { headingFont } from './ui';
 
@@ -115,6 +116,11 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                         <div key={row.id} className="rounded-2xl border border-white/10 px-3 py-2">
                             <div className="font-bold">{row.title}</div>
                             <div className="text-[11px] text-zinc-500">{row.genre} · {row.language} · {row.source}</div>
+                            <div className="text-[11px] text-zinc-400 mt-1">
+                                {typeof row.releaseWeekOffset === 'number'
+                                    ? `On the calendar · ${releaseWeekLabel(player.currentWeek, row.releaseWeekOffset)}`
+                                    : 'Already on the service'}
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -222,8 +228,8 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     {titles.length === 0 && <p className="text-sm text-zinc-500 mt-2">No title has earned a week yet.</p>}
                     {titles.map(row => (
                         <div key={row.title} className="flex justify-between gap-3 text-sm mt-2">
-                            <span>{row.title} <span className="text-zinc-500">{row.source}</span></span>
-                            <span>{formatCompact(row.weekly)}</span>
+                            <span>{row.title} <span className="text-zinc-500">{row.source}{row.note ? ` · ${row.note}` : ''}</span></span>
+                            <span>{row.note ? 'Waiting' : formatCompact(row.weekly)}</span>
                         </div>
                     ))}
                 </div>

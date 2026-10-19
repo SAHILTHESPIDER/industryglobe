@@ -14,6 +14,7 @@ import {
     rivalWeekends,
 } from '../../services/ownPlatform/logic';
 import { updateReleaseSlot } from '../../services/ownPlatform/studio';
+import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { ReleaseCalendar } from './ReleaseCalendar';
 import { Card, headingFont } from './ui';
 
@@ -55,7 +56,7 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
             plan,
         };
         const withDeal = { ...player, ownPlatform: { ...player.ownPlatform, pendingDeal: nextDeal } };
-        onPlayer(updateReleaseSlot(withDeal, { title: lot.title }));
+        onPlayer(updateReleaseSlot(withDeal, { title: lot.title, linkedReleaseId: lot.releaseId || '' }));
         setOpen(false);
     };
 
@@ -170,11 +171,26 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
 const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlayer: (next: Player) => void; error: string; onError: (message: string) => void }> = ({ player, deal, onPlayer, error, onError }) => {
     const [page, setPage] = useState(0);
     const weekends = rivalWeekends(player, { ...deal, simulated: deal.simulated, phase: 'DEAL', releaseId: deal.releaseId });
+    const openLabel = releaseWeekLabel(player.currentWeek, player.ownPlatform?.releaseSlot?.weekOffset ?? deal.plan.weekendOffset);
     const savePlan = (recipe: (plan: PendingRightsDeal['plan']) => PendingRightsDeal['plan']) => {
         if (!player.ownPlatform) return;
         const plan = recipe(deal.plan);
         plan.forecastUsd = forecastRelease(deal, plan.channels, plan.festivalId, plan.weekendOffset);
         onPlayer({ ...player, ownPlatform: { ...player.ownPlatform, pendingDeal: { ...deal, plan } } });
+    };
+    const chooseWeekend = (offset: number) => {
+        const moved = updateReleaseSlot(player, { weekOffset: offset, title: deal.title });
+        const pending = moved.ownPlatform?.pendingDeal;
+        if (!pending) {
+            onPlayer(moved);
+            return;
+        }
+        const plan = {
+            ...pending.plan,
+            weekendOffset: offset,
+            forecastUsd: forecastRelease(deal, pending.plan.channels, pending.plan.festivalId, offset),
+        };
+        onPlayer({ ...moved, ownPlatform: { ...moved.ownPlatform!, pendingDeal: { ...pending, plan } } });
     };
     const lock = () => {
         const result = lockRightsDeal(player);
@@ -229,14 +245,17 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
                 </div>
             )}
             {page === 2 && (
-                <div className="grid lg:grid-cols-3 gap-3">
-                    {weekends.map(weekend => (
-                        <Card key={weekend.id} active={deal.plan.weekendOffset === weekend.offset} onClick={() => savePlan(plan => ({ ...plan, weekendOffset: weekend.offset }))}>
-                            <div className="text-[11px] uppercase text-zinc-500">Weekend +{weekend.offset}</div>
-                            <div className="font-bold text-lg">{weekend.title}</div>
-                            <div className="text-sm text-zinc-400">{weekend.studio} · heat {Math.round(weekend.heat)}</div>
-                        </Card>
-                    ))}
+                <div className="space-y-3">
+                    <p className="text-sm text-zinc-400">The film opens {openLabel}. These cards are the crowded nearby weekends. Any other week is on the calendar, and the locked deal waits for whichever week you choose.</p>
+                    <div className="grid lg:grid-cols-3 gap-3">
+                        {weekends.map(weekend => (
+                            <Card key={weekend.id} active={(player.ownPlatform?.releaseSlot?.weekOffset ?? deal.plan.weekendOffset) === weekend.offset} onClick={() => chooseWeekend(weekend.offset)}>
+                                <div className="text-[11px] uppercase text-zinc-500">{releaseWeekLabel(player.currentWeek, weekend.offset)}</div>
+                                <div className="font-bold text-lg">{weekend.title}</div>
+                                <div className="text-sm text-zinc-400">{weekend.studio} · heat {Math.round(weekend.heat)}</div>
+                            </Card>
+                        ))}
+                    </div>
                 </div>
             )}
             {page === 3 && (
@@ -250,7 +269,9 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
                         <div>Forecast <b>{formatCompact(deal.plan.forecastUsd)}</b></div>
                         <div>Rank value <b>{formatCompact(deal.offer.value)}</b></div>
                         <div>Window <b>{deal.offer.windowLabel}</b></div>
+                        <div>Views begin <b>{openLabel}</b></div>
                     </div>
+                    <p className="text-sm text-zinc-400 mt-3">Nothing is earned before {openLabel}. Moving the calendar moves this date, before or after the lock.</p>
                     {error && <p className="text-rose-300 mt-3">{error}</p>}
                     <div className="flex gap-2 mt-4">
                         <button onClick={lock} className="px-5 py-3 rounded-full bg-[#ff3b30] font-black uppercase tracking-wider text-xs">Lock the strategy</button>

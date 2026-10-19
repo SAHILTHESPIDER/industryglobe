@@ -559,6 +559,8 @@ export enum Page {
       genre: string;
       language: string;
       cost: number;
+      /** Weeks from now until this title is on the service. Missing means it is already out. */
+      releaseWeekOffset?: number;
   }
 
   export interface PricingPlan {
@@ -622,7 +624,10 @@ export enum Page {
       house: string;
       countryId: string;
       language: string;
+      /** 0 is this week. 51 is the same week next year. */
       weekOffset: number;
+      /** Active release whose streaming window follows this date. */
+      linkedReleaseId?: string;
   }
 
   export interface ReleaseCalendarEntry {
@@ -749,6 +754,9 @@ export enum Page {
       netToTreasury: number;
       week: number;
       year: number;
+      /** Calendar week the title starts earning views. Missing on older locks. */
+      opensWeek?: number;
+      opensYear?: number;
   }
 
   /** Optional. Missing on every save made before the player opened their own service. */
