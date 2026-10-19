@@ -559,6 +559,8 @@ export enum Page {
       genre: string;
       language: string;
       cost: number;
+      /** Weeks from now until this title is on the service. Missing means it is already out. */
+      releaseWeekOffset?: number;
   }
 
   export interface PricingPlan {
@@ -594,6 +596,103 @@ export enum Page {
       languages: string[];
       status: 'ACTIVE' | 'ACQUIRED';
       note: string;
+  }
+
+  export type FundingChoice = 'OWN' | 'BANK' | 'EQUITY';
+
+  export interface PlatformLedgerLine {
+      id: string;
+      week: number;
+      year: number;
+      amount: number;
+      label: string;
+      source: 'RECEIPTS' | 'BURN' | 'TITLE' | 'DEBT' | 'EQUITY' | 'ACQUISITION' | 'IPO' | 'COMMISSION';
+  }
+
+  export interface StudioBooks {
+      funding: FundingChoice;
+      debt: number;
+      equitySoldPct: number;
+      facilityRate: number;
+      pePartner: string;
+      history: { week: number; revenue: number; burn: number; profit: number }[];
+      lines: PlatformLedgerLine[];
+  }
+
+  export interface ReleaseSlot {
+      title: string;
+      house: string;
+      countryId: string;
+      language: string;
+      /** 0 is this week. 51 is the same week next year. */
+      weekOffset: number;
+      /** Active release whose streaming window follows this date. */
+      linkedReleaseId?: string;
+  }
+
+  export interface ReleaseCalendarEntry {
+      id: string;
+      title: string;
+      house: string;
+      countryId: string;
+      regionId: string;
+      language: string;
+      weekOffset: number;
+      yours: boolean;
+      heat: number;
+      clash: boolean;
+  }
+
+  export type IpoStage = 'IDLE' | 'RESOLUTION' | 'PRICE' | 'VOTE' | 'FILING' | 'BAND' | 'ANCHOR' | 'BOOK' | 'TRADING' | 'LISTED';
+
+  export interface IpoDisclosure {
+      id: string;
+      title: string;
+      body: string;
+      choice: 'DISCLOSE' | 'OMIT' | null;
+  }
+
+  export interface IpoVote {
+      name: string;
+      role: string;
+      vote: 'FOR' | 'AGAINST' | 'ABSTAIN';
+      note: string;
+  }
+
+  export interface IpoState {
+      stage: IpoStage;
+      valuation: number;
+      sharesForSale: number;
+      price: number;
+      floor: number;
+      cap: number;
+      founderKeepPct: number;
+      staffReservePct: number;
+      disclosures: IpoDisclosure[];
+      votes: IpoVote[];
+      anchorName: string;
+      anchorPct: number;
+      anchorWalked: boolean;
+      bookMultiple: number;
+      bookDay: number;
+      openPrice: number;
+      lastPrice: number;
+      dayMove: number[];
+      ticker: string;
+  }
+
+  export interface OwnedStreamer {
+      id: string;
+      name: string;
+      pricePaid: number;
+      householdsM: number;
+      week: number;
+      fromStockId?: string;
+  }
+
+  export interface ResolvedCommission {
+      id: string;
+      accepted: boolean;
   }
 
   export interface WorldPulse {
@@ -655,6 +754,9 @@ export enum Page {
       netToTreasury: number;
       week: number;
       year: number;
+      /** Calendar week the title starts earning views. Missing on older locks. */
+      opensWeek?: number;
+      opensYear?: number;
   }
 
   /** Optional. Missing on every save made before the player opened their own service. */
@@ -688,6 +790,12 @@ export enum Page {
       closedDeals: ClosedRightsDeal[];
       lastWeeklyRevenue: number;
       lastWeeklyBurn: number;
+      /** Optional on saves opened before Studio Finance. */
+      books?: StudioBooks;
+      releaseSlot?: ReleaseSlot;
+      ipo?: IpoState;
+      ownedStreamers?: OwnedStreamer[];
+      resolvedCommissions?: ResolvedCommission[];
   }
   
   export interface FuturePotential {
@@ -1263,6 +1371,13 @@ export enum Page {
       relatedStudioId?: StudioId;
       priceHistory: number[];
       lastDividendPayoutWeek: number;
+      /** Game-scale share count. Omitted on older saves. */
+      sharesOutstanding?: number;
+      /** Cash price to buy that company's streaming service. */
+      platformAcquireUsd?: number;
+      platformHouseholdsM?: number;
+      /** True when this listing is the player's own service. */
+      playerCompany?: boolean;
   }
   
   export interface PortfolioItem {

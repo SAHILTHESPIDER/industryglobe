@@ -39,7 +39,8 @@ import { APP_DISPLAY_VERSION } from './services/appVersion';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
 import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
-import { migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
+import { ensureOwnPlatform, migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
+import { purchasePlatform } from './services/ownPlatform/studio';
 import {
   addBreadcrumb,
   markGameCheckpoint,
@@ -1853,24 +1854,76 @@ export const App: React.FC = () => {
       return next;
   });
 
-  const handleTradeStock = (stockId: string, amount: number) => { 
-      const msg = amount > 0 ? "Bought stock" : "Sold stock";
+  const handleFoundCompany = () => {
+      setToastMessage({ title: 'Empire+ founded', subtext: 'It is private until you take it through the boardroom.' });
+      handleGenericUpdate(current => {
+          if (current.ownPlatform) return current;
+          const next = ensureOwnPlatform(current);
+          return {
+              ...next,
+              logs: [...(current.logs || []), { week: current.currentWeek, year: current.age, message: `Founded ${next.ownPlatform?.name || 'Empire+'}. It stays private until the board lists it.`, type: 'neutral' as const }],
+          };
+      });
+  };
+
+  const handleAcquirePlatform = (stockId: string) => handleGenericUpdate(current => {
+      const withPlatform = current.ownPlatform ? current : ensureOwnPlatform(current);
+      const result = purchasePlatform(withPlatform, stockId);
+      if (result.error) {
+          setToastMessage({ title: 'Could not buy that service', subtext: result.error });
+          return current;
+      }
+      const bought = result.player.ownPlatform?.ownedStreamers?.slice(-1)[0];
+      setToastMessage({ title: 'Streaming service acquired', subtext: bought ? `${bought.name} now sits inside your company.` : 'The service is on your books.' });
+      return result.player;
+  });
+
+  const handleTradeStock = (stockId: string, amount: number) => {
+      const msg = amount > 0 ? 'Bought stock' : 'Sold stock';
       handleGenericUpdate(p => {
-          const stock = p.stocks.find(s => s.id === stockId);
-          if (!stock) return p;
-          const totalCost = stock.price * amount;
+          const stocks = p.stocks || [];
+          const portfolio = p.portfolio || [];
+          const stock = stocks.find(s => s.id === stockId);
+          if (!stock || !Number.isFinite(stock.price) || !Number.isFinite(amount) || amount === 0) return p;
+          const shares = Math.abs(Math.trunc(amount));
+          if (shares <= 0) return p;
+          const totalCost = stock.price * shares;
+          const writeLedger = (next: Player, cash: number, description: string): Player => {
+              if (!next.finance) return next;
+              const history = Array.isArray(next.finance.history) ? next.finance.history : [];
+              return {
+                  ...next,
+                  finance: {
+                      ...next.finance,
+                      history: [{
+                          id: `tx_stock_${Date.now()}`,
+                          week: next.currentWeek,
+                          year: next.age,
+                          amount: Math.trunc(cash),
+                          category: 'ASSET' as const,
+                          description,
+                      }, ...history].slice(0, 200),
+                  },
+              };
+          };
           if (amount > 0) {
-              if (p.money < totalCost) return p; 
-              const existing = p.portfolio.find(i => i.stockId === stockId);
-              const newPort = existing ? p.portfolio.map(i => i.stockId === stockId ? { ...i, shares: i.shares + amount } : i) : [...p.portfolio, { stockId, shares: amount }];
-              return { ...p, money: p.money - totalCost, portfolio: newPort, logs: [...p.logs, { week: p.currentWeek, year: p.age, message: msg, type: 'neutral' }] };
-          } else {
-              const sellShares = Math.abs(amount);
-              const existing = p.portfolio.find(i => i.stockId === stockId);
-              if (!existing || existing.shares < sellShares) return p;
-              const newPort = existing.shares === sellShares ? p.portfolio.filter(i => i.stockId !== stockId) : p.portfolio.map(i => i.stockId === stockId ? { ...i, shares: i.shares - sellShares } : i);
-              return { ...p, money: p.money + (stock.price * sellShares), portfolio: newPort, logs: [...p.logs, { week: p.currentWeek, year: p.age, message: msg, type: 'neutral' }] };
+              if (p.money < totalCost) {
+                  setToastMessage({ title: 'Not enough cash', subtext: 'That many shares cost more than the treasury.' });
+                  return p;
+              }
+              const existing = portfolio.find(i => i.stockId === stockId);
+              const newPort = existing ? portfolio.map(i => i.stockId === stockId ? { ...i, shares: i.shares + shares } : i) : [...portfolio, { stockId, shares }];
+              const next = { ...p, stocks, money: p.money - totalCost, portfolio: newPort, logs: [...(p.logs || []), { week: p.currentWeek, year: p.age, message: `${msg}: ${shares} ${stock.symbol}`, type: 'neutral' as const }] };
+              return writeLedger(next, -Math.round(totalCost), `Bought ${shares} ${stock.symbol}`);
           }
+          const existing = portfolio.find(i => i.stockId === stockId);
+          if (!existing || existing.shares < shares) {
+              setToastMessage({ title: 'Not enough shares', subtext: 'You cannot sell shares you do not hold.' });
+              return p;
+          }
+          const newPort = existing.shares === shares ? portfolio.filter(i => i.stockId !== stockId) : portfolio.map(i => i.stockId === stockId ? { ...i, shares: i.shares - shares } : i);
+          const next = { ...p, stocks, money: p.money + totalCost, portfolio: newPort, logs: [...(p.logs || []), { week: p.currentWeek, year: p.age, message: `${msg}: ${shares} ${stock.symbol}`, type: 'neutral' as const }] };
+          return writeLedger(next, Math.round(totalCost), `Sold ${shares} ${stock.symbol}`);
       });
   };
 
@@ -2530,7 +2583,9 @@ export const App: React.FC = () => {
                             onAcceptMessage={(msg)=>handleGenericUpdate(p=>({ ...p, inbox: p.inbox.filter(m=>m.id!==msg.id) }))} 
                             onPerformSponsorship={(id, type)=>handleGenericUpdate(p=>{ const s = p.activeSponsorships.find(x=>x.id===id); if (!s) return p; const next = { ...p }; spendPlayerEnergy(next, s.requirements.energyCost); return next; })}
                             onDeleteMessage={(id)=>handleGenericUpdate(p=>({ ...p, inbox: p.inbox.filter(m=>m.id!==id) }))} 
-                            onTradeStock={handleTradeStock} 
+                            onTradeStock={handleTradeStock}
+                            onFoundCompany={handleFoundCompany}
+                            onAcquirePlatform={handleAcquirePlatform} 
                         />
                     )}
                     {activePage === Page.SETTINGS && (
