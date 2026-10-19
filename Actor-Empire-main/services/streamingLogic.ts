@@ -1,5 +1,5 @@
 
-import { PlatformId, StreamingState, ActiveRelease, ProjectDetails, ProjectType, StreamingTrend, StreamingLifecycle, LogEntry, NewsItem } from '../types';
+import { PlatformId, StreamingState, ActiveRelease, ProjectDetails, ProjectType, StreamingTrend, StreamingLifecycle, LogEntry, NewsItem, Genre } from '../types';
 
 export interface PlatformProfile {
     id: PlatformId;
@@ -77,6 +77,24 @@ export const PLATFORMS: Record<PlatformId, PlatformProfile> = {
     }
 };
 
+const GENRE_BIAS_ALIASES: Record<string, Genre> = {
+    ROMCOM: 'ROMANCE',
+    ROM_COM: 'ROMANCE',
+    SCIFI: 'SCI_FI',
+};
+
+/** Platform bias labels are display text ("Sci-Fi", "RomCom"); projects store Genre enums. */
+export const normalizeGenreLabel = (label: string): string => {
+    const compact = String(label || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    return GENRE_BIAS_ALIASES[compact] || compact;
+};
+
+export const genreBiasMatches = (bias: readonly string[] | undefined, genre: string): boolean => {
+    if (!Array.isArray(bias) || !genre) return false;
+    const target = normalizeGenreLabel(genre);
+    return bias.some(label => normalizeGenreLabel(label) === target);
+};
+
 // --- ACQUISITION LOGIC ---
 
 export const determineStreamingAcquisition = (project: ProjectDetails): PlatformId => {
@@ -95,7 +113,7 @@ export const determineStreamingAcquisition = (project: ProjectDetails): Platform
 
     // 1. Genre Fit
     Object.values(PLATFORMS).forEach(plat => {
-        if (plat.genreBias.includes(genre)) scores[plat.id] += 20;
+        if (genreBiasMatches(plat.genreBias, genre)) scores[plat.id] += 20;
     });
 
     // 2. Budget Fit
@@ -394,6 +412,7 @@ export const buildStreamingDashboardData = (
     safeReleases.forEach(release => {
         if (release.distributionPhase === 'STREAMING' && release.streaming) {
             const platform = PLATFORMS[release.streaming.platformId];
+            if (!platform) return;
             const latestWeekViews = release.streaming.weeklyViews[release.streaming.weeklyViews.length - 1] || 0;
             const lifecycle = release.streaming.lifecycle || getStreamingLifecycle(release.streaming, currentAbsoluteWeek, currentWeek);
             const trend = release.streaming.trend || getStreamingTrend(release.streaming.weeklyViews);
@@ -417,7 +436,7 @@ export const buildStreamingDashboardData = (
                 releaseId: release.id,
                 name: release.name,
                 platformId: release.streaming.platformId,
-                platformName: platform.name,
+                platformName: release.streaming.streamerName || platform.name,
                 platformColor: platform.color,
                 weekOnPlatform: release.streaming.weekOnPlatform,
                 totalViews: release.streaming.totalViews,

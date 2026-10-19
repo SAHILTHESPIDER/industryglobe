@@ -529,6 +529,165 @@ export enum Page {
       trend?: StreamingTrend;
       lifecycle?: StreamingLifecycle;
       projectedNextViews?: number;
+      /** Display name when the buyer is not one of the five original platforms. */
+      streamerName?: string;
+      /** Reach multiplier for that buyer. Omitted on older saves. */
+      audienceMult?: number;
+  }
+
+  export type LaunchRegionId = 'NORTH_AMERICA' | 'SOUTH_AMERICA' | 'EUROPE' | 'AFRICA' | 'ASIA' | 'OCEANIA';
+  export type OwnPlatformStage = 'DEFINE' | 'BUILD' | 'CONSTRUCTING' | 'LIVE';
+  export type ClearanceStatus = 'FILED' | 'APPROVED' | 'DELAYED' | 'CONDITIONS' | 'REJECTED';
+  export type AudienceMode = 'QUIET' | 'LIKELY' | 'SURGE';
+  export type RevenueLane = 'SUBSCRIPTION' | 'ADVERTISING' | 'RENTAL' | 'PURCHASE' | 'PREMIUM' | 'DAY_PASS' | 'SPONSORSHIP';
+  export type RivalTier = 'GLOBAL' | 'REGIONAL' | 'EMERGING';
+
+  export interface MarketApplication {
+      countryId: string;
+      status: ClearanceStatus;
+      weeksLeft: number;
+      filedWeekAbsolute: number;
+      refileWeekAbsolute?: number;
+      note: string;
+      acceptedConditions: boolean;
+  }
+
+  export interface CataloguePick {
+      id: string;
+      source: 'OWNED' | 'LICENCE';
+      title: string;
+      genre: string;
+      language: string;
+      cost: number;
+  }
+
+  export interface PricingPlan {
+      id: string;
+      name: string;
+      monthlyUsd: number;
+      ads: boolean;
+      downloads: boolean;
+      quality: 'SD' | 'HD' | '4K';
+      screens: number;
+  }
+
+  export interface RegionBuild {
+      regionId: LaunchRegionId;
+      scout: number;
+      workhorse: number;
+      titan: number;
+  }
+
+  export interface CloudOrder {
+      providerId: string;
+      racks: number;
+  }
+
+  export interface RivalPlatformState {
+      id: string;
+      name: string;
+      tier: RivalTier;
+      homeRegion: LaunchRegionId;
+      householdsM: number;
+      monthlyPrice: number;
+      reputation: number;
+      languages: string[];
+      status: 'ACTIVE' | 'ACQUIRED';
+      note: string;
+  }
+
+  export interface WorldPulse {
+      recession: number;
+      inflation: number;
+      connectivity: number;
+      fatigue: number;
+      headline: string;
+  }
+
+  export interface ReleasePlanState {
+      channels: string[];
+      spend: number;
+      festivalId: string | null;
+      weekendOffset: number;
+      forecastUsd: number;
+      locked: boolean;
+  }
+
+  export interface StandingOfferTerms {
+      id: string;
+      bidderId: string;
+      bidderName: string;
+      platformId: PlatformId;
+      audienceMult: number;
+      color: string;
+      guarantee: number;
+      backendPct: number;
+      recoupment: boolean;
+      cap: number;
+      years: number;
+      exclusive: boolean;
+      windowLabel: string;
+      localization: boolean;
+      funding: number;
+      renewal: boolean;
+      value: number;
+      note: string;
+  }
+
+  export interface PendingRightsDeal {
+      releaseId: string | null;
+      title: string;
+      genre: string;
+      budget: number;
+      gross: number;
+      simulated: boolean;
+      offer: StandingOfferTerms;
+      plan: ReleasePlanState;
+  }
+
+  export interface ClosedRightsDeal {
+      id: string;
+      title: string;
+      bidderName: string;
+      guarantee: number;
+      backendPct: number;
+      value: number;
+      netToTreasury: number;
+      week: number;
+      year: number;
+  }
+
+  /** Optional. Missing on every save made before the player opened their own service. */
+  export interface OwnPlatformState {
+      version: 1;
+      name: string;
+      stage: OwnPlatformStage;
+      defineStep: number;
+      buildStep: number;
+      selectedCountryIds: string[];
+      applications: MarketApplication[];
+      identityId: string;
+      customAudioName?: string;
+      customAudioMediaId?: string;
+      storefrontId: string;
+      catalogue: CataloguePick[];
+      plans: PricingPlan[];
+      revenueLanes: RevenueLane[];
+      regions: RegionBuild[];
+      cloud: CloudOrder[];
+      commissioned: boolean;
+      constructionWeeksLeft: number;
+      weeksLive: number;
+      subscribers: number;
+      piracyShare: number;
+      enforcement: number;
+      customerPressure: number;
+      rivals: RivalPlatformState[];
+      pulse: WorldPulse;
+      pendingDeal: PendingRightsDeal | null;
+      closedDeals: ClosedRightsDeal[];
+      lastWeeklyRevenue: number;
+      lastWeeklyBurn: number;
   }
   
   export interface FuturePotential {
@@ -1317,6 +1476,11 @@ export enum Page {
       closureReason?: string;
   }
   
+  export interface NpcEconomyEntry {
+      fame: number;
+      netWorth: number;
+  }
+
   export interface WorldState {
       projects: IndustryProject[];
       trendingGenre: Genre;
@@ -1327,6 +1491,8 @@ export enum Page {
       platforms?: Record<PlatformId, PlatformState>;
       studios?: Record<StudioId, NPCStudioState>;
       npcVentures?: Record<string, NpcVentureState>;
+      /** Per-save fame and net worth for NPC_DATABASE. Missing on older saves. */
+      npcEconomy?: Record<string, NpcEconomyEntry>;
   }
   
   export interface LogEntry {
@@ -1581,6 +1747,8 @@ export enum Page {
       scheduledEvents: ScheduledEvent[];
       pendingEvent: PendingEvent | null;
       pendingEvents?: PendingEvent[];
+      /** Ceremonies and other single-slot events waiting behind pendingEvent. */
+      pendingEventQueue?: PendingEvent[];
       activeUniverseContract?: UniverseContract;
       lastForbesRank?: number;
       studioMemory: Record<StudioId, { projectOutcomes: number[] }>;
@@ -1593,6 +1761,8 @@ export enum Page {
           lastTalentRefreshWeek: number;
       };
       logs: LogEntry[];
+      /** Player-owned streaming service. Absent on older saves until they open the launch. */
+      ownPlatform?: OwnPlatformState;
       activePregnancy?: {
           partnerId: string;
           partnerName?: string;
@@ -1733,7 +1903,7 @@ export enum Page {
               APPLE_TV: { id: 'APPLE_TV', name: 'Apple TV+', subscribers: 45, valuation: 2900, reputation: 95, cashReserve: 20000, recentHits: 0, color: 'text-zinc-400', churnRate: 'SLOW' },
               DISNEY_PLUS: { id: 'DISNEY_PLUS', name: 'Disney+', subscribers: 150, valuation: 180, reputation: 85, cashReserve: 8000, recentHits: 0, color: 'text-blue-500', churnRate: 'SLOW' },
               HULU: { id: 'HULU', name: 'Hulu', subscribers: 48, valuation: 27, reputation: 75, cashReserve: 2000, recentHits: 0, color: 'text-emerald-500', churnRate: 'MEDIUM' },
-              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', subscribers: 2500, valuation: 1800, reputation: 60, cashReserve: 15000, recentHits: 0, color: 'text-red-500', churnRate: 'FAST' }
+              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', subscribers: 2700, valuation: 350, reputation: 60, cashReserve: 15000, recentHits: 0, color: 'text-red-500', churnRate: 'FAST' }
           },
           studios: {
               PARAMOUNT: { id: 'PARAMOUNT', name: 'Paramount Pictures', valuation: 22, reputation: 85, cashReserve: 3000, recentHits: 0, archetype: 'LEGACY' },
@@ -1745,10 +1915,10 @@ export enum Page {
               APPLE_TV: { id: 'APPLE_TV', name: 'Apple TV+', valuation: 2900, reputation: 95, cashReserve: 20000, recentHits: 0, archetype: 'PLATFORM' },
               DISNEY_PLUS: { id: 'DISNEY_PLUS', name: 'Disney+', valuation: 180, reputation: 85, cashReserve: 8000, recentHits: 0, archetype: 'PLATFORM' },
               HULU: { id: 'HULU', name: 'Hulu', valuation: 27, reputation: 75, cashReserve: 2000, recentHits: 0, archetype: 'PLATFORM' },
-              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', valuation: 1800, reputation: 60, cashReserve: 15000, recentHits: 0, archetype: 'PLATFORM' },
-              MARVEL_STUDIOS: { id: 'MARVEL_STUDIOS', name: 'Marvel Studios', valuation: 50, reputation: 90, cashReserve: 6000, recentHits: 0, archetype: 'FRANCHISE' },
-              DC_STUDIOS: { id: 'DC_STUDIOS', name: 'DC Studios', valuation: 30, reputation: 80, cashReserve: 4000, recentHits: 0, archetype: 'FRANCHISE' },
-              LUCASFILM: { id: 'LUCASFILM', name: 'Lucasfilm', valuation: 40, reputation: 85, cashReserve: 5000, recentHits: 0, archetype: 'FRANCHISE' }
+              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', valuation: 350, reputation: 60, cashReserve: 15000, recentHits: 0, archetype: 'PLATFORM' },
+              MARVEL_STUDIOS: { id: 'MARVEL_STUDIOS', name: 'Marvel Studios', valuation: 50, reputation: 90, cashReserve: 6000, recentHits: 0, archetype: 'UNIVERSE_ARCHITECT' },
+              DC_STUDIOS: { id: 'DC_STUDIOS', name: 'DC Studios', valuation: 30, reputation: 80, cashReserve: 4000, recentHits: 0, archetype: 'UNIVERSE_ARCHITECT' },
+              LUCASFILM: { id: 'LUCASFILM', name: 'Lucasfilm', valuation: 40, reputation: 85, cashReserve: 5000, recentHits: 0, archetype: 'UNIVERSE_ARCHITECT' }
           },
           npcVentures: {}
       },

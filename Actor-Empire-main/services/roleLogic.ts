@@ -329,8 +329,15 @@ export const getEstimatedBudget = (tier: BudgetTier): number => {
     switch(tier) {
         case 'LOW': return Math.floor(500000 + Math.random() * 4500000); 
         case 'MID': return Math.floor(20000000 + Math.random() * 60000000); 
-        case 'HIGH': return Math.floor(120000000 + Math.random() * 180000000); 
+        case 'HIGH': return Math.floor(120000000 + Math.random() * 180000000);
+        case 'BLOCKBUSTER': return Math.floor(300000000 + Math.random() * 200000000);
+        default: return Math.floor(20000000 + Math.random() * 60000000);
     }
+};
+
+export const sanitizeGross = (value: number): number => {
+    if (!Number.isFinite(value) || value < 0) return 0;
+    return Math.floor(value);
 };
 
 export const getBudgetDisplay = (tier: BudgetTier): string => {
@@ -338,6 +345,8 @@ export const getBudgetDisplay = (tier: BudgetTier): string => {
         case 'LOW': return '$';
         case 'MID': return '$$';
         case 'HIGH': return '$$$';
+        case 'BLOCKBUSTER': return '$$$$';
+        default: return '$$';
     }
 };
 
@@ -850,7 +859,8 @@ const GENRE_MULTIPLIERS: Record<Genre, number> = {
 export const calculateWeeklyBoxOffice = (
     week: number, budget: number, stats: ProjectHiddenStats, prevGross: number, buzzScore: number | undefined, budgetTier: BudgetTier = 'LOW', genre: Genre = 'DRAMA', format: ProjectFormat = 'LIVE_ACTION', marketDemand: number = 1, studioGenreReputation: number = 0
 ): number => {
-    const caps = BOX_OFFICE_CAPS[budgetTier];
+    const caps = BOX_OFFICE_CAPS[budgetTier] || BOX_OFFICE_CAPS.HIGH;
+    const safeBudget = Number.isFinite(budget) ? Math.max(0, budget) : 0;
     const genreMod = GENRE_MULTIPLIERS[genre];
     const scriptQuality = stats.scriptQuality || 50;
     const directorQuality = stats.directorQuality || 50;
@@ -882,7 +892,7 @@ export const calculateWeeklyBoxOffice = (
         const qualityMod = 0.85 + ((qualityScore - 50) / 100) * 0.45;
         const fameMod = 0.85 + ((fameMultiplier - 1) * 0.7);
 
-        let rawOpening = budget * baseMultiplier * distMod * buzzMod * packageMod * qualityMod * fameMod * castDepthMod * studioPrestigeMod * studioReputationMod * formatAudienceMod * marketDemandMod;
+        let rawOpening = safeBudget * baseMultiplier * distMod * buzzMod * packageMod * qualityMod * fameMod * castDepthMod * studioPrestigeMod * studioReputationMod * formatAudienceMod * marketDemandMod;
         rawOpening *= (0.8 + Math.random() * 0.4); // Variance
 
         // Genre Adjustment
@@ -918,7 +928,7 @@ export const calculateWeeklyBoxOffice = (
             rawOpening = Math.min(rawOpening, caps.opening);
         }
 
-        return Math.floor(rawOpening);
+        return sanitizeGross(rawOpening);
     }
     
     // --- LEGS / DROPOFF ---
@@ -950,7 +960,8 @@ export const calculateWeeklyBoxOffice = (
     if (week >= 8) dropRate += 0.10;
 
     const retention = Math.max(0.05, 1 - dropRate);
-    return Math.floor(prevGross * retention * formatAudienceMod * marketDemandMod * studioReputationMod);
+    const safePrevGross = Number.isFinite(prevGross) ? Math.max(0, prevGross) : 0;
+    return sanitizeGross(safePrevGross * retention * formatAudienceMod * marketDemandMod * studioReputationMod);
 };
 
 export const calculateRunOutcome = (totalGross: number, budget: number, rating: number): { tier: OutcomeTier, score: number } => {

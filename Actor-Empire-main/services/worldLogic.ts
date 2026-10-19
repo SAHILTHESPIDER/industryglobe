@@ -1,8 +1,8 @@
 
 import { WorldState, IndustryProject, StudioId, BudgetTier, Genre, Player, NPCActor, NewsItem, UniverseId, Universe, Festival, TargetAudience } from '../types';
 import { STUDIO_CATALOG } from './studioLogic';
-import { NPC_DATABASE, calculateProjectFameMultiplier } from './npcLogic';
-import { generateProjectTitle, getEstimatedBudget, generateProjectDetails } from './roleLogic';
+import { NPC_DATABASE, applyNpcEconomy, calculateProjectFameMultiplier, captureNpcEconomy } from './npcLogic';
+import { generateProjectTitle, getEstimatedBudget, generateProjectDetails, sanitizeGross } from './roleLogic';
 import { initUniverses, normalizeUniverseMap, processUniverseTurn } from './universeLogic';
 import { processNpcVentures, syncNpcVenturesToStudios } from './npcVentureLogic';
 import { ALL_GENRES } from './genreCatalog';
@@ -80,8 +80,9 @@ export const generateIndustryProject = (
     let luck = 0.5 + Math.random();
     if (director.name === "Nyanika Mishra") luck = Math.max(luck, 1.5);
  
-    let boxOffice = budget * fameMultiplier * qualityMod * luck;
-    if (tier === 'HIGH' && boxOffice < budget) boxOffice = budget * 0.8; 
+    const safeBudget = Number.isFinite(budget) ? budget : 0;
+    let boxOffice = safeBudget * fameMultiplier * qualityMod * luck;
+    if (tier === 'HIGH' && boxOffice < safeBudget) boxOffice = safeBudget * 0.8; 
     
     let review = "MIXED";
     if (quality > 80) review = "HIT";
@@ -98,7 +99,7 @@ export const generateIndustryProject = (
         studioId,
         budgetTier: tier,
         quality,
-        boxOffice: Math.floor(boxOffice),
+        boxOffice: sanitizeGross(boxOffice),
         year,
         weekReleased: currentWeek,
         leadActorId: lead.id,
@@ -110,6 +111,7 @@ export const generateIndustryProject = (
 
 // 2. Process World Turn (Runs Weekly)
 export const processWorldTurn = (player: Player): { world: WorldState, news: NewsItem[], logs: string[] } => {
+    applyNpcEconomy(player.world?.npcEconomy);
     let newWorld = { ...player.world };
     const news: NewsItem[] = [];
     const logs: string[] = [];
@@ -349,5 +351,6 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         }
     }
 
+    newWorld.npcEconomy = captureNpcEconomy();
     return { world: newWorld, news, logs };
 };

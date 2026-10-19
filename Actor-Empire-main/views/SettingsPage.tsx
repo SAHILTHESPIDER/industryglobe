@@ -2,11 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, Twitter, Send, Star, Globe, LogOut, Coffee, Bug, Puzzle, Lock, CheckCircle2, Users, ChevronRight, Sparkles, SlidersHorizontal, ShieldCheck, Gauge, Database, Copy, Smartphone, MessageCircle, LifeBuoy, Bell } from 'lucide-react';
-import { Player } from '../types';
+import { GameLanguage, Player } from '../types';
 import { APP_DISPLAY_VERSION } from '../services/appVersion';
 import { createGlobalActorPackNPCs, GLOBAL_ACTOR_PACKS } from '../services/npcLogic';
 import { getGlobalCreatorCountForPack } from '../services/youtubeLogic';
-import { getPlayerLanguage, t } from '../services/i18n';
+import { getPlayerLanguage, SUPPORTED_LANGUAGES, t } from '../services/i18n';
 import { addBreadcrumb, enableManualPushNotifications, getFirebaseAuthStatus, getFirebasePushStatus, markTraceAction, onFirebaseAuthStatusChanged, onFirebasePushStatusChanged, submitPlayerIssueReport, trackGameEvent } from '../services/firebaseService';
 
 interface SettingsPageProps {
@@ -179,6 +179,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
       document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
     };
   }, [isReportOpen]);
+
+  const handleSelectLanguage = (nextLanguage: GameLanguage) => {
+    if (getPlayerLanguage(player) === nextLanguage) return;
+    onUpdatePlayer(prev => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        language: nextLanguage,
+      },
+    }));
+  };
 
   const handleToggleSmoothMode = () => {
     onUpdatePlayer(prev => ({
@@ -482,17 +493,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
                 <div className="text-xs text-zinc-500 leading-relaxed mt-1">{tr('settings.languagePhaseNote')}</div>
               </div>
             </div>
-            <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-black text-white">English</div>
-                  <div className="text-[10px] uppercase tracking-widest text-zinc-500">{tr('settings.defaultLanguage')}</div>
-                </div>
-                <CheckCircle2 size={18} className="text-emerald-300" />
-              </div>
-              <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200">
-                {tr('settings.languageComingSoon')}
-              </div>
+            <div className="space-y-2">
+              {SUPPORTED_LANGUAGES.map(option => {
+                const selected = language === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => handleSelectLanguage(option.id)}
+                    className={`w-full rounded-2xl border p-4 text-left ${selected ? 'border-emerald-400/30 bg-emerald-500/10' : 'border-white/5 bg-black/20 hover:bg-zinc-800/60'}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-black text-white">{option.nativeLabel}</div>
+                        <div className="text-[10px] uppercase tracking-widest text-zinc-500">{option.id === 'en' ? tr('settings.defaultLanguage') : option.label}</div>
+                      </div>
+                      {selected && <CheckCircle2 size={18} className="text-emerald-300" />}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
