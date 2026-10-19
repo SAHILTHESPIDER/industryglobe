@@ -37,9 +37,19 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const state = player.ownPlatform;
     const quote = quoteLaunch(player);
     const setPlatform = (next: OwnPlatformState) => onUpdatePlayer({ ...player, ownPlatform: next });
+    const serviceName = state.name.trim() || 'Empire+';
+    const launchTitles = [
+        serviceName,
+        'Clear the markets',
+        'Choose the sound',
+        'Pick a storefront',
+        'Assemble the shelf',
+        'Set the price',
+        'Read the blueprint',
+    ];
     const kicker = pane === 'launch' ? 'Define the launch' : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Film distribution' : 'The world';
     const title = pane === 'launch'
-        ? 'Lay the service out'
+        ? launchTitles[state.defineStep] || serviceName
         : pane === 'build'
             ? (state.buildStep === 0 ? 'Lay the network across the world' : state.buildStep === 1 ? 'Then find out what it costs' : state.buildStep === 2 ? 'Rehearse opening night' : 'Sign the build')
             : pane === 'rights'
