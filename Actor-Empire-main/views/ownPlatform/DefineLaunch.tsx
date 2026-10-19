@@ -104,6 +104,24 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
             </div>
             <div className="p-4 lg:p-10 flex-1">
                 {step === 0 && (
+                    <div className="space-y-4">
+                    <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3">
+                        <div>
+                            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#ff4d4d]">Empire+</div>
+                            <h2 className="text-4xl lg:text-5xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>{state.name.trim() || 'Empire+'}</h2>
+                            <p className="text-sm text-zinc-400 mt-2 max-w-xl">Define the launch. This is the service you are standing up, country by country.</p>
+                        </div>
+                        <label className="text-[11px] uppercase tracking-[0.18em] text-zinc-500 lg:w-72">
+                            Service name
+                            <input
+                                value={state.name}
+                                disabled={locked}
+                                onChange={(event) => patch(current => ({ ...current, name: event.target.value.slice(0, 32) }))}
+                                className="mt-1 w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-white text-lg font-black uppercase tracking-wide outline-none"
+                                style={{ fontFamily: headingFont }}
+                            />
+                        </label>
+                    </div>
                     <div className="grid lg:grid-cols-[200px_minmax(0,1fr)_340px] gap-4">
                         <div className="flex lg:flex-col gap-2 overflow-x-auto">
                             <FilterChip active={regionFilter === 'ALL'} label="World" onClick={() => setRegionFilter('ALL')} />
@@ -166,6 +184,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                 </ul>
                             </Card>
                         )}
+                    </div>
                     </div>
                 )}
 

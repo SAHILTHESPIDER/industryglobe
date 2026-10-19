@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Player, Property, Vehicle, ClothingItem, SettableClothingStyle } from '../types';
-import { CreditCard, Store, Briefcase, ChevronRight, Lock, Clapperboard, Tv, Star } from 'lucide-react';
+import { CreditCard, Store, Briefcase, ChevronRight, Clapperboard, Tv, Star } from 'lucide-react';
+import { OwnPlatformApp } from './ownPlatform/OwnPlatformApp';
 import { LifestyleAssets } from './lifestyle/LifestyleAssets';
 import { LifestyleBusiness } from './lifestyle/LifestyleBusiness';
 import { ProductionWizard } from './lifestyle/business/ProductionWizard';
@@ -21,12 +22,12 @@ interface LifestylePageProps {
   onUpdatePlayer?: (player: Player) => void; 
   onPremiumPurchase: (productId: PremiumProductId) => void;
   onNavVisibilityChange?: (visible: boolean) => void;
-  initialView?: 'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME';
+  initialView?: 'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME' | 'STREAMING';
   onInitialViewConsumed?: () => void;
 }
 
 export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem, onSellItem, onSetResidence, onSetActiveStyle, onUpdatePlayer, onPremiumPurchase, onNavVisibilityChange, initialView, onInitialViewConsumed }) => {
-  const [view, setView] = useState<'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME'>('MAIN');
+  const [view, setView] = useState<'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME' | 'STREAMING'>('MAIN');
   const [customizationItem, setCustomizationItem] = useState<Property | Vehicle | null>(null);
   const [selectedCustomizations, setSelectedCustomizations] = useState<any[]>([]);
   const language = getPlayerLanguage(player);
@@ -158,6 +159,17 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
   
   if (view === 'PRODUCTION_GAME') return <ProductionHouseGame player={player} onBack={() => setView('MAIN')} onUpdatePlayer={onUpdatePlayer!} />;
 
+  if (view === 'STREAMING') {
+      return (
+          <OwnPlatformApp
+              player={player}
+              initialPane="launch"
+              onBack={() => setView('MAIN')}
+              onUpdatePlayer={onUpdatePlayer || (() => {})}
+          />
+      );
+  }
+
   return (
     <div className="space-y-6 pb-24 pt-4">
         <div className="flex items-center gap-4 mb-6"><h2 className="text-3xl font-bold text-white">{tr('lifestyle.title')}</h2></div>
@@ -214,8 +226,9 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
             </button>
 
             {/* Locked Content */}
-            <button className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative opacity-50 cursor-not-allowed">
-                <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400"><Tv size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.streamingPlatform')}</div><div className="text-sm text-zinc-400">{tr('lifestyle.streamingSub')}</div></div><div className="ml-auto bg-zinc-800/50 px-2 py-1 rounded text-[10px] font-bold text-zinc-500 flex items-center gap-1 border border-zinc-700"><Lock size={10}/> {tr('lifestyle.soon')}</div></div>
+            <button onClick={() => setView('STREAMING')} className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative border border-[#ff3b30]/30">
+                <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-[#ff3b30] text-white"><Tv size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.streamingPlatform')}</div><div className="text-sm text-zinc-400">{tr('lifestyle.streamingSub')}</div></div></div>
+                <ChevronRight className="absolute top-1/2 -translate-y-1/2 right-6 text-zinc-700 group-hover:text-zinc-400 transition-colors"/>
             </button>
         </div>
     </div>
