@@ -18,9 +18,9 @@ import { CreationMenu } from './views/CreationMenu';
 import { DeathScreen } from './views/DeathScreen';
 import { RedCarpetEvent } from './views/RedCarpetEvent';
 import { PressConferenceEvent } from './views/PressConferenceEvent';
-import { processGameWeek } from './services/gameLoop';
+import { processGameWeek, promotePendingEvent } from './services/gameLoop';
 import { generateAuditions, generatePartTimeJobs, rewardGenreExperience } from './services/roleLogic';
-import { generateWeeklyFeed, calculateInteraction, getGenderedAvatar } from './services/npcLogic';
+import { generateWeeklyFeed, calculateInteraction, getGenderedAvatar, applyNpcEconomy } from './services/npcLogic';
 import { getRandomAgents, getRandomManagers, getRandomTrainers, getRandomStylists, getRandomTherapists, getRandomPublicists, getRandomWellness, sanitizeTeamPools } from './services/teamLogic';
 import { createBusiness, normalizeStudioState } from './services/businessLogic';
 import { CheckCircle, Heart, ShieldAlert, AlertTriangle, PlayCircle, Loader2, Skull, Briefcase, Baby } from 'lucide-react'; 
@@ -796,9 +796,11 @@ export const App: React.FC = () => {
     setCurrentSlot(slot);
     const existingSave = saveSlots[slot];
     if (existingSave) {
+        applyNpcEconomy(existingSave.world?.npcEconomy);
         setPlayer(existingSave);
         setGameStatus('PLAYING');
     } else {
+        applyNpcEconomy(null);
         setPlayer(INITIAL_PLAYER);
         setGameStatus('CREATION');
     }
@@ -859,7 +861,7 @@ export const App: React.FC = () => {
               ...clone(INITIAL_PLAYER.settings),
               ...(safePlayer.settings && typeof safePlayer.settings === 'object' ? safePlayer.settings : {})
           };
-          safePlayer.settings.language = 'en';
+          safePlayer.settings.language = safePlayer.settings.language === 'pt-BR' ? 'pt-BR' : 'en';
           safePlayer.settings.smoothMode = safePlayer.settings.smoothMode === true;
 
           if (!safePlayer.writerStats) {
@@ -920,6 +922,11 @@ export const App: React.FC = () => {
           if (!safePlayer.world) safePlayer.world = { ...INITIAL_PLAYER.world };
           if (!safePlayer.world.npcVentures || typeof safePlayer.world.npcVentures !== 'object') safePlayer.world.npcVentures = {};
           if (!safePlayer.world.studios || typeof safePlayer.world.studios !== 'object') safePlayer.world.studios = { ...INITIAL_PLAYER.world.studios };
+          (['MARVEL_STUDIOS', 'DC_STUDIOS', 'LUCASFILM'] as const).forEach(studioId => {
+              const studio = safePlayer.world.studios?.[studioId];
+              if (studio && studio.archetype === 'FRANCHISE') studio.archetype = 'UNIVERSE_ARCHITECT';
+          });
+          applyNpcEconomy(safePlayer.world.npcEconomy);
           if (!Array.isArray(safePlayer.pendingEvents)) safePlayer.pendingEvents = [];
           if (!Array.isArray(safePlayer.logs)) safePlayer.logs = [];
           if (!safePlayer.weeklyOpportunities || !Array.isArray(safePlayer.weeklyOpportunities.auditions) || !Array.isArray(safePlayer.weeklyOpportunities.jobs)) {
@@ -1776,8 +1783,8 @@ export const App: React.FC = () => {
   };
 
   
-  const handleEventComplete = (updatedPlayer: Player) => { 
-      setPlayer({ ...updatedPlayer, pendingEvent: null }); 
+  const handleEventComplete = (updatedPlayer: Player) => {
+      setPlayer(promotePendingEvent({ ...updatedPlayer, pendingEvent: null }));
   };
 
   const resolveQueuedEventSafely = (
@@ -1823,6 +1830,7 @@ export const App: React.FC = () => {
     if (currentSlot) {
         await deleteGameData(`actorEmpireSave_${currentSlot}`);
         setSaveSlots(prev => ({ ...prev, [currentSlot]: null }));
+        applyNpcEconomy(null);
         setPlayer(INITIAL_PLAYER);
         setGameStatus('CREATION');
         setShowDebtModal(false);
@@ -1999,7 +2007,7 @@ export const App: React.FC = () => {
           </div>
       )}
 
-      {player.pendingEvent && (player.pendingEvent.type === 'AWARD_CEREMONY' || player.pendingEvent.type === 'PREMIERE') && (<RedCarpetEvent player={player} event={player.pendingEvent} onComplete={handleEventComplete} />)}
+      {player.pendingEvent && (player.pendingEvent.type === 'AWARD_CEREMONY' || player.pendingEvent.type === 'PREMIERE') && (<RedCarpetEvent key={player.pendingEvent.id} player={player} event={player.pendingEvent} onComplete={handleEventComplete} />)}
       {player.pendingEvents && player.pendingEvents.length > 0 && (player.pendingEvents[0].type === 'PRODUCTION_CRISIS' || player.pendingEvents[0].type === 'DIRECTOR_DECISION') && (
           <ProductionCrisisModal 
               key={player.pendingEvents[0].id}

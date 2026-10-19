@@ -1,6 +1,6 @@
 
 // ... existing imports
-import { NPCActor, NPCTier, NPCPrestige, Player, InstaPost, InstaPostType, InteractionType, Genre, Gender, ActorTrait } from '../types';
+import { NPCActor, NPCTier, NPCPrestige, Player, InstaPost, InstaPostType, InteractionType, Genre, Gender, ActorTrait, NpcEconomyEntry } from '../types';
 import { MOD_TALENT_ROWS, ModTalentRow } from './modTalentData';
 import { getInstagramPostComments, getInstagramPresetCaption } from './instagramLogic';
 import { ALL_GENRES, hydrateGenreXP } from './genreCatalog';
@@ -610,7 +610,7 @@ const generateRandomNPC = (seed: number | string): NPCActor => {
     }
 
     return {
-        id: `npc_rnd_${seed}_${Date.now()}`,
+        id: typeof seed === 'number' ? `rnd_act_${seed}` : `npc_rnd_${seed}_${Date.now()}`,
         name,
         handle,
         gender,
@@ -713,8 +713,39 @@ export const generateNPCs = (): NPCActor[] => {
     return npcs;
 };
 
-// GLOBAL DB (Initialized once in app)
+// GLOBAL DB (Initialized once in app). Fame and net worth are copied per save.
 export const NPC_DATABASE = generateNPCs();
+
+const readNpcEconomy = (npc: NPCActor): NpcEconomyEntry => ({
+    fame: Number.isFinite(npc.stats?.fame) ? Number(npc.stats?.fame) : 0,
+    netWorth: Number.isFinite(npc.netWorth) ? npc.netWorth : 0,
+});
+
+const BASE_NPC_ECONOMY: Record<string, NpcEconomyEntry> = Object.fromEntries(
+    NPC_DATABASE.map(npc => [npc.id, readNpcEconomy(npc)])
+);
+
+export const captureNpcEconomy = (): Record<string, NpcEconomyEntry> => {
+    const snapshot: Record<string, NpcEconomyEntry> = {};
+    NPC_DATABASE.forEach(npc => {
+        snapshot[npc.id] = readNpcEconomy(npc);
+    });
+    return snapshot;
+};
+
+/** Reset the shared roster to this session's base cast, then apply one save's snapshot. */
+export const applyNpcEconomy = (snapshot?: Record<string, NpcEconomyEntry> | null): void => {
+    const saved = snapshot && typeof snapshot === 'object' ? snapshot : undefined;
+    NPC_DATABASE.forEach(npc => {
+        const base = BASE_NPC_ECONOMY[npc.id] || { fame: 0, netWorth: 0 };
+        const entry = saved?.[npc.id];
+        const fame = entry && Number.isFinite(entry.fame) ? entry.fame : base.fame;
+        const netWorth = entry && Number.isFinite(entry.netWorth) ? entry.netWorth : base.netWorth;
+        if (!npc.stats) npc.stats = {};
+        npc.stats.fame = fame;
+        npc.netWorth = netWorth;
+    });
+};
 
 // --- TALENT AVAILABILITY LOGIC ---
 

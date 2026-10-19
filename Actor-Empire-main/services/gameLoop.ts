@@ -1,5 +1,5 @@
 
-import { Player, Commitment, ActiveRelease, StreamingState, LogEntry, NegotiationData, ActorSkills, Application, AuditionOpportunity, ProjectDetails, ScheduledEvent, TransactionCategory, Transaction, YearlyFinance, Message, IndustryProject, TeamMember, Business, InstaPost, XPost, WriterStats, DirectorStats, PlatformId, LegalCase, LifeEvent, RoleType, FamilyObligation, FuturePotential, PlayerReturnStatus, SponsorshipCategory, SponsorshipOffer, NewsItem } from '../types';
+import { Player, Commitment, ActiveRelease, StreamingState, LogEntry, NegotiationData, ActorSkills, Application, AuditionOpportunity, ProjectDetails, ScheduledEvent, PendingEvent, TransactionCategory, Transaction, YearlyFinance, Message, IndustryProject, TeamMember, Business, InstaPost, XPost, WriterStats, DirectorStats, PlatformId, LegalCase, LifeEvent, RoleType, FamilyObligation, FuturePotential, PlayerReturnStatus, SponsorshipCategory, SponsorshipOffer, NewsItem } from '../types';
 import { PROPERTY_CATALOG, BUSINESS_CATALOG, CAR_CATALOG, MOTORCYCLE_CATALOG, BOAT_CATALOG, AIRCRAFT_CATALOG, CLOTHING_CATALOG } from './lifestyleLogic';
 import { 
     calculateGlobalTalent, 
@@ -33,7 +33,8 @@ import {
     PLATFORMS, 
     calculateStreamingViewership, 
     checkStreamingExit,
-    getStreamingStateSnapshot
+    getStreamingStateSnapshot,
+    genreBiasMatches
 } from './streamingLogic';
 import { 
     generateWeeklyNews, 
@@ -687,6 +688,62 @@ const getPlayerProjectRoleType = (roleType: string | undefined, castList?: any[]
     return (roleType as RoleType) || 'MINOR';
 };
 
+const QUEUED_MODAL_EVENT_TYPES = new Set(['LIFE_EVENT', 'LEGAL_HEARING', 'SCANDAL', 'UNDERWORLD_OFFER']);
+
+export const assignScheduledEvents = (
+    pendingEvent: PendingEvent | null,
+    pendingEventQueue: PendingEvent[] | undefined,
+    pendingEvents: PendingEvent[] | undefined,
+    eventsToday: ScheduledEvent[]
+): { pendingEvent: PendingEvent | null; pendingEventQueue: PendingEvent[]; pendingEvents: PendingEvent[]; logs: string[] } => {
+    let nextPending = pendingEvent;
+    const queue = Array.isArray(pendingEventQueue) ? [...pendingEventQueue] : [];
+    const modalQueue = Array.isArray(pendingEvents) ? [...pendingEvents] : [];
+    const logs: string[] = [];
+    const seen = new Set<string>();
+    if (nextPending?.id) seen.add(nextPending.id);
+    queue.forEach(event => {
+        if (event?.id) seen.add(event.id);
+    });
+
+    const pushSlotEvent = (event: ScheduledEvent) => {
+        if (event.id && seen.has(event.id)) return;
+        if (event.id) seen.add(event.id);
+        if (!nextPending) nextPending = event;
+        else queue.push(event);
+    };
+
+    eventsToday.forEach(eventToday => {
+        if (eventToday.type === 'AWARD_CEREMONY') {
+            const nominations = eventToday.data?.nominations || [];
+            if (nominations.length > 0) {
+                pushSlotEvent(eventToday);
+                logs.push(`📅 Today is the day: ${eventToday.title}. Good luck!`);
+            } else {
+                logs.push(`📺 ${eventToday.title} is airing tonight. You are watching from home.`);
+            }
+            return;
+        }
+
+        if (QUEUED_MODAL_EVENT_TYPES.has(eventToday.type)) {
+            modalQueue.push(eventToday);
+            logs.push(`📅 Event: ${eventToday.title}`);
+            return;
+        }
+
+        pushSlotEvent(eventToday);
+        logs.push(`📅 Event: ${eventToday.title}`);
+    });
+
+    return { pendingEvent: nextPending, pendingEventQueue: queue, pendingEvents: modalQueue, logs };
+};
+
+export const promotePendingEvent = <T extends { pendingEvent: PendingEvent | null; pendingEventQueue?: PendingEvent[] }>(player: T): T => {
+    const queue = Array.isArray(player.pendingEventQueue) ? player.pendingEventQueue.filter(Boolean) : [];
+    const [next, ...rest] = queue;
+    return { ...player, pendingEvent: next ?? null, pendingEventQueue: rest };
+};
+
 // Returns updated player AND a flag if an ad should be triggered
 export const processGameWeek = async (player: Player): Promise<{ player: Player, triggerAd: boolean }> => {
     let nextPlayer = JSON.parse(JSON.stringify(player)) as Player;
@@ -1098,27 +1155,14 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     familyDramaResult.logs.forEach(log => logsToAdd.push(log));
 
     // --- 0.6 CHECK FOR SCHEDULED EVENTS ---
-    const eventsToday = nextPlayer.scheduledEvents.filter(e => e.week === nextPlayer.currentWeek);
+    const eventsToday = (nextPlayer.scheduledEvents || []).filter(e => e.week === nextPlayer.currentWeek);
     if (eventsToday.length > 0) {
         nextPlayer.scheduledEvents = nextPlayer.scheduledEvents.filter(e => e.week !== nextPlayer.currentWeek);
-        eventsToday.forEach(eventToday => {
-            if (eventToday.type === 'AWARD_CEREMONY') {
-                const nominations = eventToday.data?.nominations || [];
-                if (nominations.length > 0) {
-                    nextPlayer.pendingEvent = eventToday;
-                    logsToAdd.push({ msg: `📅 Today is the day: ${eventToday.title}. Good luck!`, type: 'neutral' });
-                } else {
-                    logsToAdd.push({ msg: `📺 ${eventToday.title} is airing tonight. You are watching from home.`, type: 'neutral' });
-                }
-            } else if (['LIFE_EVENT', 'LEGAL_HEARING', 'SCANDAL', 'UNDERWORLD_OFFER'].includes(eventToday.type)) {
-                if (!nextPlayer.pendingEvents) nextPlayer.pendingEvents = [];
-                nextPlayer.pendingEvents.push(eventToday);
-                logsToAdd.push({ msg: `📅 Event: ${eventToday.title}`, type: 'neutral' });
-            } else {
-                nextPlayer.pendingEvent = eventToday;
-                logsToAdd.push({ msg: `📅 Event: ${eventToday.title}`, type: 'neutral' });
-            }
-        });
+        const assigned = assignScheduledEvents(nextPlayer.pendingEvent, nextPlayer.pendingEventQueue, nextPlayer.pendingEvents, eventsToday);
+        nextPlayer.pendingEvent = assigned.pendingEvent;
+        nextPlayer.pendingEventQueue = assigned.pendingEventQueue;
+        nextPlayer.pendingEvents = assigned.pendingEvents;
+        assigned.logs.forEach(msg => logsToAdd.push({ msg, type: 'neutral' }));
     }
 
     const pendingUniversePayouts: { universeId: string; studioId: string; label: string; amount: number }[] = [];
@@ -2680,7 +2724,10 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             if (updatedC.projectDetails?.releaseStrategy) {
                 if (weeksLeft <= 0) {
                     const imdb = calculateIMDbRating(updatedC);
-                const budget = updatedC.projectDetails?.estimatedBudget || getEstimatedBudget(updatedC.projectDetails?.budgetTier || 'LOW');
+                const estimatedBudget = updatedC.projectDetails?.estimatedBudget;
+                const budget = typeof estimatedBudget === 'number' && Number.isFinite(estimatedBudget) && estimatedBudget > 0
+                    ? estimatedBudget
+                    : getEstimatedBudget(updatedC.projectDetails?.budgetTier || 'LOW');
                 const isTV = updatedC.projectDetails?.type === 'SERIES';
                 const isStreamingOnly = isTV || updatedC.projectDetails?.releaseStrategy === 'STREAMING_ONLY';
 
@@ -2905,7 +2952,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
 	            const releaseStudio = nextPlayer.businesses?.find(b => b.id === rel.projectDetails.studioId && b.type === 'PRODUCTION_HOUSE');
 	            const marketDemand = getProjectMarketDemand(rel.projectDetails, nextPlayer.currentWeek, releaseStudio?.studioState?.marketTrends);
 	            const studioGenreReputation = getStudioGenreReputation(releaseStudio, rel.projectDetails.genre);
-	            const uncappedRevenue = calculateWeeklyBoxOffice(
+	            const uncappedRevenue = ensureFiniteNumber(calculateWeeklyBoxOffice(
 	                rel.weekNum,
 	                rel.budget,
                 rel.projectDetails.hiddenStats,
@@ -2916,7 +2963,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
 	                rel.projectDetails.format || 'LIVE_ACTION',
 	                marketDemand,
 	                studioGenreReputation
-	            );
+	            ));
             const boxOfficeCaps = getBoxOfficeCaps(rel.projectDetails.budgetTier);
             const thinSpectaclePenalty =
                 ['ACTION', 'SCI_FI', 'SUPERHERO', 'ADVENTURE'].includes(rel.projectDetails.genre) &&
@@ -2925,9 +2972,10 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             const effectiveTotalCap = thinSpectaclePenalty
                 ? Math.floor(boxOfficeCaps.total * (0.54 + ((rel.projectDetails.hiddenStats.castDepthScore ?? 45) / 180)))
                 : boxOfficeCaps.total;
-            const remainingHeadroom = Math.max(0, effectiveTotalCap - rel.totalGross);
+            const safeTotalGross = ensureFiniteNumber(rel.totalGross);
+            const remainingHeadroom = Math.max(0, ensureFiniteNumber(effectiveTotalCap) - safeTotalGross);
             const revenue = Math.min(uncappedRevenue, remainingHeadroom);
-            const newTotal = rel.totalGross + revenue;
+            const newTotal = safeTotalGross + revenue;
             const newWeeklyGross = [...rel.weeklyGross, revenue];
             const maxWeeks = rel.maxTheatricalWeeks || 12; 
             const isPulledRevenue = rel.weekNum >= 3 && revenue < (rel.budget * 0.05); 
@@ -2999,7 +3047,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                             if (!platformState) return;
 
                             // Base interest on quality, genre match, and platform's desperation (recentHits)
-                            const isGenreMatch = platformProfile.genreBias.some(g => g.toUpperCase().replace('-', '_') === rel.projectDetails.genre) ? 1.15 : 0.95;
+                            const isGenreMatch = genreBiasMatches(platformProfile.genreBias, rel.projectDetails.genre) ? 1.15 : 0.95;
                             const desperation = Math.max(0.5, 1.5 - (platformState.recentHits * 0.1));
                             const qualityScore = rel.projectDetails.hiddenStats.qualityScore || 50;
                             const scriptQuality = rel.projectDetails.hiddenStats.scriptQuality || 50;
@@ -3350,7 +3398,9 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     const awardShow = AWARD_CALENDAR[nextPlayer.currentWeek];
     if (awardShow) {
         const existingEntry = nextPlayer.world.awardHistory.find(h => h.year === nextPlayer.age && h.type === awardShow.type);
-        const ceremonyPendingForPlayer = nextPlayer.pendingEvent?.type === 'AWARD_CEREMONY' && nextPlayer.pendingEvent.data?.awardDef?.type === awardShow.type;
+        const ceremonyPendingForPlayer = [nextPlayer.pendingEvent, ...(nextPlayer.pendingEventQueue || [])].some(event =>
+            event?.type === 'AWARD_CEREMONY' && event.data?.awardDef?.type === awardShow.type
+        );
         if (!existingEntry && !ceremonyPendingForPlayer) {
             const historyEntry = generateSeasonWinners(nextPlayer, awardShow.type, nextPlayer.age);
             nextPlayer.world.awardHistory.push(historyEntry);

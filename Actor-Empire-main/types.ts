@@ -1317,6 +1317,11 @@ export enum Page {
       closureReason?: string;
   }
   
+  export interface NpcEconomyEntry {
+      fame: number;
+      netWorth: number;
+  }
+
   export interface WorldState {
       projects: IndustryProject[];
       trendingGenre: Genre;
@@ -1327,6 +1332,8 @@ export enum Page {
       platforms?: Record<PlatformId, PlatformState>;
       studios?: Record<StudioId, NPCStudioState>;
       npcVentures?: Record<string, NpcVentureState>;
+      /** Per-save fame and net worth for NPC_DATABASE. Missing on older saves. */
+      npcEconomy?: Record<string, NpcEconomyEntry>;
   }
   
   export interface LogEntry {
@@ -1581,6 +1588,8 @@ export enum Page {
       scheduledEvents: ScheduledEvent[];
       pendingEvent: PendingEvent | null;
       pendingEvents?: PendingEvent[];
+      /** Ceremonies and other single-slot events waiting behind pendingEvent. */
+      pendingEventQueue?: PendingEvent[];
       activeUniverseContract?: UniverseContract;
       lastForbesRank?: number;
       studioMemory: Record<StudioId, { projectOutcomes: number[] }>;
@@ -1733,7 +1742,7 @@ export enum Page {
               APPLE_TV: { id: 'APPLE_TV', name: 'Apple TV+', subscribers: 45, valuation: 2900, reputation: 95, cashReserve: 20000, recentHits: 0, color: 'text-zinc-400', churnRate: 'SLOW' },
               DISNEY_PLUS: { id: 'DISNEY_PLUS', name: 'Disney+', subscribers: 150, valuation: 180, reputation: 85, cashReserve: 8000, recentHits: 0, color: 'text-blue-500', churnRate: 'SLOW' },
               HULU: { id: 'HULU', name: 'Hulu', subscribers: 48, valuation: 27, reputation: 75, cashReserve: 2000, recentHits: 0, color: 'text-emerald-500', churnRate: 'MEDIUM' },
-              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', subscribers: 2500, valuation: 1800, reputation: 60, cashReserve: 15000, recentHits: 0, color: 'text-red-500', churnRate: 'FAST' }
+              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', subscribers: 2700, valuation: 350, reputation: 60, cashReserve: 15000, recentHits: 0, color: 'text-red-500', churnRate: 'FAST' }
           },
           studios: {
               PARAMOUNT: { id: 'PARAMOUNT', name: 'Paramount Pictures', valuation: 22, reputation: 85, cashReserve: 3000, recentHits: 0, archetype: 'LEGACY' },
@@ -1745,10 +1754,10 @@ export enum Page {
               APPLE_TV: { id: 'APPLE_TV', name: 'Apple TV+', valuation: 2900, reputation: 95, cashReserve: 20000, recentHits: 0, archetype: 'PLATFORM' },
               DISNEY_PLUS: { id: 'DISNEY_PLUS', name: 'Disney+', valuation: 180, reputation: 85, cashReserve: 8000, recentHits: 0, archetype: 'PLATFORM' },
               HULU: { id: 'HULU', name: 'Hulu', valuation: 27, reputation: 75, cashReserve: 2000, recentHits: 0, archetype: 'PLATFORM' },
-              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', valuation: 1800, reputation: 60, cashReserve: 15000, recentHits: 0, archetype: 'PLATFORM' },
-              MARVEL_STUDIOS: { id: 'MARVEL_STUDIOS', name: 'Marvel Studios', valuation: 50, reputation: 90, cashReserve: 6000, recentHits: 0, archetype: 'FRANCHISE' },
-              DC_STUDIOS: { id: 'DC_STUDIOS', name: 'DC Studios', valuation: 30, reputation: 80, cashReserve: 4000, recentHits: 0, archetype: 'FRANCHISE' },
-              LUCASFILM: { id: 'LUCASFILM', name: 'Lucasfilm', valuation: 40, reputation: 85, cashReserve: 5000, recentHits: 0, archetype: 'FRANCHISE' }
+              YOUTUBE: { id: 'YOUTUBE', name: 'YouTube', valuation: 350, reputation: 60, cashReserve: 15000, recentHits: 0, archetype: 'PLATFORM' },
+              MARVEL_STUDIOS: { id: 'MARVEL_STUDIOS', name: 'Marvel Studios', valuation: 50, reputation: 90, cashReserve: 6000, recentHits: 0, archetype: 'UNIVERSE_ARCHITECT' },
+              DC_STUDIOS: { id: 'DC_STUDIOS', name: 'DC Studios', valuation: 30, reputation: 80, cashReserve: 4000, recentHits: 0, archetype: 'UNIVERSE_ARCHITECT' },
+              LUCASFILM: { id: 'LUCASFILM', name: 'Lucasfilm', valuation: 40, reputation: 85, cashReserve: 5000, recentHits: 0, archetype: 'UNIVERSE_ARCHITECT' }
           },
           npcVentures: {}
       },

@@ -1,6 +1,6 @@
 import { AuditionOpportunity, BudgetTier, Genre, IndustryProject, NewsItem, NpcVentureArchetype, NpcVentureState, Player, ProjectType, RoleType, WorldState } from '../types';
 import { NPC_DATABASE, calculateProjectFameMultiplier } from './npcLogic';
-import { calculateProjectPay, generateProjectDetails, generateProjectTitle, getEstimatedBudget } from './roleLogic';
+import { calculateProjectPay, generateProjectDetails, generateProjectTitle, getEstimatedBudget, sanitizeGross } from './roleLogic';
 import { getEnabledGlobalCreatorSocialProfiles } from './youtubeLogic';
 
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -226,7 +226,7 @@ const createVentureProject = (player: Player, venture: NpcVentureState): Industr
     const hypeMultiplier = 0.75 + (venture.hype / 120);
     const qualityMultiplier = Math.max(0.28, quality / 56);
     const volatility = 0.48 + Math.random() * 1.35;
-    const boxOffice = Math.floor(budget * fameMultiplier * hypeMultiplier * qualityMultiplier * volatility);
+    const boxOffice = sanitizeGross((Number.isFinite(budget) ? budget : 0) * fameMultiplier * hypeMultiplier * qualityMultiplier * volatility);
 
     return {
         id: `npc_venture_project_${venture.id}_${Date.now()}_${Math.random()}`,

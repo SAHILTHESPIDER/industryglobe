@@ -1,5 +1,5 @@
 
-import { PlatformId, StreamingState, ActiveRelease, ProjectDetails, ProjectType, StreamingTrend, StreamingLifecycle, LogEntry, NewsItem } from '../types';
+import { PlatformId, StreamingState, ActiveRelease, ProjectDetails, ProjectType, StreamingTrend, StreamingLifecycle, LogEntry, NewsItem, Genre } from '../types';
 
 export interface PlatformProfile {
     id: PlatformId;
@@ -77,6 +77,24 @@ export const PLATFORMS: Record<PlatformId, PlatformProfile> = {
     }
 };
 
+const GENRE_BIAS_ALIASES: Record<string, Genre> = {
+    ROMCOM: 'ROMANCE',
+    ROM_COM: 'ROMANCE',
+    SCIFI: 'SCI_FI',
+};
+
+/** Platform bias labels are display text ("Sci-Fi", "RomCom"); projects store Genre enums. */
+export const normalizeGenreLabel = (label: string): string => {
+    const compact = String(label || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+    return GENRE_BIAS_ALIASES[compact] || compact;
+};
+
+export const genreBiasMatches = (bias: readonly string[] | undefined, genre: string): boolean => {
+    if (!Array.isArray(bias) || !genre) return false;
+    const target = normalizeGenreLabel(genre);
+    return bias.some(label => normalizeGenreLabel(label) === target);
+};
+
 // --- ACQUISITION LOGIC ---
 
 export const determineStreamingAcquisition = (project: ProjectDetails): PlatformId => {
@@ -95,7 +113,7 @@ export const determineStreamingAcquisition = (project: ProjectDetails): Platform
 
     // 1. Genre Fit
     Object.values(PLATFORMS).forEach(plat => {
-        if (plat.genreBias.includes(genre)) scores[plat.id] += 20;
+        if (genreBiasMatches(plat.genreBias, genre)) scores[plat.id] += 20;
     });
 
     // 2. Budget Fit

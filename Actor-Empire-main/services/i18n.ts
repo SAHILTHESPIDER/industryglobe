@@ -113,7 +113,7 @@ const translations: Record<GameLanguage, Record<TranslationKey, string>> = {
         'settings.mainMenuSub': 'Save and quit to title',
         'settings.general': 'General',
         'settings.language': 'Language',
-        'settings.languagePhaseNote': 'Actor Empire is locked to English right now. More languages will arrive in the next update.',
+        'settings.languagePhaseNote': 'Choose the language used for menus and news.',
         'settings.languageComingSoon': 'Language support coming in the next update',
         'settings.defaultLanguage': 'Default language',
         'settings.optionalContent': 'Optional Content',
@@ -850,9 +850,9 @@ const translations: Record<GameLanguage, Record<TranslationKey, string>> = {
         'settings.mainMenuSub': 'Salvar e sair para o título',
         'settings.general': 'Geral',
         'settings.language': 'Idioma',
-        'settings.languagePhaseNote': 'Actor Empire is locked to English right now. More languages will arrive in the next update.',
-        'settings.languageComingSoon': 'Language support coming in the next update',
-        'settings.defaultLanguage': 'Default language',
+        'settings.languagePhaseNote': 'Escolha o idioma dos menus e das notícias.',
+        'settings.languageComingSoon': 'Mais idiomas chegam na próxima atualização',
+        'settings.defaultLanguage': 'Idioma padrão',
         'settings.optionalContent': 'Conteúdo Opcional',
         'settings.externalTalent': 'Talentos Externos',
         'settings.externalTalentSub': 'Pacotes de atores, diretores e criadores por país para elenco, Forbes e descoberta social.',
@@ -1486,7 +1486,7 @@ const translations: Record<GameLanguage, Record<TranslationKey, string>> = {
 };
 
 export const getPlayerLanguage = (player?: Pick<Player, 'settings'> | null): GameLanguage => {
-    return 'en';
+    return player?.settings?.language === 'pt-BR' ? 'pt-BR' : 'en';
 };
 
 export const t = (language: GameLanguage, key: TranslationKey, vars: TranslationVars = {}) => {
