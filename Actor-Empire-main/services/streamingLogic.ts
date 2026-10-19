@@ -412,6 +412,7 @@ export const buildStreamingDashboardData = (
     safeReleases.forEach(release => {
         if (release.distributionPhase === 'STREAMING' && release.streaming) {
             const platform = PLATFORMS[release.streaming.platformId];
+            if (!platform) return;
             const latestWeekViews = release.streaming.weeklyViews[release.streaming.weeklyViews.length - 1] || 0;
             const lifecycle = release.streaming.lifecycle || getStreamingLifecycle(release.streaming, currentAbsoluteWeek, currentWeek);
             const trend = release.streaming.trend || getStreamingTrend(release.streaming.weeklyViews);
@@ -435,7 +436,7 @@ export const buildStreamingDashboardData = (
                 releaseId: release.id,
                 name: release.name,
                 platformId: release.streaming.platformId,
-                platformName: platform.name,
+                platformName: release.streaming.streamerName || platform.name,
                 platformColor: platform.color,
                 weekOnPlatform: release.streaming.weekOnPlatform,
                 totalViews: release.streaming.totalViews,

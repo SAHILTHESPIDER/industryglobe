@@ -39,6 +39,7 @@ import { APP_DISPLAY_VERSION } from './services/appVersion';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
 import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
+import { migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
 import {
   addBreadcrumb,
   markGameCheckpoint,
@@ -862,6 +863,10 @@ export const App: React.FC = () => {
               ...(safePlayer.settings && typeof safePlayer.settings === 'object' ? safePlayer.settings : {})
           };
           safePlayer.settings.language = safePlayer.settings.language === 'pt-BR' ? 'pt-BR' : 'en';
+          if (safePlayer.ownPlatform) {
+              const migrated = migrateOwnPlatformOnLoad(safePlayer as Player);
+              safePlayer.ownPlatform = migrated.ownPlatform;
+          }
           safePlayer.settings.smoothMode = safePlayer.settings.smoothMode === true;
 
           if (!safePlayer.writerStats) {
