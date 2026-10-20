@@ -3659,9 +3659,9 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
                 <div className="flex items-center gap-3 mt-1">
                     <span className="text-xs font-medium text-amber-400 uppercase tracking-widest border border-amber-900/50 bg-amber-950/30 px-2 py-1 rounded">Actor</span>
                 </div>
-                <div className="flex items-center gap-1 mt-3 text-emerald-400 font-mono text-lg font-bold truncate">
+                <button type="button" onClick={() => nav?.openPhone({ app: 'BANK' })} className="mt-3 flex min-h-11 items-center text-left text-emerald-400 font-mono text-lg font-bold truncate">
                     {formatMoney(player.money)}
-                </div>
+                </button>
             </div>
             
             <div className="flex flex-col items-center justify-center pl-4 border-l border-white/5 shrink-0">

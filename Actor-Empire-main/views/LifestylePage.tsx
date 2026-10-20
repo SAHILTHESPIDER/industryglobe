@@ -10,6 +10,7 @@ import { ProductionHouseGame } from './lifestyle/business/ProductionHouseGame';
 import { PROPERTY_CUSTOMIZATIONS, VEHICLE_CUSTOMIZATIONS } from '../services/lifestyleLogic';
 import { PremiumProductId } from '../services/premiumLogic';
 import { getPlayerLanguage, t } from '../services/i18n';
+import { useGameNav } from '../components/GameNav';
 
 interface LifestylePageProps {
   player: Player;
@@ -30,6 +31,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
   const [view, setView] = useState<'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME' | 'STREAMING'>('MAIN');
   const [customizationItem, setCustomizationItem] = useState<Property | Vehicle | null>(null);
   const [selectedCustomizations, setSelectedCustomizations] = useState<any[]>([]);
+  const nav = useGameNav();
   const language = getPlayerLanguage(player);
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
   const trFallback = (key: string, fallback: string) => {
@@ -178,7 +180,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
             <div className="absolute top-0 right-0 p-4 opacity-5"><CreditCard size={100} /></div>
             <div className="relative z-10">
                 <div className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">{tr('lifestyle.liquidCash')}</div>
-                <div className="text-3xl font-bold text-white tracking-tight mb-4">${player.money.toLocaleString()}</div>
+                <button type="button" onClick={() => nav?.openPhone({ app: 'BANK' })} className="mb-4 block min-h-11 text-left text-3xl font-bold text-white tracking-tight">${player.money.toLocaleString()}</button>
                 <div className="flex gap-4">
                     <div><div className="text-[10px] text-zinc-600 uppercase font-bold">{tr('lifestyle.assets')}</div><div className="text-sm font-mono text-zinc-300">~${(player.assets.length * 50000).toLocaleString()}</div></div>
                     <div><div className="text-[10px] text-zinc-600 uppercase font-bold">{tr('lifestyle.equity')}</div><div className="text-sm font-mono text-emerald-400">${player.businesses.reduce((sum, b) => sum + b.stats.valuation, 0).toLocaleString()}</div></div>
