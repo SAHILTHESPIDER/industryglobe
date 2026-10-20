@@ -98,7 +98,7 @@ export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd,
 
 
     return (
-        <div className="space-y-6 pb-24 pt-4 animate-in slide-in-from-right duration-300">
+        <div className="space-y-6 pb-8 pt-2 animate-in slide-in-from-right duration-300">
             {/* Header */}
             <div className="flex items-center gap-4">
                 <button onClick={onBack} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 transition-colors">
@@ -177,7 +177,7 @@ export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd,
                                     <div className="font-bold text-white">{section.title}</div>
                                 </div>
 
-                                <div className="space-y-3">
+                                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                                     {section.products.map(product => {
                                         const owned = hasPremiumProduct(player, product.id);
                                         const ProductIcon = getProductIcon(product.id);

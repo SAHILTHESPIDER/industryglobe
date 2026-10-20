@@ -106,8 +106,8 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
   };
 
   return (
-    <div className="space-y-6 pb-24 pt-4">
-      <h2 className="text-3xl font-bold text-white mb-2">{tr('improve.title')}</h2>
+    <div className="space-y-6 pb-8 pt-2 lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-6 lg:space-y-0">
+      <h2 className="text-3xl font-bold text-white mb-2 lg:col-span-2">{tr('improve.title')}</h2>
 
       {/* SECTION 1: ACTOR SKILL PROFILE (ACCORDION) */}
       <div className="glass-card rounded-3xl overflow-hidden transition-all duration-300">
@@ -171,6 +171,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
           )}
       </div>
 
+      <div className="space-y-6">
       {/* SECTION 2: TABS */}
       <div className="flex p-1 bg-zinc-900/50 rounded-2xl border border-white/5">
           <button 
@@ -198,7 +199,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
           <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
               
               {/* Category Selectors */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {CATEGORIES.map(cat => {
                       const Icon = cat.icon;
                       const isSelected = selectedCategory === cat.id;
@@ -344,7 +345,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                   ))}
               </div>
               
-              <div className="space-y-3">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                   {WORKSHOP_CATALOG.filter(course => {
                       if (workshopFilter === 'ALL') return true;
                       if (workshopFilter === 'ACTING') return !!course.skillGains;
@@ -468,7 +469,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                   <p>{tr('improve.genreHelp')}</p>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
                   {GENRE_TRAINING_CATALOG.map(training => {
                       const currentXP = player.stats.genreXP[training.genre] || 0;
                       const isMastered = currentXP >= 100;
@@ -531,6 +532,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
               </div>
           </div>
       )}
+      </div>
 
     </div>
   );

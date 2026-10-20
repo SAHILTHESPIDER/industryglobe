@@ -424,7 +424,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
 
   if (mode === 'PERFORMANCE') {
     return (
-      <div className="space-y-5 pb-24 pt-4">
+      <div className="space-y-5 pb-8 pt-2">
         {renderSubpageHeader('Display', 'Performance')}
 
         <div className="glass-card p-5 rounded-3xl space-y-4">
@@ -467,7 +467,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
 
   if (mode === 'GAMEPLAY') {
     return (
-      <div className="space-y-5 pb-24 pt-4">
+      <div className="space-y-5 pb-8 pt-2">
         {renderSubpageHeader('Career Rules', 'Gameplay')}
 
         <div className="space-y-3">
@@ -522,7 +522,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
 
   if (mode === 'SUPPORT') {
     return (
-      <div className="space-y-5 pb-24 pt-4">
+      <div className="space-y-5 pb-8 pt-2">
         {renderSubpageHeader('Help', 'Support')}
 
         <div className="glass-card p-5 rounded-3xl space-y-4">
@@ -766,7 +766,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
 
   if (mode === 'COMMUNITY') {
     return (
-      <div className="space-y-5 pb-24 pt-4">
+      <div className="space-y-5 pb-8 pt-2">
         {renderSubpageHeader('Links', 'Community')}
 
         <div className="space-y-3">
@@ -816,7 +816,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
 
   if (mode === 'MODS') {
     return (
-      <div className="space-y-5 pb-24 pt-4">
+      <div className="space-y-5 pb-8 pt-2">
         <div className="flex items-center gap-4">
           <button onClick={() => setMode('GAMEPLAY')} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 transition-colors">
               <ArrowLeft size={20} className="text-white"/>
@@ -879,7 +879,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
 
   if (mode === 'EXTERNAL_ACTORS') {
     return (
-      <div className="space-y-5 pb-24 pt-4">
+      <div className="space-y-5 pb-8 pt-2">
         <div className="flex items-center gap-4">
           <button onClick={() => setMode('MODS')} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 transition-colors">
               <ArrowLeft size={20} className="text-white"/>
@@ -941,7 +941,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
   }
 
   return (
-    <div className="space-y-5 pb-24 pt-4">
+    <div className="space-y-5 pb-8 pt-2">
       <div className="flex items-center gap-4">
         <button onClick={onBack} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 transition-colors">
           <ArrowLeft size={20} className="text-white"/>
@@ -952,7 +952,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
         </div>
       </div>
 
-      <div className="glass-card p-3 rounded-3xl space-y-2">
+      <div className="glass-card p-3 rounded-3xl space-y-2 lg:grid lg:grid-cols-2 lg:gap-2 lg:space-y-0">
         <SettingsRow
           icon={Gauge}
           title="Performance"

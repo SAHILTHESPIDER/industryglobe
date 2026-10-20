@@ -41,7 +41,7 @@ export const BusinessHub: React.FC<BusinessHubProps> = ({ player, onBack, onSele
                     </button>
                 </div>
             ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     {player.businesses.map(b => (
                         <div key={b.id} onClick={() => onSelectBusiness(b.id)} className="group relative bg-zinc-900 border border-zinc-800 p-5 rounded-[2rem] hover:border-zinc-700 transition-all cursor-pointer overflow-hidden">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">

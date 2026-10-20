@@ -54,7 +54,7 @@ export const StreamingPage: React.FC<StreamingPageProps> = ({ player, onBack, on
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="bg-zinc-800/90 border border-zinc-700 rounded-xl p-3">
             <div className="text-[10px] uppercase text-zinc-500">{tr('streaming.activeTitles')}</div>
             <div className="text-lg font-bold">{dashboard.summary.activeTitles}</div>

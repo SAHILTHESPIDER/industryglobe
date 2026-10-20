@@ -5,6 +5,7 @@ import { calculateLegacyScore, getGenerationNumber, getInteractionAgeInWeeks, ge
 import { getDivorceLawyerCost, isChildAbandoned } from '../services/familyLogic';
 import { hasOwnedPremiumAssetInCollection } from '../services/premiumLogic';
 import { getPlayerLanguage, t } from '../services/i18n';
+import { useGameNav } from '../components/GameNav';
 
 interface SocialPageProps {
   player: Player;
@@ -26,6 +27,7 @@ export const SocialPage: React.FC<SocialPageProps> = ({ player, onInteract, onCo
   const [activeTab, setActiveTab] = useState<SocialTab>('connections');
   const [legacyCandidate, setLegacyCandidate] = useState<Relationship | null>(null);
   const [showDivorceOptions, setShowDivorceOptions] = useState(false);
+  const nav = useGameNav();
   const language = getPlayerLanguage(player);
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
   const relationLabel = (relation: Relationship['relation']) => tr(`connections.relation.${relation}`);
@@ -293,8 +295,8 @@ export const SocialPage: React.FC<SocialPageProps> = ({ player, onInteract, onCo
   const closeLegacyConfirmation = () => setLegacyCandidate(null);
 
   return (
-    <div className="space-y-6 pb-24 pt-4 relative">
-      <div className="flex items-center justify-between gap-4">
+    <div className="space-y-6 pb-8 pt-2 relative">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold text-white">{activeTab === 'connections' ? tr('connections.title') : tr('connections.legacy')}</h2>
           <p className="text-xs uppercase tracking-[0.25em] text-zinc-500 mt-1">
@@ -305,6 +307,13 @@ export const SocialPage: React.FC<SocialPageProps> = ({ player, onInteract, onCo
           <div className="text-[10px] uppercase tracking-[0.2em] text-amber-500">{tr('connections.dynastyScore')}</div>
           <div className="text-lg font-black text-white">{dynastyScore}</div>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <button onClick={() => nav?.openPhone({ app: 'DATING_FOLDER' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">Dating apps</button>
+          <button onClick={() => nav?.openPhone({ app: 'INSTAGRAM' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">Instagram</button>
+          <button onClick={() => nav?.openPhone({ app: 'X' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">X</button>
+          <button onClick={() => nav?.openPhone({ app: 'MESSAGES' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">Messages</button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 p-1 rounded-2xl bg-zinc-900/70 border border-zinc-800">
@@ -327,7 +336,7 @@ export const SocialPage: React.FC<SocialPageProps> = ({ player, onInteract, onCo
           {innerCircle.length > 0 && (
               <div className="space-y-4">
                   <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">{tr('connections.innerCircle')}</h3>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {innerCircle.map(renderRelationshipCard)}
                   </div>
               </div>
@@ -336,7 +345,7 @@ export const SocialPage: React.FC<SocialPageProps> = ({ player, onInteract, onCo
           {relationshipCircle.length > 0 && (
               <div className="space-y-4">
                   <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">{tr('connections.relationships')}</h3>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {relationshipCircle.map(renderRelationshipCard)}
                   </div>
               </div>
@@ -345,7 +354,7 @@ export const SocialPage: React.FC<SocialPageProps> = ({ player, onInteract, onCo
           {professionalNetwork.length > 0 && (
               <div className="space-y-4">
                   <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-1">{tr('connections.networking')}</h3>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                       {professionalNetwork.map(renderRelationshipCard)}
                   </div>
               </div>
