@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Player, Commitment, InstaPostType, NPCActor, InteractionType, Agent, Manager, Message, SponsorshipActionType, AuditionOpportunity, DatingMatch, InstaPost, Relationship, SponsorshipOffer, NegotiationData, ContractFilm, YoutubeBrandDeal, YoutubeCollabOffer, PregnancyCarrier } from '../../types';
 import { MessageSquare, Search, BarChart3, Camera, Users, Newspaper, TrendingUp, Activity, Heart, Folder, Flame, Gem, Landmark, X, CheckCircle, AlertCircle, BookOpen, Map, Tv, Radio } from 'lucide-react';
 import { getPhaseDuration } from '../../services/roleLogic';
@@ -44,6 +44,9 @@ const AppIcon = ({ icon, color, label, onClick, badge, customContent, customBg }
     </div>
 );
 
+export type PhoneAppId = 'HOME' | 'CASTLINK' | 'IMDB' | 'BOXOFFICE' | 'STREAMING' | 'OWN_PLATFORM' | 'INSTAGRAM' | 'X' | 'YOUTUBE' | 'NEWS' | 'TEAM' | 'MESSAGES' | 'FORBES' | 'STOCKS' | 'DATING_FOLDER' | 'SOCIAL_FOLDER' | 'TINDER' | 'LUXE' | 'BANK' | 'GUIDE';
+export type PhoneLaunch = { app: PhoneAppId; pane?: 'launch' | 'build' | 'rights' | 'ops' | 'world' };
+
 interface MobilePageProps {
   player?: Player;
   onAudition?: (opportunity: AuditionOpportunity) => void;
@@ -65,7 +68,9 @@ interface MobilePageProps {
   onTradeStock?: (stockId: string, amount: number) => void;
   onFoundCompany?: () => void;
   onAcquirePlatform?: (stockId: string) => void;
-  onUpdatePlayer?: (player: Player) => void; 
+  onUpdatePlayer?: (player: Player) => void;
+  launchApp?: PhoneLaunch | null;
+  onLaunchConsumed?: () => void;
   onTriggerBabyNaming?: (pending: {
       partnerId: string;
       partnerName: string;
@@ -80,9 +85,16 @@ interface MobilePageProps {
 }
 
 export const MobilePage: React.FC<MobilePageProps> = (props) => {
-  const [appMode, setAppMode] = useState<'HOME' | 'CASTLINK' | 'IMDB' | 'BOXOFFICE' | 'STREAMING' | 'OWN_PLATFORM' | 'INSTAGRAM' | 'X' | 'YOUTUBE' | 'NEWS' | 'TEAM' | 'MESSAGES' | 'FORBES' | 'STOCKS' | 'DATING_FOLDER' | 'SOCIAL_FOLDER' | 'TINDER' | 'LUXE' | 'BANK' | 'GUIDE'>('HOME');
-  const [platformPane, setPlatformPane] = useState<'launch' | 'build' | 'rights' | 'world'>('launch');
+  const [appMode, setAppMode] = useState<PhoneAppId>('HOME');
+  const [platformPane, setPlatformPane] = useState<'launch' | 'build' | 'rights' | 'ops' | 'world'>('launch');
   const [toast, setToast] = useState<{msg: string, color: string} | null>(null);
+
+  useEffect(() => {
+      if (!props.launchApp) return;
+      setAppMode(props.launchApp.app);
+      if (props.launchApp.pane) setPlatformPane(props.launchApp.pane);
+      props.onLaunchConsumed?.();
+  }, [props.launchApp]);
 
   if (!props.player) return null; 
 
@@ -383,15 +395,45 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
       showToast(tr('mobile.toast.managerHired'), "bg-emerald-500");
   };
 
+  const deskApps: { id: PhoneAppId; label: string; pane?: 'launch' | 'build' | 'rights' | 'ops' | 'world' }[] = [
+      { id: 'MESSAGES', label: tr('mobile.messages') },
+      { id: 'CASTLINK', label: 'CastLink' },
+      { id: 'SOCIAL_FOLDER', label: tr('mobile.social') },
+      { id: 'NEWS', label: tr('mobile.news') },
+      { id: 'IMDB', label: 'IMDb' },
+      { id: 'BOXOFFICE', label: tr('mobile.boxOffice') },
+      { id: 'STREAMING', label: tr('mobile.streaming') },
+      { id: 'OWN_PLATFORM', label: 'Empire+', pane: 'launch' },
+      { id: 'TEAM', label: tr('mobile.team') },
+      { id: 'BANK', label: tr('mobile.bank') },
+      { id: 'FORBES', label: tr('mobile.forbes') },
+      { id: 'STOCKS', label: tr('mobile.stocks') },
+      { id: 'DATING_FOLDER', label: tr('mobile.dating') },
+      { id: 'GUIDE', label: tr('mobile.guide') },
+  ];
+
+  const openDesk = (app: PhoneAppId, pane?: 'launch' | 'build' | 'rights' | 'ops' | 'world') => {
+      if (pane) setPlatformPane(pane);
+      setAppMode(app);
+  };
+
   return (
-    <div className="h-[calc(100vh-8rem)] flex items-center justify-center pt-4 relative">
-        <div className="w-full max-w-xs h-full max-h-[650px] bg-black border-[6px] border-zinc-800 rounded-[3rem] overflow-hidden relative shadow-2xl ring-1 ring-zinc-700">
-            {/* Notch */}
-            <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-zinc-900 rounded-b-xl z-50"></div>
-            
+    <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-4 lg:items-stretch">
+        <aside className="hidden lg:flex flex-col gap-1 overflow-y-auto custom-scrollbar rounded-3xl border border-white/10 bg-zinc-950/80 p-3 max-h-[calc(100dvh-8.5rem)]">
+            <button onClick={() => setAppMode('HOME')} className={`rounded-2xl px-3 py-2 text-left text-sm font-bold ${appMode === 'HOME' ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/5'}`}>Home screen</button>
+            {deskApps.map(app => (
+                <button
+                    key={app.id}
+                    onClick={() => openDesk(app.id, app.pane)}
+                    className={`rounded-2xl px-3 py-2 text-left text-sm font-semibold ${appMode === app.id ? 'bg-amber-500/15 text-amber-200' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
+                >
+                    {app.label}{app.id === 'MESSAGES' && unreadMessages > 0 ? ` (${unreadMessages})` : ''}
+                </button>
+            ))}
+        </aside>
+        <div className="ae-phone-stage bg-black border border-zinc-800 shadow-2xl">
             <div className="w-full h-full bg-cover bg-center relative overflow-hidden" style={{ backgroundImage: 'linear-gradient(to bottom, #1e1b4b, #312e81)' }}>
-                {/* Status Bar */}
-                <div className="h-8 w-full flex justify-between items-center px-6 pt-2 text-[10px] text-white font-medium z-20 relative">
+                <div className="h-8 w-full flex justify-between items-center px-4 sm:px-6 pt-2 text-[10px] text-white font-medium z-20 relative">
                     <span>12:45</span>
                     <div className="flex gap-1">
                         <div className="w-3 h-3 bg-white rounded-full opacity-20"></div>
@@ -410,8 +452,8 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
 
                 {/* HOME SCREEN */}
                 {appMode === 'HOME' && (
-                    <div className="h-full w-full p-4 pt-10 flex flex-col animate-in fade-in duration-300">
-                        <div className="grid grid-cols-4 gap-x-4 gap-y-8 mt-4">
+                    <div className="h-full w-full p-4 pt-8 pb-8 flex flex-col overflow-y-auto custom-scrollbar animate-in fade-in duration-300">
+                        <div className="grid grid-cols-4 sm:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-6 mt-2">
                             <AppIcon 
                                 icon={<MessageSquare size={26} fill="white" />} 
                                 color="bg-green-500" 
@@ -650,8 +692,7 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <GuideView onBack={() => setAppMode('HOME')} />
                 )}
 
-                {/* Home Indicator */}
-                <div className="absolute bottom-1 left-0 right-0 flex justify-center pb-2 z-50 pointer-events-none">
+                <div className="absolute bottom-1 left-0 right-0 flex justify-center pb-2 z-50 pointer-events-none lg:hidden">
                      <div className="w-32 h-1 bg-white/20 rounded-full"></div>
                 </div>
             </div>

@@ -77,7 +77,7 @@ export const PressConferenceEvent: React.FC<PressConferenceEventProps> = ({ play
             ))}
 
             {/* Cancel Button */}
-            <button onClick={onClose} className="absolute top-6 right-6 z-50 text-white/50 hover:text-white transition-colors">
+            <button onClick={onClose} className="ae-tap absolute top-[max(1.25rem,env(safe-area-inset-top))] right-4 z-50 inline-flex items-center justify-center text-white/50 hover:text-white transition-colors">
                 <X size={24} />
             </button>
 
@@ -97,7 +97,7 @@ export const PressConferenceEvent: React.FC<PressConferenceEventProps> = ({ play
             </div>
 
             {/* Main Interaction Area */}
-            <div className="w-full max-w-md relative z-20 p-6 pb-12 md:pb-6 animate-in slide-in-from-bottom duration-500">
+            <div className="w-full max-w-md lg:max-w-2xl max-h-[88dvh] overflow-y-auto relative z-20 p-4 sm:p-6 pb-12 md:pb-6 animate-in slide-in-from-bottom duration-500">
                 
                 {/* Progress Indicators */}
                 <div className="flex gap-2 mb-6 justify-center">

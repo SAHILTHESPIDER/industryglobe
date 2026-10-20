@@ -145,7 +145,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ saveSlots, onSelectSlot, o
         </div>
 
         {/* --- MAIN MENU --- */}
-        <div className={`relative z-10 w-full h-full flex flex-col items-center justify-between py-12 px-6 transition-all duration-1000 ${showMenu ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
+            <div className={`relative z-10 w-full h-full flex flex-col items-center justify-between py-10 px-4 sm:px-6 transition-all duration-1000 ${showMenu ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}>
             
             {/* Background Animated Shapes */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -160,7 +160,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ saveSlots, onSelectSlot, o
             {/* Top Section: Title (Text Only) */}
             <div className="flex-1 flex flex-col items-center justify-center w-full">
                 <div className="relative">
-                    <h1 className="text-7xl md:text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-zinc-200 to-zinc-600 leading-[0.85] text-center mb-6 drop-shadow-2xl">
+                    <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-zinc-200 to-zinc-600 leading-[0.85] text-center mb-6 drop-shadow-2xl">
                         ACTOR<br/>EMPIRE
                     </h1>
                     <div className="absolute -right-6 -top-6 text-amber-500 animate-pulse">
@@ -176,7 +176,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ saveSlots, onSelectSlot, o
             </div>
 
             {/* Middle Section: Main Menu or Save Slots */}
-            <div className="w-full max-w-sm space-y-4 relative z-20">
+            <div className="w-full max-w-sm lg:max-w-4xl space-y-4 relative z-20">
                 {view === 'MAIN' ? (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <button 
@@ -198,7 +198,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ saveSlots, onSelectSlot, o
                             </button>
                         </div>
                         
-                        <div className="space-y-3">
+                        <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
                             {[1, 2, 3].map(renderSlot)}
                         </div>
                     </div>

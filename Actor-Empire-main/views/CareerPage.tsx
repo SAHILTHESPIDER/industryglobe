@@ -4,7 +4,8 @@ import { Player, Commitment } from '../types';
 import { getBuzzLabel } from '../services/roleLogic';
 import { getAbsoluteWeek, getElapsedWeeks } from '../services/legacyLogic';
 import { getPlayerLanguage, t } from '../services/i18n';
-import { Film, Clapperboard, Trophy, Mic2, Video, Zap, PenTool, Coffee, TrendingUp, Twitter, Camera, Hourglass, CheckCircle2, Calendar } from 'lucide-react';
+import { Film, Clapperboard, Trophy, Mic2, Video, Zap, PenTool, Coffee, TrendingUp, Twitter, Camera, Hourglass, CheckCircle2, Calendar, Smartphone } from 'lucide-react';
+import { useGameNav } from '../components/GameNav';
 
 interface CareerPageProps {
   player: Player;
@@ -16,6 +17,7 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
   const pendingApps = player.applications || [];
   const actingCommitments = player.commitments.filter(c => c.type === 'ACTING_GIG');
   const pastProjects = player.pastProjects || [];
+  const nav = useGameNav();
   const language = getPlayerLanguage(player);
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
 
@@ -27,15 +29,15 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
   const scheduledPhase = actingCommitments.filter(c => c.projectPhase === 'SCHEDULED');
 
   return (
-    <div className="space-y-8 pb-24 pt-4 relative">
+    <div className="space-y-8 pb-8 pt-2 relative">
       {/* Header Stats */}
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex flex-wrap items-center gap-3 mb-2">
          <div className="p-3 bg-amber-500/10 rounded-xl text-amber-500">
             <Film size={28} />
          </div>
          <div>
             <h2 className="text-3xl font-bold text-white">{tr('career.title')}</h2>
-            <div className="flex gap-3 text-xs text-zinc-400 mt-1">
+            <div className="flex flex-wrap gap-3 text-xs text-zinc-400 mt-1">
                 <span className="flex items-center gap-1"><Trophy size={12} className="text-blue-500"/> {tr('home.reputation')}: {Math.round(player.stats.reputation || 0)}</span>
                 <span className="flex items-center gap-1"><Clapperboard size={12} /> {tr('career.credits')}: {pastProjects.filter(p => p.type === 'ACTING_GIG').length}</span>
             </div>
@@ -44,8 +46,8 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
 
       {/* 1. AUDITION ROOM */}
       {auditionPhase.length > 0 && (
-          <div className="space-y-3 animate-in slide-in-from-left duration-300">
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-300">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
                 <Mic2 size={12} className="text-pink-500"/> {tr('career.auditionRoom')}
             </h3>
             {auditionPhase.map(gig => {
@@ -94,8 +96,8 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
 
       {/* 2. DEVELOPMENT HELL (PLANNING) */}
       {planningPhase.length > 0 && (
-          <div className="space-y-3 animate-in slide-in-from-left duration-300">
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-300">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
                 <PenTool size={12} className="text-yellow-500"/> {tr('career.development')}
             </h3>
             {planningPhase.map(gig => (
@@ -122,8 +124,8 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
 
       {/* 3. PRE-PRODUCTION */}
       {preProductionPhase.length > 0 && (
-          <div className="space-y-3 animate-in slide-in-from-left duration-300">
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-300">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
                 <Coffee size={12} className="text-orange-500"/> {tr('career.preProduction')}
             </h3>
             {preProductionPhase.map(gig => {
@@ -172,8 +174,8 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
 
       {/* 4. ON SET (PRODUCTION) */}
       {productionPhase.length > 0 && (
-          <div className="space-y-3 animate-in slide-in-from-left duration-500">
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-500">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
                 <Video size={12} className="text-emerald-500"/> {tr('career.onSet')}
             </h3>
             {productionPhase.map(gig => {
@@ -225,8 +227,8 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
 
       {/* 5. POST PRODUCTION (PROMOTION PHASE) */}
       {postPhase.length > 0 && (
-          <div className="space-y-3 animate-in slide-in-from-left duration-700">
-            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-700">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
                 <TrendingUp size={12} className="text-blue-500"/> {tr('career.promotionBuzz')}
             </h3>
             {postPhase.map(gig => {
@@ -301,8 +303,8 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
 
       {/* 6. UPCOMING SCHEDULE (NEW) */}
       {scheduledPhase.length > 0 && (
-          <div className="space-y-3 animate-in slide-in-from-left duration-700">
-             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2">
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-700">
+             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
                 <Calendar size={12} className="text-indigo-500"/> {tr('career.upcomingSlate')}
             </h3>
             {scheduledPhase.map((gig, idx) => (
@@ -344,6 +346,12 @@ export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onReh
             </div>
           </div>
       )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button onClick={() => nav?.openPhone({ app: 'CASTLINK' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-left text-sm font-bold text-white"><Smartphone size={14} className="mb-1 text-indigo-300" /> Find work on CastLink</button>
+          <button onClick={() => nav?.openPhone({ app: 'BOXOFFICE' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-left text-sm font-bold text-white">Box office</button>
+          <button onClick={() => nav?.openPhone({ app: 'STREAMING' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-left text-sm font-bold text-white">Streaming desk</button>
+      </div>
 
       {/* EMPTY STATE */}
       {auditionPhase.length === 0 && planningPhase.length === 0 && preProductionPhase.length === 0 && productionPhase.length === 0 && postPhase.length === 0 && pendingApps.length === 0 && scheduledPhase.length === 0 && (

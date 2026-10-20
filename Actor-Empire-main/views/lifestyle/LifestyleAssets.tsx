@@ -162,8 +162,9 @@ export const LifestyleAssets: React.FC<LifestyleAssetsProps> = ({ player, onBack
 
     if (mode === 'HUB') {
         return (
-            <div className="space-y-4 animate-in slide-in-from-right duration-300 pb-24">
-                <div className="flex items-center gap-4 mb-4"><button onClick={onBack}><ArrowLeft/></button><h2 className="text-2xl font-bold">{tr('lifestyle.myAssets')}</h2></div>
+            <div className="space-y-4 animate-in slide-in-from-right duration-300 pb-8">
+                <div className="flex items-center gap-4 mb-4"><button onClick={onBack} className="ae-tap inline-flex items-center justify-center rounded-full bg-zinc-900"><ArrowLeft/></button><h2 className="text-2xl font-bold">{tr('lifestyle.myAssets')}</h2></div>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <button onClick={() => { setCategory('PROPERTY'); setMode('DETAILS'); }} className="w-full glass-card p-5 rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-all">
                     <div className="flex items-center gap-4"><div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl"><Home size={24}/></div><div className="text-left"><div className="font-bold text-lg text-white">{tr('lifestyle.realEstate')}</div><div className="text-xs text-zinc-400">{tr('lifestyle.properties')}</div></div></div><ChevronRight className="text-zinc-600 group-hover:text-zinc-400"/>
                 </button>
@@ -173,6 +174,7 @@ export const LifestyleAssets: React.FC<LifestyleAssetsProps> = ({ player, onBack
                 <button onClick={() => { setCategory('CLOTHING'); setMode('DETAILS'); }} className="w-full glass-card p-5 rounded-2xl flex items-center justify-between group hover:bg-white/5 transition-all">
                     <div className="flex items-center gap-4"><div className="p-3 bg-pink-500/10 text-pink-400 rounded-xl"><Shirt size={24}/></div><div className="text-left"><div className="font-bold text-lg text-white">{tr('lifestyle.wardrobe')}</div><div className="text-xs text-zinc-400">{tr('lifestyle.fashion')}</div></div></div><ChevronRight className="text-zinc-600 group-hover:text-zinc-400"/>
                 </button>
+                </div>
             </div>
         );
     }
@@ -199,7 +201,7 @@ export const LifestyleAssets: React.FC<LifestyleAssetsProps> = ({ player, onBack
                 </div>
             )}
 
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                 {getItems(mode === 'MARKET').map(item => renderCard(item, mode === 'DETAILS'))}
                 {getItems(mode === 'MARKET').length === 0 && <div className="text-center text-zinc-500 text-sm py-10">{tr('lifestyle.noItems')}</div>}
             </div>
