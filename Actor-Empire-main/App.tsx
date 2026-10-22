@@ -56,6 +56,7 @@ import {
   trackGameEvent,
 } from './services/firebaseService';
 import { ensureDealState, processDealsWeekly } from './services/deallogic';
+import { initializeStocks, normalizeListedStocks } from './services/stockLogic';
 import { appendBuzz, appendLedger, appendNews } from './services/playerSignals';
 import { formatMoney } from './services/formatUtils';
 type GameStatus = 'START_MENU' | 'CREATION' | 'PLAYING' | 'DEATH_SCREEN';
@@ -1120,6 +1121,12 @@ export const App: React.FC = () => {
                   safePlayer.businesses.push(newBiz);
               }
               delete safePlayer.business; 
+          }
+          if (!safePlayer.stocks || safePlayer.stocks.length === 0) {
+              safePlayer.stocks = initializeStocks();
+              safePlayer.portfolio = safePlayer.portfolio || [];
+          } else {
+              safePlayer.stocks = normalizeListedStocks(safePlayer.stocks);
           }
           return safePlayer;
       });
