@@ -28,6 +28,7 @@ import {
     STOREFRONTS,
     hashString,
 } from './catalog';
+import { planUsdInCountry } from './fx';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { releaseWeekLabel, releaseWeekParts, titleIsLive, clampReleaseOffset } from './weeks';
 
@@ -136,10 +137,20 @@ const regionEnergy = (region: RegionBuild) =>
     + region.workhorse * serverById('WORKHORSE').energyMwh
     + region.titan * serverById('TITAN').energyMwh;
 
+export const averageUsdInCountry = (state: OwnPlatformState, countryId: string): number => {
+    if (!state.plans.length) return 0;
+    const total = state.plans.reduce((sum, plan) => sum + planUsdInCountry(plan, countryId, state.fxRates), 0);
+    return total / state.plans.length;
+};
+
 export const averagePlanPrice = (state: OwnPlatformState): number => {
     if (!state.plans.length) return 0;
-    const total = state.plans.reduce((sum, plan) => sum + Math.max(0, plan.monthlyUsd), 0);
-    return total / state.plans.length;
+    const countries = selectedCountries(state);
+    if (!countries.length) {
+        return state.plans.reduce((sum, plan) => sum + Math.max(0, plan.monthlyUsd), 0) / state.plans.length;
+    }
+    const weight = countries.reduce((sum, country) => sum + country.audienceM, 0) || 1;
+    return countries.reduce((sum, country) => sum + averageUsdInCountry(state, country.id) * country.audienceM, 0) / weight;
 };
 
 const liveCatalogue = (state: OwnPlatformState) => state.catalogue.filter(title => titleIsLive(title.releaseWeekOffset));
@@ -159,7 +170,7 @@ const languageCoverage = (state: OwnPlatformState, country: MarketCountry): numb
 };
 
 export const countryPiracy = (state: OwnPlatformState, country: MarketCountry): number => {
-    const price = averagePlanPrice(state);
+    const price = averageUsdInCountry(state, country.id);
     let piracy = 0.06;
     if (price <= 0) piracy += 0.05;
     else if (price > country.affordability * 1.6) piracy += 0.16;
@@ -268,14 +279,25 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         piracyWeight += viewers * piracy;
     });
     const piracyShare = reached > 0 ? piracyWeight / reached : 0;
-    const price = averagePlanPrice(state);
     const laneBoost = 1 + Math.max(0, state.revenueLanes.length - 1) * 0.04;
     const adBoost = state.revenueLanes.includes('ADVERTISING') ? 1.08 : 1;
     const fatigue = 1 - (state.pulse?.fatigue || 0) * 0.25;
     const recession = 1 - (state.pulse?.recession || 0) * 0.2;
-    const conversion = clamp(0.035 * retention * laneBoost * fatigue * recession * (price > 18 ? 0.72 : 1), 0.01, 0.22);
-    const households = Math.round(paid * conversion);
-    const monthly = households * price * adBoost;
+    const conversionFor = (usd: number) => clamp(0.035 * retention * laneBoost * fatigue * recession * (usd > 18 ? 0.72 : 1), 0.01, 0.22);
+    let households = 0;
+    let monthly = 0;
+    footprint.forEach(country => {
+        const row = regionRows.find(region => region.regionId === country.regionId);
+        const served = row?.servedPct ?? 0;
+        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery;
+        const piracy = countryPiracy(state, country);
+        const paying = viewers * (1 - piracy);
+        const usd = averageUsdInCountry(state, country.id);
+        const conversion = conversionFor(usd);
+        households += paying * conversion;
+        monthly += paying * conversion * usd * adBoost;
+    });
+    households = Math.round(households);
     const forecastWeeklyRevenue = Math.round(monthly / 4.3);
 
     const marketingReady = opened.length > 0;
@@ -324,6 +346,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
 export const formatCompact = (amount: number): string => {
     const sign = amount < 0 ? '-' : '';
     const abs = Math.abs(amount);
+    if (abs >= 1_000_000_000_000) return `${sign}$${(abs / 1_000_000_000_000).toFixed(2)}T`;
     if (abs >= 1_000_000_000) return `${sign}$${(abs / 1_000_000_000).toFixed(2)}B`;
     if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
     if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}k`;

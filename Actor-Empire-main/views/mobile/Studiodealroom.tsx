@@ -10,6 +10,7 @@ import {
   OWNERSHIP_TIERS, OFFER_ENERGY, DILIGENCE_ENERGY,
   computeFinancials, getVisibleFinancials, getOwnedPct, getDealQuote, previewOffer,
   getFundingCapacity, validateFunding, fileOffer, respondToCounter, runDueDiligence,
+  explainStudioValuation,
 } from '../../services/deallogic';
 import { StudioClosingCeremony } from './StudioClosingCermony';
 
@@ -310,6 +311,7 @@ const DossierView: React.FC<ViewProps & { onBack: () => void; onWarRoom: () => v
 }) => {
   const p: any = player;
   const fin = getVisibleFinancials(player, studioId);
+  const valuation = explainStudioValuation(player, studioId);
   const owned = getOwnedPct(player, studioId);
   const remaining = 50 - owned;
   const rawHit = Number(studio.hitRate ?? 0.5);
@@ -386,6 +388,20 @@ const DossierView: React.FC<ViewProps & { onBack: () => void; onWarRoom: () => v
               <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between"><span className="text-xs font-bold">{fin.verified ? 'Verified' : 'Estimated'} Debt</span><span className="font-black font-mono">{fmt(fin.debt)}</span></div>
               <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between"><span className="text-xs font-bold">Hidden Liabilities</span><span className="font-black font-mono">{fin.verified ? fmt(fin.hiddenLiabilities) : '???'}</span></div>
               <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between"><span className="text-xs font-bold">Expected Annual Income</span><span className="font-black font-mono">{fmt(fin.annualIncome)}</span></div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-[#8a7240] mb-2">What a control cheque is made of</div>
+            <div className="space-y-2 text-xs">
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">{valuation.listed ? 'Market cap' : 'Equity'}</span><span className="font-black font-mono">{fmt(valuation.listed ? valuation.marketCap : valuation.blendedEquity)}</span></div>
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">Cash</span><span className="font-black font-mono">{fmt(valuation.cash)}</span></div>
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">Debt · net {fmt(valuation.netDebt)}</span><span className="font-black font-mono">{fmt(valuation.debt)}</span></div>
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">Enterprise value</span><span className="font-black font-mono">{fmt(valuation.enterpriseValue)}</span></div>
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">Revenue × {valuation.revenueMultiple.toFixed(1)}</span><span className="font-black font-mono">{fmt(valuation.revenueValue)}</span></div>
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">Catalogue · growth {Math.round(valuation.growthPct * 100)}%</span><span className="font-black font-mono">{fmt(valuation.catalogueValue)}</span></div>
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">Control premium {Math.round(valuation.controlPremiumPct * 100)}%</span><span className="font-black font-mono">{fmt(valuation.cashToControl)}</span></div>
+              <div className="bg-[#efe2c0] rounded-xl p-3 border border-[#c9ad73] flex justify-between gap-2"><span className="font-bold">Debt that comes with control</span><span className="font-black font-mono">{fmt(valuation.assumedDebt)}</span></div>
             </div>
           </div>
 

@@ -16,7 +16,9 @@ import {
     titleRows,
 } from '../../services/ownPlatform/studio';
 import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
+import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
+import { ValuationSheet } from './ValuationSheet';
 import { headingFont } from './ui';
 
 type Desk = 'content' | 'network' | 'audience' | 'board';
@@ -262,28 +264,38 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
 
 const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player; error?: string }) => void }> = ({ player, onApply }) => {
     const deals = listPlatformDeals(player);
+    const [valuingId, setValuingId] = useState<string | null>(null);
+    const file = (dealId: string, financing: BuyFinancing) => {
+        setValuingId(null);
+        onApply(purchasePlatform(player, dealId, financing));
+    };
     return (
         <div className="space-y-3">
             <div>
                 <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Buy another service</div>
                 <h3 className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>Purchase a streaming platform</h3>
-                <p className="text-sm text-zinc-400 mt-1 max-w-2xl">The same cheque you would write from Stocks. Shares you already hold cheapen a listed buyer. Regional and emerging rivals can be bought outright. Global desks are not for sale.</p>
+                <p className="text-sm text-zinc-400 mt-1 max-w-2xl">The price is a valuation, not a sticker. Market cap or operating value, plus a control premium, and the debt comes with the company. Cash, an Empire+ loan, or a slice sold to Kestrel has to cover the cheque. The board and the regulator can still say no. A global service stays out of reach until your company is large enough.</p>
             </div>
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                {deals.map(deal => {
-                    const short = player.money < deal.price;
-                    return (
-                        <div key={deal.id} className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
-                            <div className="font-bold text-lg">{deal.name}</div>
-                            <div className="text-xs text-zinc-500">{deal.householdsM.toFixed(1)}M homes · {deal.note}</div>
-                            <div className="text-2xl font-black mt-2">{formatCompact(deal.price)}</div>
-                            <button disabled={short} onClick={() => onApply(purchasePlatform(player, deal.id))} className="mt-3 w-full py-2 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider disabled:opacity-40">
-                                {short ? 'Short of cash' : 'Purchase'}
-                            </button>
-                        </div>
-                    );
-                })}
+                {deals.map(deal => (
+                    <div key={deal.id} className="rounded-3xl border border-white/10 bg-[#12151c] p-4 min-w-0">
+                        <div className="font-bold text-lg truncate">{deal.name}</div>
+                        <div className="text-xs text-zinc-500">{deal.householdsM.toFixed(1)}M homes · {deal.note}</div>
+                        <div className="text-2xl font-black mt-2">{formatCompact(deal.price)}</div>
+                        <button onClick={() => setValuingId(deal.id)} className="mt-3 w-full py-2 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider">
+                            Review valuation
+                        </button>
+                    </div>
+                ))}
             </div>
+            {valuingId && (
+                <ValuationSheet
+                    player={player}
+                    dealId={valuingId}
+                    onClose={() => setValuingId(null)}
+                    onConfirm={file}
+                />
+            )}
         </div>
     );
 };

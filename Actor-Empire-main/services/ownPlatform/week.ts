@@ -1,5 +1,6 @@
 import { Player, RivalPlatformState } from '../../types';
 import { MARKET_COUNTRIES, hashString } from './catalog';
+import { decorateRival, driftFxRates, formatLocalAmount } from './fx';
 import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
 import { normalizeOwnPlatform } from './migrate';
 import { settleBooks } from './studio';
@@ -41,29 +42,35 @@ const resolveApplication = (player: Player, countryId: string, absoluteWeek: num
     return { status: 'REJECTED' as const, weeksLeft: 0, note: `${country.name} sent the file back. You can try again in eight weeks.`, refileWeekAbsolute: absoluteWeek + 8 };
 };
 
-const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: { recession: number; inflation: number; connectivity: number; fatigue: number }): { rivals: RivalPlatformState[]; headline: string } => {
-    const next = rivals.map(rival => ({ ...rival, languages: [...rival.languages] }));
+const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: { recession: number; inflation: number; connectivity: number; fatigue: number }, fxRates?: Record<string, number>): { rivals: RivalPlatformState[]; headline: string } => {
+    const next = rivals.map(rival => decorateRival(rival, fxRates));
     const active = next.filter(rival => rival.status === 'ACTIVE');
     if (active.length === 0) return { rivals: next, headline: 'The market went quiet.' };
     const focus = active[hashString(`${weekKey}:focus`) % active.length];
     const eventRoll = hashString(`${weekKey}:event`) % 100;
-    let headline = `${focus.name} held its price at $${focus.monthlyPrice.toFixed(2)}.`;
+    const focusLocal = formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD');
+    let headline = `${focus.name} held its price at ${focusLocal} (${focus.monthlyPrice.toFixed(2)} USD).`;
 
     active.forEach(rival => {
         const drift = ((hashString(`${weekKey}:${rival.id}`) % 7) - 3) / 100;
         const connectivity = 1 + pulseShift.connectivity * 0.01;
         const recession = 1 - pulseShift.recession * 0.04;
         rival.householdsM = Math.max(0.05, rival.householdsM * (1 + drift) * connectivity * recession);
-        if (pulseShift.inflation > 0.2 && rival.monthlyPrice > 0) {
-            rival.monthlyPrice = Math.round(rival.monthlyPrice * 1.01 * 100) / 100;
+        if (pulseShift.inflation > 0.2 && (rival.localMonthlyPrice || 0) > 0) {
+            rival.localMonthlyPrice = Math.round((rival.localMonthlyPrice || 0) * 1.01 * 100) / 100;
         }
+        const refreshed = decorateRival(rival, fxRates);
+        rival.monthlyPrice = refreshed.monthlyPrice;
+        rival.currency = refreshed.currency;
     });
 
     if (eventRoll < 12) {
-        focus.monthlyPrice = Math.max(0, Math.round(focus.monthlyPrice * 0.85 * 100) / 100);
+        focus.localMonthlyPrice = Math.max(0, Math.round((focus.localMonthlyPrice || 0) * 0.85 * 100) / 100);
+        const refreshed = decorateRival(focus, fxRates);
+        focus.monthlyPrice = refreshed.monthlyPrice;
         focus.householdsM *= 1.04;
-        focus.note = 'Cut the price. Neighbours feel it.';
-        headline = `Price war: ${focus.name} dropped to $${focus.monthlyPrice.toFixed(2)} a month.`;
+        focus.note = 'Cut the local price. Neighbours feel it.';
+        headline = `Price war: ${focus.name} dropped to ${formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD')} a month.`;
     } else if (eventRoll < 24) {
         focus.householdsM *= 1.08;
         focus.reputation = clamp(focus.reputation + 3, 1, 99);
@@ -152,7 +159,8 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     });
 
     const pulse = { ...state.pulse };
-    const rivalTick = tickRivals(state.rivals, weekKey, pulse);
+    state.fxRates = driftFxRates(state.fxRates, weekKey);
+    const rivalTick = tickRivals(state.rivals, weekKey, pulse, state.fxRates);
     state.rivals = rivalTick.rivals;
     pulse.headline = rivalTick.headline;
     state.pulse = pulse;

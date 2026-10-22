@@ -42,6 +42,7 @@ import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
 import { ensureOwnPlatform, migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
 import { purchasePlatform } from './services/ownPlatform/studio';
+import { BuyFinancing } from './services/ownPlatform/valuation';
 import {
   addBreadcrumb,
   markGameCheckpoint,
@@ -1901,9 +1902,9 @@ export const App: React.FC = () => {
       });
   };
 
-  const handleAcquirePlatform = (stockId: string) => handleGenericUpdate(current => {
+  const handleAcquirePlatform = (stockId: string, financing?: BuyFinancing) => handleGenericUpdate(current => {
       const withPlatform = current.ownPlatform ? current : ensureOwnPlatform(current);
-      const result = purchasePlatform(withPlatform, stockId);
+      const result = purchasePlatform(withPlatform, stockId, financing);
       if (result.error) {
           setToastMessage({ title: 'Could not buy that service', subtext: result.error });
           return current;

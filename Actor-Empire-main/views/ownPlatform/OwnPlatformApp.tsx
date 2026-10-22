@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { OwnPlatformState, Player } from '../../types';
 import { ensureOwnPlatform } from '../../services/ownPlatform/migrate';
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
+import { formatLocalAmount } from '../../services/ownPlatform/fx';
 import { Shell } from './ui';
 import { DefineLaunch } from './DefineLaunch';
 import { BuildPlatform } from './BuildPlatform';
@@ -106,7 +107,8 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                                         <span>{LAUNCH_REGIONS.find(region => region.id === rival.homeRegion)?.short}</span>
                                     </div>
                                     <div className="font-bold mt-1">{rival.name}</div>
-                                    <div className="text-sm text-zinc-300">{rival.householdsM.toFixed(1)}M homes · ${rival.monthlyPrice.toFixed(2)}</div>
+                                    <div className="text-sm text-zinc-300">{rival.householdsM.toFixed(1)}M homes · {formatLocalAmount(rival.localMonthlyPrice || 0, rival.currency || 'USD')}</div>
+                                    <div className="text-[11px] text-zinc-400">About ${rival.monthlyPrice.toFixed(2)} USD · debt {formatCompact(rival.debtUsd || 0)}</div>
                                     <div className="text-[11px] text-zinc-500 mt-1">{rival.languages.slice(0, 3).join(', ')}</div>
                                     <div className="text-[11px] text-zinc-400 mt-1">{rival.note}</div>
                                 </div>
