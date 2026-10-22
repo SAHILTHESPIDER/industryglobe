@@ -12,7 +12,8 @@ import { createBusiness } from '../services/businessLogic';
 import { calculateYoutubeCreatorScore, generateYoutubeBrandDeal, generateYoutubeCollabOffer, getYoutubePublicImageLabel } from '../services/youtubeLogic';
 import { ALL_GENRES, formatGenreLabel } from '../services/genreCatalog';
 import { getPlayerLanguage, t } from '../services/i18n';
-import { Heart, Smile, Star, Zap, DollarSign, Brain, Calendar, Activity, TrendingUp, Trophy, X, Sliders, Users, Film, Tv, PlayCircle, Lock, FastForward, Key, AlertTriangle, Mic2, Mail, FileText, Dumbbell, Sparkles, Settings, ShoppingCart, Clapperboard, ZapOff, Crown, Skull, Camera, UploadCloud, Check, MessageSquareQuote, Globe } from 'lucide-react';
+import { Heart, Smile, Star, Zap, DollarSign, Brain, Calendar, Activity, TrendingUp, Trophy, X, Sliders, Users, Film, Tv, PlayCircle, Lock, FastForward, Key, AlertTriangle, Mic2, Mail, FileText, Dumbbell, Sparkles, Settings, ShoppingCart, Clapperboard, ZapOff, Crown, Skull, Camera, UploadCloud, Check, MessageSquareQuote, Globe, Landmark, Newspaper, Radio } from 'lucide-react';
+import { useGameNav } from '../components/GameNav';
 import { addBreadcrumb, recordNonFatal, setCrashContext, startPerformanceTrace, stopPerformanceTrace, trackGameEvent } from '../services/firebaseService';
 
 interface HomePageProps {
@@ -33,6 +34,7 @@ const LEGACY_DEV_TOOLS_PASSCODES = ['actor-dev'];
 
 export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProcessing, onUpdatePlayer, setPage, onOpenProductionHouseCheat, onQueueBabyNamingCheat, onOpenDeathSummaryPreview, onShowWhatsNewCheat }) => {
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const nav = useGameNav();
   const language = getPlayerLanguage(player);
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
   
@@ -3043,7 +3045,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
 
 
   return (
-    <div className="space-y-6 pb-24 pt-4 relative">
+    <div className="relative space-y-6 pb-8 pt-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
       
       {/* PASSWORD PROMPT OVERLAY */}
       {showPasswordPrompt && (
@@ -3630,12 +3632,12 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
       )}
 
       {/* Premium Profile Header */}
-      <div className="relative glass-card p-6 rounded-3xl overflow-hidden group">
+      <div className="relative glass-card p-5 sm:p-6 rounded-3xl overflow-hidden group lg:col-span-2">
         <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
             <Star size={120} className="text-amber-500 rotate-12" />
         </div>
         
-        <div className="relative z-10 flex items-center gap-4">
+        <div className="relative z-10 flex flex-wrap items-center gap-4">
             <div className="relative cursor-pointer active:scale-95 transition-transform shrink-0" onClick={handleAvatarClick}>
                 <div className="w-20 h-20 rounded-full p-[2px] bg-gradient-to-tr from-amber-300 via-amber-500 to-amber-700 shadow-lg shadow-amber-900/20">
                     <img 
@@ -3657,9 +3659,9 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
                 <div className="flex items-center gap-3 mt-1">
                     <span className="text-xs font-medium text-amber-400 uppercase tracking-widest border border-amber-900/50 bg-amber-950/30 px-2 py-1 rounded">Actor</span>
                 </div>
-                <div className="flex items-center gap-1 mt-3 text-emerald-400 font-mono text-lg font-bold truncate">
+                <button type="button" onClick={() => nav?.openPhone({ app: 'BANK' })} className="mt-3 flex min-h-11 items-center text-left text-emerald-400 font-mono text-lg font-bold truncate">
                     {formatMoney(player.money)}
-                </div>
+                </button>
             </div>
             
             <div className="flex flex-col items-center justify-center pl-4 border-l border-white/5 shrink-0">
@@ -3672,7 +3674,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
                     {(player.bloodline && player.bloodline.length > 0) || player.relationships.some(rel => rel.relation === 'Child') ? (
                         <button
                             onClick={() => setPage && setPage(Page.SOCIAL)}
-                            className="p-1.5 bg-amber-900/50 hover:bg-amber-800/50 rounded-full text-amber-400 hover:text-white transition-colors"
+                            className="inline-flex h-10 w-10 items-center justify-center bg-amber-900/50 hover:bg-amber-800/50 rounded-full text-amber-400 hover:text-white transition-colors"
                             title={tr('home.viewLegacy')}
                         >
                             <Crown size={14} />
@@ -3680,13 +3682,13 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
                     ) : null}
                     <button
                         onClick={() => setPage && setPage(Page.STORE)}
-                        className="p-1.5 bg-emerald-900/50 hover:bg-emerald-800/50 rounded-full text-emerald-400 hover:text-white transition-colors"
+                        className="inline-flex h-10 w-10 items-center justify-center bg-emerald-900/50 hover:bg-emerald-800/50 rounded-full text-emerald-400 hover:text-white transition-colors"
                     >
                         <ShoppingCart size={14} />
                     </button>
                     <button
                         onClick={() => setPage && setPage(Page.SETTINGS)}
-                        className="p-1.5 bg-zinc-800/50 hover:bg-zinc-700/50 rounded-full text-zinc-400 hover:text-white transition-colors"
+                        className="inline-flex h-10 w-10 items-center justify-center bg-zinc-800/50 hover:bg-zinc-700/50 rounded-full text-zinc-400 hover:text-white transition-colors"
                     >
                         <Settings size={14} />
                     </button>
@@ -3696,7 +3698,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
       </div>
 
       {/* Energy Bar */}
-      <div className="glass-card p-5 rounded-3xl relative overflow-hidden">
+      <div className="glass-card p-5 rounded-3xl relative overflow-hidden lg:col-span-2">
          <div className="flex justify-between items-center mb-3">
             <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                 <Zap className="text-amber-400 fill-amber-400" size={14} /> {tr('home.energy')}
@@ -3717,6 +3719,25 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
                 style={{ width: `${Math.max(0, player.energy.current)}%` }}
             />
          </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:col-span-2 lg:grid-cols-6">
+          {[
+              { label: 'Casting', icon: Film, run: () => nav?.openPhone({ app: 'CASTLINK' }) },
+              { label: 'Studio', icon: Clapperboard, run: () => nav?.openLifestyle(player.businesses.some(b => b.type === 'PRODUCTION_HOUSE') ? 'PRODUCTION_GAME' : 'PRODUCTION_WIZARD') },
+              { label: 'Empire+', icon: Radio, run: () => nav?.openPhone({ app: 'OWN_PLATFORM', pane: 'launch' }) },
+              { label: 'News', icon: Newspaper, run: () => nav?.openPhone({ app: 'NEWS' }) },
+              { label: 'Bank', icon: Landmark, run: () => nav?.openPhone({ app: 'BANK' }) },
+              { label: 'Stocks', icon: TrendingUp, run: () => nav?.openPhone({ app: 'STOCKS' }) },
+          ].map(link => {
+              const Icon = link.icon;
+              return (
+                  <button key={link.label} onClick={link.run} className="glass-card flex min-h-11 items-center gap-2 rounded-2xl px-3 py-3 text-left text-xs font-bold text-white hover:bg-white/5">
+                      <Icon size={14} className="shrink-0 text-amber-400" />
+                      <span className="truncate">{link.label}</span>
+                  </button>
+              );
+          })}
       </div>
 
       {/* Stats Section Redesign */}
@@ -3755,7 +3776,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
       </div>
 
       {/* Activity Log - Terminal Style */}
-      <div className="glass-card p-5 rounded-3xl h-48 flex flex-col relative overflow-hidden">
+      <div className="glass-card p-5 rounded-3xl h-48 lg:h-[28rem] flex flex-col relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent opacity-50"></div>
         <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> {tr('home.liveFeed')}
@@ -3777,7 +3798,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
       <button
         onClick={onNextWeek}
         disabled={isProcessing}
-        className={`w-full py-5 rounded-2xl font-bold text-lg shadow-xl shadow-amber-900/20 transform active:scale-[0.98] transition-all flex items-center justify-center gap-3 border border-white/10 ${
+        className={`lg:col-span-2 w-full min-h-14 py-5 rounded-2xl font-bold text-lg shadow-xl shadow-amber-900/20 transform active:scale-[0.98] transition-all flex items-center justify-center gap-3 border border-white/10 ${
             isProcessing 
             ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
             : 'bg-gradient-to-br from-amber-500 to-amber-700 text-white hover:brightness-110 relative overflow-hidden group'

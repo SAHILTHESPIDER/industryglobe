@@ -189,7 +189,7 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
           <p className="text-zinc-400 text-sm tracking-wide">Define the face of the next generation.</p>
         </div>
 
-        <div className="w-full max-w-sm mx-auto space-y-6">
+        <div className="w-full max-w-sm lg:max-w-5xl mx-auto space-y-6 lg:grid lg:grid-cols-2 lg:gap-8 lg:space-y-0 lg:items-start">
           
           {/* AVATAR SECTION */}
           <div className="space-y-4">
@@ -258,7 +258,6 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
               </div>
           </div>
 
-          {/* FORM INPUTS */}
           <div className="space-y-4">
               
               {/* Gender */}
@@ -341,7 +340,7 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
           </div>
 
           {error && (
-            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-center animate-in fade-in slide-in-from-bottom-2">
+            <div className="lg:col-span-2 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-center animate-in fade-in slide-in-from-bottom-2">
                 <p className="text-rose-400 text-xs font-bold">{error}</p>
             </div>
           )}
@@ -350,7 +349,7 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
             type="button"
             onClick={handleStart}
             disabled={isCompressing}
-            className={`group w-full py-5 rounded-2xl font-bold text-lg shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_50px_rgba(245,158,11,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 relative overflow-hidden ${isCompressing ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black'}`}
+            className={`lg:col-span-2 group w-full min-h-14 py-5 rounded-2xl font-bold text-lg shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:shadow-[0_0_50px_rgba(245,158,11,0.5)] hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 relative overflow-hidden ${isCompressing ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black'}`}
           >
             <span className="relative z-10 flex items-center gap-2">
                 {isCompressing ? 'Processing Image...' : <>Begin Career <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform"/></>}

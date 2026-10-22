@@ -5,16 +5,18 @@ import { MARKET_COUNTRIES, REGION_CITIES } from '../../services/ownPlatform/cata
 export const headingFont = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif';
 
 export const Shell: React.FC<{ children: React.ReactNode; onBack: () => void; kicker: string; title: string; step: string }> = ({ children, onBack, kicker, title, step }) => (
-    <div className="fixed inset-0 z-[180] bg-[#07080d] text-white overflow-hidden flex flex-col" data-screen="own-platform">
+    <div className="fixed inset-0 z-[180] bg-[#07080d] text-white overflow-hidden flex flex-col" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <header className="shrink-0 px-4 lg:px-10 pt-4 pb-3 flex items-start justify-between gap-4 border-b border-white/5">
             <div className="min-w-0">
-                <button onClick={onBack} className="text-[11px] uppercase tracking-[0.22em] text-zinc-500 hover:text-white mb-2">Back</button>
+                <button onClick={onBack} className="ae-tap text-[11px] uppercase tracking-[0.22em] text-zinc-500 hover:text-white mb-2">Back</button>
                 <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#ff4d4d]">{kicker}</div>
-                <h1 className="text-[2rem] sm:text-5xl lg:text-6xl font-extrabold uppercase leading-[0.88] tracking-tight" style={{ fontFamily: headingFont }}>{title}</h1>
+                <h1 className="text-[clamp(1.6rem,7vw,3.75rem)] font-extrabold uppercase leading-[0.9] tracking-tight break-words" style={{ fontFamily: headingFont }}>{title}</h1>
             </div>
-            <div className="text-sm font-bold text-zinc-400 shrink-0 pt-8">{step}</div>
+            {step ? <div className="text-sm font-bold text-zinc-400 shrink-0 pt-8">{step}</div> : null}
         </header>
-        <div className="flex-1 overflow-y-auto custom-scrollbar">{children}</div>
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+            <div className="mx-auto w-full max-w-[1400px]">{children}</div>
+        </div>
     </div>
 );
 
@@ -27,7 +29,7 @@ export const FooterBar: React.FC<{
     nextLabel: string;
     disabled?: boolean;
 }> = ({ leftLabel, leftValue, money, onBack, onNext, nextLabel, disabled }) => (
-    <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/10 bg-[#0c0e14]/95 backdrop-blur px-4 lg:px-10 py-3 flex flex-col gap-3 lg:flex-row lg:items-center">
+    <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/10 bg-[#0c0e14]/95 backdrop-blur px-4 lg:px-10 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="flex items-center gap-4 text-xs uppercase tracking-wider text-zinc-400">
             <div>
                 <div className="text-[10px] text-zinc-500">{leftLabel}</div>

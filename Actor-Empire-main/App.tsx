@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { INITIAL_PLAYER, Player, Page, Commitment, PressInteraction, SocialEvent, ActorSkills, AdType, Relationship, ProjectDetails, ActiveRelease, PastProject, StreamingState, PregnancyCarrier } from './types';
-import { BottomNav } from './components/BottomNav';
+import { BottomNav, SideNav } from './components/BottomNav';
+import { GameNavProvider, LifestyleDestination } from './components/GameNav';
+import { MobilePage, PhoneLaunch } from './views/mobile/MobilePage';
 import { ProductionCrisisModal } from './components/ProductionCrisisModal';
 import { LifeEventModal } from './components/LifeEventModal';
 import { applyCrisisImpact } from './services/productionService';
@@ -10,7 +12,6 @@ import { CareerPage } from './views/CareerPage';
 import { ImprovePage } from './views/ImprovePage';
 import { SocialPage } from './views/SocialPage';
 import { LifestylePage } from './views/LifestylePage';
-import { MobilePage } from './views/mobile/MobilePage';
 import { SettingsPage } from './views/SettingsPage';
 import { StorePage } from './views/StorePage';
 import { StartMenu } from './views/StartMenu';
@@ -54,6 +55,8 @@ import {
   trackGameEvent,
 } from './services/firebaseService';
 import { ensureDealState, processDealsWeekly } from './services/deallogic';
+import { appendBuzz, appendLedger, appendNews } from './services/playerSignals';
+import { formatMoney } from './services/formatUtils';
 type GameStatus = 'START_MENU' | 'CREATION' | 'PLAYING' | 'DEATH_SCREEN';
 type PendingBabyNaming = {
   partnerId: string;
@@ -343,7 +346,8 @@ class GameErrorBoundary extends React.Component<GameErrorBoundaryProps, GameErro
 export const App: React.FC = () => {
   const [player, setPlayer] = useState<Player>(INITIAL_PLAYER);
   const [activePage, setActivePage] = useState<Page>(Page.HOME);
-  const [lifestyleInitialView, setLifestyleInitialView] = useState<'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME' | null>(null);
+  const [phoneLaunch, setPhoneLaunch] = useState<PhoneLaunch | null>(null);
+  const [lifestyleInitialView, setLifestyleInitialView] = useState<'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME' | 'STREAMING' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [gameStatus, setGameStatus] = useState<GameStatus>('START_MENU');
   const [saveSlots, setSaveSlots] = useState<Record<number, Player | null>>({ 1: null, 2: null, 3: null });
@@ -1610,9 +1614,31 @@ export const App: React.FC = () => {
           }
 
           nextPlayer.logs = [...nextPlayer.logs, { week: nextPlayer.currentWeek, year: nextPlayer.age, message: logMessage, type: 'positive' as const }].slice(-50);
-          return nextPlayer;
+          return appendLedger(nextPlayer, -Math.round(item.price || 0), 'ASSET', `Bought ${item.name}`);
       });
   };
+
+  const handleSellLifestyleItem = (id: string) => handleGenericUpdate(p => {
+      const it = [...PROPERTY_CATALOG, ...CAR_CATALOG, ...CLOTHING_CATALOG].find(x => x.id === id);
+      const payout = it ? Math.round(it.price * 0.5) : 0;
+      let next: Player = {
+          ...p,
+          money: p.money + payout,
+          assets: p.assets.filter(a => a !== id),
+          logs: [...(p.logs || []), { week: p.currentWeek, year: p.age, message: it ? `Sold ${it.name} for $${payout.toLocaleString()}.` : 'Sold an asset.', type: 'neutral' as const }].slice(-50),
+      };
+      next = appendLedger(next, payout, 'ASSET', it ? `Sold ${it.name}` : 'Sold an asset');
+      if (payout >= 25000 && it) {
+          next = appendNews(next, {
+              id: `news_sell_${Date.now()}`,
+              headline: `${next.name} lets go of ${it.name}`,
+              subtext: 'The sale hits the same treasury as the rest of the career.',
+              category: 'YOU',
+              impactLevel: 'LOW',
+          });
+      }
+      return next;
+  });
 
   const handleRestorePurchases = async () => {
       const result = await restorePremiumPurchases();
@@ -1859,9 +1885,18 @@ export const App: React.FC = () => {
       handleGenericUpdate(current => {
           if (current.ownPlatform) return current;
           const next = ensureOwnPlatform(current);
+          const named = next.ownPlatform?.name || 'Empire+';
+          let signaled = appendNews(next, {
+              id: `news_found_${Date.now()}`,
+              headline: `${next.name} files papers for ${named}`,
+              subtext: 'The service stays private until the board takes it public. The same company is on the phone and in Lifestyle.',
+              category: 'YOU',
+              impactLevel: 'MEDIUM',
+          });
+          signaled = appendBuzz(signaled, `${signaled.name} is starting a streaming service. No listing yet. The treasury is still one pile of cash.`);
           return {
-              ...next,
-              logs: [...(current.logs || []), { week: current.currentWeek, year: current.age, message: `Founded ${next.ownPlatform?.name || 'Empire+'}. It stays private until the board lists it.`, type: 'neutral' as const }],
+              ...signaled,
+              logs: [...(current.logs || []), { week: current.currentWeek, year: current.age, message: `Founded ${named}. It stays private until the board lists it.`, type: 'neutral' as const }],
           };
       });
   };
@@ -1875,7 +1910,16 @@ export const App: React.FC = () => {
       }
       const bought = result.player.ownPlatform?.ownedStreamers?.slice(-1)[0];
       setToastMessage({ title: 'Streaming service acquired', subtext: bought ? `${bought.name} now sits inside your company.` : 'The service is on your books.' });
-      return result.player;
+      const named = bought?.name || 'a streaming service';
+      let signaled = appendNews(result.player, {
+          id: `news_acquire_${Date.now()}`,
+          headline: `${result.player.name} buys ${named}`,
+          subtext: 'The purchase leaves the career treasury and shows up on the Empire+ books.',
+          category: 'YOU',
+          impactLevel: 'MEDIUM',
+      });
+      signaled = appendBuzz(signaled, `${signaled.name} just bought ${named}. One company, one treasury.`);
+      return signaled;
   });
 
   const handleTradeStock = (stockId: string, amount: number) => {
@@ -1913,8 +1957,14 @@ export const App: React.FC = () => {
               }
               const existing = portfolio.find(i => i.stockId === stockId);
               const newPort = existing ? portfolio.map(i => i.stockId === stockId ? { ...i, shares: i.shares + shares } : i) : [...portfolio, { stockId, shares }];
-              const next = { ...p, stocks, money: p.money - totalCost, portfolio: newPort, logs: [...(p.logs || []), { week: p.currentWeek, year: p.age, message: `${msg}: ${shares} ${stock.symbol}`, type: 'neutral' as const }] };
-              return writeLedger(next, -Math.round(totalCost), `Bought ${shares} ${stock.symbol}`);
+              let next: Player = { ...p, stocks, money: p.money - totalCost, portfolio: newPort, logs: [...(p.logs || []), { week: p.currentWeek, year: p.age, message: `${msg}: ${shares} ${stock.symbol}`, type: 'neutral' as const }] };
+              next = writeLedger(next, -Math.round(totalCost), `Bought ${shares} ${stock.symbol}`);
+              return appendNews(next, {
+                  id: `news_buy_${stock.symbol}_${Date.now()}`,
+                  headline: `${next.name} buys ${shares} shares of ${stock.symbol}`,
+                  category: 'YOU',
+                  impactLevel: 'LOW',
+              });
           }
           const existing = portfolio.find(i => i.stockId === stockId);
           if (!existing || existing.shares < shares) {
@@ -1922,9 +1972,33 @@ export const App: React.FC = () => {
               return p;
           }
           const newPort = existing.shares === shares ? portfolio.filter(i => i.stockId !== stockId) : portfolio.map(i => i.stockId === stockId ? { ...i, shares: i.shares - shares } : i);
-          const next = { ...p, stocks, money: p.money + totalCost, portfolio: newPort, logs: [...(p.logs || []), { week: p.currentWeek, year: p.age, message: `${msg}: ${shares} ${stock.symbol}`, type: 'neutral' as const }] };
-          return writeLedger(next, Math.round(totalCost), `Sold ${shares} ${stock.symbol}`);
+          let next: Player = { ...p, stocks, money: p.money + totalCost, portfolio: newPort, logs: [...(p.logs || []), { week: p.currentWeek, year: p.age, message: `${msg}: ${shares} ${stock.symbol}`, type: 'neutral' as const }] };
+          next = writeLedger(next, Math.round(totalCost), `Sold ${shares} ${stock.symbol}`);
+          return appendNews(next, {
+              id: `news_sell_${stock.symbol}_${Date.now()}`,
+              headline: `${next.name} sells ${shares} shares of ${stock.symbol}`,
+              category: 'YOU',
+              impactLevel: 'LOW',
+          });
       });
+  };
+
+  const openPage = (page: Page) => {
+      if (page === Page.MOBILE) setPhoneLaunch({ app: 'HOME' });
+      setActivePage(page);
+      setIsBottomNavVisible(true);
+  };
+
+  const openPhone = (launch: PhoneLaunch) => {
+      setPhoneLaunch(launch);
+      setActivePage(Page.MOBILE);
+      setIsBottomNavVisible(true);
+  };
+
+  const openLifestyle = (view: LifestyleDestination) => {
+      setLifestyleInitialView(view);
+      setActivePage(Page.LIFESTYLE);
+      setIsBottomNavVisible(view === 'MAIN');
   };
 
   if (isInitializing) {
@@ -2307,7 +2381,23 @@ export const App: React.FC = () => {
           </div>
       )}
 
-      <div className={`w-full max-w-md mx-auto lg:max-w-none lg:mx-0 h-screen lg:h-dvh relative z-10 bg-zinc-950/80 shadow-2xl lg:shadow-none border-x border-white/5 lg:border-x-0 flex flex-col pt-safe-top ${player?.settings?.smoothMode ? 'smooth-mode' : ''}`}>
+      <div className={`ae-shell w-full h-dvh relative z-10 bg-zinc-950/80 flex flex-col pt-safe-top ${!isBottomNavVisible ? 'ae-nav-hidden' : ''} ${player?.settings?.smoothMode ? 'smooth-mode' : ''}`}>
+        {gameStatus === 'PLAYING' && <SideNav activePage={activePage} setPage={openPage} />}
+        <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${gameStatus === 'PLAYING' ? 'lg:pl-[248px]' : ''}`}>
+        {gameStatus === 'PLAYING' && (
+            <div className="hidden lg:flex items-center justify-between gap-4 border-b border-white/10 px-6 py-3">
+                <div className="min-w-0">
+                    <div className="truncate text-sm font-black text-white">{player.name}</div>
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Age {player.age} · Week {player.currentWeek}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button onClick={() => openPhone({ app: 'BANK' })} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-black text-emerald-300">{formatMoney(player.money)}</button>
+                    <button onClick={() => openPhone({ app: 'OWN_PLATFORM', pane: player.ownPlatform?.stage === 'LIVE' ? 'ops' : 'launch' })} className="rounded-full border border-[#ff3b30]/40 bg-[#ff3b30]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#ffb4b0]">{player.ownPlatform?.name || 'Empire+'}</button>
+                    <button onClick={() => openPage(Page.STORE)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">Store</button>
+                    <button onClick={() => openPage(Page.SETTINGS)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">Settings</button>
+                </div>
+            </div>
+        )}
         {gameStatus === 'START_MENU' && (
             <StartMenu 
                 saveSlots={saveSlots}
@@ -2317,13 +2407,13 @@ export const App: React.FC = () => {
         )}
         {gameStatus === 'CREATION' && <CreationMenu onStartGame={handleStartGame} />}
         {gameStatus === 'PLAYING' && (
-            <>
-                <div className={`flex-1 px-5 pt-5 pb-nav-safe overflow-y-auto custom-scrollbar ${player.money < 0 ? 'pt-8' : ''}`}>
-                    {activePage === Page.HOME && (<HomePage player={player} onNextWeek={handleNextWeek} isProcessing={isProcessing} onUpdatePlayer={handleUpdatePlayer} setPage={setActivePage} onOpenProductionHouseCheat={() => { setLifestyleInitialView('PRODUCTION_GAME'); setActivePage(Page.LIFESTYLE); }} onQueueBabyNamingCheat={handleQueueBabyNamingCheat} onOpenDeathSummaryPreview={handleOpenDeathSummaryPreview} onShowWhatsNewCheat={handleShowWhatsNewCheat} />)}
+            <GameNavProvider value={{ openPage, openPhone, openLifestyle }}>
+                <div className={`ae-scroll mx-auto w-full max-w-[1280px] min-h-0 flex-1 px-4 sm:px-5 lg:px-8 pt-4 pb-nav-safe overflow-y-auto custom-scrollbar ${player.money < 0 ? 'pt-8' : ''}`}>
+                    {activePage === Page.HOME && (<HomePage player={player} onNextWeek={handleNextWeek} isProcessing={isProcessing} onUpdatePlayer={handleUpdatePlayer} setPage={openPage} onOpenProductionHouseCheat={() => openLifestyle('PRODUCTION_GAME')} onQueueBabyNamingCheat={handleQueueBabyNamingCheat} onOpenDeathSummaryPreview={handleOpenDeathSummaryPreview} onShowWhatsNewCheat={handleShowWhatsNewCheat} />)}
                     {activePage === Page.CAREER && (<CareerPage player={player} onQuitJob={handleQuitJob} onRehearse={handleRehearse} />)}
                     {activePage === Page.IMPROVE && (<ImprovePage player={player} onTrain={()=>{}} onEnroll={(c)=>handleGenericUpdate(p=>{ const previousCommitments = p.commitments; const next: Player = { ...p, money: p.money- (c.upfrontCost||0), commitments: [...p.commitments, {...c, id: `c_${Date.now()}`, weeksCompleted:0}] }; syncWeeklyEnergyForCommitments(next, previousCommitments); return next; })} onCancel={(id)=>handleGenericUpdate(p=>{ const previousCommitments = p.commitments; const next: Player = { ...p, commitments: p.commitments.filter(c=>c.id!==id)}; syncWeeklyEnergyForCommitments(next, previousCommitments); return next; })} onPerformAction={handleImproveAction} />)}
                     {activePage === Page.SOCIAL && (<SocialPage player={player} onInteract={handleSocialInteract} onContinueAsChild={handleContinueAsChild} />)}
-                    {activePage === Page.LIFESTYLE && (<LifestylePage player={player} onBuyItem={handleBuyLifestyleItem} onSellItem={(id)=>handleGenericUpdate(p=>{ const it = [...PROPERTY_CATALOG, ...CAR_CATALOG, ...CLOTHING_CATALOG].find(x=>x.id===id); return { ...p, money: p.money + (it ? it.price*0.5 : 0), assets: p.assets.filter(a=>a!==id) }; })} onSetResidence={(id)=>handleGenericUpdate(p=>({ ...p, residenceId: id }))} onSetActiveStyle={(s)=>handleGenericUpdate(p=>({ ...p, activeClothingStyle: s }))} onStartBusiness={()=>{}} onShutdownBusiness={()=>{}} onUpdatePlayer={handleUpdatePlayer} onPremiumPurchase={handlePremiumPurchase} onNavVisibilityChange={setIsBottomNavVisible} initialView={lifestyleInitialView ?? undefined} onInitialViewConsumed={() => setLifestyleInitialView(null)} />)}
+                    {activePage === Page.LIFESTYLE && (<LifestylePage player={player} onBuyItem={handleBuyLifestyleItem} onSellItem={handleSellLifestyleItem} onSetResidence={(id)=>handleGenericUpdate(p=>({ ...p, residenceId: id }))} onSetActiveStyle={(s)=>handleGenericUpdate(p=>({ ...p, activeClothingStyle: s }))} onStartBusiness={()=>{}} onShutdownBusiness={()=>{}} onUpdatePlayer={handleUpdatePlayer} onPremiumPurchase={handlePremiumPurchase} onNavVisibilityChange={setIsBottomNavVisible} initialView={lifestyleInitialView ?? undefined} onInitialViewConsumed={() => setLifestyleInitialView(null)} />)}
                     {activePage === Page.MOBILE && (
                         <MobilePage 
                             player={player} 
@@ -2392,6 +2482,15 @@ export const App: React.FC = () => {
                                     } 
                                 };
                                 spendPlayerEnergy(nextState, config.energy);
+                                if (actualGain >= 5000) {
+                                    return appendBuzz(appendNews(nextState, {
+                                        id: `news_ig_${Date.now()}`,
+                                        headline: `${p.name}'s post is moving`,
+                                        subtext: `${actualGain.toLocaleString()} new followers. The same post is on the phone and in the news.`,
+                                        category: 'YOU',
+                                        impactLevel: actualGain > 10000 ? 'MEDIUM' : 'LOW',
+                                    }), `${p.name} just posted. Followers are actually showing up.`);
+                                }
                                 return nextState;
                             })}
                             onReactInstagramPost={(postId, action)=>handleGenericUpdate(p=>{
@@ -2497,7 +2596,9 @@ export const App: React.FC = () => {
                             })}
                             onFollowNPC={(npc)=>handleGenericUpdate(p=>({ ...p, instagram: { ...p.instagram, npcStates: { ...p.instagram.npcStates, [npc.id]: { ...p.instagram.npcStates[npc.id], isFollowing: !p.instagram.npcStates[npc.id]?.isFollowing } } } }))}
                             onInteractNPC={handleNPCInteract}
-                            onBefriendNPC={(npc)=>{}}
+                            onBefriendNPC={(npc) => handleNPCInteract(npc, 'BEFRIEND')}
+                            launchApp={phoneLaunch}
+                            onLaunchConsumed={() => setPhoneLaunch(null)}
                             onHireAgent={(agent) => {
                                 handleGenericUpdate(p => {
                                     if (p.money < agent.annualFee) {
@@ -2592,7 +2693,7 @@ export const App: React.FC = () => {
                         <SettingsPage 
                             player={player}
                             onUpdatePlayer={handleGenericUpdate}
-                            onBack={() => setActivePage(Page.HOME)} 
+                            onBack={() => openPage(Page.HOME)} 
                             onMainMenu={() => {
                                 setGameStatus('START_MENU');
                                 setActivePage(Page.HOME);
@@ -2602,16 +2703,17 @@ export const App: React.FC = () => {
                     {activePage === Page.STORE && (
                         <StorePage 
                             player={player} 
-                            onBack={() => setActivePage(Page.HOME)}
+                            onBack={() => openPage(Page.HOME)}
                             onWatchAd={handleTriggerRewardAd} 
                             onPremiumPurchase={handlePremiumPurchase}
                             onRestorePurchases={handleRestorePurchases}
                         />
                     )}
                 </div>
-                {isBottomNavVisible && <BottomNav activePage={activePage} setPage={setActivePage} />}
-            </>
+                {isBottomNavVisible && <BottomNav activePage={activePage} setPage={openPage} />}
+            </GameNavProvider>
         )}
+        </div>
       </div>
     </div>
     </GameErrorBoundary>

@@ -10,6 +10,7 @@ import { ProductionHouseGame } from './lifestyle/business/ProductionHouseGame';
 import { PROPERTY_CUSTOMIZATIONS, VEHICLE_CUSTOMIZATIONS } from '../services/lifestyleLogic';
 import { PremiumProductId } from '../services/premiumLogic';
 import { getPlayerLanguage, t } from '../services/i18n';
+import { useGameNav } from '../components/GameNav';
 
 interface LifestylePageProps {
   player: Player;
@@ -30,6 +31,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
   const [view, setView] = useState<'MAIN' | 'ASSETS' | 'BUSINESS' | 'PRODUCTION_WIZARD' | 'PRODUCTION_GAME' | 'STREAMING'>('MAIN');
   const [customizationItem, setCustomizationItem] = useState<Property | Vehicle | null>(null);
   const [selectedCustomizations, setSelectedCustomizations] = useState<any[]>([]);
+  const nav = useGameNav();
   const language = getPlayerLanguage(player);
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
   const trFallback = (key: string, fallback: string) => {
@@ -171,14 +173,14 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
   }
 
   return (
-    <div className="space-y-6 pb-24 pt-4">
+    <div className="space-y-6 pb-8 pt-2">
         <div className="flex items-center gap-4 mb-6"><h2 className="text-3xl font-bold text-white">{tr('lifestyle.title')}</h2></div>
         
         <div className="glass-card p-6 rounded-3xl relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-5"><CreditCard size={100} /></div>
             <div className="relative z-10">
                 <div className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">{tr('lifestyle.liquidCash')}</div>
-                <div className="text-3xl font-bold text-white tracking-tight mb-4">${player.money.toLocaleString()}</div>
+                <button type="button" onClick={() => nav?.openPhone({ app: 'BANK' })} className="mb-4 block min-h-11 text-left text-3xl font-bold text-white tracking-tight">${player.money.toLocaleString()}</button>
                 <div className="flex gap-4">
                     <div><div className="text-[10px] text-zinc-600 uppercase font-bold">{tr('lifestyle.assets')}</div><div className="text-sm font-mono text-zinc-300">~${(player.assets.length * 50000).toLocaleString()}</div></div>
                     <div><div className="text-[10px] text-zinc-600 uppercase font-bold">{tr('lifestyle.equity')}</div><div className="text-sm font-mono text-emerald-400">${player.businesses.reduce((sum, b) => sum + b.stats.valuation, 0).toLocaleString()}</div></div>
@@ -186,7 +188,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
             </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             
             {/* PRODUCTION HOUSE - Special Highlighted Card */}
             <button 
@@ -227,7 +229,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
 
             {/* Locked Content */}
             <button onClick={() => setView('STREAMING')} className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative border border-[#ff3b30]/30">
-                <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-[#ff3b30] text-white"><Tv size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.streamingPlatform')}</div><div className="text-sm text-zinc-400">{tr('lifestyle.streamingSub')}</div></div></div>
+                <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-[#ff3b30] text-white"><Tv size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.streamingPlatform')}</div><div className="text-sm text-zinc-400">{player.ownPlatform ? `${player.ownPlatform.name} · ${player.ownPlatform.stage}. Same company as the phone.` : tr('lifestyle.streamingSub')}</div></div></div>
                 <ChevronRight className="absolute top-1/2 -translate-y-1/2 right-6 text-zinc-700 group-hover:text-zinc-400 transition-colors"/>
             </button>
         </div>
