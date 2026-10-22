@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Player } from '../../types';
 import { formatCompact } from '../../services/ownPlatform/logic';
+import { debtPicture, repayLoan } from '../../services/loanLogic';
 import {
     advanceBook,
     beginIpo,
@@ -50,6 +51,16 @@ export const Boardroom: React.FC<Props> = ({ player, onPlayer }) => {
     };
     const fors = ipo.votes.filter(vote => vote.vote === 'FOR').length;
     const against = ipo.votes.filter(vote => vote.vote === 'AGAINST').length;
+    const picture = debtPicture(player);
+    const empireLoans = (player.finance?.loans || []).filter(loan => (loan.borrower || 'PERSONAL') === 'EMPIRE' && loan.status !== 'PAID');
+    const empireDebt = (state.books?.debt || 0) + empireLoans.reduce((sum, loan) => sum + loan.principal, 0);
+    const companyValue = Math.max(quoteValuation(player), 1);
+    const debtToEquity = empireDebt / companyValue;
+    const facility = state.books?.debt || 0;
+    const facilityRate = state.books?.facilityRate || 0.09;
+    const facilityWeekly = facility > 0
+        ? Math.round(facility * facilityRate / 52) + Math.min(facility, Math.max(25_000, Math.round(facility * 0.02)))
+        : 0;
 
     return (
         <div className="space-y-4" data-screen="boardroom-ipo">
@@ -59,6 +70,42 @@ export const Boardroom: React.FC<Props> = ({ player, onPlayer }) => {
                     {ipo.stage === 'LISTED' || ipo.stage === 'TRADING' ? `${ipo.ticker} is on the tape` : 'Take the company public'}
                 </h3>
                 <p className="text-sm text-zinc-400 mt-2 max-w-2xl">Valuation, the filing, the price band, the investors, and the first morning of trading. The cash that lands is the shares you actually sell, in dollars.</p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4" data-screen="board-debt">
+                <div className="text-[11px] uppercase tracking-wider text-zinc-500">Empire+ debt</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-2">
+                    <div>
+                        <div className="text-[10px] uppercase text-zinc-500">Total company debt</div>
+                        <div className="text-xl font-black">{formatCompact(empireDebt)}</div>
+                    </div>
+                    <div>
+                        <div className="text-[10px] uppercase text-zinc-500">Debt to equity</div>
+                        <div className="text-xl font-black">{debtToEquity.toFixed(2)}</div>
+                    </div>
+                    <div>
+                        <div className="text-[10px] uppercase text-zinc-500">Due this week</div>
+                        <div className="text-xl font-black">{formatCompact(empireLoans.reduce((sum, loan) => sum + (loan.status === 'ACTIVE' ? loan.weeklyPayment : 0), 0) + facilityWeekly)}</div>
+                    </div>
+                </div>
+                <p className="text-xs text-zinc-500 mt-2">Equity for this ratio is the company value, {formatCompact(companyValue)}. Across the whole life it is {formatCompact(picture.total)} of debt against {formatCompact(picture.equity)}.</p>
+                {facility > 0 && <p className="text-xs text-zinc-400 mt-2">Bank facility {formatCompact(facility)} · about {formatCompact(facilityWeekly)} leaves the books each week.</p>}
+                <div className="mt-3 space-y-2">
+                    {empireLoans.length === 0 && facility <= 0 && <p className="text-sm text-zinc-500">No company loans yet. The Bank writes them.</p>}
+                    {empireLoans.map(loan => (
+                        <div key={loan.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-2xl border border-white/10 px-3 py-2">
+                            <div className="min-w-0">
+                                <div className="font-bold truncate">{loan.lenderName}</div>
+                                <div className="text-xs text-zinc-500">{formatCompact(loan.principal)} left · {formatCompact(loan.weeklyPayment)} / week · {loan.weeksRemaining} weeks · {loan.status}</div>
+                            </div>
+                            <button
+                                onClick={() => apply(repayLoan(player, loan.id, 'BALANCE'))}
+                                className="shrink-0 px-3 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider"
+                            >
+                                Pay off
+                            </button>
+                        </div>
+                    ))}
+                </div>
             </div>
             {error && <p className="text-rose-300 text-sm">{error}</p>}
 

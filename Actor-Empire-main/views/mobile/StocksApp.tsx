@@ -2,9 +2,11 @@
 import React, { useState } from 'react';
 import { Player, Stock } from '../../types';
 import { formatMoney } from '../../services/formatUtils';
-import { calculatePortfolioValue } from '../../services/stockLogic';
+import { calculatePortfolioValue, fiftyTwoWeek, marketCap, weekChangePct } from '../../services/stockLogic';
 import { platformDealForStock } from '../../services/ownPlatform/studio';
 import { formatCompact } from '../../services/ownPlatform/logic';
+import { BuyFinancing } from '../../services/ownPlatform/valuation';
+import { ValuationSheet } from '../ownPlatform/ValuationSheet';
 import { getPlayerLanguage, t } from '../../services/i18n';
 import { ArrowLeft, TrendingUp, TrendingDown, PieChart, Activity, DollarSign, Lock, AlertTriangle } from 'lucide-react';
 
@@ -14,12 +16,13 @@ interface StocksAppProps {
   onTrade: (stockId: string, amount: number) => void;
   onFoundCompany?: () => void;
   onOpenCompany?: () => void;
-  onAcquirePlatform?: (stockId: string) => void;
+  onAcquirePlatform?: (stockId: string, financing: BuyFinancing) => void;
 }
 
 export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, onFoundCompany, onOpenCompany, onAcquirePlatform }) => {
   const [tab, setTab] = useState<'MARKET' | 'PORTFOLIO'>('MARKET');
-  const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [valuing, setValuing] = useState(false);
   const language = getPlayerLanguage(player);
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
   
@@ -36,26 +39,23 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
   const cash = player.money;
 
   const renderStockRow = (stock: Stock) => {
-      const history = stock.priceHistory;
-      const startPrice = history[0];
-      const currentPrice = stock.price;
-      const change = currentPrice - startPrice;
-      const changePercent = (change / startPrice) * 100;
-      const isPositive = change >= 0;
+      const changePercent = weekChangePct(stock) * 100;
+      const isPositive = changePercent >= 0;
       
       const holding = getHolding(stock.id);
 
       return (
-          <div key={stock.id} onClick={() => { setSelectedStock(stock); setSharesInput(''); }} className="bg-zinc-900 p-4 rounded-xl border border-zinc-800 flex items-center justify-between active:bg-zinc-800 transition-colors">
-              <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs ${isPositive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+          <div key={stock.id} onClick={() => { setSelectedId(stock.id); setSharesInput(''); setValuing(false); }} className="bg-zinc-900 p-3 sm:p-4 rounded-xl border border-zinc-800 flex items-center justify-between gap-2 active:bg-zinc-800 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${isPositive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
                       {stock.symbol}
                   </div>
-                  <div>
-                      <div className="font-bold text-white text-sm">{stock.name}</div>
-                      <div className="text-[10px] text-zinc-500">{stock.sector} {holding && `• ${holding.shares} ${tr('stocks.owned')}`}</div>
+                  <div className="min-w-0">
+                      <div className="font-bold text-white text-sm truncate">{stock.name}</div>
+                      <div className="text-[10px] text-zinc-500 truncate">{stock.sector} {holding && `• ${holding.shares} ${tr('stocks.owned')}`}</div>
                   </div>
               </div>
+              <Sparkline values={stock.priceHistory} up={isPositive} />
               
               <div className="text-right">
                   <div className="font-mono font-bold text-white text-sm">{formatMoney(stock.price)}</div>
@@ -68,8 +68,12 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
   };
 
   // --- DETAIL VIEW ---
+  const selectedStock = selectedId ? stocks.find(stock => stock.id === selectedId) || null : null;
+
   if (selectedStock) {
       const holding = getHolding(selectedStock.id);
+      const range = fiftyTwoWeek(selectedStock);
+      const changePercent = weekChangePct(selectedStock) * 100;
       const inputAmount = parseInt(sharesInput) || 0;
       const cost = inputAmount * selectedStock.price;
       const canAfford = inputAmount > 0 && cost <= player.money;
@@ -81,7 +85,7 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
       return (
           <div className="absolute inset-0 bg-black flex flex-col z-50 text-white animate-in slide-in-from-right duration-300">
               <div className="p-4 pt-12 border-b border-zinc-800 flex items-center gap-3 bg-zinc-900">
-                  <button onClick={() => setSelectedStock(null)}><ArrowLeft size={20}/></button>
+                  <button onClick={() => { setSelectedId(null); setValuing(false); }}><ArrowLeft size={20}/></button>
                   <div className="flex-1">
                       <div className="font-bold text-lg">{selectedStock.symbol}</div>
                       <div className="text-xs text-zinc-400">{selectedStock.name}</div>
@@ -93,22 +97,44 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
 
               <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                   {/* Chart Placeholder */}
-                  <div className="h-40 bg-zinc-900 rounded-2xl mb-6 flex items-end px-2 pb-2 relative overflow-hidden border border-zinc-800">
+                  <div className="h-40 bg-zinc-900 rounded-2xl mb-4 flex items-end px-2 pb-2 relative overflow-hidden border border-zinc-800">
                       <div className="absolute top-2 left-2 text-[10px] text-zinc-500">{tr('stocks.weekTrend')}</div>
-                      <div className="flex items-end w-full gap-1 h-full">
-                          {selectedStock.priceHistory.map((p, i) => {
-                              const min = Math.min(...selectedStock.priceHistory) * 0.9;
-                              const max = Math.max(...selectedStock.priceHistory) * 1.1;
-                              const height = ((p - min) / (max - min)) * 100;
+                      <div className={`absolute top-2 right-2 text-[10px] font-bold ${changePercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {changePercent >= 0 ? '+' : ''}{changePercent.toFixed(1)}% this week
+                      </div>
+                      <div className="flex items-end w-full gap-px h-full">
+                          {selectedStock.priceHistory.filter(point => Number.isFinite(point) && point > 0).map((p, i, series) => {
+                              const min = Math.min(...series);
+                              const max = Math.max(...series);
+                              const span = max - min || 1;
+                              const height = ((p - min) / span) * 100;
                               return (
-                                  <div key={i} className={`flex-1 rounded-t-sm ${i === selectedStock.priceHistory.length - 1 ? 'bg-blue-500' : 'bg-zinc-700'}`} style={{ height: `${height}%` }}></div>
+                                  <div key={i} className={`flex-1 rounded-t-sm ${i === series.length - 1 ? 'bg-blue-500' : 'bg-zinc-700'}`} style={{ height: `${Math.max(4, height)}%` }}></div>
                               )
                           })}
                       </div>
                   </div>
+                  {selectedStock.fundamentals?.lastNote && (
+                      <p className="text-xs text-zinc-400 mb-4">This week: {selectedStock.fundamentals.lastNote}.</p>
+                  )}
 
-                  {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-3 mb-6">
+                      <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] text-zinc-500 uppercase">52-week high</div>
+                          <div className="font-mono font-bold text-white">{formatMoney(range.high)}</div>
+                      </div>
+                      <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] text-zinc-500 uppercase">52-week low</div>
+                          <div className="font-mono font-bold text-white">{formatMoney(range.low)}</div>
+                      </div>
+                      <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] text-zinc-500 uppercase">Market cap</div>
+                          <div className="font-mono font-bold text-white">{formatCompact(marketCap(selectedStock))}</div>
+                      </div>
+                      <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
+                          <div className="text-[10px] text-zinc-500 uppercase">Debt / equity</div>
+                          <div className="font-mono font-bold text-amber-300">{(selectedStock.fundamentals?.debtToEquity ?? 0).toFixed(2)}×</div>
+                      </div>
                       <div className="bg-zinc-900 p-3 rounded-xl border border-zinc-800">
                           <div className="text-[10px] text-zinc-500 uppercase">{tr('stocks.divYield')}</div>
                           <div className="font-mono font-bold text-emerald-400">{(selectedStock.dividendYield * 100).toFixed(1)}%</div>
@@ -199,18 +225,27 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
                       </div>
                       {(() => {
                           const deal = platformDealForStock(player, selectedStock);
-                          if (!deal) return selectedStock.playerCompany ? <p className="text-xs text-emerald-300 mt-3">This listing is your company.</p> : null;
-                          const short = player.money < deal.price;
+                          if (!deal) return selectedStock.playerCompany ? <p className="text-xs text-emerald-300 mt-3">This listing is your company. Its price moves with your receipts, debt, and releases.</p> : null;
                           return (
                               <button
-                                  disabled={short || !onAcquirePlatform}
-                                  onClick={() => onAcquirePlatform?.(selectedStock.id)}
-                                  className="mt-3 w-full py-3 rounded-xl bg-white text-black font-bold text-sm disabled:opacity-40"
+                                  onClick={() => setValuing(true)}
+                                  className="mt-3 w-full py-3 rounded-xl bg-white text-black font-bold text-sm"
                               >
-                                  {short ? `Platform costs ${formatCompact(deal.price)}` : `Purchase ${deal.name} · ${formatCompact(deal.price)}`}
+                                  Review valuation · {formatCompact(deal.price)}
                               </button>
                           );
                       })()}
+                      {valuing && (
+                          <ValuationSheet
+                              player={player}
+                              dealId={selectedStock.id}
+                              onClose={() => setValuing(false)}
+                              onConfirm={(id, financing) => {
+                                  setValuing(false);
+                                  onAcquirePlatform?.(id, financing);
+                              }}
+                          />
+                      )}
                   </div>
               </div>
           </div>
@@ -278,4 +313,22 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
         </div>
     </div>
   );
+};
+
+const Sparkline: React.FC<{ values: number[]; up: boolean }> = ({ values, up }) => {
+    const series = (values || []).filter(point => Number.isFinite(point) && point > 0);
+    if (series.length < 2) return null;
+    const min = Math.min(...series);
+    const max = Math.max(...series);
+    const span = max - min || 1;
+    const d = series.map((point, index) => {
+        const x = (index / (series.length - 1)) * 56;
+        const y = 20 - ((point - min) / span) * 16;
+        return `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+    }).join(' ');
+    return (
+        <svg width="56" height="22" className="shrink-0 hidden min-[420px]:block" aria-hidden>
+            <path d={d} fill="none" stroke={up ? '#34d399' : '#fb7185'} strokeWidth="1.5" />
+        </svg>
+    );
 };

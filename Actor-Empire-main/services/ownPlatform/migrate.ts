@@ -9,6 +9,7 @@ import {
     StudioBooks,
 } from '../../types';
 import { CLOUD_PROVIDERS, IDENTITY_PRESETS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
+import { anchorRates, decorateRival } from './fx';
 import { REVENUE_LANES, syncRegions } from './logic';
 import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
 import { clampReleaseOffset } from './weeks';
@@ -54,7 +55,8 @@ export const createOwnPlatform = (player: Player): OwnPlatformState => {
         piracyShare: 0,
         enforcement: 35,
         customerPressure: 10,
-        rivals: createRivalRoster(),
+        rivals: createRivalRoster().map(row => decorateRival(row)),
+        fxRates: anchorRates(),
         pulse: defaultPulse(),
         pendingDeal: null,
         closedDeals: [],
@@ -116,7 +118,10 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         piracyShare: Math.max(0, Math.min(1, Number(raw.piracyShare) || 0)),
         enforcement: Math.max(0, Math.min(100, Math.round(Number(raw.enforcement) || created.enforcement))),
         customerPressure: Math.max(0, Math.min(100, Math.round(Number(raw.customerPressure) || 0))),
-        rivals: Array.isArray(raw.rivals) && raw.rivals.length >= 39 ? raw.rivals : created.rivals,
+        rivals: Array.isArray(raw.rivals) && raw.rivals.length >= 39
+            ? raw.rivals.map(row => decorateRival(row, raw.fxRates))
+            : created.rivals,
+        fxRates: raw.fxRates && typeof raw.fxRates === 'object' ? { ...anchorRates(), ...raw.fxRates } : anchorRates(),
         pulse: raw.pulse && typeof raw.pulse === 'object' ? { ...created.pulse, ...raw.pulse } : created.pulse,
         pendingDeal: raw.pendingDeal && raw.pendingDeal.offer ? raw.pendingDeal : null,
         closedDeals: Array.isArray(raw.closedDeals) ? raw.closedDeals : [],

@@ -12,8 +12,10 @@ import {
     StudioBooks,
 } from '../../types';
 import { getAbsoluteWeek } from '../legacyLogic';
+import { calculateWeeklyLoanPayment, issueLoan } from '../loanLogic';
 import { MARKET_COUNTRIES, hashString } from './catalog';
 import { formatCompact, quoteLaunch } from './logic';
+import { BuyFinancing, equityChequeAvailable, quoteAcquisition, quoteListedCompany, quotePrivateService } from './valuation';
 import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON } from './weeks';
 
 const FACILITY_USD = 4_000_000;
@@ -44,14 +46,6 @@ export interface PlatformDeal {
     stockId?: string;
     rivalId?: string;
 }
-
-const PLATFORM_TABLE: Record<string, { name: string; usd: number; homes: number }> = {
-    stk_nflx: { name: 'Netflix', usd: 18_000_000, homes: 18 },
-    stk_dis: { name: 'Disney+', usd: 22_000_000, homes: 16 },
-    stk_wbd: { name: 'Max', usd: 6_500_000, homes: 7 },
-    stk_para: { name: 'Paramount+', usd: 4_200_000, homes: 5 },
-    stk_cmcsa: { name: 'Peacock', usd: 9_000_000, homes: 8 },
-};
 
 const DISCLOSURES: IpoDisclosure[] = [
     {
@@ -192,29 +186,18 @@ export const fairSharePrice = (player: Player): number => {
     return Math.max(4, Math.round((valuation / outstanding) * 100) / 100);
 };
 
-export const stakeDiscount = (player: Player, stockId: string, base: number): number => {
-    const stock = (player.stocks || []).find(row => row.id === stockId);
-    const outstanding = stock?.sharesOutstanding || 800;
-    const held = (player.portfolio || []).find(row => row.stockId === stockId)?.shares || 0;
-    const stake = Math.min(0.4, held / outstanding);
-    return Math.max(250_000, Math.round(base * (1 - stake)));
-};
-
 export const platformDealForStock = (player: Player, stock: Stock): PlatformDeal | null => {
-    const row = PLATFORM_TABLE[stock.id];
-    if (!row && !stock.platformAcquireUsd) return null;
-    const name = row?.name || stock.name;
-    const base = stock.platformAcquireUsd || row?.usd || 0;
-    if (!base) return null;
-    const owned = (player.ownPlatform?.ownedStreamers || []).some(item => item.fromStockId === stock.id || item.name === name);
+    const quote = quoteListedCompany(player, stock);
+    if (!quote) return null;
+    const owned = (player.ownPlatform?.ownedStreamers || []).some(item => item.fromStockId === stock.id || item.name === quote.name);
     if (owned) return null;
     return {
         id: stock.id,
         stockId: stock.id,
-        name,
-        price: stakeDiscount(player, stock.id, base),
-        householdsM: stock.platformHouseholdsM || row?.homes || 1,
-        note: 'Buying the shares is the stake. This cheque buys the streaming service itself.',
+        name: quote.name,
+        price: quote.equityCheque,
+        householdsM: quote.subscribersM || stock.platformHouseholdsM || 1,
+        note: 'Listed company. The cheque is equity value plus a control premium. Net debt is assumed.',
     };
 };
 
@@ -222,60 +205,129 @@ export const listPlatformDeals = (player: Player): PlatformDeal[] => {
     const fromStocks = (player.stocks || [])
         .map(stock => platformDealForStock(player, stock))
         .filter((row): row is PlatformDeal => Boolean(row));
+    const taken = new Set(fromStocks.map(row => row.name.toLowerCase()));
     const rivals = (player.ownPlatform?.rivals || [])
-        .filter(rival => rival.status === 'ACTIVE' && rival.tier !== 'GLOBAL')
-        .map(rival => ({
-            id: rival.id,
-            rivalId: rival.id,
-            name: rival.name,
-            price: Math.round(Math.max(750_000, rival.householdsM * 900_000)),
-            householdsM: rival.householdsM,
-            note: `${rival.tier.toLowerCase()} service · ${rival.homeRegion.replace('_', ' ').toLowerCase()}`,
-        }))
-        .sort((a, b) => a.price - b.price)
-        .slice(0, 6);
+        .filter(rival => rival.status === 'ACTIVE' && !taken.has(rival.name.toLowerCase()))
+        .flatMap((rival): PlatformDeal[] => {
+            const quote = quotePrivateService(player, rival);
+            if (!quote) return [];
+            return [{
+                id: rival.id,
+                rivalId: rival.id,
+                name: rival.name,
+                price: quote.equityCheque,
+                householdsM: rival.householdsM,
+                note: `${rival.tier.toLowerCase()} service · valued from revenue, subscribers, library, and debt`,
+            }];
+        })
+        .sort((a, b) => a.price - b.price);
     return [...fromStocks, ...rivals];
 };
 
-export const purchasePlatform = (player: Player, dealId: string): { player: Player; error?: string } => {
+export const purchasePlatform = (player: Player, dealId: string, financing?: BuyFinancing): { player: Player; error?: string } => {
     if (!player.ownPlatform) return { player, error: 'Open Empire+ before you buy another service.' };
-    const deal = listPlatformDeals(player).find(row => row.id === dealId);
-    if (!deal) return { player, error: 'That service is not for sale.' };
-    if (player.money < deal.price) return { player, error: `You are short ${formatCompact(deal.price - player.money)}.` };
+    if (!financing) return { player, error: 'Open the valuation and show how the cheque gets paid.' };
+    const quote = quoteAcquisition(player, dealId);
+    if (!quote) return { player, error: 'That service is not for sale.' };
+    const already = (player.ownPlatform.ownedStreamers || []).some(item => item.fromStockId === dealId || item.id === `own_${dealId}`);
+    if (already) return { player, error: 'You already own that service.' };
+    if (!quote.regulator.ok) return { player, error: quote.regulator.reason };
+    if (!quote.board.ok) return { player, error: 'The board voted the purchase down. The cheque never left.' };
+    const cash = Math.max(0, Math.floor(Number(financing.cash) || 0));
+    const loanAmount = Math.max(0, Math.floor(Number(financing.loan) || 0));
+    const equityCash = financing.equity ? equityChequeAvailable(player) : 0;
+    if (financing.equity && equityCash <= 0) return { player, error: 'Outside owners are already on the cap table.' };
+    if (cash > player.money) return { player, error: 'That cash is not in the treasury.' };
+    const covered = cash + loanAmount + equityCash;
+    if (covered < quote.equityCheque) {
+        return { player, error: `The cheque is ${formatCompact(quote.equityCheque)}. Cash, the loan, and any equity cover ${formatCompact(covered)}.` };
+    }
+    let funded = player;
+    if (financing.equity) {
+        const sold = chooseFunding(funded, 'EQUITY');
+        if (sold.error) return sold;
+        funded = sold.player;
+    }
+    if (loanAmount > 0) {
+        const lent = issueLoan(funded, loanAmount, 260, 'EMPIRE');
+        if (lent.error) return { player, error: lent.error };
+        funded = lent.player;
+    }
+    if (funded.money < quote.equityCheque) return { player, error: `You are short ${formatCompact(quote.equityCheque - funded.money)} after financing.` };
+    const deal = listPlatformDeals(funded).find(row => row.id === dealId) || {
+        id: dealId,
+        name: quote.name,
+        price: quote.equityCheque,
+        householdsM: quote.subscribersM,
+        stockId: quote.kind === 'LISTED' ? dealId : undefined,
+        rivalId: quote.kind === 'PRIVATE' ? dealId : undefined,
+        note: quote.note,
+    };
+    const source = funded.ownPlatform;
+    if (!source) return { player, error: 'Open Empire+ before you buy another service.' };
     const next: Player = {
-        ...player,
-        logs: player.logs,
-        finance: player.finance,
-        portfolio: player.portfolio,
-        stocks: player.stocks,
+        ...funded,
+        logs: [...(funded.logs || [])],
+        finance: {
+            ...funded.finance,
+            loans: [...(funded.finance?.loans || [])],
+            history: [...(funded.finance?.history || [])],
+        },
+        portfolio: funded.portfolio,
+        stocks: funded.stocks,
         ownPlatform: {
-            ...player.ownPlatform,
-            books: player.ownPlatform.books || emptyBooks(),
-            ownedStreamers: [...(player.ownPlatform.ownedStreamers || [])],
-            rivals: player.ownPlatform.rivals.map(rival => ({ ...rival, languages: [...rival.languages] })),
+            ...source,
+            books: source.books ? { ...source.books, lines: [...source.books.lines] } : emptyBooks(),
+            ownedStreamers: [...(source.ownedStreamers || [])],
+            rivals: source.rivals.map(rival => ({ ...rival, languages: [...rival.languages] })),
         },
     };
     const state = next.ownPlatform!;
+    const price = quote.equityCheque;
     const owned: OwnedStreamer = {
         id: `own_${deal.id}`,
         name: deal.name,
-        pricePaid: deal.price,
+        pricePaid: price,
         householdsM: deal.householdsM,
-        week: player.currentWeek,
+        week: next.currentWeek,
         fromStockId: deal.stockId,
     };
     state.ownedStreamers = [...(state.ownedStreamers || []), owned];
     if (deal.rivalId) {
         state.rivals = state.rivals.map(rival => rival.id === deal.rivalId
-            ? { ...rival, status: 'ACQUIRED' as const, householdsM: 0, note: `Bought by ${state.name}.` }
+            ? { ...rival, status: 'ACQUIRED' as const, householdsM: 0, note: `Bought by ${state.name}. The debt came too.` }
             : rival);
     }
     if (state.stage === 'LIVE') {
-        state.subscribers += Math.round(deal.householdsM * 1_000_000 * 0.02);
+        state.subscribers += Math.round(Math.min(deal.householdsM, 20) * 1_000_000 * 0.02);
     }
-    pushMoney(next, -deal.price, `Acquired ${deal.name}`);
-    pushLine(state.books!, next, -deal.price, `Bought ${deal.name}`, 'ACQUISITION');
-    log(next, `Bought the ${deal.name} streaming service for ${formatCompact(deal.price)}.`);
+    pushMoney(next, -price, `Acquired ${deal.name}`);
+    pushLine(state.books!, next, -price, `Bought ${deal.name}`, 'ACQUISITION');
+    if (quote.assumedDebt > 0 && next.finance) {
+        const termWeeks = 260;
+        const rate = 0.07;
+        const assumed = {
+            id: `loan_assumed_${deal.id}_${next.currentWeek}`,
+            lenderName: `${deal.name} assumed debt`,
+            lenderId: 'assumed',
+            principal: quote.assumedDebt,
+            originalPrincipal: quote.assumedDebt,
+            annualInterestRate: rate,
+            weeklyPayment: calculateWeeklyLoanPayment(quote.assumedDebt, rate, termWeeks),
+            termWeeks,
+            weeksRemaining: termWeeks,
+            takenWeek: next.currentWeek,
+            takenYear: next.age,
+            takenAbsoluteWeek: getAbsoluteWeek(next.age, next.currentWeek),
+            missedPayments: 0,
+            successfulPayments: 0,
+            status: 'ACTIVE' as const,
+            borrower: 'EMPIRE' as const,
+        };
+        next.finance.loans = [...next.finance.loans, assumed];
+        pushLine(state.books!, next, 0, `Assumed ${formatCompact(quote.assumedDebt)} of ${deal.name} debt`, 'DEBT');
+    }
+    log(next, `Bought ${deal.name} for ${formatCompact(price)}. Assumed debt ${formatCompact(quote.assumedDebt)}.`);
     return { player: next };
 };
 
@@ -786,14 +838,9 @@ export const settleBooks = (player: Player): { notes: { msg: string; type: 'posi
         }
     }
     books.history = [...books.history, { week: player.currentWeek, revenue, burn, profit }].slice(-16);
-    if (state.ipo?.stage === 'LISTED') {
+    if (state.ipo?.stage === 'LISTED' && state.ipo) {
         const stock = (player.stocks || []).find(row => row.playerCompany || row.id === 'stk_emp');
-        if (stock) {
-            const drift = profit >= 0 ? 1.01 : 0.98;
-            stock.price = Math.max(1, Math.round(stock.price * drift * 100) / 100);
-            stock.priceHistory = [...stock.priceHistory, stock.price].slice(-20);
-            state.ipo.lastPrice = stock.price;
-        }
+        if (stock && Number.isFinite(stock.price)) state.ipo.lastPrice = stock.price;
     }
     return { notes, transactions };
 };
