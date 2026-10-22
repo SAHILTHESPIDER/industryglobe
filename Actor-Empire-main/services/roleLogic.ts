@@ -881,6 +881,9 @@ export const calculateWeeklyBoxOffice = (
     const studioPrestigeMod = 1 + Math.min(0.14, studioPrestigeScore / 700);
     const marketDemandMod = Math.max(0.72, Math.min(1.36, marketDemand));
     const studioReputationMod = 1 + Math.min(0.14, Math.max(0, studioGenreReputation) / 700);
+    const rightsBoost = Math.max(0, Math.min(0.35, Number(stats.rightsFanbaseBoost) || 0));
+    const rightsClash = typeof stats.rightsClash === 'number' && stats.rightsClash > 0 ? stats.rightsClash : 1;
+    const rightsMod = (1 + rightsBoost) * rightsClash;
 
     // --- OPENING WEEKEND ---
     if (week === 1) {
@@ -928,7 +931,7 @@ export const calculateWeeklyBoxOffice = (
             rawOpening = Math.min(rawOpening, caps.opening);
         }
 
-        return sanitizeGross(rawOpening);
+        return sanitizeGross(rawOpening * rightsMod);
     }
     
     // --- LEGS / DROPOFF ---
@@ -961,7 +964,7 @@ export const calculateWeeklyBoxOffice = (
 
     const retention = Math.max(0.05, 1 - dropRate);
     const safePrevGross = Number.isFinite(prevGross) ? Math.max(0, prevGross) : 0;
-    return sanitizeGross(safePrevGross * retention * formatAudienceMod * marketDemandMod * studioReputationMod);
+    return sanitizeGross(safePrevGross * retention * formatAudienceMod * marketDemandMod * studioReputationMod * rightsMod);
 };
 
 export const calculateRunOutcome = (totalGross: number, budget: number, rating: number): { tier: OutcomeTier, score: number } => {

@@ -205,7 +205,10 @@ export const checkAwardEligibility = (player: Player, week: number, awardYear = 
             rating: fromActive ? p.imdbRating : p.rating,
             isPlayer: true,
             genre: fromActive ? p.projectDetails.genre : p.genre,
-            mediaType: fromActive ? p.projectDetails.type : (p.projectType || 'MOVIE')
+            mediaType: fromActive ? p.projectDetails.type : (p.projectType || 'MOVIE'),
+            adaptationAwardBonus: fromActive
+                ? p.projectDetails?.hiddenStats?.adaptationAwardBonus
+                : p.adaptationAwardBonus
         });
     };
 
@@ -245,6 +248,8 @@ export const checkAwardEligibility = (player: Player, week: number, awardYear = 
         const imdbScore = (project.rating || 5) * 10;
         
         let nomScore = (perfScore * 0.5) + (imdbScore * 0.5);
+        const adaptationBonus = Number(project.adaptationAwardBonus) || 0;
+        if (adaptationBonus > 0) nomScore += adaptationBonus;
 
         // Oscar Bias: Drama/Prestige
         if (week === 10) {

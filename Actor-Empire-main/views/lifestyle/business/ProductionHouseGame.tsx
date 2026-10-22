@@ -18,6 +18,7 @@ import { StudioPage } from '../../StudioPage';
 import { ProjectDashboardModal } from './components/ProjectDashboardModal';
 import { SequelSetupModal } from './components/SequelSetupModal';
 import { IPManagement } from './IPManagement';
+import { RightsLibrary } from './RightsLibrary';
 
 interface ProductionHouseGameProps {
     player: Player;
@@ -26,7 +27,7 @@ interface ProductionHouseGameProps {
     businessId?: string;
 }
 
-type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY';
+type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS';
 
 // --- HELPERS ---
 const formatMoney = (val: number) => {
@@ -534,7 +535,11 @@ const ProductionHouseInner: React.FC<{
     }
 
     if (view === 'DEVELOPMENT') {
-        return <DevelopmentLab player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} />;
+        return <DevelopmentLab player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} onOpenRights={() => setView('RIGHTS')} />;
+    }
+
+    if (view === 'RIGHTS') {
+        return <RightsLibrary player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} />;
     }
 
     if (view === 'OFFICE') {
@@ -736,7 +741,7 @@ const ProductionHouseInner: React.FC<{
                     
                     <div className="flex gap-4 overflow-x-auto px-4 pb-4 no-scrollbar">
                         {/* New Project Tile */}
-                        <button onClick={() => setView('GREENLIGHT')} className="min-w-[140px] w-[140px] h-[210px] rounded-lg border-2 border-dashed border-amber-500/50 bg-amber-500/5 flex flex-col items-center justify-center gap-3 text-amber-500 hover:bg-amber-500/10 hover:border-amber-500 hover:scale-105 transition-all duration-300 group shrink-0 relative overflow-hidden shadow-lg">
+                        <button data-testid="open-greenlight" onClick={() => setView('GREENLIGHT')} className="min-w-[140px] w-[140px] h-[210px] rounded-lg border-2 border-dashed border-amber-500/50 bg-amber-500/5 flex flex-col items-center justify-center gap-3 text-amber-500 hover:bg-amber-500/10 hover:border-amber-500 hover:scale-105 transition-all duration-300 group shrink-0 relative overflow-hidden shadow-lg">
                             <div className="absolute inset-0 bg-gradient-to-b from-amber-500/0 to-amber-500/10"></div>
                             <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-500/30 transition-all duration-300">
                                 <Plus size={24} className="text-amber-400" />
@@ -844,6 +849,18 @@ const ProductionHouseInner: React.FC<{
                                 { label: "Capital", value: formatMoney(studio.balance) }
                             ]}
                             onClick={() => setView('FINANCE')}
+                        />
+
+                        <DivisionCard
+                            title="Rights Library"
+                            subtitle="Books & lives"
+                            icon={<BookOpen size={20}/>}
+                            color="bg-rose-600"
+                            testId="open-rights-library"
+                            stats={[
+                                { label: "Held", value: String((studio.studioState?.rightsLibrary?.holdings || []).filter(row => row.owner === 'PLAYER' && row.status !== 'LOST' && row.status !== 'EXPIRED').length) }
+                            ]}
+                            onClick={() => setView('RIGHTS')}
                         />
                     </div>
                 </div>
@@ -1949,8 +1966,8 @@ const ArchiveProjectCard: React.FC<{ project: any, isLatestInstallment?: boolean
     );
 };
 
-const DivisionCard: React.FC<{ title: string, subtitle: string, icon: React.ReactNode, color: string, stats: {label: string, value: string}[], onClick: () => void, locked?: boolean }> = ({ title, subtitle, icon, color, stats, onClick, locked }) => (
-    <button onClick={locked ? undefined : onClick} className={`w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all group relative overflow-hidden gap-2 aspect-square shadow-md ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-800 hover:border-zinc-600'}`}>
+const DivisionCard: React.FC<{ title: string, subtitle: string, icon: React.ReactNode, color: string, stats: {label: string, value: string}[], onClick: () => void, locked?: boolean, testId?: string }> = ({ title, subtitle, icon, color, stats, onClick, locked, testId }) => (
+    <button data-testid={testId} onClick={locked ? undefined : onClick} className={`w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all group relative overflow-hidden gap-2 aspect-square shadow-md ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-800 hover:border-zinc-600'}`}>
         {locked && (
             <div className="absolute top-2 right-2 text-zinc-600">
                 <Lock size={10} />

@@ -223,6 +223,19 @@ export enum Page {
       lockedStreamingFunding?: LockedStreamingFunding;
       developmentCost?: number;
       purchaseCost?: number;
+      /** Rights Library title this script was adapted from. */
+      rightsIpId?: string;
+      rightsKind?: 'BOOK' | 'LIFE';
+      /** 0 is faithful, 100 is loose. */
+      fidelity?: number;
+      seriesSeasonsPotential?: number;
+      preferredFormat?: ProjectType;
+      adaptationAuthorId?: string;
+      regionalFanbase?: number[];
+      sourceFame?: number;
+      publicDomainSource?: boolean;
+      rightsHot?: boolean;
+      unauthorizedLife?: boolean;
       createdAtWeek?: number;
       producedAtWeek?: number;
       returningTalent?: {
@@ -312,6 +325,82 @@ export enum Page {
       financeLedger?: StudioFinanceEntry[];
       genreReputation?: Record<string, number>;
       marketTrends?: GenreMarketTrend[];
+      /** Worldwide book and life-rights market. Missing on saves from before the Rights Library. */
+      rightsLibrary?: RightsLibraryState;
+  }
+
+  export type RightsRegionId =
+      | 'NORTH_AMERICA'
+      | 'LATIN_AMERICA'
+      | 'UK_EUROPE'
+      | 'INDIA_SOUTH_ASIA'
+      | 'EAST_ASIA'
+      | 'SOUTHEAST_ASIA'
+      | 'MIDDLE_EAST'
+      | 'AFRICA'
+      | 'OCEANIA';
+
+  export type RightsHoldingStatus = 'OPTION' | 'OWNED' | 'EXPIRED' | 'LOST';
+
+  export interface RightsHolding {
+      ipId: string;
+      kind: 'BOOK' | 'LIFE';
+      status: RightsHoldingStatus;
+      owner: 'PLAYER' | 'RIVAL';
+      rivalName?: string;
+      paidUsd: number;
+      optionWeek?: number;
+      /** Absolute week the option dies. */
+      expiresWeek?: number;
+      profitShare?: number;
+      finalCut?: boolean;
+      cameo?: boolean;
+      developedScriptId?: string;
+      franchiseFlag?: boolean;
+      sequelFlag?: boolean;
+  }
+
+  export interface RightsBid {
+      ipId: string;
+      playerUsd: number;
+      rivalUsd: number;
+      rivalName: string;
+      round: number;
+      openedWeek: number;
+      status: 'OPEN' | 'WON' | 'LOST' | 'WALKED' | 'SHARE';
+      profitShare?: number;
+  }
+
+  export interface RightsAuthorRelation {
+      authorId: string;
+      mood: number;
+      lastRating?: number;
+  }
+
+  export interface RightsActivity {
+      id: string;
+      week: number;
+      year: number;
+      headline: string;
+      ipId: string;
+  }
+
+  export interface RightsHotRelease {
+      id: string;
+      label: 'BREAKOUT_NOVEL' | 'CHAMPIONSHIP' | 'VIRAL_TRUE';
+      untilAbsolute: number;
+      year: number;
+      record: Record<string, any>;
+  }
+
+  export interface RightsLibraryState {
+      holdings: RightsHolding[];
+      bids: RightsBid[];
+      relations: RightsAuthorRelation[];
+      activity: RightsActivity[];
+      hotReleases: RightsHotRelease[];
+      lastHotYear?: number;
+      clashes: { ipId: string; rivalName: string }[];
   }
   
   export interface GenreMarketTrend {
@@ -341,7 +430,7 @@ export enum Page {
       week: number;
       year: number;
       amount: number;
-      type: 'THEATRICAL' | 'STREAMING_DEAL' | 'STREAMING_ROYALTY' | 'UNIVERSE' | 'CAPITAL_INJECTION' | 'CAPITAL_WITHDRAWAL' | 'PRODUCTION_SPEND';
+      type: 'THEATRICAL' | 'STREAMING_DEAL' | 'STREAMING_ROYALTY' | 'UNIVERSE' | 'CAPITAL_INJECTION' | 'CAPITAL_WITHDRAWAL' | 'PRODUCTION_SPEND' | 'RIGHTS';
       label: string;
       projectId?: string;
   }
@@ -370,6 +459,18 @@ export enum Page {
       nextSeasonFundingPlatformId?: string | null;
       nextSeasonFundingSourceProjectId?: string;
       nextSeasonFundingUsedByProjectId?: string;
+      rightsIpId?: string;
+      rightsKind?: 'BOOK' | 'LIFE';
+      /** Added to theatrical gross. 0.18 is a strong home crowd. */
+      rightsFanbaseBoost?: number;
+      /** Added to streaming views. */
+      rightsStreamBoost?: number;
+      /** 1 when the subject is exclusive. About 0.62 when a rival has a version. */
+      rightsClash?: number;
+      fidelity?: number;
+      adaptationAwardBonus?: number;
+      adaptationAuthorId?: string;
+      franchiseSeed?: boolean;
   }
   
   export interface CastMember {
@@ -468,6 +569,7 @@ export enum Page {
       reviews?: Review[];
       episodes?: number;
       tone?: number; // 0 = Practical, 100 = CGI
+      rightsIpId?: string;
       visualStyle?: 'REALISTIC' | 'STYLISTIC' | 'GRITTY' | 'VIBRANT';
       pacing?: 'SLOW' | 'MODERATE' | 'FAST' | 'FRENETIC';
       equipmentChoices?: Record<string, string>;
@@ -904,6 +1006,8 @@ export enum Page {
       installmentNumber?: number;
       directorId?: string;
       customPoster?: CustomPoster;
+      rightsIpId?: string;
+      adaptationAwardBonus?: number;
   }
   
   export interface Commitment {
