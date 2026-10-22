@@ -73,6 +73,7 @@ export const ensureDealState = (player: Player): Player => {
   if (typeof p.flags.complianceHeat !== 'number') p.flags.complianceHeat = 0;
   // Calibrate shares ONCE so stock price and studio equity agree.
   const studios = p.world.studios || {};
+  Object.values(studios).forEach((studio: any) => seedStudioBooks(studio));
   (p.stocks || []).forEach((stock: Stock) => {
     const studio = findStudio(studios, stock.relatedStudioId);
     if (!studio || studio.sharesOutstanding) return;
@@ -80,6 +81,35 @@ export const ensureDealState = (player: Player): Player => {
     studio.sharesOutstanding = Math.max(1_000_000, Math.round(fin.equityValue / Math.max(0.01, stock.price)));
   });
   return p as Player;
+};
+
+const STUDIO_PROFILES: Record<string, { debt: number; hidden: number; income: number; growth: number; titles: number }> = {
+  ARTISAN_PICTURES: { debt: 0.22, hidden: 0.4, income: 0.07, growth: 0.05, titles: 46 },
+  PARAMOUNT: { debt: 0.34, hidden: 0.55, income: 0.05, growth: 0.01, titles: 180 },
+  HBO: { debt: 0.18, hidden: 0.3, income: 0.08, growth: 0.03, titles: 90 },
+  WARNER_BROS: { debt: 0.48, hidden: 0.5, income: 0.045, growth: -0.01, titles: 220 },
+  UNIVERSAL: { debt: 0.4, hidden: 0.42, income: 0.06, growth: 0.02, titles: 200 },
+  NETFLIX: { debt: 0.16, hidden: 0.2, income: 0.12, growth: 0.06, titles: 400 },
+  DISNEY_PLUS: { debt: 0.28, hidden: 0.35, income: 0.07, growth: 0.03, titles: 260 },
+  APPLE_TV: { debt: 0.08, hidden: 0.15, income: 0.04, growth: 0.02, titles: 40 },
+  HULU: { debt: 0.3, hidden: 0.4, income: 0.06, growth: 0.01, titles: 80 },
+  YOUTUBE: { debt: 0.05, hidden: 0.1, income: 0.15, growth: 0.08, titles: 12 },
+  MARVEL_STUDIOS: { debt: 0.2, hidden: 0.25, income: 0.1, growth: 0.04, titles: 70 },
+  DC_STUDIOS: { debt: 0.26, hidden: 0.45, income: 0.06, growth: 0.02, titles: 55 },
+  LUCASFILM: { debt: 0.18, hidden: 0.3, income: 0.07, growth: 0.02, titles: 40 },
+};
+
+const seedStudioBooks = (studio: any) => {
+  if (!studio || typeof studio.valuation !== 'number') return;
+  const ev = (Number(studio.valuation) || 0) * B;
+  if (ev <= 0) return;
+  const profile = STUDIO_PROFILES[studio.id] || { debt: 0.19, hidden: 0.45, income: 0.04, growth: 0.03, titles: 24 };
+  if (typeof studio.debt !== 'number') studio.debt = Math.round(ev * profile.debt);
+  if (typeof studio.hiddenLiabilities !== 'number') studio.hiddenLiabilities = Math.round((studio.debt || 0) * profile.hidden);
+  if (typeof studio.annualIncome !== 'number') studio.annualIncome = Math.round(ev * profile.income);
+  if (typeof studio.revenueGrowth !== 'number') studio.revenueGrowth = profile.growth;
+  if (typeof studio.catalogCount !== 'number') studio.catalogCount = profile.titles;
+  if (typeof studio.catalogueValue !== 'number') studio.catalogueValue = profile.titles * 12_000_000;
 };
 
 const findStudio = (studios: any, id?: string) => {
@@ -155,12 +185,97 @@ export const OWNERSHIP_TIERS = [
 ];
 
 // ------------------------------------------------------------------ 3. PRICING + OFFER SCORING
-export const controlPremium = (totalPctAfter: number) => (totalPctAfter >= 50 ? 1.25 : totalPctAfter >= 25 ? 1.1 : 1);
+/** Control deals cost 20–50% over equity. The rate rises with the size of the company. */
+export const controlPremiumRate = (enterpriseValue: number, reputation = 50): number => {
+  let rate = 0.2;
+  if (enterpriseValue >= 5_000_000_000) rate = 0.28;
+  if (enterpriseValue >= 20_000_000_000) rate = 0.36;
+  if (enterpriseValue >= 80_000_000_000) rate = 0.44;
+  if (enterpriseValue >= 200_000_000_000) rate = 0.5;
+  if (reputation >= 90) rate = Math.min(0.5, rate + 0.04);
+  return rate;
+};
+
+export const controlPremium = (totalPctAfter: number, enterpriseValue = 0, reputation = 50) => {
+  if (totalPctAfter >= 50) return 1 + controlPremiumRate(enterpriseValue, reputation);
+  if (totalPctAfter >= 25) return 1.08;
+  return 1;
+};
+
+export interface StudioValuationView {
+  marketCap: number;
+  sharePrice: number;
+  shares: number;
+  listed: boolean;
+  cash: number;
+  debt: number;
+  hiddenLiabilities: number;
+  netDebt: number;
+  enterpriseValue: number;
+  annualIncome: number;
+  revenueMultiple: number;
+  revenueValue: number;
+  catalogueValue: number;
+  growthPct: number;
+  fundamentalEquity: number;
+  blendedEquity: number;
+  controlPremiumPct: number;
+  cashToControl: number;
+  assumedDebt: number;
+}
+
+export const explainStudioValuation = (player: Player, studioId: string): StudioValuationView => {
+  const studio = findStudio((player.world as any)?.studios, studioId) || {};
+  const fin = computeFinancials(studio);
+  const stock = getStockForStudio(player, studioId);
+  const listedShares = Number(stock?.sharesOutstanding) || 0;
+  const listed = Boolean(stock && listedShares >= 100_000 && Number.isFinite(stock.price));
+  const sharePrice = listed ? stock!.price : fin.pricePerShare;
+  const shares = listed ? listedShares : fin.sharesOutstanding;
+  const marketCap = Math.max(0, sharePrice * shares);
+  const cash = Math.max(0, (Number(studio.cashReserve) || 0) * 1_000_000);
+  const growth = Number(studio.revenueGrowth) || 0.03;
+  const multiple = clamp(6 + growth * 20, 4, 12);
+  const catalogue = Number(studio.catalogueValue) || fin.enterpriseValue * 0.12;
+  const revenueValue = fin.annualIncome * multiple;
+  const fundamentalEv = revenueValue * 0.7 + catalogue;
+  const netDebt = fin.debt - cash;
+  const fundamentalEquity = Math.max(fin.enterpriseValue * 0.05, fundamentalEv - netDebt);
+  const accountingEquity = listed ? marketCap : fin.equityValue;
+  const blendedEquity = listed
+    ? accountingEquity * 0.75 + fundamentalEquity * 0.25
+    : accountingEquity * 0.7 + fundamentalEquity * 0.3;
+  const reputation = Number(studio.reputation ?? 50);
+  const controlPremiumPct = controlPremiumRate(fin.enterpriseValue, reputation);
+  return {
+    marketCap,
+    sharePrice,
+    shares,
+    listed,
+    cash,
+    debt: fin.debt,
+    hiddenLiabilities: fin.hiddenLiabilities,
+    netDebt,
+    enterpriseValue: listed ? marketCap + Math.max(0, netDebt) : fin.enterpriseValue,
+    annualIncome: fin.annualIncome,
+    revenueMultiple: multiple,
+    revenueValue,
+    catalogueValue: catalogue,
+    growthPct: growth,
+    fundamentalEquity,
+    blendedEquity,
+    controlPremiumPct,
+    cashToControl: blendedEquity * (1 + controlPremiumPct),
+    assumedDebt: fin.debt,
+  };
+};
 
 export const fairPriceFor = (player: Player, studioId: string, pct: number) => {
-  const fin = computeFinancials(findStudio((player.world as any)?.studios, studioId));
+  const view = explainStudioValuation(player, studioId);
+  const studio = findStudio((player.world as any)?.studios, studioId) || {};
   const after = getOwnedPct(player, studioId) + pct;
-  return fin.equityValue * (pct / 100) * controlPremium(after);
+  const premium = controlPremium(after, view.enterpriseValue, Number(studio.reputation ?? 50));
+  return view.blendedEquity * (pct / 100) * premium;
 };
 
 export const getOfferZone = (ratio: number): OfferZone =>

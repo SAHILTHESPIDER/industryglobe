@@ -67,7 +67,7 @@ interface MobilePageProps {
   onDeleteMessage?: (id: string) => void;
   onTradeStock?: (stockId: string, amount: number) => void;
   onFoundCompany?: () => void;
-  onAcquirePlatform?: (stockId: string) => void;
+  onAcquirePlatform?: (stockId: string, financing: import('../../services/ownPlatform/valuation').BuyFinancing) => void;
   onUpdatePlayer?: (player: Player) => void;
   launchApp?: PhoneLaunch | null;
   onLaunchConsumed?: () => void;

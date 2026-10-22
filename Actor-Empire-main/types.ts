@@ -566,11 +566,14 @@ export enum Page {
   export interface PricingPlan {
       id: string;
       name: string;
+      /** United States list price. Other countries can override this in local currency. */
       monthlyUsd: number;
       ads: boolean;
       downloads: boolean;
       quality: 'SD' | 'HD' | '4K';
       screens: number;
+      /** Monthly price in each market's own currency. Missing countries use a purchasing-power default. */
+      countryPrices?: Record<string, number>;
   }
 
   export interface RegionBuild {
@@ -591,11 +594,21 @@ export enum Page {
       tier: RivalTier;
       homeRegion: LaunchRegionId;
       householdsM: number;
+      /** USD equivalent of the local sticker, after this week's exchange rate. */
       monthlyPrice: number;
       reputation: number;
       languages: string[];
       status: 'ACTIVE' | 'ACQUIRED';
       note: string;
+      /** Country whose currency the sticker is written in. */
+      homeCountryId?: string;
+      currency?: string;
+      /** Canonical monthly price in home currency. USD is derived from the exchange rate. */
+      localMonthlyPrice?: number;
+      debtUsd?: number;
+      cashUsd?: number;
+      annualRevenueUsd?: number;
+      growthPct?: number;
   }
 
   export type FundingChoice = 'OWN' | 'BANK' | 'EQUITY';
@@ -792,6 +805,8 @@ export enum Page {
       lastWeeklyBurn: number;
       /** Optional on saves opened before Studio Finance. */
       books?: StudioBooks;
+      /** Local-currency units per 1 USD. Missing codes use the anchor rate. */
+      fxRates?: Record<string, number>;
       releaseSlot?: ReleaseSlot;
       ipo?: IpoState;
       ownedStreamers?: OwnedStreamer[];
@@ -1359,6 +1374,23 @@ export enum Page {
       maxAge: number;
   }
   
+  export interface StockFundamentals {
+      /** Fractional weekly change, for example 0.02 is plus 2%. */
+      revenueGrowth: number;
+      subscriberGrowth: number;
+      /** Profit divided by revenue. Negative when the company loses money. */
+      profitMargin: number;
+      debtToEquity: number;
+      /** Debt minus cash, in USD. Negative means net cash. */
+      netDebt: number;
+      annualRevenue: number;
+      subscribersM: number;
+      catalogueValue: number;
+      cash: number;
+      /** Short reason the price moved. Optional on older saves. */
+      lastNote?: string;
+  }
+
   export interface Stock {
       id: string;
       symbol: string;
@@ -1369,15 +1401,17 @@ export enum Page {
       dividendYield: number;
       relatedBrandName?: string;
       relatedStudioId?: StudioId;
+      /** Up to 52 weekly closes. Older saves may have a shorter list until the next week. */
       priceHistory: number[];
       lastDividendPayoutWeek: number;
-      /** Game-scale share count. Omitted on older saves. */
+      /** Shares used for market cap. Older saves stored a game-scale count near 800. */
       sharesOutstanding?: number;
-      /** Cash price to buy that company's streaming service. */
+      /** Unused flat acquire price kept so older saves still load. */
       platformAcquireUsd?: number;
       platformHouseholdsM?: number;
       /** True when this listing is the player's own service. */
       playerCompany?: boolean;
+      fundamentals?: StockFundamentals;
   }
   
   export interface PortfolioItem {
@@ -1394,6 +1428,9 @@ export enum Page {
       description: string;
   }
   
+  /** Missing on loans written before company borrowing. Those are personal loans. */
+  export type LoanBorrower = 'PERSONAL' | 'HOUSE' | 'EMPIRE';
+
   export interface PlayerLoan {
       id: string;
       lenderName: string;
@@ -1409,6 +1446,9 @@ export enum Page {
       missedPayments: number;
       successfulPayments: number;
       status: 'ACTIVE' | 'PAID' | 'DEFAULTED';
+      borrower?: LoanBorrower;
+      businessId?: string;
+      lenderId?: string;
   }
   
   export interface CreditHistory {
@@ -1548,6 +1588,10 @@ export enum Page {
       // Studio performance / catalog state
       catalogCount?: number;
       hitRate?: number;
+      /** Fractional annual growth. Used when a buyer prices the studio. */
+      revenueGrowth?: number;
+      /** Library value in USD, separate from the headline enterprise value. */
+      catalogueValue?: number;
   
       isNpcVenture?: boolean;
   }

@@ -51,7 +51,8 @@ import { generateWeeklyEvent } from './geminiService';
 import { generateLifeEvent, generateLegalHearing, generateLuxeLifeEvent, hasEligibleLuxeEventTarget } from './lifeEventLogic';
 import { generateWeeklyFeed, NPC_DATABASE, calculateProjectFameMultiplier, generateNewUnknowns, updateNPCLives } from './npcLogic';
 import { generateAgentOffers, generateManagerOffer, generateDirectOffer, getRandomAgents, getRandomManagers, getRandomTrainers, getRandomStylists, getRandomTherapists, getRandomPublicists, getRandomWellness, sanitizeTeamPools } from './teamLogic';
-import { processStockMarket, calculatePortfolioValue, getDividendPayout, initializeStocks } from './stockLogic';
+import { processStockMarket, calculatePortfolioValue, getDividendPayout, initializeStocks, normalizeListedStocks, empireFundamentals } from './stockLogic';
+import { serviceWeeklyLoans } from './loanLogic';
 import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonWinners, generateFullBallot, getAwardCeremonyYear } from './awardLogic';
 import { processWorldTurn, generateIndustryProject } from './worldLogic'; 
 import { generateFamousMovieOpportunity, generateCameoOffer } from './famousMovieLogic'; 
@@ -755,7 +756,9 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     // --- 0. INIT STOCKS, FINANCE, WORLD, STUDIO IF MISSING ---
     if (!nextPlayer.stocks || nextPlayer.stocks.length === 0) {
         nextPlayer.stocks = initializeStocks();
-        nextPlayer.portfolio = [];
+        nextPlayer.portfolio = nextPlayer.portfolio || [];
+    } else {
+        nextPlayer.stocks = normalizeListedStocks(nextPlayer.stocks);
     }
     if (!nextPlayer.finance) {
         nextPlayer.finance = {
@@ -1058,66 +1061,10 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         if (nextPlayer.finance.history.length > 200) nextPlayer.finance.history.pop();
     };
 
-    // --- 0.55 PERSONAL LOANS ---
-    nextPlayer.finance.loans = nextPlayer.finance.loans.map((loan) => {
-        if (loan.status !== 'ACTIVE') return loan;
-
-        const interestDue = Math.max(0, Math.round(loan.principal * (loan.annualInterestRate / 52)));
-        const scheduledPayment = Math.max(loan.weeklyPayment, interestDue + 1);
-
-        if (nextPlayer.money >= scheduledPayment) {
-            addTransaction(-scheduledPayment, 'LOAN', `${loan.lenderName} weekly loan payment`);
-            const principalPaid = Math.max(0, scheduledPayment - interestDue);
-            const newPrincipal = Math.max(0, loan.principal - principalPaid);
-            const weeksRemaining = Math.max(0, loan.weeksRemaining - 1);
-            nextPlayer.finance.credit.successfulPayments += 1;
-            nextPlayer.finance.credit.totalRepaid += scheduledPayment;
-
-            if (newPrincipal <= 0 || weeksRemaining === 0) {
-                logsToAdd.push({ msg: `🏦 Loan fully repaid with ${loan.lenderName}. Your credit standing improves.`, type: 'positive' });
-                return {
-                    ...loan,
-                    principal: 0,
-                    weeksRemaining: 0,
-                    successfulPayments: loan.successfulPayments + 1,
-                    status: 'PAID'
-                };
-            }
-
-            return {
-                ...loan,
-                principal: newPrincipal,
-                weeksRemaining,
-                successfulPayments: loan.successfulPayments + 1
-            };
-        }
-
-        const lateFee = Math.max(1000, Math.round(loan.originalPrincipal * 0.01));
-        const penalizedPrincipal = loan.principal + interestDue + lateFee;
-        const missedPayments = loan.missedPayments + 1;
-        nextPlayer.finance.credit.missedPayments += 1;
-        nextPlayer.stats.reputation = Math.max(0, nextPlayer.stats.reputation - 2);
-        nextPlayer.stats.happiness = Math.max(0, nextPlayer.stats.happiness - 3);
-        logsToAdd.push({ msg: `⚠️ Missed a loan payment to ${loan.lenderName}. Late fee added.`, type: 'negative' });
-
-        if (missedPayments >= 3) {
-            nextPlayer.finance.credit.defaults += 1;
-            nextPlayer.stats.reputation = Math.max(0, nextPlayer.stats.reputation - 8);
-            logsToAdd.push({ msg: `🚨 ${loan.lenderName} marked your loan in default. Future borrowing will be much harder.`, type: 'negative' });
-            return {
-                ...loan,
-                principal: penalizedPrincipal,
-                missedPayments,
-                status: 'DEFAULTED'
-            };
-        }
-
-        return {
-            ...loan,
-            principal: penalizedPrincipal,
-            missedPayments
-        };
-    });
+    // --- 0.55 LOANS: personal, production house, and Empire+ ---
+    const loanWeek = serviceWeeklyLoans(nextPlayer, addTransaction);
+    loanWeek.logs.forEach(entry => logsToAdd.push(entry));
+    nextPlayer.flags.marketShock = (Number(nextPlayer.flags.marketShock) || 0) + loanWeek.shock;
 
     // --- 0.56 FAMILY SUPPORT OBLIGATIONS ---
     (nextPlayer.flags.familyObligations as FamilyObligation[]) = (nextPlayer.flags.familyObligations as FamilyObligation[]).map(obligation => {
@@ -1203,8 +1150,22 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     }
 
     // --- 2. STOCK MARKET UPDATE ---
-    const marketUpdate = processStockMarket(nextPlayer.stocks, nextPlayer.currentWeek);
+    const marketUpdate = processStockMarket(nextPlayer.stocks, {
+        seed: `${nextPlayer.id}:${getAbsoluteWeek(nextPlayer.age, nextPlayer.currentWeek)}`,
+        week: nextPlayer.currentWeek,
+        creditShock: Number(nextPlayer.flags.marketShock) || 0,
+        empire: empireFundamentals(nextPlayer),
+        headlines: (nextPlayer.news || []).slice(0, 8).map(item => `${item.headline || ''} ${item.impactLevel || ''}`),
+        releases: (nextPlayer.activeReleases || []).map(release => ({
+            status: release.status,
+            studioId: release.projectDetails?.studioId,
+            gross: Number(release.totalGross) || 0,
+            budget: Number(release.budget) || 0,
+        })),
+    });
     nextPlayer.stocks = marketUpdate.stocks;
+    nextPlayer.flags.marketShock = 0;
+    marketUpdate.notifications.slice(0, 2).forEach(message => logsToAdd.push({ msg: `📈 ${message}`, type: 'neutral' }));
     
     // Calculate Dividends
     const dividends = getDividendPayout(nextPlayer.portfolio, nextPlayer.stocks, nextPlayer.currentWeek);

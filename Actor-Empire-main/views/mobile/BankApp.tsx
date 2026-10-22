@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Player, PlayerLoan, Transaction } from '../../types';
+import { LoanBorrower, Player, PlayerLoan } from '../../types';
 import { formatMoney } from '../../services/formatUtils';
 import {
   ArrowLeft,
@@ -16,21 +16,23 @@ import {
   Clock3,
 } from 'lucide-react';
 import {
-  calculateWeeklyLoanPayment,
-  createPlayerLoan,
+  LENDERS,
+  borrowerDesk,
+  debtPicture,
   getAbsoluteBorrowingCeiling,
   getAverageWeeklyCashFlow,
   getCreditScore,
   getCreditTier,
   getEstimatedNetWorth,
-  getLoanAnnualRate,
-  getLoanApprovalOdds,
   getLoanDecisionLabel,
   getOutstandingLoanBalance,
   getSafeBorrowingCapacity,
   getWeeklyDebtBurden,
+  issueLoan,
+  productionHouse,
+  quoteLoan,
+  repayLoan,
 } from '../../services/loanLogic';
-import { getAbsoluteWeek } from '../../services/legacyLogic';
 import { getPlayerLanguage, t } from '../../services/i18n';
 
 interface BankAppProps {
@@ -56,8 +58,10 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
   const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
   const [selectedYear, setSelectedYear] = useState<number>(player.age);
   const [showYearMenu, setShowYearMenu] = useState(false);
-  const [requestedAmountInput, setRequestedAmountInput] = useState('2000000');
+  const [requestedAmountInput, setRequestedAmountInput] = useState('50000');
   const [selectedTermWeeks, setSelectedTermWeeks] = useState<number>(26);
+  const [borrower, setBorrower] = useState<LoanBorrower>('PERSONAL');
+  const [lenderId, setLenderId] = useState('harbor');
   const [loanFeedback, setLoanFeedback] = useState<{ text: string; tone: 'success' | 'error' | 'neutral' } | null>(null);
 
   const availableYears = useMemo(() => {
@@ -99,14 +103,6 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
     () => (player.finance.loans || []).filter(loan => loan.status !== 'PAID' && loan.principal > 0),
     [player.finance.loans]
   );
-  const financeCredit = player.finance.credit || {
-    successfulPayments: 0,
-    missedPayments: 0,
-    defaults: 0,
-    totalBorrowed: 0,
-    totalRepaid: 0,
-  };
-
   const creditScore = useMemo(() => getCreditScore(player), [player]);
   const creditTier = getCreditTier(creditScore);
   const creditColor =
@@ -125,21 +121,18 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
   const weeklyCashFlow = useMemo(() => getAverageWeeklyCashFlow(player), [player]);
   const estimatedNetWorth = useMemo(() => getEstimatedNetWorth(player), [player]);
 
-  const annualRate = useMemo(
-    () => getLoanAnnualRate(player, Math.max(1, requestedAmount), selectedTermWeeks),
-    [player, requestedAmount, selectedTermWeeks]
+  const desk = useMemo(() => borrowerDesk(player, borrower), [player, borrower]);
+  const quote = useMemo(
+    () => quoteLoan(player, Math.max(1, requestedAmount), selectedTermWeeks, borrower, lenderId),
+    [player, requestedAmount, selectedTermWeeks, borrower, lenderId]
   );
-  const weeklyPayment = useMemo(
-    () => calculateWeeklyLoanPayment(Math.max(1, requestedAmount), annualRate, selectedTermWeeks),
-    [requestedAmount, annualRate, selectedTermWeeks]
-  );
-  const approvalOdds = useMemo(
-    () => getLoanApprovalOdds(player, requestedAmount, selectedTermWeeks),
-    [player, requestedAmount, selectedTermWeeks]
-  );
+  const picture = useMemo(() => debtPicture(player), [player]);
+  const annualRate = quote.rate;
+  const weeklyPayment = quote.weekly;
+  const approvalOdds = quote.odds;
 
-  const requestTooSmall = requestedAmount < 50000;
-  const requestTooLarge = requestedAmount > absoluteBorrowingCeiling;
+  const requestTooSmall = quote.tooSmall;
+  const requestTooLarge = quote.tooLarge || !desk.available;
   const totalRepayment = weeklyPayment * selectedTermWeeks;
   const approvalLabel = getLoanDecisionLabel(approvalOdds);
   const nextTermLabel = TERM_OPTIONS.find(option => option.weeks === selectedTermWeeks)?.label || `${selectedTermWeeks}w`;
@@ -153,122 +146,31 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
   }, [player.finance.history, yearData.history, selectedYear, player.age]);
 
   const handleApplyForLoan = () => {
-    if (requestTooSmall) {
-      setLoanFeedback({ tone: 'error', text: tr('bank.requestTooSmall') });
+    const result = issueLoan(player, requestedAmount, selectedTermWeeks, borrower, lenderId);
+    if (result.error) {
+      setLoanFeedback({ tone: 'error', text: result.error });
       return;
     }
-    if (requestTooLarge || approvalOdds <= 0) {
-      setLoanFeedback({ tone: 'error', text: tr('bank.requestTooLarge') });
-      return;
-    }
-
-    const loan = createPlayerLoan(player, requestedAmount, selectedTermWeeks);
-    const updatedPlayer: Player = {
-      ...player,
-      money: player.money + requestedAmount,
-      finance: {
-        ...player.finance,
-        loans: [...(player.finance.loans || []), loan],
-        credit: {
-          ...financeCredit,
-          totalBorrowed: (financeCredit.totalBorrowed || 0) + requestedAmount,
-          lastLoanAbsoluteWeek: getAbsoluteWeek(player.age, player.currentWeek),
-        },
-        history: [
-          {
-            id: `tx_loan_issue_${Date.now()}`,
-            week: player.currentWeek,
-            year: player.age,
-            amount: requestedAmount,
-            category: 'LOAN',
-            description: `${loan.lenderName} personal loan funded`,
-          },
-          ...player.finance.history,
-        ].slice(0, 200),
-      },
-      logs: [
-        ...player.logs,
-        {
-          week: player.currentWeek,
-          year: player.age,
-          type: 'neutral',
-          message: `🏦 Approved ${formatMoney(requestedAmount)} from ${loan.lenderName}. Weekly payment: ${formatMoney(loan.weeklyPayment)} for ${selectedTermWeeks} weeks.`,
-        },
-      ],
-    };
-
-    onUpdatePlayer(updatedPlayer);
+    onUpdatePlayer(result.player);
     setLoanFeedback({
       tone: 'success',
-      text: `${loan.lenderName} approved ${formatMoney(requestedAmount)}. First repayment is ${formatMoney(loan.weeklyPayment)} next week.`,
+      text: `${quote.lender.name} approved ${formatMoney(requestedAmount)} for ${desk.label}. First repayment is ${formatMoney(quote.weekly)} next week.`,
     });
   };
 
   const handleManualLoanPayment = (loan: PlayerLoan, mode: 'SCHEDULED' | 'BALANCE') => {
-    const balance = Math.max(0, Math.floor(loan.principal));
-    const requestedPayment = mode === 'BALANCE' ? balance : Math.min(balance, Math.max(1, Math.floor(loan.weeklyPayment)));
-    const payment = Math.min(balance, requestedPayment);
-
-    if (payment <= 0) return;
-    if (player.money < payment) {
-      setLoanFeedback({ tone: 'error', text: tr('bank.notEnoughCash') });
+    const result = repayLoan(player, loan.id, mode);
+    if (result.error) {
+      setLoanFeedback({ tone: 'error', text: result.error });
       return;
     }
-
-    const nextPrincipal = Math.max(0, balance - payment);
-    const paidOff = nextPrincipal <= 0;
-    const now = Date.now();
-    const updatedPlayer: Player = {
-      ...player,
-      money: player.money - payment,
-      finance: {
-        ...player.finance,
-        loans: (player.finance.loans || []).map(existingLoan => {
-          if (existingLoan.id !== loan.id) return existingLoan;
-          return {
-            ...existingLoan,
-            principal: nextPrincipal,
-            weeksRemaining: paidOff ? 0 : existingLoan.weeksRemaining,
-            successfulPayments: existingLoan.successfulPayments + 1,
-            status: paidOff ? 'PAID' : existingLoan.status,
-          };
-        }),
-        credit: {
-          ...financeCredit,
-          successfulPayments: (financeCredit.successfulPayments || 0) + 1,
-          totalRepaid: (financeCredit.totalRepaid || 0) + payment,
-        },
-        history: [
-          {
-            id: `tx_loan_manual_${loan.id}_${now}`,
-            week: player.currentWeek,
-            year: player.age,
-            amount: -payment,
-            category: 'LOAN',
-            description: `${loan.lenderName} manual loan payment`,
-          },
-          ...player.finance.history,
-        ].slice(0, 200),
-      },
-      logs: [
-        ...player.logs,
-        {
-          week: player.currentWeek,
-          year: player.age,
-          type: paidOff ? 'positive' : 'neutral',
-          message: paidOff
-            ? `🏦 ${loan.lenderName} loan fully paid.`
-            : `🏦 Paid ${formatMoney(payment)} to ${loan.lenderName}.`,
-        },
-      ],
-    };
-
-    onUpdatePlayer(updatedPlayer);
+    const paidOff = (result.player.finance.loans || []).find(row => row.id === loan.id)?.status === 'PAID';
+    onUpdatePlayer(result.player);
     setLoanFeedback({
       tone: 'success',
       text: paidOff
         ? tr('bank.loanFullyPaid', { lender: loan.lenderName })
-        : tr('bank.loanPaymentMade', { amount: formatMoney(payment), lender: loan.lenderName }),
+        : tr('bank.loanPaymentMade', { amount: formatMoney(Math.min(loan.principal, loan.weeklyPayment)), lender: loan.lenderName }),
     });
   };
 
@@ -385,6 +287,28 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
               <MetricCard label={tr('bank.weeklyDebtLoad')} value={formatMoney(weeklyDebtBurden)} tone="text-rose-300" icon={<Clock3 size={42} className="absolute -bottom-2 -right-2 text-rose-500/10" />} />
             </div>
 
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4" data-screen="bank-debt">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Everyone who owes</div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <DebtLine label="You" value={formatMoney(picture.personal)} />
+                <DebtLine label="Production house" value={formatMoney(picture.house)} />
+                <DebtLine label="Empire+" value={formatMoney(picture.empire)} />
+                <DebtLine label="Assumed in deals" value={formatMoney(picture.assumed)} />
+                <DebtLine label="Total debt" value={formatMoney(picture.total)} />
+                <DebtLine label="Debt / equity" value={Number.isFinite(picture.ratio) ? picture.ratio.toFixed(2) : '—'} />
+              </div>
+              <div className="mt-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">Coming out of cash</div>
+              {picture.upcoming.length === 0 && <p className="mt-2 text-xs text-zinc-500">No loan payments are scheduled.</p>}
+              <div className="mt-2 space-y-1">
+                {picture.upcoming.map(row => (
+                  <div key={row.id} className="flex justify-between gap-2 text-xs text-zinc-300">
+                    <span className="truncate">{row.lender} · {row.borrower === 'HOUSE' ? 'house' : row.borrower === 'EMPIRE' ? 'Empire+' : 'you'}</span>
+                    <span className="shrink-0 font-mono">{formatMoney(row.weekly)} · {row.weeks}w</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -398,6 +322,43 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
 
               <div className="space-y-4">
                 <div>
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Who is borrowing</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['PERSONAL', 'HOUSE', 'EMPIRE'] as LoanBorrower[]).map(kind => {
+                      const option = borrowerDesk(player, kind);
+                      return (
+                        <button
+                          key={kind}
+                          disabled={!option.available}
+                          onClick={() => setBorrower(kind)}
+                          className={`rounded-xl border px-2 py-2 text-[11px] font-bold ${borrower === kind ? 'border-blue-400 bg-blue-500/10 text-blue-200' : 'border-zinc-800 bg-zinc-950 text-zinc-400'} disabled:opacity-40`}
+                        >
+                          {kind === 'PERSONAL' ? 'You' : kind === 'HOUSE' ? 'House' : 'Empire+'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11px] text-zinc-500">{desk.reason} Room left {formatMoney(desk.capacity)}.</p>
+                </div>
+                <div>
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Lender</div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {LENDERS.map(lender => {
+                      const open = desk.score >= lender.minScore;
+                      return (
+                        <button
+                          key={lender.id}
+                          disabled={!open}
+                          onClick={() => setLenderId(lender.id)}
+                          className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-bold ${lenderId === lender.id ? 'border-blue-400 text-blue-200' : 'border-zinc-800 text-zinc-400'} disabled:opacity-30`}
+                        >
+                          {lender.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
                   <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">{tr('bank.requestedAmount')}</label>
                   <input
                     value={requestedAmountInput}
@@ -406,9 +367,9 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
                     className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 font-mono text-lg font-bold text-white outline-none ring-0 transition-colors focus:border-blue-500"
                     placeholder="2500000"
                   />
-                  <div className="mt-2 flex items-center justify-between text-[10px] text-zinc-500">
-                    <span>{tr('bank.safeRange')}: {tr('bank.upTo')} {formatMoney(safeBorrowingCapacity)}</span>
-                    <span>{tr('bank.hardCeiling')}: {formatMoney(absoluteBorrowingCeiling)}</span>
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
+                    <span>{tr('bank.safeRange')}: {tr('bank.upTo')} {formatMoney(borrower === 'PERSONAL' ? safeBorrowingCapacity : desk.capacity)}</span>
+                    <span className="text-right">{borrower === 'PERSONAL' ? `${tr('bank.hardCeiling')}: ${formatMoney(absoluteBorrowingCeiling)}` : `Ceiling: ${formatMoney(desk.capacity)}`}</span>
                   </div>
                 </div>
 
@@ -503,9 +464,13 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
                 <div className="space-y-3">
                   {unpaidLoans.map(loan => {
                     const isDefaulted = loan.status === 'DEFAULTED';
+                    const who = loan.borrower || 'PERSONAL';
+                    const houseCash = who === 'HOUSE'
+                      ? ((player.businesses || []).find(business => business.id === loan.businessId)?.balance ?? productionHouse(player)?.balance ?? 0)
+                      : player.money;
                     const scheduledPayment = Math.min(Math.max(1, Math.floor(loan.weeklyPayment)), Math.max(0, Math.floor(loan.principal)));
-                    const canPayScheduled = player.money >= scheduledPayment;
-                    const canPayBalance = player.money >= loan.principal;
+                    const canPayScheduled = houseCash >= scheduledPayment && loan.status === 'ACTIVE';
+                    const canPayBalance = houseCash >= loan.principal && loan.status !== 'PAID';
 
                     return (
                     <div key={loan.id} className={`rounded-xl border p-4 ${isDefaulted ? 'border-rose-500/25 bg-rose-950/20' : 'border-zinc-800 bg-zinc-950'}`}>
@@ -519,7 +484,7 @@ export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer
                               {isDefaulted ? tr('bank.loanStatus.defaulted') : tr('bank.loanStatus.active')}
                             </span>
                           </div>
-                          <div className="text-[10px] uppercase tracking-widest text-zinc-500">{formatPercent(loan.annualInterestRate)} APR • {loan.weeksRemaining} weeks left</div>
+                          <div className="text-[10px] uppercase tracking-widest text-zinc-500">{who === 'HOUSE' ? 'House' : who === 'EMPIRE' ? 'Empire+' : 'Personal'} • {formatPercent(loan.annualInterestRate)} APR • {loan.weeksRemaining} weeks left</div>
                         </div>
                         <div className="text-right">
                           <div className="text-xs text-zinc-500">{tr('bank.balance')}</div>
@@ -670,5 +635,12 @@ const LoanMiniStat = ({ label, value }: { label: string; value: string }) => (
   <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2">
     <div className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</div>
     <div className="mt-1 font-mono font-bold text-white">{value}</div>
+  </div>
+);
+
+const DebtLine = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
+    <div className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</div>
+    <div className="mt-1 font-mono text-sm font-bold text-white">{value}</div>
   </div>
 );

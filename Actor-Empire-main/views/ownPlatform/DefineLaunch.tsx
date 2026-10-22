@@ -16,6 +16,7 @@ import {
     storefrontById,
     syncRegions,
 } from '../../services/ownPlatform/logic';
+import { currencyFor, formatLocalAmount, localMonthly, usdFromLocal } from '../../services/ownPlatform/fx';
 import { DayOneMarkets } from './DayOneMarkets';
 import { Card, FooterBar, headingFont } from './ui';
 
@@ -210,8 +211,20 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                         <label className="text-xs text-zinc-500">Name
                                             <input disabled={locked} value={plan.name} onChange={(event) => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, name: event.target.value } : row) }))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
                                         </label>
-                                        <label className="text-xs text-zinc-500">USD / month
-                                            <input disabled={locked} type="number" min={0} value={plan.monthlyUsd} onChange={(event) => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, monthlyUsd: Number(event.target.value) } : row) }))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
+                                        <label className="text-xs text-zinc-500">US anchor (USD)
+                                            <input disabled={locked} type="number" min={0} value={plan.monthlyUsd} onChange={(event) => {
+                                                const monthlyUsd = Number(event.target.value);
+                                                patch(current => ({
+                                                    ...current,
+                                                    plans: current.plans.map(row => row.id === plan.id ? {
+                                                        ...row,
+                                                        monthlyUsd,
+                                                        countryPrices: current.selectedCountryIds.includes('US')
+                                                            ? { ...(row.countryPrices || {}), US: monthlyUsd }
+                                                            : row.countryPrices,
+                                                    } : row),
+                                                }));
+                                            }} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
                                         </label>
                                         <label className="text-xs text-zinc-500">Screens
                                             <input disabled={locked} type="number" min={1} max={6} value={plan.screens} onChange={(event) => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, screens: Number(event.target.value) } : row) }))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
@@ -224,6 +237,43 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                         {(['SD', 'HD', '4K'] as const).map(quality => (
                                             <button key={quality} disabled={locked} onClick={() => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, quality } : row) }))} className={`px-2 py-1 rounded-full ${plan.quality === quality ? 'bg-white text-black' : 'bg-white/10'}`}>{quality}</button>
                                         ))}
+                                    </div>
+                                    <div className="mt-4">
+                                        <div className="text-[11px] uppercase tracking-wider text-zinc-500">Local price in each country</div>
+                                        <p className="text-xs text-zinc-500 mt-1">Each market keeps its own currency. The number next to it is the USD the ledger will book. Rates can drift a little each week. USD stays the books.</p>
+                                        {state.selectedCountryIds.length === 0 && <p className="text-sm text-amber-200 mt-2">Pick countries on the Markets step. India and the UK are the ones to set first.</p>}
+                                        <div className="grid sm:grid-cols-2 gap-2 mt-2">
+                                            {state.selectedCountryIds.map(countryId => {
+                                                const country = getCountry(countryId);
+                                                const quote = currencyFor(countryId, state.fxRates);
+                                                const local = localMonthly(plan, countryId, state.fxRates);
+                                                const usd = usdFromLocal(local, countryId, state.fxRates);
+                                                return (
+                                                    <label key={countryId} className="text-xs text-zinc-400 rounded-xl border border-white/10 px-3 py-2 min-w-0">
+                                                        <span className="block truncate">{country?.name || countryId} · {quote.code} · {quote.unitsPerUsd.toFixed(quote.unitsPerUsd >= 100 ? 0 : 2)} per $1</span>
+                                                        <input
+                                                            disabled={locked}
+                                                            type="number"
+                                                            min={0}
+                                                            value={local}
+                                                            onChange={(event) => {
+                                                                const nextLocal = Number(event.target.value);
+                                                                patch(current => ({
+                                                                    ...current,
+                                                                    plans: current.plans.map(row => row.id === plan.id ? {
+                                                                        ...row,
+                                                                        monthlyUsd: countryId === 'US' ? nextLocal : row.monthlyUsd,
+                                                                        countryPrices: { ...(row.countryPrices || {}), [countryId]: nextLocal },
+                                                                    } : row),
+                                                                }));
+                                                            }}
+                                                            className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white"
+                                                        />
+                                                        <span className="block mt-1 text-zinc-500">{formatLocalAmount(local, quote.code)} · ${usd.toFixed(2)} USD</span>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </Card>
                             ))}
