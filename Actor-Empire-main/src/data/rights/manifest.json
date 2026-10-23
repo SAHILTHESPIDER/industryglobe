@@ -12,32 +12,32 @@
     "AFRICA",
     "OCEANIA"
   ],
-  "books": 2250,
+  "books": 2076,
   "lives": 966,
   "booksByRegion": {
-    "NORTH_AMERICA": 250,
-    "LATIN_AMERICA": 250,
-    "UK_EUROPE": 250,
-    "INDIA_SOUTH_ASIA": 250,
-    "EAST_ASIA": 250,
-    "SOUTHEAST_ASIA": 250,
-    "MIDDLE_EAST": 250,
-    "AFRICA": 250,
-    "OCEANIA": 250
+    "NORTH_AMERICA": 269,
+    "LATIN_AMERICA": 213,
+    "UK_EUROPE": 307,
+    "INDIA_SOUTH_ASIA": 207,
+    "EAST_ASIA": 270,
+    "SOUTHEAST_ASIA": 200,
+    "MIDDLE_EAST": 200,
+    "AFRICA": 209,
+    "OCEANIA": 201
   },
   "booksByGenre": {
-    "EPIC": 130,
-    "NOVEL": 316,
-    "THRILLER": 226,
-    "CHILDREN": 216,
-    "MYTHOLOGY": 160,
-    "ROMANCE": 234,
-    "HISTORY": 180,
-    "TRUE_CRIME": 180,
-    "FANTASY": 252,
-    "COMIC": 152,
-    "MANGA": 108,
-    "MANHWA": 96
+    "EPIC": 67,
+    "NOVEL": 1149,
+    "THRILLER": 137,
+    "CHILDREN": 89,
+    "MYTHOLOGY": 52,
+    "ROMANCE": 49,
+    "HISTORY": 69,
+    "TRUE_CRIME": 40,
+    "FANTASY": 161,
+    "COMIC": 86,
+    "MANHWA": 63,
+    "MANGA": 114
   },
   "publicDomainBooks": 157,
   "livesBySport": {
@@ -112,7 +112,7 @@
     "politician": 22,
     "explorer": 22
   },
-  "livingLives": 617,
+  "livingLives": 731,
   "safeRealLives": 140,
   "chunks": [
     "bios-figures.json",

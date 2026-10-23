@@ -46,7 +46,11 @@ books.forEach(book => {
     need(Array.isArray(book.fans) && book.fans.length === 9, `${book.id} fans`);
     need(['short', 'novel', 'saga'].includes(book.length), `${book.id} length`);
     if (book.publicDomain) need(book.safeReal === true && book.optionUsd === 0, `${book.id} public domain pricing`);
-    if (!book.safeReal) need(book.descriptor && book.descriptor !== book.proper, `${book.id} needs a fictional descriptor`);
+    if (!book.safeReal) {
+        need(book.descriptor === book.proper, `${book.id} ships one title`);
+        need(book.authorDescriptor === book.authorProper, `${book.id} ships one author`);
+        need(!/^a (late )?/.test(book.descriptor), `${book.id} still uses a placeholder`);
+    }
 });
 
 lives.forEach(life => {
@@ -54,7 +58,11 @@ lives.forEach(life => {
     need(typeof life.living === 'boolean', `${life.id} living`);
     need(life.attitude, `${life.id} attitude`);
     if (life.living) need(life.safeReal === false && life.publicDomain === false, `${life.id} living person must stay fictional and under licence`);
-    if (!life.safeReal) need(life.descriptor && life.descriptor !== life.proper, `${life.id} needs a fictional descriptor`);
+    if (!life.safeReal) {
+        need(life.descriptor === life.proper, `${life.id} ships one name`);
+        need(!/^a (late )?/.test(life.descriptor), `${life.id} still uses a placeholder`);
+        need(!/cricket captain|a writer in|football captain who/i.test(life.descriptor), `${life.id} placeholder`);
+    }
 });
 
 const anchor = bookAnchor(80, 'saga', false);
@@ -67,6 +75,28 @@ need(loose.theatrical < fans.theatrical, 'loose adaptation backlash');
 const suit = settlementUsd(80, 40, true);
 need(suit >= 250_000 && suit <= 25_000_000, 'settlement band');
 need(lifeAnchor(70, true, 20, false).purchaseUsd > lifeAnchor(70, false, 20, true).purchaseUsd, 'life ask');
+
+const blob = chunks.map(name => readFileSync(join(root, 'chunks', name), 'utf8')).join('\n');
+need(blob.includes('Kohly') && blob.includes('Ronalda') && blob.includes('Pottar'), 'PES samples missing');
+need(blob.includes('Mahabharata') && blob.includes('The Odyssey'), 'public-domain titles missing');
+need(!blob.includes('Virat Kohli') && !blob.includes('Cristiano Ronaldo') && !blob.includes('Harry Potter'), 'real sample leaked');
+if (!manifest.generatedWithRealNames) {
+    const { ATHLETES, LIVING_FIGURES, MODERN_BOOKS } = await import('./rights-real-names.mjs');
+    const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const realStrings = [];
+    MODERN_BOOKS.forEach(([title, author]) => realStrings.push(title, author));
+    Object.values(ATHLETES).forEach(list => list.forEach(person => realStrings.push(person[0])));
+    Object.values(LIVING_FIGURES).forEach(list => list.forEach(person => realStrings.push(person[0])));
+    const leaked = [];
+    realStrings.forEach(real => {
+        if (!real || real.length < 8) return;
+        // Exact JSON string only. PES keeps the first word, so a shorter real
+        // title can sit inside a longer altered one ("The Stranger Besida Me").
+        const pattern = new RegExp(`"${escapeRegExp(real)}"`, 'u');
+        if (pattern.test(blob)) leaked.push(real);
+    });
+    need(leaked.length === 0, `real names leaked: ${leaked.slice(0, 12).join(' | ')}`);
+}
 
 console.log(JSON.stringify({
     books: books.length,

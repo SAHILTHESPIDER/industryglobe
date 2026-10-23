@@ -4,17 +4,41 @@
  *
  *   npm run generate:rights
  *
- * REAL_NAMES_MODE is read from src/data/rights/config.ts. The JSON always
- * stores both the proper name and the fictionalized label. The live flag
- * picks which one the game shows.
+ * REAL_NAMES_MODE is read from src/data/rights/config.ts.
+ * Living people and copyrighted books keep their real names in this source.
+ * The JSON ships alterName() unless the flag is on. Public-domain works and
+ * long-deceased historical figures always ship their real names.
  */
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { alterName } from './rights-alter-name.mjs';
+import { ATHLETES, LIVING_FIGURES, MODERN_BOOKS } from './rights-real-names.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const configSrc = fs.readFileSync(path.join(root, 'src/data/rights/config.ts'), 'utf8');
 const REAL_NAMES_MODE = /export const REAL_NAMES_MODE\s*=\s*true/.test(configSrc);
+
+[
+    ['Virat Kohli', 'Virat Kohly'],
+    ['Cristiano Ronaldo', 'Cristiano Ronalda'],
+    ['Harry Potter', 'Harry Pottar'],
+].forEach(([real, expected]) => {
+    const got = alterName(real);
+    if (got !== expected) {
+        console.error(`alterName(${real}) => ${got}, expected ${expected}`);
+        process.exit(1);
+    }
+});
+
+const ship = (real, keep) => {
+    if (keep || REAL_NAMES_MODE) return real;
+    const altered = alterName(real);
+    if (!altered || altered === real) {
+        throw new Error(`alterName left a protected name unchanged: ${real}`);
+    }
+    return altered;
+};
 
 const REGIONS = ['NORTH_AMERICA', 'LATIN_AMERICA', 'UK_EUROPE', 'INDIA_SOUTH_ASIA', 'EAST_ASIA', 'SOUTHEAST_ASIA', 'MIDDLE_EAST', 'AFRICA', 'OCEANIA'];
 
@@ -41,6 +65,49 @@ const COUNTRIES = [
     ['PL', 'Poland', 'UK_EUROPE', 'Polish', 'FR'],
     ['NO', 'Norway', 'UK_EUROPE', 'Norwegian', 'SE'],
     ['NL', 'Netherlands', 'UK_EUROPE', 'Dutch', 'FR'],
+    ['PT', 'Portugal', 'UK_EUROPE', 'Portuguese', 'ES'],
+    ['BE', 'Belgium', 'UK_EUROPE', 'Dutch', 'FR'],
+    ['HR', 'Croatia', 'UK_EUROPE', 'Croatian', 'FR'],
+    ['RS', 'Serbia', 'UK_EUROPE', 'Serbian', 'FR'],
+    ['CH', 'Switzerland', 'UK_EUROPE', 'German', 'DE'],
+    ['AT', 'Austria', 'UK_EUROPE', 'German', 'DE'],
+    ['DK', 'Denmark', 'UK_EUROPE', 'Danish', 'SE'],
+    ['FI', 'Finland', 'UK_EUROPE', 'Finnish', 'SE'],
+    ['UA', 'Ukraine', 'UK_EUROPE', 'Ukrainian', 'FR'],
+    ['CZ', 'Czechia', 'UK_EUROPE', 'Czech', 'FR'],
+    ['HU', 'Hungary', 'UK_EUROPE', 'Hungarian', 'FR'],
+    ['RO', 'Romania', 'UK_EUROPE', 'Romanian', 'FR'],
+    ['SI', 'Slovenia', 'UK_EUROPE', 'Slovenian', 'FR'],
+    ['BY', 'Belarus', 'UK_EUROPE', 'Belarusian', 'FR'],
+    ['GE', 'Georgia', 'UK_EUROPE', 'Georgian', 'FR'],
+    ['MC', 'Monaco', 'UK_EUROPE', 'French', 'FR'],
+    ['SK', 'Slovakia', 'UK_EUROPE', 'Slovak', 'FR'],
+    ['BA', 'Bosnia', 'UK_EUROPE', 'Bosnian', 'FR'],
+    ['BG', 'Bulgaria', 'UK_EUROPE', 'Bulgarian', 'FR'],
+    ['UY', 'Uruguay', 'LATIN_AMERICA', 'Spanish', 'AR'],
+    ['JM', 'Jamaica', 'LATIN_AMERICA', 'English', 'US'],
+    ['VE', 'Venezuela', 'LATIN_AMERICA', 'Spanish', 'CO'],
+    ['DO', 'Dominican Republic', 'LATIN_AMERICA', 'Spanish', 'MX'],
+    ['EC', 'Ecuador', 'LATIN_AMERICA', 'Spanish', 'CO'],
+    ['BO', 'Bolivia', 'LATIN_AMERICA', 'Spanish', 'PE'],
+    ['BB', 'Barbados', 'LATIN_AMERICA', 'English', 'US'],
+    ['LC', 'Saint Lucia', 'LATIN_AMERICA', 'English', 'US'],
+    ['CM', 'Cameroon', 'AFRICA', 'French', 'FR'],
+    ['CI', 'Cote d Ivoire', 'AFRICA', 'French', 'FR'],
+    ['DZ', 'Algeria', 'AFRICA', 'Arabic', 'EG'],
+    ['TN', 'Tunisia', 'AFRICA', 'Arabic', 'EG'],
+    ['UG', 'Uganda', 'AFRICA', 'English', 'KE'],
+    ['ZM', 'Zambia', 'AFRICA', 'English', 'ZA'],
+    ['TZ', 'Tanzania', 'AFRICA', 'Swahili', 'KE'],
+    ['RW', 'Rwanda', 'AFRICA', 'English', 'KE'],
+    ['BJ', 'Benin', 'AFRICA', 'French', 'FR'],
+    ['LR', 'Liberia', 'AFRICA', 'English', 'NG'],
+    ['ER', 'Eritrea', 'AFRICA', 'Tigrinya', 'ET'],
+    ['BW', 'Botswana', 'AFRICA', 'English', 'ZA'],
+    ['QA', 'Qatar', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['JO', 'Jordan', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['LB', 'Lebanon', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['YE', 'Yemen', 'MIDDLE_EAST', 'Arabic', 'EG'],
     ['IN', 'India', 'INDIA_SOUTH_ASIA', 'Hindi', 'IN'],
     ['PK', 'Pakistan', 'INDIA_SOUTH_ASIA', 'Urdu', 'IN'],
     ['BD', 'Bangladesh', 'INDIA_SOUTH_ASIA', 'Bengali', 'IN'],
@@ -64,6 +131,16 @@ const COUNTRIES = [
     ['TR', 'Turkey', 'MIDDLE_EAST', 'Turkish', 'EG'],
     ['IL', 'Israel', 'MIDDLE_EAST', 'Hebrew', 'EG'],
     ['AE', 'United Arab Emirates', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['PS', 'Palestine', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['OM', 'Oman', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['KW', 'Kuwait', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['SY', 'Syria', 'MIDDLE_EAST', 'Arabic', 'EG'],
+    ['SD', 'Sudan', 'AFRICA', 'Arabic', 'EG'],
+    ['SO', 'Somalia', 'AFRICA', 'Somali', 'KE'],
+    ['AO', 'Angola', 'AFRICA', 'Portuguese', 'ZA'],
+    ['MZ', 'Mozambique', 'AFRICA', 'Portuguese', 'ZA'],
+    ['NI', 'Nicaragua', 'LATIN_AMERICA', 'Spanish', 'MX'],
+    ['SV', 'El Salvador', 'LATIN_AMERICA', 'Spanish', 'MX'],
     ['IQ', 'Iraq', 'MIDDLE_EAST', 'Arabic', 'EG'],
     ['NG', 'Nigeria', 'AFRICA', 'English', 'NG'],
     ['ZA', 'South Africa', 'AFRICA', 'English', 'ZA'],
@@ -79,6 +156,38 @@ const COUNTRIES = [
     ['FJ', 'Fiji', 'OCEANIA', 'English', 'AU'],
     ['WS', 'Samoa', 'OCEANIA', 'Samoan', 'NZ'],
     ['PG', 'Papua New Guinea', 'OCEANIA', 'English', 'AU'],
+    ['TT', 'Trinidad and Tobago', 'LATIN_AMERICA', 'English', 'US'],
+    ['GY', 'Guyana', 'LATIN_AMERICA', 'English', 'US'],
+    ['AG', 'Antigua and Barbuda', 'LATIN_AMERICA', 'English', 'US'],
+    ['HT', 'Haiti', 'LATIN_AMERICA', 'French', 'US'],
+    ['PR', 'Puerto Rico', 'LATIN_AMERICA', 'Spanish', 'US'],
+    ['PA', 'Panama', 'LATIN_AMERICA', 'Spanish', 'CO'],
+    ['AF', 'Afghanistan', 'INDIA_SOUTH_ASIA', 'Dari', 'IN'],
+    ['ZW', 'Zimbabwe', 'AFRICA', 'English', 'ZA'],
+    ['NA', 'Namibia', 'AFRICA', 'English', 'ZA'],
+    ['MZ', 'Mozambique', 'AFRICA', 'Portuguese', 'ZA'],
+    ['EE', 'Estonia', 'UK_EUROPE', 'Estonian', 'FR'],
+    ['LV', 'Latvia', 'UK_EUROPE', 'Latvian', 'FR'],
+    ['IS', 'Iceland', 'UK_EUROPE', 'Icelandic', 'SE'],
+    ['LU', 'Luxembourg', 'UK_EUROPE', 'French', 'FR'],
+    ['KZ', 'Kazakhstan', 'EAST_ASIA', 'Kazakh', 'CN'],
+    ['UZ', 'Uzbekistan', 'EAST_ASIA', 'Uzbek', 'CN'],
+    ['KG', 'Kyrgyzstan', 'EAST_ASIA', 'Kyrgyz', 'CN'],
+    ['MN', 'Mongolia', 'EAST_ASIA', 'Mongolian', 'CN'],
+    ['KP', 'North Korea', 'EAST_ASIA', 'Korean', 'KR'],
+    ['AM', 'Armenia', 'UK_EUROPE', 'Armenian', 'FR'],
+    ['AZ', 'Azerbaijan', 'UK_EUROPE', 'Azerbaijani', 'FR'],
+    ['AL', 'Albania', 'UK_EUROPE', 'Albanian', 'FR'],
+    ['MK', 'North Macedonia', 'UK_EUROPE', 'Macedonian', 'FR'],
+    ['ME', 'Montenegro', 'UK_EUROPE', 'Montenegrin', 'FR'],
+    ['XK', 'Kosovo', 'UK_EUROPE', 'Albanian', 'FR'],
+    ['CY', 'Cyprus', 'UK_EUROPE', 'Greek', 'FR'],
+    ['MT', 'Malta', 'UK_EUROPE', 'English', 'GB'],
+    ['LI', 'Liechtenstein', 'UK_EUROPE', 'German', 'DE'],
+    ['AD', 'Andorra', 'UK_EUROPE', 'Catalan', 'ES'],
+    ['SM', 'San Marino', 'UK_EUROPE', 'Italian', 'IT'],
+    ['VA', 'Vatican', 'UK_EUROPE', 'Italian', 'IT'],
+    ['GL', 'Greenland', 'UK_EUROPE', 'Greenlandic', 'SE'],
 ];
 
 const byId = Object.fromEntries(COUNTRIES.map(row => [row[0], {
@@ -623,31 +732,39 @@ const REAL_LIVES = [
     ['Sonja Henie', 'athlete', 'olympics', 'NO', '1930s', 1969, 80, 30],
 ];
 
-const countryOf = (id) => byId[id] || byId.US;
+const countryOf = (id) => {
+    const found = byId[id];
+    if (!found) throw new Error(`Unknown country code ${id}`);
+    return found;
+};
+
+const lastName = (value) => {
+    const parts = String(value).split(/\s+/).filter(word => word.replace(/[^A-Za-z]/g, '').length > 2);
+    return (parts[parts.length - 1] || value).replace(/[^A-Za-zÀ-ÿ'-]/g, '');
+};
 
 function pushBook(list, raw, rng, seenTitles) {
     const country = countryOf(raw.country);
-    let proper = raw.proper;
-    if (seenTitles.has(proper.toLowerCase())) proper = `${proper} (${country.name})`;
-    seenTitles.add(proper.toLowerCase());
+    const duplicate = seenTitles.has(raw.proper.toLowerCase());
+    seenTitles.add(raw.proper.toLowerCase());
     const length = raw.length || lengthFor(raw.genre, rng);
     const publicDomain = Boolean(raw.publicDomain);
     const fame = Math.max(1, Math.min(100, raw.fame));
     const money = bookMoney(fame, length, publicDomain);
     const year = raw.year;
-    const authorProper = raw.authorProper;
-    const descriptor = publicDomain
-        ? proper
-        : `a ${year} ${raw.genre.toLowerCase().replace(/_/g, ' ')} from ${country.name}`;
-    const authorDescriptor = publicDomain ? authorProper : `a writer in ${country.name}`;
+    // Alter the title first. A country suffix on the raw title would leave the
+    // copyrighted wording intact ("The Sorrow of War (Vietnam)").
+    let title = ship(raw.proper, publicDomain);
+    if (duplicate) title = `${title} (${country.name})`;
+    const author = ship(raw.authorProper, publicDomain);
     list.push({
         id: raw.id,
         kind: 'BOOK',
-        proper,
-        descriptor,
-        authorProper,
-        authorDescriptor,
-        authorId: slug(authorProper),
+        proper: title,
+        descriptor: title,
+        authorProper: author,
+        authorDescriptor: author,
+        authorId: slug(author),
         safeReal: publicDomain,
         country: country.id,
         countryName: country.name,
@@ -662,7 +779,7 @@ function pushBook(list, raw, rng, seenTitles) {
         fame,
         fans: fansFor(country.region, fame, rng),
         publicDomain,
-        holder: publicDomain ? 'Public domain' : `${authorProper.split(' ').slice(-1)[0]} Literary`,
+        holder: publicDomain ? 'Public domain' : `${lastName(author)} Literary`,
         optionUsd: money.optionUsd,
         purchaseUsd: money.purchaseUsd,
         logline: raw.logline || LOGLINE[raw.genre](CITIES[country.id]?.[0] || country.name),
@@ -693,18 +810,13 @@ function pushLife(list, raw, rng) {
     const categoryLabel = raw.category === 'athlete'
         ? (sportLabel || 'Athlete')
         : (FIGURES.find(row => row[0] === raw.category)?.[1] || 'Public figure');
-    const proper = raw.proper;
-    const descriptor = safeReal
-        ? proper
-        : living
-            ? `a ${role} from ${city}`
-            : `a late ${role} from ${city}`;
+    const name = ship(raw.proper, safeReal);
     const singleEvent = raw.singleEvent ?? (raw.sport ? rng() < 0.42 : false);
     list.push({
         id: raw.id,
         kind: 'LIFE',
-        proper,
-        descriptor,
+        proper: name,
+        descriptor: name,
         safeReal,
         country: country.id,
         countryName: country.name,
@@ -724,15 +836,13 @@ function pushLife(list, raw, rng) {
         fans: fansFor(country.region, fame, rng),
         publicDomain,
         attitude: raw.attitude || attitudeFor(living, controversy, fame, rng),
-        holder: publicDomain ? 'Public domain' : living ? `${proper.split(' ').slice(-1)[0]} representation` : `${proper.split(' ').slice(-1)[0]} estate`,
+        holder: publicDomain ? 'Public domain' : living ? `${lastName(name)} representation` : `${lastName(name)} estate`,
         optionUsd: money.optionUsd,
         purchaseUsd: money.purchaseUsd,
         seasons: singleEvent ? 1 : irand(rng, 3, 6),
         singleEvent,
         length: singleEvent ? 'short' : 'saga',
-        logline: safeReal
-            ? `The life of ${proper}, told from ${country.name}.`
-            : `The life of ${descriptor}, and the people who still argue about it.`,
+        logline: `The life of ${name}, told from ${city}.`,
     });
 }
 
@@ -750,42 +860,23 @@ function buildBooks() {
         }, rng, seen);
     });
 
-    REGIONS.forEach(region => {
-        const quota = quotaFor(region);
-        const have = {};
-        BOOK_GENRES.forEach(genre => { have[genre] = 0; });
-        books.filter(book => book.region === region).forEach(book => {
-            const genre = book.genres[0];
-            if (have[genre] !== undefined) have[genre] += 1;
-        });
-        const countries = COUNTRIES.filter(row => row[2] === region).map(row => row[0]);
-        let serial = 0;
-        BOOK_GENRES.forEach(genre => {
-            const need = Math.max(0, quota[genre] - (have[genre] || 0));
-            for (let n = 0; n < need; n += 1) {
-                const country = countries[serial % countries.length];
-                const year = irand(rng, 1988, 2024);
-                const fame = irand(rng, 18, 96);
-                const first = pick(rng, FIRST[region]);
-                const last = pick(rng, LAST[region]);
-                const author = `${first} ${last}`;
-                const left = pick(rng, TITLE_LEFT);
-                const right = pick(rng, TITLE_RIGHT[genre]);
-                const city = pick(rng, CITIES[country] || ['the capital']);
-                const proper = rng() < 0.5 ? `${left} ${right}` : `The ${right} of ${city}`;
-                pushBook(books, {
-                    id: `book_${region.toLowerCase()}_${genre.toLowerCase()}_${serial}`,
-                    proper,
-                    authorProper: author,
-                    year,
-                    country,
-                    genre,
-                    fame,
-                    publicDomain: false,
-                }, rng, seen);
-                serial += 1;
-            }
-        });
+    let serial = 0;
+    MODERN_BOOKS.forEach(row => {
+        const [title, author, year, country, genre, fame] = row;
+        if (!BOOK_GENRES.includes(genre)) throw new Error(`Bad genre ${genre} on ${title}`);
+        const region = countryOf(country).region;
+        const spread = 36 + ((serial * 17 + title.length) % 58);
+        pushBook(books, {
+            id: `book_${region.toLowerCase()}_${genre.toLowerCase()}_${serial}`,
+            proper: title,
+            authorProper: author,
+            year,
+            country,
+            genre,
+            fame: fame || spread,
+            publicDomain: false,
+        }, rng, seen);
+        serial += 1;
     });
     return books;
 }
@@ -818,31 +909,36 @@ function buildLives() {
         }, rng);
     });
 
-    const countries = COUNTRIES.map(row => row[0]);
+    const takePerson = (person, label) => {
+        const [name, country, livingFlag, fame, deathYear] = person;
+        const living = livingFlag !== false && livingFlag !== 0;
+        if (!living && !(Number(deathYear) > 1955)) {
+            throw new Error(`${label} ${name} needs a death year after 1955, or a REAL_LIVES entry`);
+        }
+        countryOf(country);
+        return { name, country, living, fame: fame || 70, deathYear: living ? null : Number(deathYear) };
+    };
+
     SPORTS.forEach(([sport, , roles]) => {
         const have = lives.filter(life => life.sport === sport).length;
         const target = 32;
+        const seeds = ATHLETES[sport] || [];
         for (let n = have; n < target; n += 1) {
-            const country = countries[(n * 3 + sport.length) % countries.length];
-            const region = countryOf(country).region;
-            const living = n % 5 !== 0;
-            const first = pick(rng, FIRST[region]);
-            const last = pick(rng, LAST[region]);
-            const fame = irand(rng, 28, 97);
-            const controversy = irand(rng, 0, living ? 80 : 55);
-            const decade = living ? irand(rng, 2008, 2024) : irand(rng, 1960, 2005);
+            const person = seeds[n - have];
+            if (!person) throw new Error(`Need ${target - have} real ${sport} names, have ${seeds.length}`);
+            const row = takePerson(person, sport);
             pushLife(lives, {
-                id: `life_${sport}_${n}_${country.toLowerCase()}`,
-                proper: `${first} ${last}`,
+                id: `life_${sport}_${n}_${row.country.toLowerCase()}`,
+                proper: row.name,
                 category: 'athlete',
                 sport,
                 role: roles[n % roles.length],
-                country,
-                era: `${Math.floor(decade / 10) * 10}s`,
-                deathYear: living ? null : decade,
-                fame,
-                controversy,
-                living,
+                country: row.country,
+                era: row.living ? '2010s' : '1990s',
+                deathYear: row.deathYear,
+                fame: row.fame,
+                controversy: irand(rng, 0, row.living ? 55 : 40),
+                living: row.living,
                 safeReal: false,
             }, rng);
         }
@@ -851,24 +947,23 @@ function buildLives() {
     FIGURES.forEach(([category, , roles]) => {
         const have = lives.filter(life => life.category === category).length;
         const target = 22;
+        const seeds = LIVING_FIGURES[category] || [];
         for (let n = have; n < target; n += 1) {
-            const country = countries[(n * 5 + category.length) % countries.length];
-            const region = countryOf(country).region;
-            const living = category === 'ceo' || category === 'musician' || category === 'politician' ? n % 2 === 0 : n % 4 === 0;
-            const first = pick(rng, FIRST[region]);
-            const last = pick(rng, LAST[region]);
+            const person = seeds[n - have];
+            if (!person) throw new Error(`Need ${target - have} real ${category} names, have ${seeds.length}`);
+            const row = takePerson(person, category);
             pushLife(lives, {
-                id: `life_${category}_${n}_${country.toLowerCase()}`,
-                proper: `${first} ${last}`,
+                id: `life_${category}_${n}_${row.country.toLowerCase()}`,
+                proper: row.name,
                 category,
                 sport: null,
                 role: roles[n % roles.length],
-                country,
-                era: living ? '2010s' : `${irand(rng, 1880, 1970)}s`,
-                deathYear: living ? null : irand(rng, 1910, 2000),
-                fame: irand(rng, 30, 96),
-                controversy: irand(rng, 5, category === 'criminal' ? 95 : 70),
-                living,
+                country: row.country,
+                era: row.living ? '2010s' : '1990s',
+                deathYear: row.deathYear,
+                fame: row.fame,
+                controversy: irand(rng, 5, category === 'criminal' ? 90 : 45),
+                living: row.living,
                 safeReal: false,
                 singleEvent: false,
             }, rng);
