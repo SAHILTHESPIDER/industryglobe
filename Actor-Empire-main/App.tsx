@@ -20,6 +20,7 @@ import { DeathScreen } from './views/DeathScreen';
 import { RedCarpetEvent } from './views/RedCarpetEvent';
 import { PressConferenceEvent } from './views/PressConferenceEvent';
 import { processGameWeek, promotePendingEvent } from './services/gameLoop';
+import { seedCommissionPlaytest } from './services/commissions/logic';
 import { generateAuditions, generatePartTimeJobs, rewardGenreExperience } from './services/roleLogic';
 import { generateWeeklyFeed, calculateInteraction, getGenderedAvatar, applyNpcEconomy } from './services/npcLogic';
 import { getRandomAgents, getRandomManagers, getRandomTrainers, getRandomStylists, getRandomTherapists, getRandomPublicists, getRandomWellness, sanitizeTeamPools } from './services/teamLogic';
@@ -2008,6 +2009,27 @@ export const App: React.FC = () => {
       setActivePage(Page.LIFESTYLE);
       setIsBottomNavVisible(view === 'MAIN');
   };
+
+  const openLifestyleRef = useRef(openLifestyle);
+  openLifestyleRef.current = openLifestyle;
+  useEffect(() => {
+      const onOpen = () => openLifestyleRef.current('PRODUCTION_GAME');
+      window.addEventListener('ae-open-production', onOpen);
+      (window as Window & { __aeCommissions?: { start: () => void } }).__aeCommissions = {
+          start() {
+              try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
+              setShowWhatsNewModal(false);
+              setPlayer(current => seedCommissionPlaytest(current));
+              setGameStatus('PLAYING');
+              setActivePage(Page.LIFESTYLE);
+              setLifestyleInitialView('PRODUCTION_GAME');
+          },
+      };
+      return () => {
+          window.removeEventListener('ae-open-production', onOpen);
+          delete (window as Window & { __aeCommissions?: unknown }).__aeCommissions;
+      };
+  }, []);
 
   if (isInitializing) {
       return (

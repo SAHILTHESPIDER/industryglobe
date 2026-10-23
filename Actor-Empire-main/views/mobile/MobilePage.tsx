@@ -622,9 +622,10 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <MessagesApp 
                         player={props.player} 
                         onBack={() => setAppMode('HOME')} 
-                        onAccept={handleAcceptMessage} // Use local smart handler
+                        onAccept={handleAcceptMessage}
                         onDelete={props.onDeleteMessage!} 
                         onMarkRead={handleMarkMessageRead}
+                        onUpdatePlayer={handleUpdatePlayer}
                     />
                 )}
                 {appMode === 'TEAM' && (

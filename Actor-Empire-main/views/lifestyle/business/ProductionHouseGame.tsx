@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Player, BudgetTier, Genre, ProjectDetails, ActiveRelease, Commitment, Business, LocationDetails, NewsItem, XPost, StudioEquipment, Script, Writer, GameLanguage } from '../../../types';
-import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Tv, ArrowDownLeft, ArrowUpRight, WalletCards } from 'lucide-react';
+import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Tv, ArrowDownLeft, ArrowUpRight, WalletCards, Mail } from 'lucide-react';
 import { NPC_DATABASE, getAvailableTalent, calculateProjectFameMultiplier } from '../../../services/npcLogic';
 import { sellBusiness, liquidateBusiness } from '../../../services/businessLogic';
 import { NPCActor, NPCTier } from '../../../types';
@@ -19,6 +19,9 @@ import { ProjectDashboardModal } from './components/ProjectDashboardModal';
 import { SequelSetupModal } from './components/SequelSetupModal';
 import { IPManagement } from './IPManagement';
 import { RightsLibrary } from './RightsLibrary';
+import { CommissionModal, CommissionSlateCards, CommissionToast, OffersPage, openBriefScreen } from './PlatformCommissions';
+import { deskOf } from '../../../services/commissions/logic';
+import type { CommissionBrief, CommissionProject } from '../../../types';
 
 interface ProductionHouseGameProps {
     player: Player;
@@ -27,7 +30,7 @@ interface ProductionHouseGameProps {
     businessId?: string;
 }
 
-type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS';
+type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS' | 'OFFERS';
 
 // --- HELPERS ---
 const formatMoney = (val: number) => {
@@ -64,8 +67,20 @@ const ProductionHouseInner: React.FC<{
     onUpdatePlayer: (p: Player) => void;
 }> = ({ player, studio, onBack, onUpdatePlayer }) => {
     const [view, setView] = useState<StudioView>('DASHBOARD');
+    const [commissionFlow, setCommissionFlow] = useState<{ screen: 'sheet' | 'counter' | 'reply' | 'contract' | 'signed' | 'lost' | 'project'; briefId?: string; projectId?: string } | null>(null);
+    const [snoozedOffers, setSnoozedOffers] = useState<string[]>([]);
+    const openCommission = (brief: CommissionBrief) => setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
+    const openCommissionProject = (project: CommissionProject) => setCommissionFlow({ screen: 'project', projectId: project.id });
     const [selectedProjectDashboard, setSelectedProjectDashboard] = useState<any>(null);
     const [sequelSetupProject, setSequelSetupProject] = useState<{ project: any, isSpinoff: boolean } | null>(null);
+
+    useEffect(() => {
+        const id = player.flags?.openCommissionBriefId;
+        if (!id) return;
+        const brief = deskOf(player).briefs.find(row => row.id === id);
+        if (brief) setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
+        onUpdatePlayer({ ...player, flags: { ...player.flags, openCommissionBriefId: undefined } });
+    }, [player.flags?.openCommissionBriefId]);
 
     const language = getPlayerLanguage(player);
     const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
@@ -542,6 +557,17 @@ const ProductionHouseInner: React.FC<{
         return <RightsLibrary player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} />;
     }
 
+    if (view === 'OFFERS') {
+        return (
+            <>
+                <OffersPage player={player} onBack={() => setView('DASHBOARD')} onOpen={openCommission} onOpenProject={openCommissionProject} />
+                {commissionFlow && (
+                    <CommissionModal player={player} flow={commissionFlow} onFlow={setCommissionFlow} onUpdatePlayer={onUpdatePlayer} onOpenLab={() => { setCommissionFlow(null); setView('DEVELOPMENT'); }} />
+                )}
+            </>
+        );
+    }
+
     if (view === 'OFFICE') {
         return <FacilitiesView player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} />;
     }
@@ -688,7 +714,7 @@ const ProductionHouseInner: React.FC<{
                     </div>
                     <div className="text-right flex flex-col items-end">
                         <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Studio Capital</div>
-                        <div className="text-lg font-mono font-bold text-emerald-400 drop-shadow-sm">
+                        <div data-testid="studio-capital" className="text-lg font-mono font-bold text-emerald-400 drop-shadow-sm">
                             {formatMoney(studio.balance)}
                         </div>
                         {(studio.studioState?.productionFund || 0) > 0 && (
@@ -735,6 +761,7 @@ const ProductionHouseInner: React.FC<{
                 
                 {/* 2. ACTIVE SLATE (Netflix Style) */}
                 <div className="pt-6 pb-2">
+                    <CommissionToast player={player} snoozed={snoozedOffers} onOpen={openCommission} onLater={id => setSnoozedOffers(current => [...current, id])} />
                     <div className="px-4 mb-3 flex justify-between items-end">
                         <h2 className="text-lg font-bold text-white tracking-tight">{tr('studio.activeSlate')}</h2>
                     </div>
@@ -750,6 +777,7 @@ const ProductionHouseInner: React.FC<{
                         </button>
 
                         {/* Active Projects */}
+                        <CommissionSlateCards player={player} onOpen={openCommissionProject} />
                         {activeSlate.map((p, idx) => (
                             <ActiveProjectCard 
                                 key={p.id || idx} 
@@ -852,6 +880,18 @@ const ProductionHouseInner: React.FC<{
                         />
 
                         <DivisionCard
+                            title="Offers"
+                            subtitle="Platform briefs"
+                            icon={<Mail size={20}/>}
+                            color="bg-indigo-600"
+                            testId="open-offers"
+                            stats={[
+                                { label: "Open", value: String(deskOf(player).briefs.filter(row => row.direction === 'IN' && (row.status === 'OPEN' || row.status === 'REPLIED' || row.status === 'CONTRACT')).length) }
+                            ]}
+                            onClick={() => setView('OFFERS')}
+                        />
+
+                        <DivisionCard
                             title="Rights Library"
                             subtitle="Books & lives"
                             icon={<BookOpen size={20}/>}
@@ -867,6 +907,9 @@ const ProductionHouseInner: React.FC<{
 
             </div>
                 </motion.div>
+            )}
+            {commissionFlow && view === 'DASHBOARD' && (
+                <CommissionModal player={player} flow={commissionFlow} onFlow={setCommissionFlow} onUpdatePlayer={onUpdatePlayer} onOpenLab={() => { setCommissionFlow(null); setView('DEVELOPMENT'); }} />
             )}
         </AnimatePresence>
     );
@@ -1106,6 +1149,11 @@ const StudioFinanceView: React.FC<{
             case 'CAPITAL_INJECTION': return 'Injection';
             case 'CAPITAL_WITHDRAWAL': return 'Withdrawal';
             case 'PRODUCTION_SPEND': return 'Production';
+            case 'COMMISSION': return 'Commission';
+            case 'BONUS': return 'Bonus';
+            case 'PENALTY': return 'Penalty';
+            case 'RESERVE': return 'Reserve';
+            case 'RIGHTS': return 'Rights';
             default: return 'Studio';
         }
     };
