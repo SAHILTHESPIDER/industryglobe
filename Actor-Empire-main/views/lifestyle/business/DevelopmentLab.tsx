@@ -3,7 +3,9 @@ import { Player, Business, Script, Writer, Genre, ProjectType, ScriptAttributes,
 import { ArrowLeft, PenTool, BookOpen, ShoppingCart, Users, Star, Clock, DollarSign, Sparkles, ChevronRight, Layers, Globe, RefreshCw, Plus, History, Film, Tv, Edit2, ShoppingBag, Palmtree, Flame, Gauge, Trophy, AlertTriangle, RotateCcw, Info } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getWriterTalent } from '../../../services/roleLogic';
-import { generateWriters, generateIPMarket, generateProceduralLogline } from '../../../src/data/generators';
+import { generateWriters, generateProceduralLogline } from '../../../src/data/generators';
+import { loadRightsShelf } from '../../../services/rights/tick';
+import { negotiateLife, optionBook, takePublicDomain } from '../../../services/rights/logic';
 import { SCRIPT_TEMPLATES, ScriptQuestion } from '../../../src/data/scriptTemplates';
 import { normalizeStudioState } from '../../../services/businessLogic';
 import { buildUniverseRoster, calculateUniverseProductWeeklyRevenue, getUniverseDashboardProjects, getUniverseReleaseActivity, normalizeUniverseForSave, normalizeUniverseMap } from '../../../services/universeLogic';
@@ -15,6 +17,7 @@ interface DevelopmentLabProps {
     studio: Business;
     onBack: () => void;
     onUpdatePlayer: (p: Player) => void;
+    onOpenRights?: () => void;
 }
 
 type DevTab = 'VAULT' | 'NEW_CONCEPT' | 'IP_MARKET' | 'FRANCHISES' | 'UNIVERSE';
@@ -198,7 +201,7 @@ const getUniverseCharacterTimelineParts = (char: any) => {
     };
 };
 
-export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, onBack, onUpdatePlayer }) => {
+export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, onBack, onUpdatePlayer, onOpenRights }) => {
     const [activeTab, setActiveTab] = useState<DevTab>('VAULT');
     
     // Initialize Studio State if missing
@@ -229,9 +232,9 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
         });
     };
 
-    const handleRefreshMarket = () => {
+    const handleRefreshMarket = async () => {
         if (studio.balance >= 250000) {
-            const newMarket = generateIPMarket(6, studioState.purchasedIPTitles || [], player.currentWeek);
+            const newMarket = await loadRightsShelf(player, player.currentWeek, studioState.purchasedIPTitles || []);
             const marketTrends = createMarketTrends(player.currentWeek);
             const newWriters = generateWriters(10);
             
@@ -255,27 +258,86 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
         }
     };
 
+    const buyMarketScript = (script: Script, cost: number) => {
+        if (script.rightsIpId) {
+            const publicDomain = Boolean(script.publicDomainSource) || Boolean(script.tags?.includes('PUBLIC_DOMAIN'));
+            const result = publicDomain
+                ? takePublicDomain(player, studio.id, script.rightsIpId)
+                : script.rightsKind === 'LIFE'
+                    ? negotiateLife(player, studio.id, script.rightsIpId, 'ACCEPT', 'STUDIO')
+                    : optionBook(player, studio.id, script.rightsIpId, 'STUDIO');
+            if (result.error) {
+                window.alert(result.error);
+                return;
+            }
+            const next = result.player;
+            const house = next.businesses.find(business => business.id === studio.id);
+            if (house?.studioState) {
+                house.studioState.ipMarket = (house.studioState.ipMarket || []).filter(row => row.id !== script.id && row.rightsIpId !== script.rightsIpId);
+            }
+            onUpdatePlayer(next);
+            if (result.note) window.alert(result.note);
+            return;
+        }
+        if (studio.balance < cost) return;
+        const updatedStudio = { ...studio, balance: studio.balance - cost };
+        const updatedPurchasedTitles = [...(studioState.purchasedIPTitles || []), script.title];
+        updatedStudio.studioState = {
+            ...studioState,
+            scripts: [...studioState.scripts, { ...script, status: 'READY' as const, developmentCost: cost, createdAtWeek: player.currentWeek }],
+            ipMarket: studioState.ipMarket.filter(row => row.id !== script.id),
+            purchasedIPTitles: updatedPurchasedTitles
+        };
+        onUpdatePlayer({
+            ...player,
+            businesses: player.businesses.map(business => business.id === studio.id ? updatedStudio : business)
+        });
+    };
+
     // Handle automatic market refresh and script cleanup
     React.useEffect(() => {
+        let cancelled = false;
         const currentBlock = Math.floor(player.currentWeek / 3);
         const lastBlock = Math.floor((studioState.lastMarketRefreshWeek || 0) / 3);
         
-        let updatedState: Partial<typeof studioState> = {};
+        const updatedState: Partial<typeof studioState> = {};
         let needsUpdate = false;
+
+        const finish = () => {
+            if (cancelled || !needsUpdate) return;
+            handleUpdateStudioState(updatedState);
+        };
 
         // 1. Refresh market only on 3-week cycle or if state is completely missing (initialization)
         if (currentBlock > lastBlock || !studio.studioState) {
-            const newMarket = generateIPMarket(6, studioState.purchasedIPTitles || [], player.currentWeek);
-            const newWriters = generateWriters(10);
-            updatedState = { 
-                ...updatedState,
-                ipMarket: newMarket,
-                marketTrends: createMarketTrends(player.currentWeek),
-                writers: newWriters,
-                lastMarketRefreshWeek: player.currentWeek,
-                lastWriterRefreshWeek: player.currentWeek
-            };
-            needsUpdate = true;
+            void loadRightsShelf(player, player.currentWeek, studioState.purchasedIPTitles || []).then(newMarket => {
+                if (cancelled) return;
+                const newWriters = generateWriters(10);
+                Object.assign(updatedState, {
+                    ipMarket: newMarket,
+                    marketTrends: createMarketTrends(player.currentWeek),
+                    writers: newWriters,
+                    lastMarketRefreshWeek: player.currentWeek,
+                    lastWriterRefreshWeek: player.currentWeek
+                });
+                needsUpdate = true;
+                // Cleanup runs below once the shelf resolves, so a slow catalogue load cannot wipe it.
+                const ONE_YEAR = 52;
+                const oldScripts = studioState.scripts.filter(s =>
+                    s.status === 'PRODUCED' &&
+                    s.producedAtWeek !== undefined &&
+                    (player.currentWeek - s.producedAtWeek) >= ONE_YEAR
+                );
+                if (oldScripts.length > 0) {
+                    updatedState.scripts = studioState.scripts.filter(s =>
+                        !(s.status === 'PRODUCED' &&
+                          s.producedAtWeek !== undefined &&
+                          (player.currentWeek - s.producedAtWeek) >= ONE_YEAR)
+                    );
+                }
+                finish();
+            });
+            return () => { cancelled = true; };
         }
 
         // 2. Cleanup old produced scripts (older than 1 year / 52 weeks)
@@ -349,6 +411,15 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
                             </button>
                         );
                     })}
+                    <button
+                        type="button"
+                        data-testid="open-rights-from-lab"
+                        onClick={() => onOpenRights?.()}
+                        className="flex-shrink-0 px-6 flex flex-col items-center justify-center py-4 border-b border-transparent text-zinc-500 hover:text-amber-400"
+                    >
+                        <BookOpen size={14} className="mb-1.5 opacity-50" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Rights</span>
+                    </button>
                 </div>
             </div>
 
@@ -440,23 +511,7 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
 	                    marketTrends={studioState.marketTrends || createMarketTrends(player.currentWeek)}
                     weeksUntilRefresh={3 - (player.currentWeek % 3)}
                     onRefresh={handleRefreshMarket}
-                    onBuy={(script, cost) => {
-                        if (studio.balance >= cost) {
-                            const updatedStudio = { ...studio, balance: studio.balance - cost };
-                            const updatedPurchasedTitles = [...(studioState.purchasedIPTitles || []), script.title];
-                            const updatedState = {
-                                ...studioState,
-                                scripts: [...studioState.scripts, { ...script, status: 'READY' as const, developmentCost: cost, createdAtWeek: player.currentWeek }],
-                                ipMarket: studioState.ipMarket.filter(s => s.id !== script.id),
-                                purchasedIPTitles: updatedPurchasedTitles
-                            };
-                            updatedStudio.studioState = updatedState;
-                            onUpdatePlayer({
-                                ...player,
-                                businesses: player.businesses.map(b => b.id === studio.id ? updatedStudio : b)
-                            });
-                        }
-                    }}
+                    onBuy={buyMarketScript}
                 />}
                 {activeTab === 'FRANCHISES' && <FranchiseManager 
                     player={player}

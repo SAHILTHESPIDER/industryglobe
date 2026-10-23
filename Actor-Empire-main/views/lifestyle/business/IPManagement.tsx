@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Player, Business, Universe, Script } from '../../../types';
+import { Player, Business, Universe } from '../../../types';
 import { Globe, Layers, ShoppingCart, Sparkles, Star, ChevronRight, Check, TrendingUp, RefreshCw } from 'lucide-react';
-import { generateIPMarket } from '../../../src/data/generators';
+import { loadRightsShelf } from '../../../services/rights/tick';
+import { negotiateLife, optionBook, takePublicDomain } from '../../../services/rights/logic';
 import { normalizeUniverseForSave, normalizeUniverseMap } from '../../../services/universeLogic';
 
 interface IPManagementProps {
@@ -393,10 +394,10 @@ const FranchiseMarketplace: React.FC<{ player: Player; studio: Business; onUpdat
         ];
     }, [studioState.ipMarket]);
 
-    const handleRefresh = () => {
+    const handleRefresh = async () => {
         if (studio.balance < 250000) return;
 
-        const newMarket = generateIPMarket(6, studioState.purchasedIPTitles || [], player.currentWeek);
+        const newMarket = await loadRightsShelf(player, player.currentWeek, studioState.purchasedIPTitles || []);
         const updatedStudio = {
             ...studio,
             balance: studio.balance - 250000,
@@ -414,9 +415,30 @@ const FranchiseMarketplace: React.FC<{ player: Player; studio: Business; onUpdat
     };
 
     const handleBuy = (ip: any) => {
-        if (studio.balance < ip.developmentCost) return;
+        const cost = ip.purchaseCost || ip.developmentCost || 0;
+        if (ip.rightsIpId) {
+            const publicDomain = Boolean(ip.publicDomainSource) || Boolean(ip.tags?.includes('PUBLIC_DOMAIN'));
+            const result = publicDomain
+                ? takePublicDomain(player, studio.id, ip.rightsIpId)
+                : ip.rightsKind === 'LIFE'
+                    ? negotiateLife(player, studio.id, ip.rightsIpId, 'ACCEPT', 'STUDIO')
+                    : optionBook(player, studio.id, ip.rightsIpId, 'STUDIO');
+            if (result.error) {
+                window.alert(result.error);
+                return;
+            }
+            const next = result.player;
+            const house = next.businesses.find(business => business.id === studio.id);
+            if (house?.studioState) {
+                house.studioState.ipMarket = (house.studioState.ipMarket || []).filter(row => row.id !== ip.id && row.rightsIpId !== ip.rightsIpId);
+            }
+            onUpdatePlayer(next);
+            if (result.note) window.alert(result.note);
+            return;
+        }
+        if (studio.balance < cost) return;
 
-        const updatedStudio = { ...studio, balance: studio.balance - ip.developmentCost };
+        const updatedStudio = { ...studio, balance: studio.balance - cost };
         const purchased = [...(studioState.purchasedIPTitles || []), ip.title];
         
         updatedStudio.studioState = {
@@ -451,7 +473,7 @@ const FranchiseMarketplace: React.FC<{ player: Player; studio: Business; onUpdat
 
             <div className="grid grid-cols-1 gap-4">
                 {availableIPs.map(ip => {
-                    const cost = ip.developmentCost || 0;
+                    const cost = ip.purchaseCost || ip.developmentCost || 0;
                     const canAfford = studio.balance >= cost;
                     return (
                         <div key={ip.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center hover:border-amber-500/50 transition-colors">

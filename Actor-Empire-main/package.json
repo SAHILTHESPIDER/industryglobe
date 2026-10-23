@@ -10,6 +10,8 @@
     "audit:events": "node scripts/audit-events.mjs",
     "audit:universe": "node scripts/audit-universe-flow.mjs",
     "audit:bugfixes": "node scripts/audit-bugfixes.mjs",
+    "generate:rights": "node scripts/generate-rights-catalogue.mjs",
+    "audit:rights": "node scripts/audit-rights.mjs",
     "lint": "tsc --noEmit",
     "cap:patch:ios": "node ./scripts/patch-ios-plugins.mjs",
     "cap:sync:ios": "npx cap sync ios && node ./scripts/patch-ios-plugins.mjs"

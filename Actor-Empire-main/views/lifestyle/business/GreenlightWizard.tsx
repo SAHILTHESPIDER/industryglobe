@@ -9,6 +9,7 @@ import { getEquipmentStageName } from './FacilitiesView';
 import { showAd } from '../../../services/adLogic';
 import { hasNoAds } from '../../../services/premiumLogic';
 import { formatProjectFormatLabel } from '../../../services/genreCatalog';
+import { applyUnauthorizedShoot, rightsGreenlightBlock, rightsHiddenFromScript } from '../../../services/rights/logic';
 import { addBreadcrumb, markGameCheckpoint, markTraceAction, setCrashContext, startPerformanceTrace, stopPerformanceTrace, trackGameEvent } from '../../../services/firebaseService';
 
 type ConnectedProjectIntent = 'AUTO' | 'SOLO' | 'CROSSOVER' | 'EVENT' | 'REBOOT';
@@ -2006,9 +2007,11 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         if (studio.balance + productionFund + lockedStreamingFundingAmount < budgetBreakdown.total) {
             errors.push("Insufficient studio funds for production");
         }
+        const rightsBlock = rightsGreenlightBlock(player, studio, selectedScript);
+        if (rightsBlock) errors.push(rightsBlock);
 
         return { can: errors.length === 0, errors };
-    }, [selectedScript, selectedLocations, crewModes, selectedCrew, castList, studio.balance, studio.studioState?.productionFund, lockedStreamingFundingAmount, budgetBreakdown.total, unresolvedReturningTalent, effectiveConnectedIntent, linkedUniverseCastCount, selectedUniverseId, selectedFranchiseId]);
+    }, [selectedScript, selectedLocations, crewModes, selectedCrew, castList, studio.balance, studio.studioState?.productionFund, studio.studioState?.rightsLibrary, lockedStreamingFundingAmount, budgetBreakdown.total, unresolvedReturningTalent, effectiveConnectedIntent, linkedUniverseCastCount, selectedUniverseId, selectedFranchiseId, player]);
 
     const canGreenlight = greenlightStatus.can;
 
@@ -2279,6 +2282,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                 franchiseId: selectedFranchiseId === 'NEW' ? `fran_${Date.now()}` : (selectedFranchiseId || undefined),
                 installmentNumber: (selectedFranchiseId && selectedFranchiseId !== 'NEW') ? (studioFranchises.find(f => f.id === selectedFranchiseId)?.lastInstallment || 0) + 1 : 1,
                 genre: selectedScript.genres[0],
+                rightsIpId: selectedScript.rightsIpId,
                 subjectName: selectedScript.subjectName,
                 subjectType: selectedScript.subjectType,
                 connectedProjectIntent: effectiveConnectedIntent,
@@ -2307,7 +2311,8 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                         nextSeasonFundingPlatformId: lockedStreamingFunding.platformId,
                         nextSeasonFundingSourceProjectId: lockedStreamingFunding.sourceProjectId,
                         nextSeasonFundingUsedByProjectId: newCommitmentId
-                    } : {})
+                    } : {}),
+                    ...rightsHiddenFromScript(player, selectedScript),
                 },
                 director: {
                     id: selectedCrew.director || (crewModes.director === 'SELF' ? 'PLAYER_SELF' : 'STUDIO_STAFF'),
@@ -2620,7 +2625,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
             }
             : normalizedWorldUniverses;
 
-        onUpdatePlayer({
+        const greenlitPlayer = {
             ...player,
             news: newNews,
             x: { ...player.x, feed: newXFeed },
@@ -2656,7 +2661,8 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                     }, ...((studio.studioState?.financeLedger || []))].slice(0, 200)
                 }
             } : b)
-        });
+        };
+        onUpdatePlayer(selectedScript?.unauthorizedLife ? applyUnauthorizedShoot(greenlitPlayer, selectedScript, studio.id) : greenlitPlayer);
         addBreadcrumb('greenlight:success', {
             title: newCommitment.name,
             commitmentId: newCommitment.id,
