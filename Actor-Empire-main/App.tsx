@@ -2025,7 +2025,34 @@ export const App: React.FC = () => {
       };
       if (import.meta.env.DEV) {
           (window as Window & { __aeCommissions?: { start: () => void } }).__aeCommissions = { start: startCommissions };
-          if (new URLSearchParams(window.location.search).get('commissions') === '1') startCommissions();
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('commissions') === '1') startCommissions();
+          const empire = params.get('empire');
+          if (empire) {
+              try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
+              setShowWhatsNewModal(false);
+              const steps: Record<string, number> = { intro: 0, name: 0, markets: 1, clearance: 2, ident: 3, store: 4, shelf: 5, price: 6, blueprint: 7 };
+              setPlayer(current => {
+                  const seeded = ensureOwnPlatform({ ...current, money: Math.max(current.money || 0, 212_400_000) });
+                  const state = seeded.ownPlatform!;
+                  const showIntro = empire === '1' || empire === 'intro';
+                  return {
+                      ...seeded,
+                      ownPlatform: {
+                          ...state,
+                          defineLayout: 2,
+                          introSeen: !showIntro,
+                          defineStep: showIntro ? 0 : (steps[empire] ?? 0),
+                          buildStep: 0,
+                          stage: empire === 'ops' ? 'LIVE' : empire === 'build' ? 'BUILD' : 'DEFINE',
+                          selectedCountryIds: state.selectedCountryIds.length ? state.selectedCountryIds : ['US', 'IN', 'GB'],
+                      },
+                  };
+              });
+              setGameStatus('PLAYING');
+              setPhoneLaunch({ app: 'OWN_PLATFORM', pane: empire === 'build' ? 'build' : empire === 'ops' ? 'ops' : 'launch' });
+              setActivePage(Page.MOBILE);
+          }
       }
       return () => {
           window.removeEventListener('ae-open-production', onOpen);

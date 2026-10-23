@@ -47,7 +47,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
     return (
         <div className="p-4 lg:p-10 space-y-4" data-screen="operations">
             <div>
-                <div className="text-[11px] uppercase tracking-[0.22em] text-[#ff4d4d]">Operations</div>
+                <div className="text-[11px] uppercase tracking-[0.22em] text-[#8B7BFF]">Operations</div>
                 <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Run {state.name}</h2>
                 <p className="text-sm text-zinc-400 mt-2 max-w-2xl">Content Desk, Network, Audience, and the Boardroom. Each one is a different side of the same company.</p>
             </div>
@@ -58,7 +58,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                     ['audience', 'Audience'],
                     ['board', 'Boardroom'],
                 ] as [Desk, string][]).map(([id, label]) => (
-                    <button key={id} onClick={() => { setDesk(id); setError(''); }} className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider ${desk === id ? 'bg-[#ff3b30] text-white' : 'bg-white/5 text-zinc-400'}`}>{label}</button>
+                    <button key={id} onClick={() => { setDesk(id); setError(''); }} className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider ${desk === id ? 'bg-[#4F3BFF] text-white' : 'bg-white/5 text-zinc-400'}`}>{label}</button>
                 ))}
             </div>
             {error && <p className="text-rose-300 text-sm">{error}</p>}
@@ -212,7 +212,7 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
     return (
         <div className="space-y-4" data-screen="studio-finance">
             <div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Studio finance</div>
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Studio finance</div>
                 <h3 className="text-3xl lg:text-5xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>The company, in dollars</h3>
                 <p className="text-sm text-zinc-400 mt-2 max-w-2xl">Cash still lives in the treasury. This desk tracks profit, burn, debt, titles, markets, and who owns the company. Build slowly with your own capital, draw a bank facility, or sell a stake.</p>
             </div>
@@ -279,7 +279,7 @@ const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player
     return (
         <div className="space-y-3">
             <div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Buy another service</div>
+                <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Buy another service</div>
                 <h3 className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>Purchase a streaming platform</h3>
                 <p className="text-sm text-zinc-400 mt-1 max-w-2xl">The price is a valuation, not a sticker. Market cap or operating value, plus a control premium, and the debt comes with the company. Cash, an Empire+ loan, or a slice sold to Kestrel has to cover the cheque. The board and the regulator can still say no. A global service stays out of reach until your company is large enough.</p>
             </div>
@@ -308,10 +308,10 @@ const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player
 };
 
 const Choice: React.FC<{ title: string; body: string; action: string; onClick: () => void }> = ({ title, body, action, onClick }) => (
-    <button onClick={onClick} className="text-left rounded-3xl border border-white/10 bg-[#12151c] p-4 hover:border-[#ff3b30]">
+    <button onClick={onClick} className="text-left rounded-3xl border border-white/10 bg-[#12151c] p-4 hover:border-[#4F3BFF]">
         <div className="font-black uppercase" style={{ fontFamily: headingFont }}>{title}</div>
         <p className="text-sm text-zinc-400 mt-2">{body}</p>
-        <div className="text-[11px] uppercase tracking-wider text-[#ff8a80] mt-3">{action}</div>
+        <div className="text-[11px] uppercase tracking-wider text-[#FFC44D] mt-3">{action}</div>
     </button>
 );
 

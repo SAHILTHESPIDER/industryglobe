@@ -883,6 +883,10 @@ export enum Page {
       version: 1;
       name: string;
       stage: OwnPlatformStage;
+      /** 2 once Name it is its own define step. Missing on older saves. */
+      defineLayout?: 1 | 2;
+      /** Prologue finished or skipped. Missing on older saves. */
+      introSeen?: boolean;
       defineStep: number;
       buildStep: number;
       selectedCountryIds: string[];

@@ -73,7 +73,7 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
         <div className="p-4 lg:p-10 space-y-4" data-screen="rights-floor">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Release strategy</div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Release strategy</div>
                     <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Distribution</h2>
                     <p className="text-sm text-zinc-400 max-w-xl mt-2">How will this title meet an audience? Theatrical keeps the run you already plan. Streaming opens a live room. The calendar shows who else opens that week.</p>
                 </div>
@@ -82,7 +82,7 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
             <div className="grid lg:grid-cols-[280px_minmax(0,1fr)] gap-4">
                 <div className="space-y-2">
                     {lots.map(item => (
-                        <button key={lotKey(item)} onClick={() => { setLotId(lotKey(item)); setOpen(false); setChoice(null); setTick(0); }} className={`w-full text-left rounded-2xl border px-4 py-3 ${lotKey(item) === lotId ? 'border-[#ff3b30] bg-[#ff3b30]/10' : 'border-white/10 bg-[#12151c]'}`}>
+                        <button key={lotKey(item)} onClick={() => { setLotId(lotKey(item)); setOpen(false); setChoice(null); setTick(0); }} className={`w-full text-left rounded-2xl border px-4 py-3 ${lotKey(item) === lotId ? 'border-[#4F3BFF] bg-[#4F3BFF]/10' : 'border-white/10 bg-[#12151c]'}`}>
                             <div className="font-bold">{item.title}</div>
                             <div className="text-[11px] text-zinc-500">{item.phase} · {item.genre}</div>
                         </button>
@@ -207,7 +207,7 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
     };
     return (
         <div className="p-4 lg:p-10 space-y-4" data-screen="release-plan">
-            <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">After the handshake</div>
+            <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">After the handshake</div>
             <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>{deal.title} · {deal.offer.bidderName}</h2>
             {deal.simulated && <p className="text-amber-200 text-sm">Practice lot. You can walk the plan. Locking will not pay anyone.</p>}
             <div className="flex gap-2 text-xs uppercase tracking-wider">
@@ -274,7 +274,7 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
                     <p className="text-sm text-zinc-400 mt-3">Nothing is earned before {openLabel}. Moving the calendar moves this date, before or after the lock.</p>
                     {error && <p className="text-rose-300 mt-3">{error}</p>}
                     <div className="flex gap-2 mt-4">
-                        <button onClick={lock} className="px-5 py-3 rounded-full bg-[#ff3b30] font-black uppercase tracking-wider text-xs">Lock the strategy</button>
+                        <button onClick={lock} className="px-5 py-3 rounded-full bg-[#4F3BFF] font-black uppercase tracking-wider text-xs">Lock the strategy</button>
                         <button onClick={drop} className="px-5 py-3 rounded-full border border-white/15 text-xs uppercase tracking-wider">Walk away</button>
                     </div>
                 </Card>

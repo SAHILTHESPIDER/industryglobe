@@ -4,24 +4,35 @@ import { OwnPlatformState, Player } from '../../types';
 import { ensureOwnPlatform } from '../../services/ownPlatform/migrate';
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
 import { formatLocalAmount } from '../../services/ownPlatform/fx';
-import { Shell } from './ui';
+import { EmpirePane, Shell } from './ui';
+import { EmpireIntro } from './intro/EmpireIntro';
 import { DefineLaunch } from './DefineLaunch';
 import { BuildPlatform } from './BuildPlatform';
 import { DealRoom } from './DealRoom';
 import { Operations } from './Operations';
 import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
 
-type Pane = 'launch' | 'build' | 'rights' | 'ops' | 'world';
-
 interface Props {
     player: Player;
     onBack: () => void;
     onUpdatePlayer: (player: Player) => void;
-    initialPane?: Pane;
+    initialPane?: EmpirePane;
 }
 
+const LAUNCH_TITLES = [
+    'Name it',
+    'Day-one markets',
+    'Clear the markets',
+    'Choose the sound',
+    'Pick a storefront',
+    'Assemble the shelf',
+    'Set the price',
+    'Read the blueprint',
+];
+
 export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer, initialPane }) => {
-    const [pane, setPane] = useState<Pane>(initialPane || (player.ownPlatform?.stage === 'BUILD' || player.ownPlatform?.stage === 'CONSTRUCTING' || player.ownPlatform?.stage === 'LIVE' ? 'build' : 'launch'));
+    const [pane, setPane] = useState<EmpirePane>(initialPane || (player.ownPlatform?.stage === 'BUILD' || player.ownPlatform?.stage === 'CONSTRUCTING' || player.ownPlatform?.stage === 'LIVE' ? 'build' : 'launch'));
+    const [replay, setReplay] = useState(false);
 
     useEffect(() => {
         if (!player.ownPlatform) onUpdatePlayer(ensureOwnPlatform(player));
@@ -29,10 +40,10 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
 
     if (!player.ownPlatform) {
         return createPortal(
-            <Shell onBack={onBack} kicker="Empire+" title="Opening the books" step="">
-                <p className="p-8 text-zinc-400">Preparing the launch…</p>
+            <Shell onBack={onBack} kicker="Empire+" title="Opening the books" pane="launch" onPane={setPane} name="Empire+" stage="DEFINE" money={player.money} defineStep={0} buildStep={0} pastDefine={false} onDefineStep={() => undefined} onBuildStep={() => undefined}>
+                <p className="p" style={{ padding: 32 }}>Preparing the launch…</p>
             </Shell>,
-            document.body
+            document.body,
         );
     }
 
@@ -40,49 +51,56 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const quote = quoteLaunch(player);
     const setPlatform = (next: OwnPlatformState) => onUpdatePlayer({ ...player, ownPlatform: next });
     const serviceName = state.name.trim() || 'Empire+';
-    const launchTitles = [
-        'Day-One Markets',
-        'Clear the markets',
-        'Choose the sound',
-        'Pick a storefront',
-        'Assemble the shelf',
-        'Set the price',
-        'Read the blueprint',
-    ];
+    const pastDefine = state.stage !== 'DEFINE' || state.commissioned;
     const kicker = pane === 'launch'
-        ? (state.defineStep === 0 ? serviceName : 'Define the launch')
+        ? 'Define the launch'
         : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Film distribution' : pane === 'ops' ? 'Operations' : 'The world';
     const title = pane === 'launch'
-        ? launchTitles[state.defineStep] || serviceName
+        ? LAUNCH_TITLES[state.defineStep] || serviceName
         : pane === 'build'
-            ? (state.buildStep === 0 ? 'Lay the network across the world' : state.buildStep === 1 ? 'Then find out what it costs' : state.buildStep === 2 ? 'Rehearse opening night' : 'Sign the build')
+            ? (state.buildStep === 0 ? 'Lay the network' : state.buildStep === 1 ? 'Then find out what it costs' : state.buildStep === 2 ? 'Rehearse opening night' : 'Sign the build')
             : pane === 'rights'
                 ? 'Who gets the film'
                 : pane === 'ops'
                     ? 'Run the company'
                     : 'Forty desks, one audience';
-    const stepLabel = pane === 'launch' ? `${state.defineStep + 1} / 7` : pane === 'build' ? `${state.buildStep + 1} / 4` : '';
+
+    if (!state.introSeen || replay) {
+        return (
+            <EmpireIntro
+                player={player}
+                onDone={() => {
+                    setReplay(false);
+                    onUpdatePlayer({ ...player, ownPlatform: { ...state, introSeen: true } });
+                }}
+            />
+        );
+    }
 
     return createPortal(
-        <Shell onBack={onBack} kicker={kicker} title={title} step={stepLabel}>
-            <div className="px-4 lg:px-10 pt-3 flex flex-wrap gap-2 items-center">
-                {([
-                    ['launch', 'Launch'],
-                    ['build', 'Build'],
-                    ['rights', 'Rights'],
-                    ['ops', 'Operations'],
-                    ['world', 'World'],
-                ] as [Pane, string][]).map(([id, label]) => (
-                    <button key={id} onClick={() => setPane(id)} className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${pane === id ? 'bg-white text-black' : 'bg-white/5 text-zinc-400'}`}>{label}</button>
-                ))}
-                {state.stage === 'CONSTRUCTING' && <span className="text-xs text-amber-200">{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</span>}
-                {state.stage === 'LIVE' && <span className="text-xs text-emerald-300">{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</span>}
-            </div>
+        <Shell
+            onBack={onBack}
+            kicker={kicker}
+            title={title}
+            pane={pane}
+            onPane={setPane}
+            name={serviceName}
+            stage={state.stage}
+            money={player.money}
+            defineStep={state.defineStep}
+            buildStep={state.buildStep}
+            pastDefine={pastDefine}
+            onWatchIntro={() => setReplay(true)}
+            onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
+            onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}
+        >
+            {state.stage === 'CONSTRUCTING' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
+            {state.stage === 'LIVE' && pane !== 'launch' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}
             {pane === 'launch' && (
                 <DefineLaunch
                     player={player}
                     onChange={setPlatform}
-                    onBuild={() => { setPlatform({ ...state, stage: state.commissioned ? state.stage : 'BUILD' }); setPane('build'); }}
+                    onBuild={() => { setPlatform({ ...state, stage: state.commissioned ? state.stage : 'BUILD', defineStep: 7 }); setPane('build'); }}
                 />
             )}
             {pane === 'build' && (
@@ -96,49 +114,50 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
             {pane === 'rights' && <DealRoom player={player} onPlayer={onUpdatePlayer} />}
             {pane === 'ops' && <Operations player={player} onPlayer={onUpdatePlayer} />}
             {pane === 'world' && (
-                <div className="p-4 lg:p-10 grid lg:grid-cols-[minmax(0,1fr)_300px] gap-4">
-                    <div>
-                        <p className="text-sm text-zinc-400 max-w-2xl">{state.pulse.headline} Households, prices, and attention move every career week. Language, price, payment friction, missing rights, and enforcement decide how much of that attention is piracy. Pirated plays do not pay. Heavy enforcement makes customers restless.</p>
-                        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3 mt-4">
-                            {state.rivals.filter(rival => rival.status === 'ACTIVE').map(rival => (
-                                <div key={rival.id} className="rounded-2xl border border-white/10 bg-[#12151c] p-3">
-                                    <div className="flex justify-between text-[10px] uppercase tracking-wider text-zinc-500">
-                                        <span>{rival.tier}</span>
-                                        <span>{LAUNCH_REGIONS.find(region => region.id === rival.homeRegion)?.short}</span>
+                <div className="body">
+                    <div className="grid g-side">
+                        <div className="stack">
+                            <p className="p">{state.pulse.headline} Households, prices, and attention move every career week. Language, price, payment friction, missing rights, and enforcement decide how much of that attention is piracy. Pirated plays do not pay. Heavy enforcement makes customers restless.</p>
+                            <div className="grid g3">
+                                {state.rivals.filter(rival => rival.status === 'ACTIVE').slice(0, 12).map(rival => (
+                                    <div key={rival.id} className="card">
+                                        <div className="between">
+                                            <span className="lab">{rival.tier}</span>
+                                            <span className="tiny">{LAUNCH_REGIONS.find(region => region.id === rival.homeRegion)?.short}</span>
+                                        </div>
+                                        <div className="h3" style={{ marginTop: 8 }}>{rival.name}</div>
+                                        <div className="small" style={{ marginTop: 6 }}>{rival.householdsM.toFixed(1)}M homes · {formatLocalAmount(rival.localMonthlyPrice || 0, rival.currency || 'USD')}</div>
+                                        <div className="tiny">About ${rival.monthlyPrice.toFixed(2)} USD · debt {formatCompact(rival.debtUsd || 0)}</div>
+                                        <div className="tiny" style={{ marginTop: 6 }}>{rival.note}</div>
                                     </div>
-                                    <div className="font-bold mt-1">{rival.name}</div>
-                                    <div className="text-sm text-zinc-300">{rival.householdsM.toFixed(1)}M homes · {formatLocalAmount(rival.localMonthlyPrice || 0, rival.currency || 'USD')}</div>
-                                    <div className="text-[11px] text-zinc-400">About ${rival.monthlyPrice.toFixed(2)} USD · debt {formatCompact(rival.debtUsd || 0)}</div>
-                                    <div className="text-[11px] text-zinc-500 mt-1">{rival.languages.slice(0, 3).join(', ')}</div>
-                                    <div className="text-[11px] text-zinc-400 mt-1">{rival.note}</div>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                    <div className="space-y-3">
-                        <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
-                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Your service</div>
-                            <div className="text-2xl font-black">{state.name}</div>
-                            <div className="text-sm text-zinc-400 mt-2">Forecast {formatCompact(quote.forecastWeeklyRevenue)} / week · burn {formatCompact(quote.weeklyBurn)}</div>
-                            <div className="text-sm text-zinc-400">Last receipts {formatCompact(state.lastWeeklyRevenue)} · last burn {formatCompact(state.lastWeeklyBurn)}</div>
-                            {state.stage === 'LIVE' && (
-                                <label className="block mt-4 text-xs text-zinc-400">
-                                    Enforcement {state.enforcement}
-                                    <input type="range" min={0} max={100} value={state.enforcement} onChange={(event) => setPlatform({ ...state, enforcement: Number(event.target.value) })} className="w-full" />
-                                </label>
-                            )}
-                            <div className="text-xs text-zinc-500 mt-2">Customer pressure {Math.round(state.customerPressure)}</div>
-                        </div>
-                        <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4 text-sm space-y-1">
-                            <div>Recession {Math.round(state.pulse.recession * 100)}</div>
-                            <div>Inflation {Math.round(state.pulse.inflation * 100)}</div>
-                            <div>Connectivity {Math.round(state.pulse.connectivity * 100)}</div>
-                            <div>Fatigue {Math.round(state.pulse.fatigue * 100)}</div>
+                        <div className="stack">
+                            <div className="card">
+                                <div className="lab">Your service</div>
+                                <div className="h2" style={{ marginTop: 6 }}>{state.name}</div>
+                                <div className="small" style={{ marginTop: 8 }}>Forecast {formatCompact(quote.forecastWeeklyRevenue)} / week · burn {formatCompact(quote.weeklyBurn)}</div>
+                                <div className="small">Last receipts {formatCompact(state.lastWeeklyRevenue)} · last burn {formatCompact(state.lastWeeklyBurn)}</div>
+                                {state.stage === 'LIVE' && (
+                                    <label className="block" style={{ marginTop: 16 }}>
+                                        <span className="flab">Enforcement {state.enforcement}</span>
+                                        <input type="range" min={0} max={100} value={state.enforcement} onChange={event => setPlatform({ ...state, enforcement: Number(event.target.value) })} className="w-full" />
+                                    </label>
+                                )}
+                                <div className="tiny" style={{ marginTop: 8 }}>Customer pressure {Math.round(state.customerPressure)}</div>
+                            </div>
+                            <div className="card flat">
+                                <div className="line"><span>Recession</span><span>{Math.round(state.pulse.recession * 100)}</span></div>
+                                <div className="line"><span>Inflation</span><span>{Math.round(state.pulse.inflation * 100)}</span></div>
+                                <div className="line"><span>Connectivity</span><span>{Math.round(state.pulse.connectivity * 100)}</span></div>
+                                <div className="line" style={{ border: 0 }}><span>Fatigue</span><span>{Math.round(state.pulse.fatigue * 100)}</span></div>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
         </Shell>,
-        document.body
+        document.body,
     );
 };
