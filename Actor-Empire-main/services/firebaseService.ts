@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import { FirebaseAnalytics } from '@capacitor-firebase/analytics';
 import { FirebaseCrashlytics } from '@capacitor-firebase/crashlytics';
 import { FirebaseMessaging } from '@capacitor-firebase/messaging';
@@ -95,6 +96,20 @@ const runSafely = async (label: string, task: () => Promise<void>) => {
   } catch (error) {
     console.warn(`[Firebase] ${label} skipped`, error);
   }
+};
+
+/** Shared web/native Firebase app for AI Logic. Native telemetry still uses the Capacitor plugins. */
+export const getSharedFirebaseApp = (): FirebaseApp => {
+  if (getApps().length) return getApp();
+  const native = Capacitor.getPlatform() === 'ios' ? FIREBASE_PLATFORM_CONFIG.ios : FIREBASE_PLATFORM_CONFIG.android;
+  return initializeApp({
+    apiKey: native.apiKey,
+    authDomain: FIREBASE_WEB_CONFIG.authDomain,
+    projectId: FIREBASE_WEB_CONFIG.projectId,
+    storageBucket: FIREBASE_WEB_CONFIG.storageBucket,
+    messagingSenderId: FIREBASE_WEB_CONFIG.messagingSenderId,
+    appId: native.appId,
+  });
 };
 
 const isNativeTelemetry = () => Capacitor.isNativePlatform();

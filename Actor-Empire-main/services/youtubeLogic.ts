@@ -3,6 +3,9 @@ import { Gender, NPCActor, NPCPrestige, NPCTier, Player, YoutubeBrandDeal, Youtu
 import { getGenderedAvatar, NPC_DATABASE } from './npcLogic';
 import { MOD_TALENT_ROWS, ModTalentRow } from './modTalentData';
 import { hydrateGenreXP } from './genreCatalog';
+import { PUBLIC_CREATORS, PublicCreator } from './youtubeCreators';
+import { aiOffline } from '../src/services/aiContent';
+import { isMarketingType } from './youtubeMarketing';
 
 export const YOUTUBE_MONETIZATION_SUBS = 1000;
 export const YOUTUBE_MONETIZATION_VIEWS = 4000;
@@ -25,8 +28,8 @@ const YOUTUBE_BRANDS = {
     AUTOMOTIVE: ['Polestar', 'BMW M', 'Porsche Drive', 'Audi Performance']
 } as const;
 
-const YOUTUBE_COLLAB_TYPES: YoutubeVideoType[] = ['VLOG', 'SKIT', 'Q_AND_A', 'STORYTIME'];
-const YOUTUBE_BRAND_TYPES: YoutubeVideoType[] = ['VLOG', 'TRAILER', 'Q_AND_A', 'STORYTIME'];
+const YOUTUBE_COLLAB_TYPES: YoutubeVideoType[] = ['VLOG', 'SKIT', 'Q_AND_A', 'STORYTIME', 'REACTION_COLLAB', 'CAST_INTERVIEW'];
+const YOUTUBE_BRAND_TYPES: YoutubeVideoType[] = ['VLOG', 'TRAILER', 'Q_AND_A', 'STORYTIME', 'CAST_INTERVIEW'];
 
 const pick = <T>(arr: readonly T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
@@ -47,6 +50,12 @@ interface GlobalCreatorProfile {
     prestigeBias?: NPCPrestige;
     forbesCategory?: string;
     age?: number;
+    core?: boolean;
+    niche?: string;
+    category?: string;
+    cadence?: number;
+    viewers?: number;
+    org?: string;
 }
 
 const normalizeCreatorName = (value: string): string =>
@@ -162,11 +171,34 @@ const modTalentCreatorToProfile = (row: ModTalentRow): GlobalCreatorProfile =>
         row.age
     );
 
+const rosterToProfile = (creator: PublicCreator): GlobalCreatorProfile => ({
+    id: creator.id,
+    name: creator.name,
+    handle: creator.handle,
+    avatar: creator.avatar,
+    followers: creator.followers,
+    country: creator.country,
+    gender: creator.gender,
+    netWorth: Math.max(1_000_000, Math.floor(creator.followers * 1.4)),
+    tier: creator.followers >= 20 * M ? 'A_LIST' : 'ESTABLISHED',
+    prestigeBias: 'COMMERCIAL',
+    forbesCategory: creator.category === 'STREAMER' ? 'Streamer' : 'Creator',
+    core: true,
+    niche: creator.niche,
+    category: creator.category,
+    cadence: creator.cadence,
+    viewers: creator.viewers,
+    org: creator.org,
+});
+
+const rosterNames = new Set(PUBLIC_CREATORS.map(creator => normalizeCreatorName(creator.name)));
+
 const GLOBAL_YOUTUBE_CREATORS = [
-    ...BASE_GLOBAL_YOUTUBE_CREATORS,
+    ...PUBLIC_CREATORS.map(rosterToProfile),
+    ...BASE_GLOBAL_YOUTUBE_CREATORS.filter(creator => !rosterNames.has(normalizeCreatorName(creator.name))),
     ...MOD_TALENT_ROWS
         .filter(row => row.category === 'creator')
-        .filter(row => !baseCreatorNames.has(normalizeCreatorName(row.name)))
+        .filter(row => !baseCreatorNames.has(normalizeCreatorName(row.name)) && !rosterNames.has(normalizeCreatorName(row.name)))
         .map(modTalentCreatorToProfile)
 ];
 
@@ -187,6 +219,7 @@ export const getEnabledGlobalCreatorProfiles = (player: Player) => {
 
     return GLOBAL_YOUTUBE_CREATORS
         .filter(creator =>
+            creator.core ||
             creator.followers >= ALWAYS_ON_CREATOR_THRESHOLD ||
             enabledCountries.includes(creator.country.toLowerCase())
         )
@@ -308,43 +341,51 @@ const VIDEO_TEMPLATES = [
 ];
 
 export const generateYoutubeFeed = (player: Player): YoutubeVideo[] => {
+    const creators = getEnabledGlobalCreatorProfiles(player);
+    const project = player.commitments?.find(item => item.projectDetails)?.projectDetails?.title
+        || player.pastProjects?.[0]?.name;
     const feed: YoutubeVideo[] = [];
-    
-    // Generate 10 random videos from NPCs
-    for(let i=0; i<10; i++) {
-        const feedCreators = [...NPC_DATABASE, ...getEnabledGlobalCreatorProfiles(player)];
-        const npc = feedCreators[Math.floor(Math.random() * feedCreators.length)];
-        const views = Math.floor(Math.random() * 500000) + 1000;
-        const weeksAgo = Math.floor(Math.random() * 4);
-        
-        // Handle year wrap for fake feed
+    const count = Math.min(12, Math.max(8, creators.length));
+    for (let i = 0; i < count; i += 1) {
+        const npc = creators[i % creators.length] || NPC_DATABASE[i % NPC_DATABASE.length];
+        const weeksAgo = i % 4;
         let uploadWeek = player.currentWeek - weeksAgo;
         let uploadYear = player.age;
         if (uploadWeek < 1) {
-             uploadWeek += 52;
-             uploadYear -= 1;
+            uploadWeek += 52;
+            uploadYear -= 1;
         }
-        
+        const niche = ('niche' in npc && typeof (npc as { niche?: string }).niche === 'string')
+            ? (npc as { niche?: string }).niche || 'Entertainment'
+            : 'Entertainment';
+        const react = project && (niche === 'Reaction' || niche === 'BGMI' || niche === 'Commentary' || i % 5 === 0);
+        const title = aiOffline.creatorVideoTitles({
+            creator: npc.name,
+            niche,
+            country: 'country' in npc ? String((npc as { country?: string }).country || '') : '',
+            project: react ? project : undefined,
+            seed: `${player.currentWeek}:${npc.id}:${i}`,
+        })[0];
+        const views = Math.floor((npc.followers || 100000) * (0.01 + ((i % 7) * 0.008)));
         feed.push({
-            id: `yt_feed_${i}_${Date.now()}`,
-            title: VIDEO_TEMPLATES[Math.floor(Math.random() * VIDEO_TEMPLATES.length)],
-            type: 'VLOG',
-            thumbnailColor: ['bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-yellow-500', 'bg-pink-500', 'bg-indigo-500'][Math.floor(Math.random()*7)],
-            views: views,
-            likes: Math.floor(views * 0.05),
+            id: `yt_feed_${npc.id}_${player.age}_${player.currentWeek}_${i}`,
+            title,
+            type: react ? 'REACTION_COLLAB' : 'VLOG',
+            thumbnailColor: ['poster-hero', 'poster-song', 'poster-interview', 'poster-bts', 'poster-scifi', 'poster-series'][i % 6],
+            views,
+            likes: Math.floor(views * 0.06),
             earnings: 0,
             weekUploaded: uploadWeek,
             yearUploaded: uploadYear,
             isPlayer: false,
             authorName: npc.name,
-            qualityScore: 50,
+            qualityScore: 50 + (i % 20),
             weeklyHistory: [],
-            comments: []
+            comments: [],
+            durationLabel: react ? '18:42' : '12:05',
         });
     }
-    
-    // Sort by views (Popularity)
-    return feed.sort((a,b) => b.views - a.views);
+    return feed.sort((a, b) => b.views - a.views);
 };
 
 export const getWeeksSinceYoutubeUpload = (
@@ -441,6 +482,10 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
 
     // 1. Process Videos
     const updatedVideos = channel.videos.map(video => {
+        // Marketing drops and Shorts use their own curves in youtubeMarketing.
+        if (video.isShort || video.type === 'SHORT' || (video.projectId && isMarketingType(video.type))) {
+            return video;
+        }
         // Absolute week calculation to handle year wrap correctly
         const videoYear = video.yearUploaded || player.age; // Fallback for legacy data
         const age = getWeeksSinceYoutubeUpload(player.age, player.currentWeek, video.weekUploaded, videoYear);
