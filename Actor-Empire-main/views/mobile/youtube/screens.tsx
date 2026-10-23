@@ -641,7 +641,7 @@ export const ChannelScreen: React.FC = () => {
                     <div className="grid">{shown.slice(1, 5).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} />)}</div>
                 </div>
             )}
-            {tab === 'Community' && <div className="card pad" style={{ marginTop: 16 }}>{api.player.logs.slice(0, 5).map(log => <div key={log.message} className="mu" style={{ marginTop: 6 }}>{log.message}</div>)}</div>}
+            {tab === 'Community' && <div className="card pad" style={{ marginTop: 16 }}>{api.player.logs.slice(0, 5).map((log, index) => <div key={`${log.week}-${index}`} className="mu" style={{ marginTop: 6 }}>{log.message}</div>)}</div>}
             {tab === 'Playlists' && <div className="card pad" style={{ marginTop: 16 }}>Saved videos: {(api.channel.savedVideoIds || []).length}</div>}
         </div>
     );
@@ -889,7 +889,7 @@ export const LiveScreen: React.FC = () => {
                 <div className="card pad" style={{ maxHeight: 280, overflow: 'auto' }}>
                     <div className="h2">Live chat</div>
                     <div className="pill gold">Pinned · gifted memberships on</div>
-                    {chat.map((line, index) => <div key={line} style={{ marginTop: 8 }}><b className={index === 0 ? 'gold' : ''}>{index === 0 ? 'Member' : `chat${index}`}</b> <span className="mu">{line}</span></div>)}
+                    {chat.map((line, index) => <div key={`${index}-${line}`} style={{ marginTop: 8 }}><b className={index === 0 ? 'gold' : ''}>{index === 0 ? 'Member' : `chat${index}`}</b> <span className="mu">{line}</span></div>)}
                 </div>
                 <div className="h2" style={{ marginTop: 14 }}>India live</div>
                 <div className="grid" style={{ marginTop: 8 }}>{india.map(creator => <Row key={creator.id} creator={creator} />)}</div>
