@@ -212,6 +212,7 @@ const pushNews = (player: Player, headline: string, impact: 'LOW' | 'MEDIUM' | '
         sentiment: 'INDUSTRY',
     };
     player.x.feed = [post, ...(player.x.feed || [])].slice(0, 80);
+    player.x.lastPostWeek = player.currentWeek;
 };
 
 const inboxFor = (player: Player, brief: CommissionBrief) => {

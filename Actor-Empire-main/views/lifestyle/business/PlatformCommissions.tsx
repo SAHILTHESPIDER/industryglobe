@@ -324,7 +324,7 @@ const CounterSheet: React.FC<{
     const toggle = (key: keyof CommissionControls) => setControls(current => ({ ...current, [key]: !current[key] }));
     return (
         <Shell testId="counter-sheet" onClose={onClose}>
-            <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-4 pb-24 lg:pb-0">
+            <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-4 pb-28 lg:pb-0">
                 <article className="rounded-3xl p-5 sm:p-8" style={{ background: ink, border: `1px solid ${line}` }}>
                     <div className="text-[11px] uppercase tracking-widest" style={{ color: mute }}>Counter · {brief.title}</div>
                     <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont, color: text }}>Ask for more</h2>
