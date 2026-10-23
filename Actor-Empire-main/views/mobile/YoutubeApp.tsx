@@ -161,6 +161,10 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                 </div>
                 <header className="mtop">
                     <Logo small onClick={() => go('home')} />
+                    <label className="search" style={{ maxWidth: 'none', flex: 1 }}>
+                        <Search size={14} />
+                        <input value={query} placeholder="Search" onChange={event => { setQuery(event.target.value); if (screen !== 'home') go('home'); }} />
+                    </label>
                     <button className="iconbtn" onClick={() => go('money')} aria-label="Alerts"><Bell size={18} />{notices > 0 && <span className="dot">{notices}</span>}</button>
                 </header>
                 <nav className="bnav">

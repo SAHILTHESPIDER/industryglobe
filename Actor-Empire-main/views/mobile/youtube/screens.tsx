@@ -593,10 +593,8 @@ export const ChannelScreen: React.FC = () => {
 
     return (
         <div>
-            <div className="bill" style={{ height: 180 }}>
-                <div className="bg poster-hero" style={{ position: 'absolute', inset: 0 }} />
-            </div>
-            <div className="between" style={{ marginTop: -28, position: 'relative' }}>
+            <div className="chan-banner poster-hero" />
+            <div className="chanhead">
                 <div className="row">
                     <Av kind={api.kind === 'empirePlus' ? 'eplus' : api.kind === 'studio' ? 'studio' : 'me'} label={api.player.name} size={72} />
                     <div>
@@ -638,7 +636,7 @@ export const ChannelScreen: React.FC = () => {
                 </div>
             )}
             {tab !== 'Store' && tab !== 'Membership' && featured && (
-                <div className="wgrid" style={{ marginTop: 16 }}>
+                <div className="wgrid" style={{ marginTop: 18 }}>
                     <Card video={featured} onOpen={api.openVideo} />
                     <div className="grid">{shown.slice(1, 5).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} />)}</div>
                 </div>
@@ -797,16 +795,20 @@ export const ShortsScreen: React.FC = () => {
     if (!video) return <div className="card pad">No Shorts yet.</div>;
     const remixes = Math.floor(video.views * 0.02);
 
+    const analytics = (
+        <div className="card pad">
+            <div className="lbl">This Short</div>
+            <div className="mono">{formatCompact(video.views)} views</div>
+            <div className="dim">Viewed vs swiped 71% · subs +{Math.floor(video.views / 240)} · RPM ${SHORTS_RPM.toFixed(2)}</div>
+            <Spark values={video.weeklyHistory?.length ? video.weeklyHistory : [4, 8, 6, 12, 9, 14, 11]} />
+            <div className="mint">Remixes drive the title track +{formatCompact(remixes * 40)} streams.</div>
+        </div>
+    );
+
     return (
-        <div className="wgrid">
-            <div className="card pad show-m" style={{ display: undefined }}>
-                <div className="lbl">This Short</div>
-                <div className="mono">{formatCompact(video.views)} views</div>
-                <div className="dim">Viewed vs swiped 71% · subs +{Math.floor(video.views / 240)} · RPM ${SHORTS_RPM.toFixed(2)}</div>
-                <Spark values={video.weeklyHistory?.length ? video.weeklyHistory : [4, 8, 6, 12, 9, 14, 11]} />
-                <div className="mint">Remixes drive the title track +{formatCompact(remixes * 40)} streams.</div>
-            </div>
-            <div style={{ maxWidth: 420, margin: '0 auto', position: 'relative' }}>
+        <div className="shorts-layout">
+            {analytics}
+            <div className="short-stage">
                 <button className="backfloat show-m" onClick={() => api.go('home')}>Back</button>
                 <Face video={video} ratio="9/16" badge="#Challenge" />
                 <div style={{ position: 'absolute', right: 10, bottom: 80, display: 'grid', gap: 8 }}>
@@ -821,14 +823,7 @@ export const ShortsScreen: React.FC = () => {
                 </div>
             </div>
             <div>
-                <div className="card pad hide-m">
-                    <div className="lbl">This Short</div>
-                    <div className="mono">{formatCompact(video.views)} views</div>
-                    <div className="dim">Viewed vs swiped 71% · subs +{Math.floor(video.views / 240)} · RPM ${SHORTS_RPM.toFixed(2)}</div>
-                    <Spark values={video.weeklyHistory?.length ? video.weeklyHistory : [4, 8, 6, 12, 9, 14, 11]} />
-                    <div className="mint">Remixes drive the title track +{formatCompact(remixes * 40)} streams.</div>
-                </div>
-                <div className="card pad" style={{ marginTop: 12 }}>
+                <div className="card pad">
                     <div className="h2">Sound usage</div>
                     <div>{formatCompact(remixes)} remixes</div>
                     <button className="btn sm" style={{ marginTop: 8 }} onClick={() => api.armUpload('SHORT', video.projectId)}>Use this sound</button>
