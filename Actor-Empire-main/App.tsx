@@ -2015,16 +2015,18 @@ export const App: React.FC = () => {
   useEffect(() => {
       const onOpen = () => openLifestyleRef.current('PRODUCTION_GAME');
       window.addEventListener('ae-open-production', onOpen);
-      (window as Window & { __aeCommissions?: { start: () => void } }).__aeCommissions = {
-          start() {
-              try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
-              setShowWhatsNewModal(false);
-              setPlayer(current => seedCommissionPlaytest(current));
-              setGameStatus('PLAYING');
-              setActivePage(Page.LIFESTYLE);
-              setLifestyleInitialView('PRODUCTION_GAME');
-          },
+      const startCommissions = () => {
+          try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
+          setShowWhatsNewModal(false);
+          setPlayer(current => seedCommissionPlaytest(current));
+          setGameStatus('PLAYING');
+          setActivePage(Page.LIFESTYLE);
+          setLifestyleInitialView('PRODUCTION_GAME');
       };
+      if (import.meta.env.DEV) {
+          (window as Window & { __aeCommissions?: { start: () => void } }).__aeCommissions = { start: startCommissions };
+          if (new URLSearchParams(window.location.search).get('commissions') === '1') startCommissions();
+      }
       return () => {
           window.removeEventListener('ae-open-production', onOpen);
           delete (window as Window & { __aeCommissions?: unknown }).__aeCommissions;

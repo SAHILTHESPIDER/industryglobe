@@ -503,21 +503,43 @@ const SignaturePad: React.FC<{ onChange: (value: string | null) => void }> = ({ 
     const ref = useRef<HTMLCanvasElement>(null);
     const drawing = useRef(false);
     const moved = useRef(0);
-    useEffect(() => {
+    const paint = () => {
+        const canvas = ref.current;
+        const ctx = canvas?.getContext('2d');
+        if (!ctx) return;
+        ctx.strokeStyle = '#2A2418';
+        ctx.fillStyle = '#2A2418';
+        ctx.lineWidth = 2.4;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+    };
+    const fit = () => {
         const canvas = ref.current;
         if (!canvas) return;
-        const resize = () => {
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = Math.max(1, Math.floor(rect.width * 2));
-            canvas.height = Math.max(1, Math.floor(rect.height * 2));
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-            ctx.scale(2, 2);
-            ctx.strokeStyle = '#2A2418';
-            ctx.lineWidth = 2.2;
-            ctx.lineCap = 'round';
-        };
-        resize();
+        const rect = canvas.getBoundingClientRect();
+        const width = Math.max(1, Math.floor(rect.width));
+        const height = Math.max(1, Math.floor(rect.height));
+        const ratio = Math.min(window.devicePixelRatio || 1, 2);
+        const nextWidth = Math.floor(width * ratio);
+        const nextHeight = Math.floor(height * ratio);
+        if (canvas.width === nextWidth && canvas.height === nextHeight) {
+            paint();
+            return;
+        }
+        if (moved.current > 0) return;
+        canvas.width = nextWidth;
+        canvas.height = nextHeight;
+        const ctx = canvas.getContext('2d');
+        ctx?.setTransform(ratio, 0, 0, ratio, 0, 0);
+        paint();
+    };
+    useEffect(() => {
+        fit();
+        const canvas = ref.current;
+        if (!canvas || typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(() => fit());
+        observer.observe(canvas);
+        return () => observer.disconnect();
     }, []);
     const point = (event: React.PointerEvent<HTMLCanvasElement>) => {
         const canvas = ref.current;
@@ -525,29 +547,48 @@ const SignaturePad: React.FC<{ onChange: (value: string | null) => void }> = ({ 
         const rect = canvas.getBoundingClientRect();
         return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
+    const commit = () => {
+        if (moved.current < 2 || !ref.current) return;
+        onChange(ref.current.toDataURL('image/png'));
+    };
     return (
         <canvas
             ref={ref}
             data-testid="contract-canvas"
-            className="w-full h-24 rounded-md bg-white/40"
+            className="w-full h-28 rounded-md bg-white/70 border border-[#2A2418]/20"
             style={{ touchAction: 'none' }}
             onPointerDown={event => {
+                event.preventDefault();
+                fit();
+                const canvas = ref.current;
+                if (!canvas) return;
+                try { canvas.setPointerCapture(event.pointerId); } catch { /* already captured */ }
                 drawing.current = true;
-                const ctx = ref.current?.getContext('2d');
+                const ctx = canvas.getContext('2d');
                 const p = point(event);
                 ctx?.beginPath();
                 ctx?.moveTo(p.x, p.y);
+                ctx?.arc(p.x, p.y, 1.1, 0, Math.PI * 2);
+                ctx?.fill();
+                moved.current += 1;
             }}
             onPointerMove={event => {
                 if (!drawing.current) return;
+                event.preventDefault();
                 const ctx = ref.current?.getContext('2d');
                 const p = point(event);
                 ctx?.lineTo(p.x, p.y);
                 ctx?.stroke();
                 moved.current += 1;
-                if (moved.current > 8 && ref.current) onChange(ref.current.toDataURL('image/png'));
+                if (moved.current === 3) commit();
             }}
-            onPointerUp={() => { drawing.current = false; }}
+            onPointerUp={event => {
+                drawing.current = false;
+                const canvas = ref.current;
+                if (canvas?.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+                commit();
+            }}
+            onPointerCancel={() => { drawing.current = false; commit(); }}
         />
     );
 };
