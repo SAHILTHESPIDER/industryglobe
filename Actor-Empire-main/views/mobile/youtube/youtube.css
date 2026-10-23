@@ -30,7 +30,8 @@
 .yt-root .logo .studio-tag { font-size: 8.5px; font-weight: 800; letter-spacing: .2em; color: var(--red); border: 1px solid rgba(255,46,67,.45); padding: 2px 5px; border-radius: 4px; align-self: flex-start; margin-top: 2px; }
 .yt-root .logo.sm .tab { width: 32px; height: 24px; }
 .yt-root .logo.sm .wm { font-size: 22px; }
-.yt-root .search { flex: 1; max-width: 620px; margin: 0 auto; display: flex; align-items: center; gap: 10px; height: 40px; border: 1px solid var(--line2); background: var(--s1); border-radius: 999px; padding: 0 14px; color: var(--dim); }
+.yt-root .search { flex: 1; max-width: 620px; margin: 0 auto; display: flex; align-items: center; gap: 10px; height: 40px; border: 1px solid var(--line2); background: var(--s1); border-radius: 999px; padding: 0 6px 0 16px; color: var(--dim); }
+.yt-root .search .mic { width: 30px; height: 30px; border-radius: 50%; background: var(--s3); display: grid; place-items: center; color: var(--mu); flex: none; }
 .yt-root .search input { flex: 1; background: none; border: none; outline: none; color: var(--tx); font-size: 14px; }
 .yt-root .tright { display: flex; align-items: center; gap: 10px; }
 .yt-root .btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 36px; padding: 0 14px; border-radius: 999px; font-weight: 700; font-size: 13px; border: 1px solid var(--line2); background: var(--s2); color: var(--tx); white-space: nowrap; }
@@ -45,6 +46,9 @@
 .yt-root .switcher { display: flex; align-items: center; gap: 8px; padding: 3px 10px 3px 3px; border: 1px solid var(--line2); border-radius: 999px; background: var(--s1); color: var(--tx); }
 .yt-root .switcher b { font-size: 12.5px; display: block; text-align: left; }
 .yt-root .switcher small { display: block; font-size: 10px; color: var(--dim); font-weight: 600; }
+.yt-root .switcher .stack { display: flex; }
+.yt-root .switcher .stack .av { margin-left: -10px; border: 2px solid var(--s1); }
+.yt-root .switcher .stack .av:first-child { margin-left: 0; }
 .yt-root .av { border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 800; color: #fff; background-size: cover; overflow: hidden; background: #333; }
 .yt-root .avs { background: radial-gradient(circle at 30% 25%, #ff5a6c, #b4001c 70%); }
 .yt-root .ave { background: radial-gradient(circle at 30% 25%, #a99bff, #4c3bd6 70%); font-family: 'Barlow Condensed', sans-serif; font-weight: 900; }
@@ -102,7 +106,11 @@
 .yt-root .tb-ind { background: var(--ind); color: #fff; } .yt-root .tb-dark { background: rgba(0,0,0,.72); color: #fff; border: 1px solid rgba(255,255,255,.18); }
 .yt-root .dur { position: absolute; right: 7px; bottom: 7px; background: rgba(0,0,0,.82); font-size: 11px; font-weight: 700; padding: 2px 5px; border-radius: 5px; font-family: 'Geist Mono', monospace; }
 .yt-root .vmeta { display: flex; gap: 10px; margin-top: 10px; text-align: left; }
-.yt-root .vmeta .t { font-weight: 700; font-size: 14px; line-height: 1.3; }
+.yt-root .vmeta .t { font-weight: 700; font-size: 14px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.yt-root .vf { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: #8a8a99; color: #000; font-size: 8px; font-weight: 900; margin-left: 4px; vertical-align: 1px; }
+.yt-root .thimg { position: absolute; inset: 0; background-size: cover; background-repeat: no-repeat; }
+.yt-root .thprog { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.25); }
+.yt-root .thprog i { display: block; height: 100%; background: var(--red); }
 .yt-root .vmeta .s { color: var(--mu); font-size: 12.5px; margin-top: 3px; }
 .yt-root .kpi .v { font-size: 24px; font-weight: 800; margin-top: 6px; font-family: 'Geist Mono', monospace; }
 .yt-root .up { color: var(--mint); } .yt-root .dn { color: #ff6b7a; }
@@ -116,10 +124,17 @@
 .yt-root .flag { display: inline-grid; place-items: center; width: 24px; height: 17px; border-radius: 4px; font-size: 9px; font-weight: 900; color: #fff; }
 .yt-root .sect { margin-top: 26px; }
 .yt-root .hero { display: grid; grid-template-columns: 1fr 340px; gap: 16px; margin-top: 16px; }
-.yt-root .bill { position: relative; border-radius: 20px; overflow: hidden; height: 340px; border: 1px solid var(--line); }
-.yt-root .bill .in { position: absolute; left: 28px; bottom: 24px; max-width: 520px; }
-.yt-root .bill .ttl { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 72px; line-height: .85; margin-top: 12px; }
-.yt-root .bill .ttl span { display: block; font-size: 18px; letter-spacing: .28em; color: #ffcf6b; font-weight: 700; margin-top: 8px; }
+.yt-root .bill { position: relative; border-radius: 20px; overflow: hidden; height: 372px; border: 1px solid var(--line); }
+.yt-root .bill .img { position: absolute; inset: 0; background-position: center 30%; background-size: cover; }
+.yt-root .bill .sh { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(6,6,9,.95) 0%, rgba(6,6,9,.72) 38%, rgba(6,6,9,0) 70%), linear-gradient(0deg, rgba(6,6,9,.82), transparent 48%); }
+.yt-root .bill .in { position: absolute; left: 30px; bottom: 26px; max-width: 520px; }
+.yt-root .bill .ttl { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 82px; line-height: .85; margin-top: 14px; white-space: nowrap; letter-spacing: .01em; text-shadow: 0 6px 30px rgba(0,0,0,.6); }
+.yt-root .bill .ttl span { display: block; font-size: 22px; letter-spacing: .32em; color: #ffcf6b; font-weight: 700; margin-top: 8px; white-space: nowrap; }
+.yt-root .bill .m { color: #d6d6e0; font-size: 13px; margin-top: 12px; }
+.yt-root .bill .acts { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.yt-root .radar .rr { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); width: 100%; text-align: left; color: inherit; }
+.yt-root .radar .rr .n { width: 20px; font-weight: 800; color: var(--dim); font-family: 'Geist Mono', monospace; }
+.yt-root .radar .mini { width: 66px; height: 38px; border-radius: 7px; background-size: cover; background-position: center; flex: none; }
 .yt-root .glass { background: rgba(10,10,14,.6); border: 1px solid rgba(255,255,255,.12); border-radius: 12px; padding: 8px 12px; font-size: 12px; font-weight: 700; }
 .yt-root .bill .stats { position: absolute; right: 16px; top: 16px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .yt-root .cd { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
@@ -165,13 +180,21 @@
   .yt-root .top, .yt-root .rail { display: none; }
   .yt-root .mtop { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 52px; padding: 0 12px; background: rgba(8,8,11,.94); border-bottom: 1px solid var(--line); }
   .yt-root .mtop .search { height: 34px; margin: 0; flex: 1; max-width: none; }
-  .yt-root main { height: calc(100% - 52px); padding: 12px 12px 84px; }
+  .yt-root .mtop { position: absolute; top: 0; left: 0; right: 0; z-index: 30; }
+  .yt-root main { height: 100%; padding: 64px 12px 84px; }
+  .yt-root .msearch { position: absolute; top: 52px; left: 8px; right: 8px; z-index: 31; max-width: none; }
   .yt-root .bnav { display: grid; grid-template-columns: repeat(5, 1fr); position: absolute; left: 0; right: 0; bottom: 0; height: 68px; background: rgba(10,10,14,.97); border-top: 1px solid var(--line); z-index: 40; }
   .yt-root .bnav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10px; font-weight: 600; color: var(--dim); }
   .yt-root .bnav button.on { color: #fff; }
   .yt-root .bnav .plus { width: 46px; height: 32px; border-radius: 12px; background: var(--red); color: #fff; display: grid; place-items: center; }
-  .yt-root .bill { height: 390px; }
-  .yt-root .bill .ttl { font-size: 56px; }
+  .yt-root .bill { height: 420px; border-radius: 18px; }
+  .yt-root .bill .img { background-position: 72% 20%; }
+  .yt-root .bill .sh { background: linear-gradient(0deg, rgba(6,6,9,.98) 0%, rgba(6,6,9,.75) 42%, rgba(6,6,9,0) 72%); }
+  .yt-root .bill .in { left: 16px; right: 16px; bottom: 16px; }
+  .yt-root .bill .ttl { font-size: 62px; }
+  .yt-root .bill .ttl span { font-size: 16px; }
+  .yt-root .bill .acts .ghost { display: none; }
+  .yt-root .mtop .r { display: flex; gap: 2px; align-items: center; }
   .yt-root .g4, .yt-root .g3, .yt-root .slots, .yt-root .shorts-layout { grid-template-columns: 1fr; }
   .yt-root .g6 { display: flex; overflow: auto; }
   .yt-root .g6 .shortc { width: 148px; flex: none; }
@@ -179,7 +202,7 @@
   .yt-root .hide-m { display: none !important; }
 }
 @media (min-width: 601px) {
-  .yt-root .show-m { display: none !important; }
+  .yt-root .show-m, .yt-root .msearch { display: none !important; }
 }
 @media (max-width: 600px) {
   .yt-root.bleed .bnav, .yt-root.bleed .mtop { display: none; }
@@ -192,3 +215,33 @@
 .yt-root .stepper i { height: 4px; flex: 1; border-radius: 4px; background: var(--s4); }
 .yt-root .stepper i.on { background: var(--red); }
 .yt-root .backfloat { position: absolute; top: 12px; left: 12px; z-index: 5; background: rgba(0,0,0,.55); color: #fff; border-radius: 999px; padding: 8px 12px; font-weight: 800; }
+.yt-root .shortc { background-size: cover; background-position: center; }
+.yt-root .shortc:after { content: ''; position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,.8), transparent 50%); }
+.yt-root .hubhead { display: grid; grid-template-columns: 118px 1fr 300px; gap: 20px; align-items: center; padding: 18px; border-radius: 20px; border: 1px solid var(--line); background: radial-gradient(circle at 100% 0, rgba(255,46,67,.18), transparent 45%), var(--s1); }
+.yt-root .poster { width: 118px; height: 168px; border-radius: 12px; background-size: auto 100%; background-position: 78% 30%; position: relative; overflow: hidden; }
+.yt-root .poster:after { content: attr(data-title); position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 22px; letter-spacing: .04em; text-shadow: 0 3px 10px #000; }
+.yt-root .ptitle { font-family: 'Barlow Condensed', sans-serif; font-weight: 900; font-size: 52px; line-height: .9; white-space: nowrap; }
+.yt-root .ptitle small { font-size: 16px; letter-spacing: .28em; color: #ffcf6b; margin-left: 10px; font-weight: 700; }
+.yt-root .hstats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.yt-root .hstats div { background: var(--s2); border-radius: 12px; padding: 10px 12px; }
+.yt-root .hstats b { display: block; font-family: 'Geist Mono', monospace; font-size: 18px; margin-top: 4px; }
+.yt-root .slotgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.yt-root .kpis { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.yt-root .chan-banner { height: 186px; border-radius: 18px; background-size: cover; background-position: center 35%; }
+.yt-root .pname { font-size: 34px; font-weight: 900; letter-spacing: -.02em; }
+.yt-root .plaque { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; padding: 4px 9px; border-radius: 999px; background: linear-gradient(135deg, #f9e29a, #c8932c); color: #2a1a00; }
+.yt-root .cs { display: flex; gap: 8px; margin-top: 14px; overflow: auto; }
+.yt-root .csi { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 5px; border-radius: 999px; border: 1px solid var(--line2); font-size: 12.5px; font-weight: 700; background: var(--s1); color: inherit; white-space: nowrap; }
+.yt-root .csi.on { border-color: var(--red); background: rgba(255,46,67,.1); }
+.yt-root .player .shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(0,0,0,.85), transparent 32%), linear-gradient(180deg, rgba(0,0,0,.55), transparent 24%); pointer-events: none; }
+.yt-root .scrub { position: relative; height: 5px; background: rgba(255,255,255,.22); border-radius: 4px; margin-top: 8px; }
+.yt-root .scrub .pl { position: absolute; left: 0; top: 0; bottom: 0; width: 47%; background: var(--red); border-radius: 4px; }
+.yt-root .scrub .knob { position: absolute; left: 47%; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: var(--red); transform: translate(-50%, -50%); }
+@media (max-width: 900px) {
+  .yt-root .hubhead { grid-template-columns: 84px 1fr; }
+  .yt-root .hstats { grid-column: 1 / 3; }
+  .yt-root .slotgrid, .yt-root .kpis { grid-template-columns: 1fr 1fr; }
+  .yt-root .ptitle { font-size: 36px; white-space: normal; }
+  .yt-root .ptitle small { display: block; margin: 4px 0 0; }
+  .yt-root .pname { font-size: 24px; }
+}

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { YoutubeVideo } from '../../../types';
 import { loadMediaBlob } from '../../../services/mediaStorage';
-import { typeLabel } from '../../../services/youtubeMarketing';
-import { Thumb, toneFor } from './bits';
+import { Thumb } from './bits';
+import { badgeFor, stillKeyFor, STILL } from './stills';
 
 const THUMBNAIL_WIDTH = 1280;
 const THUMBNAIL_HEIGHT = 720;
@@ -54,7 +54,7 @@ export const createFittedThumbnailBlob = async (
     return canvasToBlob(canvas, 'image/webp', 0.78);
 };
 
-export const Face: React.FC<{ video: YoutubeVideo; ratio?: string; badge?: string; progress?: number }> = ({ video, ratio = '16/9', badge, progress }) => {
+export const Face: React.FC<{ video: YoutubeVideo; ratio?: string; badge?: string; badgeC?: string; progress?: number; plain?: boolean; big?: string; sub?: string }> = ({ video, ratio = '16/9', badge, badgeC, progress, plain, big, sub }) => {
     const [src, setSrc] = useState<string | null>(null);
     useEffect(() => {
         let url: string | null = null;
@@ -74,24 +74,34 @@ export const Face: React.FC<{ video: YoutubeVideo; ratio?: string; badge?: strin
         };
     }, [video.thumbnailMediaId]);
 
+    const mark = badgeFor(video);
+    const shown = progress ?? video.watchProgress;
+    const fallback = STILL[stillKeyFor(video)];
+    const label = badge ?? (plain ? undefined : mark.label);
+    const color = badgeC || mark.color;
     if (src) {
         return (
             <div className="th" style={{ aspectRatio: ratio }}>
                 <img src={src} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-                {badge && <span className="tb tb-red">{badge}</span>}
+                <div className="thgrad" />
+                {label && <span className={`tb tb-${color}`}>{label}</span>}
+                {!plain && big && <div className="thbig">{big}{sub && <small>{sub}</small>}</div>}
                 <span className="dur">{video.durationLabel || (video.isShort ? '0:18' : '12:04')}</span>
-                {progress ? <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: 'rgba(255,255,255,.25)' }}><i style={{ display: 'block', height: '100%', width: `${progress}%`, background: 'var(--red)' }} /></div> : null}
+                {shown ? <div className="thprog"><i style={{ width: `${shown}%` }} /></div> : null}
             </div>
         );
     }
     return (
         <Thumb
-            tone={video.thumbnailColor || toneFor(video.id)}
+            src={fallback}
             ratio={ratio}
-            badge={badge || (video.isShort ? 'SHORT' : undefined)}
-            title={typeLabel(video.type)}
+            badge={label}
+            badgeC={color}
+            title={plain ? undefined : big}
+            sub={sub}
             dur={video.durationLabel || (video.isShort ? '0:18' : '12:04')}
-            progress={progress}
+            progress={shown}
+            position={stillKeyFor(video) === 'hero' ? '70% 30%' : stillKeyFor(video) === 'song' ? 'center 30%' : 'center'}
         />
     );
 };

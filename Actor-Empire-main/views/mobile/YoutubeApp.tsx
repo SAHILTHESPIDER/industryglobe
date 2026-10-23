@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Bell, DollarSign, Flame, Home, Layout, Music, Play, Plus, Radio, Search, User, X } from 'lucide-react';
+import { Bell, ChevronDown, DollarSign, Flame, Home, Layout, Menu, Mic, Music, Play, Plus, Radio, Search, User, Video, X } from 'lucide-react';
 import { Player, YoutubeChannelKind, YoutubeVideoType } from '../../types';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
 import { generateYoutubeFeed } from '../../services/youtubeLogic';
-import { migrateYoutubeSave, playerProjects, syncOfficialChannels } from '../../services/youtubeMarketing';
+import { ensureCampaign, MARKETING_TYPES, migrateYoutubeSave, playerProjects, syncOfficialChannels } from '../../services/youtubeMarketing';
 import { setChannel } from './youtube/actions';
-import { Av, Logo } from './youtube/bits';
+import { Av, formatCompact, Logo } from './youtube/bits';
 import { screenFor } from './youtube/screens';
 import { YtApi, YtContext, YtScreen } from './youtube/state';
 import './youtube/youtube.css';
@@ -41,6 +41,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
     const [query, setQuery] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [youOpen, setYouOpen] = useState(false);
+    const [mobileSearch, setMobileSearch] = useState(false);
     const channel = useMemo(() => syncOfficialChannels(player, migrateYoutubeSave(player)), [player]);
     const projects = useMemo(() => playerProjects({ ...player, youtube: channel }), [player, channel]);
     const videos = useMemo(() => {
@@ -65,7 +66,24 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
         : null) : null;
     const weeksLeft = releaseAbs != null ? Math.max(0, releaseAbs - absWeek) : null;
     const notices = (channel.activeCollabs?.length || 0) + (channel.activeBrandDeals?.length || 0) + (channel.leaks || []).filter(leak => !leak.resolved).length;
+    const badge = player.id === 'showcase' ? '9+' : notices > 9 ? '9+' : notices > 0 ? String(notices) : '';
     const bleed = screen === 'watch' || screen === 'shorts' || screen === 'live';
+    const campaign = focus ? ensureCampaign(channel, focus.id) : null;
+    const releasedDrops = campaign?.drops.filter(drop => drop.status === 'RELEASED').length || 0;
+    const dropSlots = MARKETING_TYPES.filter(type => type !== 'SHORT').length;
+    const nextDrop = campaign?.drops.filter(drop => drop.status === 'SCHEDULED').sort((a, b) => a.scheduledWeekAbs - b.scheduledWeekAbs)[0];
+    const weekOf = (abs: number) => {
+        let week = player.currentWeek + (abs - absWeek);
+        while (week > 52) week -= 52;
+        while (week < 1) week += 52;
+        return week;
+    };
+    const hype = Math.round(campaign?.campaignHype ?? focus?.projectDetails?.hiddenStats?.ytCampaignHype ?? 0);
+    const studio = channel.officialChannels?.studio;
+    const empire = channel.officialChannels?.empirePlus;
+    const house = (player.businesses || []).find(business => business.type === 'PRODUCTION_HOUSE');
+    const studioStem = (studio?.handle || '').replace('@', '').replace(/studios$/i, '');
+    const studioName = house?.name || (studioStem ? `${studioStem.charAt(0).toUpperCase()}${studioStem.slice(1)} Studios` : 'Studio');
 
     const go = (next: YtScreen) => {
         setError(null);
@@ -116,20 +134,27 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
             <div className={`yt-root${bleed ? ' bleed' : ''}`} data-yt-screen={screen}>
                 <div className="app">
                     <header className="top">
+                        <button className="iconbtn" aria-label="Menu" onClick={() => go('home')}><Menu size={20} /></button>
                         <Logo onClick={() => go('home')} />
                         <label className="search">
                             <Search size={16} />
-                            <input value={query} placeholder="Search videos and creators" onChange={event => { setQuery(event.target.value); if (screen !== 'home') go('home'); }} />
+                            <input value={query} placeholder="Search trailers, songs, creators, studios" onChange={event => { setQuery(event.target.value); if (screen !== 'home') go('home'); }} />
+                            <button type="button" className="mic" aria-label="Search by voice" onClick={event => { event.preventDefault(); (event.currentTarget.previousElementSibling as HTMLInputElement | null)?.focus(); }}><Mic size={14} /></button>
                         </label>
                         <div className="tright">
-                            <button className="btn red" onClick={() => go('upload')} data-yt-nav="upload"><Plus size={16} /> Create</button>
+                            <button className="btn" onClick={() => go('upload')} data-yt-nav="upload"><Plus size={16} /> Create</button>
                             <button className="iconbtn" onClick={() => go('money')} aria-label="Alerts">
                                 <Bell size={18} />
-                                {notices > 0 && <span className="dot">{notices}</span>}
+                                {badge && <span className="dot">{badge}</span>}
                             </button>
                             <button className="switcher" onClick={() => switchKind(kind === 'personal' ? 'studio' : kind === 'studio' ? 'empirePlus' : 'personal')}>
-                                <Av kind={kind === 'empirePlus' ? 'eplus' : kind === 'studio' ? 'studio' : 'me'} label={player.name} size={28} />
-                                <span><b>{kind === 'personal' ? player.name.split(' ')[0] : kind === 'studio' ? 'Studio' : 'Empire+'}</b><small>{kind}</small></span>
+                                <span className="stack">
+                                    <Av kind="me" label={player.name} size={30} />
+                                    <Av kind="studio" size={30} />
+                                    <Av kind="eplus" size={30} />
+                                </span>
+                                <span><b>{kind === 'personal' ? player.name : kind === 'studio' ? studioName : 'Empire+'}</b><small>Switch channel</small></span>
+                                <ChevronDown size={14} />
                             </button>
                         </div>
                     </header>
@@ -140,17 +165,20 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                         ))}
                         <div className="rh">Your empire</div>
                         {EMPIRE.map(item => (
-                            <button key={item.id} className={`ri${screen === item.id ? ' on' : ''}`} onClick={() => go(item.id)} data-yt-nav={item.id}>{item.icon}{item.label}</button>
+                            <button key={item.id} className={`ri${screen === item.id ? ' on' : ''}`} onClick={() => go(item.id)} data-yt-nav={item.id}>
+                                {item.icon}{item.label}
+                                {item.id === 'hub' && focus && <span className="ct">{releasedDrops}/{dropSlots}</span>}
+                            </button>
                         ))}
                         <div className="rh">Your channels</div>
-                        <button className={`chan${kind === 'personal' ? ' on' : ''}`} onClick={() => switchKind('personal')}><Av kind="me" label={player.name} size={28} /><span><b>{player.name.split(' ')[0]}</b><small>{channel.handle}</small></span></button>
-                        <button className={`chan${kind === 'studio' ? ' on' : ''}`} onClick={() => switchKind('studio')}><Av kind="studio" size={28} /><span><b>Studio</b><small>{channel.officialChannels?.studio?.handle || 'Opens with a house'}</small></span></button>
-                        <button className={`chan${kind === 'empirePlus' ? ' on' : ''}`} onClick={() => switchKind('empirePlus')}><Av kind="eplus" size={28} /><span><b>Empire+</b><small>{channel.officialChannels?.empirePlus?.handle || 'When Empire+ is live'}</small></span></button>
+                        <button className={`chan${kind === 'personal' ? ' on' : ''}`} onClick={() => switchKind('personal')}><Av kind="me" label={player.name} size={26} /><span><b>{player.name}</b><small>Personal · {formatCompact(channel.subscribers)}</small></span></button>
+                        <button className={`chan${kind === 'studio' ? ' on' : ''}`} onClick={() => switchKind('studio')}><Av kind="studio" size={26} /><span><b>{studioName}</b><small>{studio ? `Official · ${formatCompact(studio.subscribers)}` : 'Opens with a house'}</small></span></button>
+                        <button className={`chan${kind === 'empirePlus' ? ' on' : ''}`} onClick={() => switchKind('empirePlus')}><Av kind="eplus" size={26} /><span><b>Empire+</b><small>{empire ? `Official · ${formatCompact(empire.subscribers)}` : 'When Empire+ is live'}</small></span></button>
                         <div className="weekcard">
-                            <div className="k">This week</div>
-                            <div className="v">{focus?.projectDetails?.title || 'No release on the slate'}</div>
-                            <div className="dim">{weeksLeft != null ? `${weeksLeft} weeks to release` : `Week ${player.currentWeek}`}</div>
-                            <div className="bar"><i style={{ width: weeksLeft != null ? `${Math.max(8, 100 - weeksLeft * 8)}%` : '12%' }} /></div>
+                            <div className="k">Week {player.currentWeek} · {1998 + player.age}</div>
+                            <div className="v">{focus?.projectDetails?.title || 'No release'}{weeksLeft != null ? <> opens in <span className="red">{weeksLeft} wks</span></> : null}</div>
+                            <div className="bar"><i style={{ width: weeksLeft != null ? `${Math.max(8, Math.min(100, 100 - weeksLeft * 4))}%` : '12%' }} /></div>
+                            <div className="dim" style={{ fontSize: 11, marginTop: 6 }}>Campaign hype {hype || '—'}{nextDrop ? ` · next drop W${weekOf(nextDrop.scheduledWeekAbs)}` : ''}</div>
                         </div>
                         <button className="ri" onClick={onBack} data-yt-nav="close"><X size={18} /> Close</button>
                     </nav>
@@ -161,12 +189,20 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                 </div>
                 <header className="mtop">
                     <Logo small onClick={() => go('home')} />
-                    <label className="search" style={{ maxWidth: 'none', flex: 1 }}>
-                        <Search size={14} />
-                        <input value={query} placeholder="Search" onChange={event => { setQuery(event.target.value); if (screen !== 'home') go('home'); }} />
-                    </label>
-                    <button className="iconbtn" onClick={() => go('money')} aria-label="Alerts"><Bell size={18} />{notices > 0 && <span className="dot">{notices}</span>}</button>
+                    <div className="r">
+                        <button className="iconbtn" aria-label="Create" onClick={() => go('upload')}><Video size={18} /></button>
+                        <button className="iconbtn" onClick={() => go('money')} aria-label="Alerts"><Bell size={18} />{badge && <span className="dot">{badge}</span>}</button>
+                        <button className="iconbtn" aria-label="Search" onClick={() => setMobileSearch(open => !open)}><Search size={18} /></button>
+                        <button aria-label="You" onClick={() => setYouOpen(true)}><Av kind="me" label={player.name} size={28} /></button>
+                    </div>
                 </header>
+                {mobileSearch && (
+                    <label className="search msearch">
+                        <Search size={14} />
+                        <input value={query} placeholder="Search trailers, songs, creators" onChange={event => { setQuery(event.target.value); if (screen !== 'home') go('home'); }} />
+                        <button type="button" className="mic" aria-label="Voice search"><Mic size={14} /></button>
+                    </label>
+                )}
                 <nav className="bnav">
                     <button className={screen === 'home' ? 'on' : ''} onClick={() => go('home')} data-yt-nav="home"><Home size={18} />Home</button>
                     <button className={screen === 'shorts' ? 'on' : ''} onClick={() => go('shorts')} data-yt-nav="shorts"><Play size={18} />Shorts</button>

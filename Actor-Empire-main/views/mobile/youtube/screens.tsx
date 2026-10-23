@@ -2,20 +2,21 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { YoutubeCreatorIdentity, YoutubeMerchTier, YoutubeUploadPlan, YoutubeVideo, YoutubeVideoType } from '../../../types';
 import { saveMediaBlob } from '../../../services/mediaStorage';
 import { aiContent, aiOffline } from '../../../src/services/aiContent';
-import { liveCreators, PUBLIC_CREATORS, reactionTitle, streamers } from '../../../services/youtubeCreators';
+import { hashString, liveCreators, PUBLIC_CREATORS, reactionTitle, streamers } from '../../../services/youtubeCreators';
 import { calculateYoutubeCreatorScore, getYoutubePublicImageLabel, YOUTUBE_MONETIZATION_SUBS, YOUTUBE_MONETIZATION_VIEWS } from '../../../services/youtubeLogic';
 import {
-    carry, COUNTRY_RPM, ctrFor, dropCost, dropEnergy, ensureCampaign, FLAT_RPM, isMarketingType,
+    carry, COUNTRY_RPM, ctrFor, dropCost, dropEnergy, ensureCampaign, FLAT_RPM, forecastOpeningGross, forecastYtLift, isMarketingType,
     MARKETING_TYPES, musicOpeningBonus, openingMultiplier, PERSONAL_TYPES, readPhase,
     SHORTS_RPM, slotUnlocked, trailerWarShare, typeLabel,
 } from '../../../services/youtubeMarketing';
 import {
-    changeIdentity, completeBrand, completeCollab, dropMerch, enableMemberships, goLive, identityTuning,
+    changeIdentity, completeBrand, completeCollab, dropMerch, enableMemberships, goLive, identityTuning, setChannel,
     MERCH, PERSONAL_COSTS, personalCollab, publishUpload, raidStreamer, reactToVideo, resolveLeak,
     strikeCount, toggleSave, UPLOAD_PLANS,
 } from './actions';
 import { Av, formatCompact, formatMoney, Gauge, Spark, Thumb } from './bits';
 import { useYt } from './state';
+import { badgeFor, creatorFor, dubLine, postedAgo, STILL, stillForType, stillUrl, verifiedAuthor, weeksAgoFor } from './stills';
 import { createFittedThumbnailBlob, Face, MAX_THUMBNAIL_SOURCE_SIZE, ThumbnailFitMode } from './thumb';
 
 const MUSIC_TYPES: YoutubeVideoType[] = ['MUSIC_VIDEO', 'JUKEBOX', 'LYRIC_VIDEO'];
@@ -25,109 +26,189 @@ const IDENTITIES: YoutubeCreatorIdentity[] = ['ACTOR_VLOGGER', 'CHAOS_CREATOR', 
 const PLANS: YoutubeUploadPlan[] = ['SAFE', 'VIRAL_BAIT', 'BTS', 'PROJECT_PROMO', 'SPONSOR_HEAVY'];
 const LANGS = ['Hindi', 'English', 'Tamil', 'Telugu', 'Spanish', 'Arabic'];
 
-const Card: React.FC<{ video: YoutubeVideo; onOpen: (id: string) => void }> = ({ video, onOpen }) => (
-    <button type="button" className="vc" onClick={() => onOpen(video.id)} data-yt-video={video.id}>
-        <Face video={video} badge={video.isPlayer ? 'YOURS' : undefined} />
-        <div className="vmeta">
-            <Av kind={video.isPlayer ? 'me' : 'letter'} label={video.authorName} size={36} />
-            <div>
-                <div className="t">{video.title}</div>
-                <div className="s">{video.authorName} · {formatCompact(video.views)} views</div>
+const authorKind = (video: YoutubeVideo): 'me' | 'studio' | 'eplus' | 'letter' => {
+    if (video.channelKind === 'empirePlus') return 'eplus';
+    if (video.channelKind === 'studio') return 'studio';
+    if (video.isPlayer) return 'me';
+    return 'letter';
+};
+
+const Card: React.FC<{ video: YoutubeVideo; onOpen: (id: string) => void; age: number; week: number }> = ({ video, onOpen, age, week }) => {
+    const scheduled = video.weekUploaded > week && (video.yearUploaded || age) >= age;
+    const ago = postedAgo(weeksAgoFor(video, age, week), /TRAILER|PREMIERE/.test(video.type));
+    const meta = scheduled ? `Scheduled · ${formatCompact(video.views)} waiting` : `${formatCompact(video.views)} views · ${ago}`;
+    const big = /TEASER|TRAILER|MUSIC|POSTER|JUKEBOX|LYRIC/.test(video.type) ? video.title.split(/[–|]/)[0].trim() : undefined;
+    return (
+        <button type="button" className="vc" onClick={() => onOpen(video.id)} data-yt-video={video.id}>
+            <Face video={video} big={big} sub={big ? badgeFor(video).label : undefined} />
+            <div className="vmeta">
+                <Av kind={authorKind(video)} label={video.authorName} size={34} />
+                <div style={{ minWidth: 0 }}>
+                    <div className="t">{video.title}</div>
+                    <div className="s">{video.authorName}{verifiedAuthor(video) ? <span className="vf">✓</span> : null}</div>
+                    <div className="s">{meta}</div>
+                </div>
             </div>
-        </div>
-    </button>
-);
+        </button>
+    );
+};
 
 const projectTitle = (api: ReturnType<typeof useYt>, id?: string) =>
     api.projects.find(item => item.id === id)?.projectDetails?.title || api.projects[0]?.projectDetails?.title || '';
 
+const CHIPS = ['All', 'Your projects', 'Trailers', 'Music', 'Interviews', 'Shorts', 'Live', 'Bollywood', 'Hollywood', 'K-Drama', 'Vlogs', 'Gaming', 'Podcasts'];
+
+const matchesChip = (video: YoutubeVideo, chip: string) => {
+    const creator = creatorFor(video.authorName);
+    if (chip === 'Your projects') return !!(video.isPlayer || video.projectId);
+    if (chip === 'Trailers') return /TRAILER|TEASER|POSTER/.test(video.type);
+    if (chip === 'Music') return MUSIC_TYPES.includes(video.type) || video.type === 'COVER';
+    if (chip === 'Interviews') return video.type === 'CAST_INTERVIEW' || video.type === 'Q_AND_A';
+    if (chip === 'Shorts') return !!(video.isShort || video.type === 'SHORT');
+    if (chip === 'Live') return video.type === 'PREMIERE_LIVE';
+    if (chip === 'Bollywood') return video.isPlayer || creator?.country === 'India' || /India|Bollywood/i.test(video.authorName);
+    if (chip === 'Hollywood') return creator?.country === 'United States' || /Warner|Aurora|Hollywood|Pictures/i.test(video.authorName);
+    if (chip === 'K-Drama') return creator?.country === 'South Korea' || creator?.country === 'Korea';
+    if (chip === 'Vlogs') return video.type === 'VLOG' || video.type === 'STORYTIME';
+    if (chip === 'Gaming') return creator?.category === 'STREAMER' || /game|raid|react/i.test(`${video.title} ${video.type}`);
+    if (chip === 'Podcasts') return video.type === 'Q_AND_A';
+    return true;
+};
+
+const releaseWeekNumber = (api: ReturnType<typeof useYt>, abs: number | null) => {
+    if (abs == null) return null;
+    let week = api.player.currentWeek + (abs - api.absWeek);
+    while (week > 52) week -= 52;
+    while (week < 1) week += 52;
+    return week;
+};
+
 export const HomeScreen: React.FC = () => {
     const api = useYt();
     const [chip, setChip] = useState('All');
+    const [booked, setBooked] = useState(false);
     const q = api.query.trim().toLowerCase();
     const pool = api.videos.filter(video => !q || `${video.title} ${video.authorName}`.toLowerCase().includes(q));
-    const filtered = pool.filter(video => {
-        if (chip === 'Trailers') return /TRAILER|TEASER|POSTER/.test(video.type);
-        if (chip === 'Music') return MUSIC_TYPES.includes(video.type) || video.type === 'COVER';
-        if (chip === 'From set') return !!video.projectId || video.isPlayer;
-        if (chip === 'Live') return video.type === 'PREMIERE_LIVE';
-        return true;
-    });
-    const hero = filtered[0] || pool[0];
-    const project = api.projects[0];
+    const filtered = chip === 'All' ? pool : pool.filter(video => matchesChip(video, chip));
+    const project = api.projects.find(item => item.id === api.projectId) || api.projects[0];
     const phase = project ? readPhase(api.player, project) : null;
     const campaign = project ? ensureCampaign(api.channel, project.id) : null;
     const weeks = phase?.releaseWeekAbs != null ? Math.max(0, phase.releaseWeekAbs - api.absWeek) : null;
+    const releaseWeek = releaseWeekNumber(api, phase?.releaseWeekAbs ?? null);
     const done = campaign?.drops.filter(drop => drop.status === 'RELEASED').length || 0;
-    const rivals = api.videos.filter(video => !video.isPlayer).slice(0, 3);
-    const share = trailerWarShare(hero?.views || 1, rivals.map(video => video.views));
-    const shorts = api.videos.filter(video => video.isShort || video.type === 'SHORT').slice(0, 6);
-    const live = liveCreators(api.absWeek, 36).filter(creator => creator.country === 'India').slice(0, 4);
+    const slots = MARKETING_TYPES.filter(type => type !== 'SHORT').length;
+    const hero = filtered.find(video => video.type === 'TRAILER_2' && (video.isPlayer || video.projectId))
+        || filtered.find(video => /TRAILER/.test(video.type) && (video.isPlayer || !!video.projectId))
+        || filtered[0]
+        || pool[0];
+    const rivals = pool.filter(video => video.id !== hero?.id && !video.projectId && /TRAILER|TEASER|POSTER/.test(video.type)).sort((a, b) => b.views - a.views).slice(0, 2);
+    const board = [hero, ...rivals].filter((video): video is YoutubeVideo => !!video).slice(0, 3);
+    const owned = pool.filter(video => (video.isPlayer || video.projectId) && !video.isShort && video.type !== 'SHORT' && video.id !== hero?.id);
+    const pick = (type: YoutubeVideo['type']) => owned.find(video => video.type === type);
+    const fromProjects = [pick('TEASER'), pick('MUSIC_VIDEO'), pick('CAST_INTERVIEW'), pick('BTS')].filter((video): video is YoutubeVideo => !!video);
+    const projectCards = fromProjects.length ? fromProjects : owned.slice(0, 4);
+    const shorts = pool.filter(video => video.isShort || video.type === 'SHORT').slice(0, 6);
+    const used = new Set([hero?.id, ...projectCards.map(video => video.id), ...shorts.map(video => video.id)]);
+    const recommended = [...pool]
+        .filter(video => !used.has(video.id) && !video.isShort && video.type !== 'SHORT' && (chip === 'All' || matchesChip(video, chip)))
+        .sort((a, b) => {
+            const rank = (video: YoutubeVideo) => {
+                if (video.channelKind === 'empirePlus') return 0;
+                if (video.type === 'VLOG' && video.isPlayer) return 1;
+                if (!video.projectId && /TRAILER/.test(video.type)) return 2;
+                if (video.type === 'PREMIERE_LIVE' && (video.isPlayer || video.channelKind)) return 3;
+                return 6;
+            };
+            return rank(a) - rank(b) || b.views - a.views;
+        })
+        .slice(0, 4);
+    const title = project?.projectDetails?.title || hero?.title || 'Your channel';
+    const tagline = project?.projectDetails?.customPoster?.tagline || project?.projectDetails?.genre || '';
+    const role = project?.projectDetails?.castList?.find(member => member.isPlayer)?.roleName
+        || project?.projectDetails?.castList?.find(member => member.isPlayer)?.characterName;
+    const house = (api.player.businesses || []).find(business => business.type === 'PRODUCTION_HOUSE');
+    const studioHandle = api.channel.officialChannels?.studio?.handle || '';
+    const studioName = house?.name || (studioHandle ? `${studioHandle.replace('@', '').replace(/studios$/i, '').replace(/^./, char => char.toUpperCase())} Studios` : api.player.name);
+    const hype = Math.round(campaign?.campaignHype ?? project?.projectDetails?.hiddenStats?.ytCampaignHype ?? hero?.hype ?? 0);
+    const opening = forecastOpeningGross(project?.projectDetails?.estimatedBudget || 0, hype);
+    const lift = forecastYtLift(hype, campaign?.songStreams || 0);
+    const trendingRank = hero?.countryRanks?.IN || (hero && hero.views >= (pool[1]?.views || 0) ? 1 : 4);
+    const premiere = hero ? weeksAgoFor(hero, api.player.age, api.player.currentWeek) <= 0 && /TRAILER|PREMIERE|TEASER/.test(hero.type) : false;
+    const remixes = shorts.reduce((sum, video) => sum + Math.floor(video.views * 0.02), 0);
 
     return (
         <div>
             <div className="chips">
-                {['All', 'Trailers', 'Music', 'From set', 'Live'].map(item => (
-                    <button key={item} className={`chip${chip === item ? ' on' : ''}`} onClick={() => setChip(item)}>{item}</button>
+                {CHIPS.map(item => (
+                    <button key={item} className={`chip${chip === item ? ' on' : ''}${item === 'Your projects' && chip !== item ? ' red' : ''}`} onClick={() => setChip(item)}>
+                        {item === 'Your projects' ? '⚡ ' : ''}{item}
+                    </button>
                 ))}
             </div>
             {hero && (
                 <div className="hero">
-                    <button type="button" className="bill" onClick={() => api.openVideo(hero.id)} style={{ textAlign: 'left', color: 'inherit' }}>
-                        <div className={`bg ${hero.thumbnailColor || 'poster-hero'}`} style={{ position: 'absolute', inset: 0 }} />
-                        <div className="thgrad" />
+                    <div className="bill">
+                        <div className="img" style={{ backgroundImage: `url(${stillUrl(hero)})` }} />
+                        <div className="sh" />
                         <div className="stats">
-                            <span className="pill red">TRENDING</span>
-                            <span className="glass mono">{formatCompact(hero.views)} views</span>
-                            {hero.dubCount ? <span className="glass">{hero.dubCount} dubs</span> : null}
+                            <div className="glass"><span className="red">▲</span> #{trendingRank} Trending · India</div>
+                            <div className="glass"><span className="mono">{formatCompact(hero.views)}</span> {premiere ? 'in 6 hrs' : postedAgo(weeksAgoFor(hero, api.player.age, api.player.currentWeek), true)}</div>
                         </div>
                         <div className="in">
-                            <span className="pill gold">{typeLabel(hero.type)}</span>
-                            <div className="ttl">{hero.title}<span>{hero.authorName}</span></div>
-                            <div className="row" style={{ marginTop: 14 }}>
-                                <span className="btn red">Watch</span>
-                                <span className="btn ghost">Save</span>
+                            <div className="row" style={{ flexWrap: 'wrap' }}>
+                                <span className="pill red">▶ {typeLabel(hero.type).toUpperCase()}{premiere ? ' · WORLD PREMIERE' : ''}</span>
+                                <span className="pill">{dubLine(hero.dubCount)}</span>
+                            </div>
+                            <div className="ttl">{title}{tagline ? <span>{tagline}</span> : null}</div>
+                            <div className="m">{studioName} <span className="vf">✓</span>{releaseWeek ? ` · In theaters Week ${releaseWeek}` : ''}{role ? ` · Your film as ${role}` : ''}</div>
+                            <div className="acts">
+                                <button className="btn white lg" onClick={() => api.openVideo(hero.id)}>▶ Watch trailer</button>
+                                <button className="btn lg" onClick={() => api.go('hub')}>Marketing Hub</button>
+                                <button className="btn lg ghost" onClick={() => setBooked(true)}>{booked ? 'Pre-booked' : 'Pre-book'}</button>
                             </div>
                         </div>
-                    </button>
-                    <div className="card pad">
-                        <div className="lbl">Release radar</div>
-                        <div className="h2" style={{ marginTop: 8 }}>{project?.projectDetails?.title || 'No film in production'}</div>
+                    </div>
+                    <div className="card pad radar">
+                        <div className="between"><div className="h2">Release radar</div>{hype > 0 && <span className="pill amb">Hype {hype}</span>}</div>
+                        <div className="dim" style={{ fontSize: 12, marginTop: 4 }}>{title}{releaseWeek ? ` opens Week ${releaseWeek}` : ''} · theatrical in IN, AE, UK, US</div>
                         <div className="cd">
-                            <div><b className="mono">{weeks ?? '—'}</b><small>WEEKS</small></div>
-                            <div><b className="mono">{done}/18</b><small>DROPS</small></div>
-                            <div><b className="mono">{campaign ? openingMultiplier(campaign.campaignHype).toFixed(2) : '1.00'}×</b><small>OPENING</small></div>
-                            <div><b className="mono">{Math.round(share * 100)}%</b><small>YT SHARE</small></div>
+                            <div><b>{weeks == null ? '—' : String(weeks).padStart(2, '0')}</b><small>WEEKS</small></div>
+                            <div><b>{done}/{slots}</b><small>DROPS</small></div>
+                            <div><b className="mint">{opening > 0 ? formatMoney(opening) : '—'}</b><small>OPENING</small></div>
+                            <div><b className="amb">{lift >= 0 ? `+${lift}%` : `${lift}%`}</b><small>FROM YT</small></div>
                         </div>
-                        <div className="lbl" style={{ marginTop: 16 }}>Competing this week</div>
-                        {rivals.map(video => (
-                            <button key={video.id} className="between" style={{ width: '100%', marginTop: 8 }} onClick={() => api.openVideo(video.id)}>
-                                <span style={{ textAlign: 'left' }}>{video.title}</span>
-                                <span className="dim mono">{formatCompact(video.views)}</span>
-                            </button>
-                        ))}
-                        {live.length > 0 && <div className="mu" style={{ marginTop: 12 }}>{live.length} Indian streamers are live and can raid this trailer.</div>}
+                        <div className="lbl" style={{ margin: '14px 0 4px' }}>Competing trailers this week</div>
+                        {board.map((video, index) => {
+                            const delta = ({ vid_sherdil_t2: 2, rival_eclipse: -1, rival_kill: -1 } as Record<string, number>)[video.id]
+                                ?? ((hashString(video.id) % 5) - 2);
+                            return (
+                                <button key={video.id} className="rr" onClick={() => api.openVideo(video.id)}>
+                                    <span className="n">{index + 1}</span>
+                                    <span className="mini" style={{ backgroundImage: `url(${stillUrl(video)})` }} />
+                                    <span style={{ flex: 1, minWidth: 0 }}>
+                                        <b style={{ fontSize: 12.5 }}>{video.title}</b>
+                                        <span className="dim" style={{ display: 'block', fontSize: 11.5 }}>{video.authorName} · <span className="mono">{formatCompact(video.views)}</span></span>
+                                    </span>
+                                    <span className={delta >= 0 ? 'up' : 'dn'} style={{ fontSize: 11, fontWeight: 800 }}>{delta >= 0 ? `▲${delta}` : `▼${Math.abs(delta)}`}</span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             )}
             <section className="sect">
-                <div className="between"><div className="h2">From your projects</div><button className="btn sm" onClick={() => api.go('hub')}>Hub</button></div>
-                <div className="g4" style={{ marginTop: 12 }}>
-                    {(api.videos.filter(video => video.isPlayer || video.projectId).slice(0, 4)).map(video => (
-                        <Card key={video.id} video={video} onOpen={api.openVideo} />
-                    ))}
-                    {api.videos.filter(video => video.isPlayer || video.projectId).length === 0 && (
-                        <div className="card pad mu">The channel starts at 0 subscribers. Create a vlog or open the Marketing Hub once a film is greenlit.</div>
-                    )}
+                <div className="between"><div className="h2">From your projects</div><button className="btn sm" onClick={() => api.go('hub')}>See all {done || projectCards.length} drops</button></div>
+                <div className="g4">
+                    {projectCards.map(video => <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />)}
+                    {projectCards.length === 0 && <div className="card pad mu">The channel starts at 0 subscribers. Create a vlog or open the Marketing Hub once a film is greenlit.</div>}
                 </div>
             </section>
             <section className="sect">
-                <div className="between"><div className="h2">Shorts</div><button className="btn sm" onClick={() => api.go('shorts')}>Open</button></div>
-                <div className="g6" style={{ marginTop: 12 }}>
-                    {(shorts.length ? shorts : api.videos.slice(0, 4)).map(video => (
-                        <button key={video.id} className="shortc" onClick={() => api.openVideo(video.id)}>
-                            <Thumb tone={video.thumbnailColor || 'poster-short'} ratio="9/15" badge="SHORT" />
-                            <div className="tt">{video.title}</div>
+                <div className="between"><div className="h2">Shorts</div><span className="dim" style={{ fontSize: 12 }}>{remixes > 0 ? `#${(title || 'Film').replace(/\s/g, '')}Challenge · ${formatCompact(remixes)} remixes` : 'Open the Shorts desk'}</span></div>
+                <div className="g6">
+                    {shorts.map(video => (
+                        <button key={video.id} className="shortc" onClick={() => api.openVideo(video.id)} style={{ backgroundImage: `url(${stillUrl(video)})` }}>
+                            <div className="tt">{video.title}<small>{formatCompact(video.views)} views</small></div>
                         </button>
                     ))}
                 </div>
@@ -135,7 +216,9 @@ export const HomeScreen: React.FC = () => {
             <section className="sect">
                 <div className="h2">Recommended</div>
                 <div className="g4" style={{ marginTop: 12 }}>
-                    {filtered.slice(1, 9).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} />)}
+                    {(chip === 'All' ? recommended : filtered.filter(video => video.id !== hero?.id).slice(0, 8)).map(video => (
+                        <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />
+                    ))}
                 </div>
             </section>
         </div>
@@ -144,7 +227,7 @@ export const HomeScreen: React.FC = () => {
 
 export const WatchScreen: React.FC = () => {
     const api = useYt();
-    const video = api.videos.find(item => item.id === api.watchId) || api.videos[0];
+    const video = api.videos.find(item => item.id === api.watchId) || api.videos.find(item => item.type === 'TRAILER_2' && item.projectId) || api.videos[0];
     const [filter, setFilter] = useState('All');
     const [comments, setComments] = useState<string[]>([]);
     const [playing, setPlaying] = useState(true);
@@ -184,19 +267,22 @@ export const WatchScreen: React.FC = () => {
             <div>
                 <button className="backfloat show-m" onClick={() => api.go('home')}>Back</button>
                 <div className="player" onClick={() => setPlaying(value => !value)}>
-                    <Face video={video} badge={playing ? 'PLAYING' : 'PAUSED'} />
-                    <div style={{ position: 'absolute', left: 16, right: 16, bottom: 16 }}>
-                        <div className="between"><span className="pill">CC</span><span className="pill">1080p</span><span className="pill">{video.dubCount || 1} dub</span></div>
-                        <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
-                            {[8, 22, 41, 63, 88].map(tick => <i key={tick} style={{ flex: 1, height: 4, borderRadius: 4, background: tick < 41 ? 'var(--red)' : 'rgba(255,255,255,.3)' }} />)}
-                        </div>
+                    <Face video={video} plain badge={playing ? 'PLAYING' : 'PAUSED'} />
+                    <div className="shade" />
+                    <div style={{ position: 'absolute', left: 16, right: 16, top: 14 }} className="between">
+                        <span className="pill red">{typeLabel(video.type).toUpperCase()}</span>
+                        <span className="pill">4K · {video.dubCount || 1} dub</span>
+                    </div>
+                    <div style={{ position: 'absolute', left: 16, right: 16, bottom: 14 }}>
+                        <div className="scrub"><div className="pl" style={{ width: playing ? '47%' : '12%' }} /><div className="knob" style={{ left: playing ? '47%' : '12%' }} /></div>
+                        <div className="between" style={{ marginTop: 8 }}><span className="mono">{playing ? '1:12 / 2:34' : '0:18 / 2:34'}</span><span className="pill">{dubLine(video.dubCount)}</span></div>
                     </div>
                 </div>
-                <h1 className="h2" style={{ fontSize: 22, marginTop: 14 }}>{video.title}</h1>
+                <h1 className="h2" style={{ fontSize: 20, marginTop: 14, lineHeight: 1.3 }}>{video.title}</h1>
                 <div className="between" style={{ marginTop: 10, flexWrap: 'wrap' }}>
                     <div className="row">
                         <Av kind={video.channelKind === 'empirePlus' ? 'eplus' : video.channelKind === 'studio' ? 'studio' : video.isPlayer ? 'me' : 'letter'} label={video.authorName} />
-                        <div><b>{video.authorName}</b><div className="dim">{formatCompact(api.channel.subscribers)} subs</div></div>
+                        <div><b>{video.authorName}</b>{verifiedAuthor(video) ? <span className="vf">✓</span> : null}<div className="dim">{formatCompact(video.isPlayer ? api.channel.subscribers : (creatorFor(video.authorName)?.followers || api.channel.subscribers))} subs</div></div>
                         <button className="btn white sm">Subscribe</button>
                     </div>
                     <div className="row">
@@ -243,7 +329,7 @@ export const WatchScreen: React.FC = () => {
                     <div className="seg">{['All', 'Rivals', 'Project'].map(item => <button key={item} className={filter === item ? 'on' : ''} onClick={() => setFilter(item)}>{item}</button>)}</div>
                 </div>
                 <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
-                    {upNext.map(item => <Card key={item.id} video={item} onOpen={api.openVideo} />)}
+                    {upNext.map(item => <Card key={item.id} video={item} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />)}
                 </div>
             </aside>
         </div>
@@ -269,14 +355,19 @@ export const HubScreen: React.FC = () => {
                     <button key={item.id} className={`chip${item.id === project.id ? ' on' : ''}`} onClick={() => api.setProjectId(item.id)}>{item.projectDetails?.title}</button>
                 ))}
             </div>
-            <div className="between">
+            <div className="hubhead">
+                <div className="poster" data-title={project.projectDetails.title} style={{ backgroundImage: `url(${STILL.hero})` }} />
                 <div>
-                    <div className="lbl">Marketing hub</div>
-                    <div className="h1">{project.projectDetails.title}</div>
+                    <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}><span className="pill red">Marketing Hub</span><span className="pill">{project.projectDetails.genre}</span><span className="pill">{dubLine(4)}</span></div>
+                    <div className="ptitle" style={{ marginTop: 8 }}>{project.projectDetails.title}{project.projectDetails.customPoster?.tagline ? <small>{project.projectDetails.customPoster.tagline}</small> : null}</div>
+                    <div className="mu" style={{ marginTop: 8 }}>{project.projectDetails.directorName ? `Dir. ${project.projectDetails.directorName} · ` : ''}Budget {formatMoney(project.projectDetails.estimatedBudget || 0)} · {project.projectPhase?.replace(/_/g, ' ') || 'In production'}</div>
+                    <button className="btn red sm" style={{ marginTop: 12 }} onClick={() => api.go('upload')}>New drop</button>
                 </div>
-                <div className="row">
-                    <Gauge value={campaign.campaignHype} label="HYPE" />
-                    <div><div className="lbl">Views</div><b className="mono">{formatCompact(views)}</b><div className="lbl">Opening {openingMultiplier(campaign.campaignHype).toFixed(2)}×</div></div>
+                <div className="hstats">
+                    <div><span className="lbl">Campaign hype</span><b className="red">{Math.round(campaign.campaignHype)}</b></div>
+                    <div><span className="lbl">Total views</span><b>{formatCompact(views)}</b></div>
+                    <div><span className="lbl">Opening proj.</span><b className="mint">{formatMoney(forecastOpeningGross(project.projectDetails.estimatedBudget || 0, campaign.campaignHype))}</b></div>
+                    <div><span className="lbl">From YouTube</span><b className="amb">+{forecastYtLift(campaign.campaignHype, campaign.songStreams || 0)}%</b></div>
                 </div>
             </div>
             <div className="card pad" style={{ marginTop: 16 }}>
@@ -295,7 +386,7 @@ export const HubScreen: React.FC = () => {
                 <div className="card pad"><div className="lbl">Gaps</div><div className="h2">{slots.filter(type => !campaign.drops.some(drop => drop.type === type) && slotUnlocked(type, phase)).length} open</div><div className="mu">Phase {phase.gate}.</div></div>
                 <div className="card pad"><div className="lbl">Rival clash</div><div className="h2">Watch Trending</div><div className="mu">Trailer war uses hype^1.5.</div></div>
             </div>
-            <div className="slots" style={{ marginTop: 16 }}>
+            <div className="slotgrid" style={{ marginTop: 16 }}>
                 {slots.map(type => {
                     const drop = campaign.drops.find(item => item.type === type);
                     const open = slotUnlocked(type, phase);
@@ -390,7 +481,8 @@ export const UploadScreen: React.FC = () => {
             <div className="between"><div className="h1">Create</div><div className="stepper" style={{ width: 220 }}>{[0, 1, 2, 3, 4].map(index => <i key={index} className={index <= step ? 'on' : ''} />)}</div></div>
             <div className="dim" style={{ margin: '6px 0 14px' }}>{['Type', 'Project', 'Thumbnail', 'Details', 'Schedule'][step]}</div>
             {step === 0 && (
-                <div>
+                <div className="wgrid">
+                    <div>
                     <div className="seg">
                         {(['Personal', 'Project', 'Music', 'Live'] as const).map(item => <button key={item} className={tab === item ? 'on' : ''} onClick={() => setTab(item)}>{item}</button>)}
                     </div>
@@ -406,6 +498,11 @@ export const UploadScreen: React.FC = () => {
                         })}
                     </div>
                     {tab === 'Live' && <button className="btn" style={{ marginTop: 12 }} onClick={() => api.go('live')}>Open the live desk</button>}
+                    </div>
+                    <div>
+                        <Thumb src={STILL[stillForType(type)]} badge={typeLabel(type).toUpperCase()} title={project?.projectDetails?.title || api.player.name} sub={typeLabel(type).toUpperCase()} ratio="16/9" />
+                        <div className="dim" style={{ marginTop: 8 }}>Uses the poster you upload on the thumbnail step. Until then this is the {typeLabel(type)} still.</div>
+                    </div>
                 </div>
             )}
             {step === 1 && (
@@ -551,7 +648,7 @@ export const StudioScreen: React.FC = () => {
                 <div className="h2">Top content</div>
                 <div className="seg">{['Videos', 'Shorts', 'Live'].map(item => <button key={item} className={content === item ? 'on' : ''} onClick={() => setContent(item)}>{item}</button>)}</div>
             </div>
-            <div className="g4" style={{ marginTop: 12 }}>{videos.slice(0, 4).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} />)}</div>
+            <div className="g4" style={{ marginTop: 12 }}>{videos.slice(0, 4).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />)}</div>
             <div className="card pad" style={{ marginTop: 16 }}>
                 <div className="between">
                     <div><div className="lbl">Creator health</div><div className="h1">{score}</div><div className="gold">{image}</div></div>
@@ -593,10 +690,15 @@ export const ChannelScreen: React.FC = () => {
 
     return (
         <div>
-            <div className="chan-banner poster-hero" />
+            <div className="chan-banner" style={{ backgroundImage: 'linear-gradient(90deg, rgba(8,8,11,.25), transparent), url(/yt/premiere.webp)' }}>
+                <div className="disp" style={{ position: 'absolute', right: 20, bottom: 16, zIndex: 2, textAlign: 'right', fontSize: 30, lineHeight: 0.95 }}>
+                    {api.projects[0]?.projectDetails?.title || api.player.name}
+                    <small style={{ display: 'block', fontSize: 12, letterSpacing: '.22em', color: 'var(--gold)' }}>NEW TRAILER OUT NOW</small>
+                </div>
+            </div>
             <div className="chanhead">
                 <div className="row">
-                    <Av kind={api.kind === 'empirePlus' ? 'eplus' : api.kind === 'studio' ? 'studio' : 'me'} label={api.player.name} size={72} />
+                    <Av kind={api.kind === 'empirePlus' ? 'eplus' : api.kind === 'studio' ? 'studio' : 'me'} label={api.player.name} size={96} />
                     <div>
                         <div className="h2">{api.kind === 'personal' ? api.player.name : handle}</div>
                         <div className="dim">{handle} · {formatCompact(subs)} subs · {videos.length} videos · {formatCompact(api.channel.members)} members</div>
@@ -608,6 +710,14 @@ export const ChannelScreen: React.FC = () => {
                     <button className="btn sm" onClick={() => api.go('money')}>Join</button>
                     <button className="btn sm" onClick={() => setTab('Store')}>Store</button>
                 </div>
+            </div>
+            <div className="cs">
+                {(['personal', 'studio', 'empirePlus'] as const).map(item => (
+                    <button key={item} className={`csi${api.kind === item ? ' on' : ''}`} onClick={() => api.update(setChannel(api.player, item))}>
+                        <Av kind={item === 'empirePlus' ? 'eplus' : item === 'studio' ? 'studio' : 'me'} label={api.player.name} size={26} />
+                        {item === 'personal' ? 'Personal' : item === 'studio' ? 'Studio' : 'Empire+'}
+                    </button>
+                ))}
             </div>
             <div className="chips" style={{ marginTop: 16 }}>
                 {['Home', 'Videos', 'Shorts', 'Live', 'Playlists', 'Community', 'Store', 'Membership'].map(item => (
@@ -637,8 +747,22 @@ export const ChannelScreen: React.FC = () => {
             )}
             {tab !== 'Store' && tab !== 'Membership' && featured && (
                 <div className="wgrid" style={{ marginTop: 18 }}>
-                    <Card video={featured} onOpen={api.openVideo} />
-                    <div className="grid">{shown.slice(1, 5).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} />)}</div>
+                    <Card video={featured} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />
+                    <div className="grid">{shown.slice(1, 5).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />)}</div>
+                </div>
+            )}
+            {tab === 'Home' && (
+                <div style={{ marginTop: 18 }}>
+                    <div className="between"><div className="h2">Merch shelf</div><span className="pill gold">Premium drop live</span></div>
+                    <div className="g6" style={{ marginTop: 10 }}>
+                        {(Object.keys(MERCH) as YoutubeMerchTier[]).map((tier, index) => (
+                            <button key={tier} className="card pad" style={{ textAlign: 'left' }} onClick={() => api.apply(dropMerch(api.player, tier))}>
+                                <Thumb src={[STILL.short, STILL.hero, STILL.bts][index] || STILL.short} ratio="1/1" />
+                                <b style={{ display: 'block', marginTop: 8 }}>{MERCH[tier].label}</b>
+                                <small className="dim">{formatMoney(MERCH[tier].cost)}</small>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             )}
             {tab === 'Community' && <div className="card pad" style={{ marginTop: 16 }}>{api.player.logs.slice(0, 5).map((log, index) => <div key={`${log.week}-${index}`} className="mu" style={{ marginTop: 6 }}>{log.message}</div>)}</div>}
@@ -750,7 +874,7 @@ export const MusicScreen: React.FC = () => {
         <div>
             <div className="wgrid">
                 <div className="card" style={{ overflow: 'hidden' }}>
-                    <Thumb tone="poster-song" ratio="1/1" title={song?.title} sub="JUKEBOX" />
+                    <Thumb src={STILL.song} ratio="1/1" title={song?.title} sub="JUKEBOX" badge="MUSIC" badgeC="gold" />
                     <div className="pad">
                         <div className="lbl">Soundtrack</div>
                         <div className="h1">{song?.title}</div>
@@ -761,7 +885,7 @@ export const MusicScreen: React.FC = () => {
                 <div>
                     {songs.map(item => (
                         <button key={item.id} className="rank" onClick={() => setCurrent(item.id)}>
-                            <Thumb tone="poster-song" ratio="1/1" />
+                            <Thumb src={STILL.song} ratio="1/1" />
                             <div style={{ flex: 1, textAlign: 'left' }}><b>{item.title}</b><div className="dim">{item.singer} · {item.status} · {item.duration}</div></div>
                             <span className="mono">{formatCompact(item.plays)}</span>
                         </button>
@@ -867,7 +991,7 @@ export const LiveScreen: React.FC = () => {
             <div>
                 <button className="backfloat show-m" onClick={() => api.go('home')}>Back</button>
                 <div className="player">
-                    <Thumb tone="poster-live" badge="LIVE" badgeC="red" title={current?.name || api.player.name} sub={ended ? 'ENDED' : 'ON AIR'} ratio="16/9" />
+                    <Thumb src={STILL.premiere} badge="LIVE" badgeC="red" title={current?.name || api.player.name} sub={ended ? 'ENDED' : 'ON AIR'} ratio="16/9" />
                     <div className="stats" style={{ position: 'absolute', right: 12, top: 12 }}><span className="pill red">{current ? formatCompact(current.concurrent) : formatCompact(api.channel.peakLive || 0)} watching</span></div>
                     {!ended && <div className="card pad" style={{ position: 'absolute', left: 12, bottom: 12, maxWidth: 280 }}><b>Poll</b><div className="mu">Drop the teaser now?</div><div className="row"><span className="pill mint">Yes 71%</span><span className="pill">Not yet</span></div></div>}
                 </div>

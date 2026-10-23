@@ -1255,6 +1255,8 @@ export enum Page {
       isShort?: boolean;
       songId?: string;
       durationLabel?: string;
+      /** 0–100 continue-watching bar. Absent means the card draws none. */
+      watchProgress?: number;
   }
 
   export interface MarketingDrop {

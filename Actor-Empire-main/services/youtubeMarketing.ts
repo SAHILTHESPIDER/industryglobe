@@ -78,6 +78,19 @@ export const openingMultiplier = (campaignHype: number): number => {
 export const musicOpeningBonus = (songStreams: number): number =>
     Math.min(0.08, Math.max(0, songStreams) / 1e9);
 
+/** Radar display of a theatrical opening. Week-1 box office still uses ytOpeningMultiplier. */
+export const forecastOpeningGross = (budget: number, campaignHype: number): number => {
+    if (!Number.isFinite(budget) || budget <= 0) return 0;
+    const hype = clamp(campaignHype, 0, 100);
+    return budget * (0.5 + (hype / 100) * 0.305);
+};
+
+/** "+% from YT" on the radar: opening multiplier, with a quarter of the soundtrack bonus folded in. */
+export const forecastYtLift = (campaignHype: number, songStreams = 0): number => {
+    const lift = (openingMultiplier(campaignHype) - 1) + musicOpeningBonus(songStreams) * 0.25;
+    return Math.round(lift * 100);
+};
+
 export type PhaseGate = 'greenlit' | 'filming30' | 'filming' | 'wrapped' | 'post' | 'picture' | 'release' | 'after' | 'any';
 
 export const SLOT_GATE: Record<string, PhaseGate> = {

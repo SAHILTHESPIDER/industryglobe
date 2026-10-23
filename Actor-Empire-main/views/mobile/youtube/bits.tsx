@@ -1,10 +1,20 @@
 import React from 'react';
+import { paletteFor, STILL, StillKey } from './stills';
+
+const trimNum = (value: number, digits: number) => {
+    const text = value.toFixed(digits);
+    return digits === 0 ? text : text.replace(/0+$/, '').replace(/\.$/, '');
+};
 
 export const formatCompact = (num: number) => {
     if (!Number.isFinite(num)) return '0';
     const abs = Math.abs(num);
-    if (abs >= 1_000_000_000) return `${(num / 1_000_000_000).toFixed(1)}B`;
-    if (abs >= 1_000_000) return `${(num / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+    if (abs >= 1_000_000_000) return `${trimNum(num / 1_000_000_000, 1)}B`;
+    if (abs >= 1_000_000) {
+        const value = num / 1_000_000;
+        const digits = value >= 10 ? (Math.abs(value - Math.round(value)) < 0.05 ? 0 : 1) : 2;
+        return `${trimNum(value, digits)}M`;
+    }
     if (abs >= 1_000) return `${(num / 1_000).toFixed(abs >= 10_000 ? 0 : 1)}K`;
     return Math.floor(num).toLocaleString();
 };
@@ -35,11 +45,18 @@ export const Logo = ({ small = false, onClick }: { small?: boolean; onClick?: ()
 export const Av = ({ kind, size = 36, label }: { kind: 'me' | 'studio' | 'eplus' | 'letter'; size?: number; label?: string }) => {
     if (kind === 'studio') return <div className="av avs" style={{ width: size, height: size }}><svg viewBox="0 0 24 24" width={size * 0.5} height={size * 0.5}><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="#fff" /></svg></div>;
     if (kind === 'eplus') return <div className="av ave" style={{ width: size, height: size, fontSize: size * 0.36 }}>E+</div>;
+    if (kind === 'me') {
+        return <div className="av" style={{ width: size, height: size, backgroundImage: 'url(/yt/short.webp)', backgroundSize: '260%', backgroundPosition: '46% 34%' }} />;
+    }
     const text = (label || 'A').slice(0, 1).toUpperCase();
-    return <div className="av" style={{ width: size, height: size, background: kind === 'me' ? 'linear-gradient(135deg,#ff5a6c,#7c3aed)' : 'linear-gradient(135deg,#10b981,#0ea5e9)', fontSize: size * 0.38 }}>{text}</div>;
+    return <div className="av" style={{ width: size, height: size, background: paletteFor(label || text), fontSize: size * 0.38 }}>{text}</div>;
 };
 
 const TONES = ['poster-hero', 'poster-song', 'poster-interview', 'poster-bts', 'poster-scifi', 'poster-series', 'poster-live', 'poster-short'];
+const TONE_STILL: Record<string, StillKey> = {
+    'poster-hero': 'hero', 'poster-song': 'song', 'poster-interview': 'interview', 'poster-bts': 'bts',
+    'poster-scifi': 'scifi', 'poster-series': 'series', 'poster-live': 'premiere', 'poster-short': 'short',
+};
 export const toneFor = (seed: string) => TONES[Math.abs(hash(seed)) % TONES.length];
 const hash = (value: string) => {
     let h = 0;
@@ -48,19 +65,22 @@ const hash = (value: string) => {
 };
 
 export const Thumb = ({
-    tone = 'poster-hero', ratio = '16/9', badge, badgeC = 'red', title, sub, dur, progress,
+    tone = 'poster-hero', ratio = '16/9', badge, badgeC = 'red', title, sub, dur, progress, src, position = 'center',
 }: {
-    tone?: string; ratio?: string; badge?: string; badgeC?: string; title?: string; sub?: string; dur?: string; progress?: number;
-}) => (
-    <div className="th" style={{ aspectRatio: ratio }}>
-        <div className={`bg ${tone}`} />
-        <div className="thgrad" />
-        {badge && <span className={`tb tb-${badgeC}`}>{badge}</span>}
-        {title && <div className="thbig">{title}{sub && <small>{sub}</small>}</div>}
-        {dur && <span className="dur">{dur}</span>}
-        {progress ? <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: 'rgba(255,255,255,.25)' }}><i style={{ display: 'block', height: '100%', width: `${progress}%`, background: 'var(--red)' }} /></div> : null}
-    </div>
-);
+    tone?: string; ratio?: string; badge?: string; badgeC?: string; title?: string; sub?: string; dur?: string; progress?: number; src?: string; position?: string;
+}) => {
+    const image = src || STILL[TONE_STILL[tone] || 'hero'];
+    return (
+        <div className="th" style={{ aspectRatio: ratio }}>
+            <div className="thimg" style={{ backgroundImage: `url(${image})`, backgroundPosition: position }} />
+            <div className="thgrad" />
+            {badge && <span className={`tb tb-${badgeC}`}>{badge}</span>}
+            {title && <div className="thbig">{title}{sub && <small>{sub}</small>}</div>}
+            {dur && <span className="dur">{dur}</span>}
+            {progress ? <div className="thprog"><i style={{ width: `${progress}%` }} /></div> : null}
+        </div>
+    );
+};
 
 export const Spark = ({ values, color = '#ff2e43' }: { values: number[]; color?: string }) => {
     const max = Math.max(...values, 1);
