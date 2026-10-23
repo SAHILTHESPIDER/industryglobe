@@ -63,6 +63,7 @@ import { processBusinessWeek } from './businessLogic';
 import { getAbsoluteWeek, getRelationshipAge, inferStreamingStartWeekAbsolute } from './legacyLogic';
 import { tickOwnPlatform } from './ownPlatform/week';
 import { tickRightsWeek } from './rights/tick';
+import { tickCommissionWeek } from './commissions/logic';
 import { applyRightsToPotential, registerAdaptationResult } from './rights/logic';
 import { migrateOwnPlatformOnLoad } from './ownPlatform/migrate';
 import { hasNoAds, resetWeeklyEnergy, spendPlayerEnergy } from './premiumLogic';
@@ -3801,6 +3802,13 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         rightsLogs.forEach(msg => logsToAdd.push({ msg, type: msg.includes('expired') || msg.includes('won the auction') ? 'negative' : 'neutral' }));
     } catch (error) {
         console.error('Rights library week failed:', error);
+    }
+
+    try {
+        const commissionLogs = tickCommissionWeek(nextPlayer);
+        commissionLogs.forEach(msg => logsToAdd.push({ msg, type: 'neutral' }));
+    } catch (error) {
+        console.error('Platform commissions week failed:', error);
     }
 
     if (nextPlayer.ownPlatform) {

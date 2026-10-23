@@ -5,6 +5,7 @@ import { ArrowLeft, Star, DollarSign, Calendar, CheckCircle, Lock, Trash2, Mail,
 import { ProjectDetailView } from '../../components/ProjectDetailView';
 import { APP_DISPLAY_VERSION } from '../../services/appVersion';
 import { getPlayerLanguage, t } from '../../services/i18n';
+import { declineBrief } from '../../services/commissions/logic';
 
 interface MessagesAppProps {
   player: Player;
@@ -12,9 +13,10 @@ interface MessagesAppProps {
   onAccept: (msg: Message) => void;
   onDelete: (id: string) => void;
   onMarkRead: (id: string) => void;
+  onUpdatePlayer?: (player: Player) => void;
 }
 
-export const MessagesApp: React.FC<MessagesAppProps> = ({ player, onBack, onAccept, onDelete, onMarkRead }) => {
+export const MessagesApp: React.FC<MessagesAppProps> = ({ player, onBack, onAccept, onDelete, onMarkRead, onUpdatePlayer }) => {
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const language = getPlayerLanguage(player);
@@ -241,6 +243,35 @@ export const MessagesApp: React.FC<MessagesAppProps> = ({ player, onBack, onAcce
                             <div className="bg-white p-5 rounded-2xl mb-6 shadow-sm border border-slate-100">
                                 <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap">{selectedMessage.text}</p>
                             </div>
+
+                            {selectedMessage.type === 'OFFER_COMMISSION' && (
+                                <div className="bg-slate-900 rounded-3xl p-5 text-white mb-6" data-testid="message-commission">
+                                    <div className="text-[10px] uppercase tracking-widest text-indigo-300 mb-2">Platform commission</div>
+                                    <p className="text-sm text-slate-300 mb-4">The full offer, the counter, and the contract are on the production house slate.</p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            data-testid="message-open-offer"
+                                            onClick={() => {
+                                                const briefId = selectedMessage.data?.briefId;
+                                                if (briefId && onUpdatePlayer) {
+                                                    onUpdatePlayer({ ...player, flags: { ...player.flags, openCommissionBriefId: briefId } });
+                                                }
+                                                window.dispatchEvent(new CustomEvent('ae-open-production'));
+                                            }}
+                                            className="flex-1 py-3 rounded-full bg-[#4F3BFF] text-xs font-black uppercase"
+                                        >Open the offer</button>
+                                        <button
+                                            onClick={() => {
+                                                const briefId = selectedMessage.data?.briefId;
+                                                if (briefId && onUpdatePlayer) onUpdatePlayer(declineBrief(player, briefId).player);
+                                                onDelete(selectedMessage.id);
+                                                setSelectedMessage(null);
+                                            }}
+                                            className="px-4 py-3 rounded-full border border-white/20 text-xs uppercase"
+                                        >Decline</button>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* CASTING OFFER CARD */}
                             {(selectedMessage.type === 'OFFER_ROLE' || selectedMessage.type === 'OFFER_NEGOTIATION') && selectedMessage.data && (

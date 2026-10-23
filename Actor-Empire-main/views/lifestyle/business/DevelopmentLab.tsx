@@ -11,6 +11,7 @@ import { normalizeStudioState } from '../../../services/businessLogic';
 import { buildUniverseRoster, calculateUniverseProductWeeklyRevenue, getUniverseDashboardProjects, getUniverseReleaseActivity, normalizeUniverseForSave, normalizeUniverseMap } from '../../../services/universeLogic';
 import { ALL_GENRES, PROJECT_FORMATS, formatGenreLabel, formatProjectFormatLabel, isSubjectDrivenGenre } from '../../../services/genreCatalog';
 import { createMarketTrends, getGenreMarketTrend, getScriptMarketDemand } from '../../../services/marketTrends';
+import { WritersRoom } from './PlatformCommissions';
 
 interface DevelopmentLabProps {
     player: Player;
@@ -425,6 +426,7 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
 
             {/* Content Area */}
             <div className="flex-1 overflow-y-auto p-4 pb-nav-safe-lg">
+                {activeTab === 'VAULT' && <WritersRoom player={player} onUpdatePlayer={onUpdatePlayer} />}
                 {activeTab === 'VAULT' && <ScriptVault 
                     scripts={studioState.scripts} 
                     writers={studioState.writers}

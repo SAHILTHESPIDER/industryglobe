@@ -6,8 +6,9 @@ import { bookAnchor, lifeAnchor, OPTION_WEEKS } from './formulas';
 import {
     allRecords, emptyRights, exclusiveHold, featuredScripts, findRecord, rightsOf,
 } from './logic';
+import { notePlatformBuy } from '../commissions/logic';
 
-const RIVALS = ['Aurora Pictures', 'Lotus Gate', 'Northline', 'Red Lantern', 'Sahel Frame', 'Pampas Reels', 'Harbour & Co', 'Monsoon House'];
+const RIVALS = ['Aurora Pictures', 'Lotus Gate', 'Northline', 'Red Lantern', 'Sahel Frame', 'Pampas Reels', 'Harbour & Co', 'Monsoon House', 'Netflix', 'Prime Video', 'Hotstar', 'Disney+', 'Apple TV+'];
 
 const hash = (value: string) => {
     let h = 0;
@@ -82,8 +83,13 @@ const giveRival = (player: Player, ip: IpRecord, rival: string, status: 'OPTION'
     };
     houses(player).forEach(studio => {
         const library = rightsOf(studio);
-        library.holdings = [holding, ...library.holdings.filter(row => !(row.ipId === ip.id && row.owner === 'RIVAL'))];
-        if (ip.publicDomain && library.holdings.some(row => row.ipId === ip.id && row.owner === 'PLAYER')) {
+        library.holdings = [holding, ...library.holdings.filter(row => {
+            if (row.ipId !== ip.id || row.owner !== 'RIVAL') return true;
+            if (ip.publicDomain) return row.rivalName !== rival;
+            return false;
+        })];
+        const versions = library.holdings.filter(row => row.ipId === ip.id && (row.status === 'OWNED' || row.status === 'OPTION'));
+        if (ip.publicDomain && versions.length > 1) {
             library.clashes = [...library.clashes.filter(row => row.ipId !== ip.id), { ipId: ip.id, rivalName: rival }];
         }
         studio.studioState!.rightsLibrary = library;
@@ -250,6 +256,9 @@ const rivalsAct = (player: Player, logs: string[]) => {
         const rival = RIVALS[hash(`${ip.id}:${player.currentWeek}`) % RIVALS.length];
         const status = ip.publicDomain || ip.fame >= 80 ? 'OWNED' : 'OPTION';
         giveRival(player, ip, rival, status);
+        if (['Netflix', 'Prime Video', 'Hotstar', 'Disney+', 'Apple TV+'].includes(rival)) {
+            notePlatformBuy(player, { id: ip.id, proper: displayTitle(ip), publicDomain: ip.publicDomain }, rival, status);
+        }
         const verb = status === 'OPTION' ? 'optioned' : 'bought';
         const line = `${rival} ${verb} ${displayTitle(ip)}.`;
         logs.push(line);

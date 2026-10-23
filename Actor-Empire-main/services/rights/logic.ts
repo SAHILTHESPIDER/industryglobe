@@ -218,7 +218,7 @@ const postTrade = (player: Player, headline: string, famous: boolean) => {
     player.x.feed = [post, ...(player.x.feed || [])].slice(0, 80);
 };
 
-const RIVALS = ['Aurora Pictures', 'Lotus Gate', 'Northline', 'Red Lantern', 'Sahel Frame', 'Pampas Reels', 'Harbour & Co', 'Monsoon House'];
+const RIVALS = ['Aurora Pictures', 'Lotus Gate', 'Northline', 'Red Lantern', 'Sahel Frame', 'Pampas Reels', 'Harbour & Co', 'Monsoon House', 'Netflix', 'Prime Video', 'Hotstar', 'Disney+', 'Apple TV+'];
 
 const rivalName = (ipId: string) => RIVALS[Math.abs(hash(ipId)) % RIVALS.length];
 
@@ -651,6 +651,7 @@ export const commissionLibrarySeries = (playerIn: Player, ipId: string): RightsR
 };
 
 export const rightsGreenlightBlock = (player: Player, studio: Business, script?: Script | null): string | null => {
+    if (script?.commissionProjectId) return null;
     if (!script?.rightsIpId || script.unauthorizedLife) return null;
     const holding = rightsOf(studio).holdings.find(row => row.ipId === script.rightsIpId && row.owner === 'PLAYER');
     if (!holding || holding.status === 'EXPIRED' || holding.status === 'LOST') return 'Those rights expired before greenlight.';

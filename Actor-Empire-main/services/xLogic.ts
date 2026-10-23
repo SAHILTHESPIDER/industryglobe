@@ -191,7 +191,10 @@ export const generateXFeed = (player: Player): XPost[] => {
         });
     }
 
-    return feed.sort((a, b) => b.likes - a.likes); // Sort by popularity
+    feed.sort((a, b) => b.likes - a.likes);
+    const seen = new Set(feed.map(post => post.id));
+    const trades = (player.x?.feed || []).filter(post => post.id.startsWith('x_commission_') && !seen.has(post.id));
+    return [...trades, ...feed];
 };
 
 export const generateTrendingTopics = (player: Player): { tag: string, posts: string, category: string }[] => {
