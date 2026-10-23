@@ -72,6 +72,14 @@ export const mergeStudios = (player: Player, sourceBizId: string, targetBizId: s
   a.talentRoster = byId(a.talentRoster, s.talentRoster);
   a.lockedStreamingFunds = byId(a.lockedStreamingFunds, s.lockedStreamingFunds);
   a.purchasedIPTitles = Array.from(new Set([...(a.purchasedIPTitles || []), ...(s.purchasedIPTitles || [])]));
+  if (s.rightsLibrary) {
+    a.rightsLibrary = a.rightsLibrary || { holdings: [], bids: [], relations: [], activity: [], hotReleases: [], clashes: [] };
+    const seenHoldings = new Set((a.rightsLibrary.holdings || []).map((row: any) => `${row.owner}:${row.ipId}`));
+    a.rightsLibrary.holdings = [...(a.rightsLibrary.holdings || []), ...(s.rightsLibrary.holdings || []).filter((row: any) => !seenHoldings.has(`${row.owner}:${row.ipId}`))];
+    a.rightsLibrary.bids = [...(s.rightsLibrary.bids || []), ...(a.rightsLibrary.bids || [])].slice(0, 40);
+    a.rightsLibrary.relations = [...(a.rightsLibrary.relations || []), ...(s.rightsLibrary.relations || [])];
+    a.rightsLibrary.hotReleases = a.rightsLibrary.hotReleases?.length ? a.rightsLibrary.hotReleases : (s.rightsLibrary.hotReleases || []);
+  }
   a.productionFund = (a.productionFund || 0) + (s.productionFund || 0);
   a.financeLedger = [
     { id: `merge_${Date.now()}`, week: p.currentWeek, year: p.age, amount: src.balance || 0, type: 'CAPITAL_INJECTION', label: `Merged ${src.name} treasury` },

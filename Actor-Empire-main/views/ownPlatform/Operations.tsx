@@ -1,5 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Player } from '../../types';
+import { displayTitle, loadCatalogue, preferredFormat } from '../../services/rights/catalogue';
+import { allRecords, rightsOf } from '../../services/rights/logic';
+import { sendEmpireBrief } from '../../services/commissions/logic';
+import { ContentDeskCommissions } from '../lifestyle/business/PlatformCommissions';
+import { RightsLibrary } from '../lifestyle/business/RightsLibrary';
 import { LAUNCH_REGIONS, MARKET_COUNTRIES } from '../../services/ownPlatform/catalog';
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
 import {
@@ -7,11 +12,9 @@ import {
     PE_NAME,
     PE_STAKE,
     chooseFunding,
-    listCommissions,
     listPlatformDeals,
     purchasePlatform,
     quoteValuation,
-    resolveCommission,
     revenueSplit,
     titleRows,
 } from '../../services/ownPlatform/studio';
@@ -77,39 +80,40 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
 };
 
 const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player; error?: string }) => void }> = ({ player, onApply }) => {
-    const orders = listCommissions(player);
     const state = player.ownPlatform!;
+    const [libraryOpen, setLibraryOpen] = useState(false);
+    const [catalogueReady, setCatalogueReady] = useState(false);
+    useEffect(() => {
+        let cancelled = false;
+        loadCatalogue().then(() => { if (!cancelled) setCatalogueReady(true); });
+        return () => { cancelled = true; };
+    }, []);
+    const house = player.businesses?.find(business => business.type === 'PRODUCTION_HOUSE');
+    const ownedSeries = catalogueReady && house
+        ? allRecords(player).filter(ip => {
+            const holding = rightsOf(house).holdings.find(row => row.ipId === ip.id && row.owner === 'PLAYER' && row.status === 'OWNED');
+            return Boolean(holding) && (preferredFormat(ip) === 'SERIES' || (ip.seasons || 1) >= 2);
+        }).slice(0, 12)
+        : [];
     return (
         <div className="space-y-4">
-            <p className="text-sm text-zinc-400 max-w-2xl">Studios and streamers send commission orders. Accepting pays 25% now. The production cap funds the film. It is not studio income. Passing closes the note.</p>
-            <div className="grid lg:grid-cols-2 gap-3">
-                {orders.map(order => (
-                    <article key={order.id} className="rounded-3xl border border-white/10 bg-[#12151c] overflow-hidden">
-                        <div className="px-4 py-3 flex items-center justify-between" style={{ background: order.color }}>
-                            <div className="font-black">{order.studio}</div>
-                            <div className="text-[11px] uppercase tracking-wider">Commission order</div>
-                        </div>
-                        <div className="p-4">
-                            <div className="text-2xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>{order.title}</div>
-                            <div className="text-xs text-zinc-500 mt-1">{order.genre} · {order.kind}</div>
-                            <div className="text-[11px] uppercase tracking-wider text-zinc-500 mt-4">Producer fee</div>
-                            <div className="text-4xl font-black" style={{ color: order.color }}>{formatCompact(order.fee)}</div>
-                            <div className="grid grid-cols-2 gap-3 mt-3 text-sm">
-                                <div><div className="text-[10px] uppercase text-zinc-500">Production cap</div>{formatCompact(order.cap)}</div>
-                                <div><div className="text-[10px] uppercase text-zinc-500">Minimum rating</div>{order.minRating.toFixed(1)} IMDb</div>
-                                <div><div className="text-[10px] uppercase text-zinc-500">Delivery</div>{order.weeks}+ weeks</div>
-                                <div><div className="text-[10px] uppercase text-zinc-500">Now / later</div>25% / 75%</div>
-                            </div>
-                            <p className="text-xs text-zinc-500 mt-3">The production cap funds the film. It is not studio income. {order.blurb}</p>
-                            <div className="flex gap-2 mt-4">
-                                <button onClick={() => onApply(resolveCommission(player, order.id, true))} className="flex-1 py-3 rounded-full font-black uppercase tracking-wider text-xs text-white" style={{ background: order.color }}>Accept commission</button>
-                                <button onClick={() => onApply(resolveCommission(player, order.id, false))} className="px-4 py-3 rounded-full border border-white/15 text-xs uppercase tracking-wider">Pass</button>
-                            </div>
-                        </div>
-                    </article>
-                ))}
-                {orders.length === 0 && <p className="text-sm text-zinc-500">The inbox is clear.</p>}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-zinc-400 max-w-2xl">Empire+ commissions rival studios from this desk. The same briefs, counters, and signatures run the other way. Owned library titles and public-domain stories can ride along. Inbound platform offers live on the production house.</p>
+                <button data-testid="content-desk-rights" onClick={() => setLibraryOpen(true)} className="shrink-0 px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Rights Library</button>
             </div>
+            {ownedSeries.length > 0 && (
+                <div className="grid sm:grid-cols-2 gap-3">
+                    {ownedSeries.map(ip => (
+                        <article key={ip.id} className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
+                            <div className="text-[11px] uppercase tracking-wider text-zinc-500">Library series</div>
+                            <div className="text-xl font-black uppercase leading-none mt-1" style={{ fontFamily: headingFont }}>{displayTitle(ip)}</div>
+                            <p className="text-xs text-zinc-400 mt-2">{ip.seasons || 1} seasons · {ip.countryName}</p>
+                            <button onClick={() => onApply(sendEmpireBrief(player, { houseId: 'aurora', format: 'SERIES', seasons: Math.max(1, ip.seasons || 1), episodes: 8, runtimeMin: 48, rightsIpId: ip.id, rightsTitle: displayTitle(ip), publicDomain: ip.publicDomain, genre: ((ip.gameGenres && ip.gameGenres[0]) || 'DRAMA') as 'DRAMA' }))} className="mt-3 w-full py-3 rounded-full bg-[#4F3BFF] text-white text-[11px] font-black uppercase tracking-wider">Send as a brief</button>
+                        </article>
+                    ))}
+                </div>
+            )}
+            <ContentDeskCommissions player={player} onApply={onApply} />
             <div>
                 <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">On the shelf</div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -127,6 +131,9 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     ))}
                 </div>
             </div>
+            {libraryOpen && (
+                <RightsLibrary player={player} studio={house} onBack={() => setLibraryOpen(false)} onUpdatePlayer={next => onApply({ player: next })} />
+            )}
         </div>
     );
 };

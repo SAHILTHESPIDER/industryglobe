@@ -62,6 +62,9 @@ import { checkForDirectorDecision, checkForProductionCrisis } from './production
 import { processBusinessWeek } from './businessLogic';
 import { getAbsoluteWeek, getRelationshipAge, inferStreamingStartWeekAbsolute } from './legacyLogic';
 import { tickOwnPlatform } from './ownPlatform/week';
+import { tickRightsWeek } from './rights/tick';
+import { tickCommissionWeek } from './commissions/logic';
+import { applyRightsToPotential, registerAdaptationResult } from './rights/logic';
 import { migrateOwnPlatformOnLoad } from './ownPlatform/migrate';
 import { hasNoAds, resetWeeklyEnergy, spendPlayerEnergy } from './premiumLogic';
 import { advanceLuxeConnections, advanceTinderConnections } from './datingLogic';
@@ -2850,7 +2853,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         const decisionWeek = rel.sequelDecisionWeek || 5; 
         if (rel.weekNum === decisionWeek && !rel.sequelDecisionMade) {
             rel.sequelDecisionMade = true;
-            const potential = calculateFuturePotential(rel.type, rel.projectDetails.budgetTier, rel.totalGross, rel.budget, rel.imdbRating || 5, rel.projectDetails.genre, rel.roleType);
+            const potential = applyRightsToPotential(rel, calculateFuturePotential(rel.type, rel.projectDetails.budgetTier, rel.totalGross, rel.budget, rel.imdbRating || 5, rel.projectDetails.genre, rel.roleType));
             const isUniverseContracted = !!(player.activeUniverseContract && rel.projectDetails.universeId && player.activeUniverseContract.universeId === rel.projectDetails.universeId);
             
             // Check if this project belongs to the player's production house
@@ -3227,6 +3230,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 const baseReach = PLATFORMS[rel.streaming.platformId]?.audienceMult || 1;
                 newViews = Math.floor(newViews * (rel.streaming.audienceMult / baseReach));
             }
+            const rightsStream = Number(rel.projectDetails.hiddenStats?.rightsStreamBoost) || 0;
+            const rightsClash = typeof rel.projectDetails.hiddenStats?.rightsClash === 'number' ? rel.projectDetails.hiddenStats.rightsClash : 1;
+            if (rightsStream || rightsClash !== 1) {
+                newViews = Math.floor(newViews * (1 + Math.max(0, rightsStream)) * (rightsClash > 0 ? rightsClash : 1));
+            }
             const totalViews = rel.streaming.totalViews + newViews;
             const newWeeklyViews = [...rel.streaming.weeklyViews, newViews];
             const shouldExit = checkStreamingExit(rel.streaming.platformId, newViews, rel.streaming.weekOnPlatform);
@@ -3281,8 +3289,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 }
                 nextPlayer.pastProjects.push({
                     id: rel.id, name: rel.name, type: 'ACTING_GIG', roleType: getPlayerProjectRoleType(rel.roleType, rel.projectDetails.castList), year: nextPlayer.age,
-                    earnings: 0, rating: rel.imdbRating || 0, reception: rel.status, projectQuality: rel.projectDetails.hiddenStats.qualityScore, imdbRating: rel.imdbRating, boxOfficeResult: `$${(rel.totalGross/1000000).toFixed(1)}M`, outcomeTier: calculateRunOutcome(rel.totalGross + newStreamingRevenue, rel.budget, rel.imdbRating || 5).tier, subtype: rel.projectDetails.subtype, futurePotential: rel.futurePotential || { sequelChance: 0, franchiseChance: 0, rebootChance: 0, renewalChance: 0, isFranchiseStarter: false, isSequelGreenlit: false, isRenewed: false, seriesStatus: 'N/A', playerReturnStatus: undefined, returnStatusNote: undefined }, studioId: rel.projectDetails.studioId, streamingPlatform: rel.streaming.platformId, totalViews, streamingRevenue: newStreamingRevenue, castList: rel.projectDetails.castList, reviews: rel.projectDetails.reviews, budget: rel.budget, gross: rel.totalGross, genre: rel.projectDetails.genre, format: rel.projectDetails.format, subjectName: rel.projectDetails.subjectName, subjectType: rel.projectDetails.subjectType, description: rel.projectDetails.description, projectType: rel.type, royaltyPercentage: rel.royaltyPercentage, franchiseId: rel.projectDetails.franchiseId, universeId: rel.projectDetails.universeId, universeSagaName: rel.projectDetails.universeSagaName, universePhaseName: rel.projectDetails.universePhaseName, installmentNumber: rel.projectDetails.installmentNumber, directorId: rel.projectDetails.directorId
+                    earnings: 0, rating: rel.imdbRating || 0, reception: rel.status, projectQuality: rel.projectDetails.hiddenStats.qualityScore, imdbRating: rel.imdbRating, boxOfficeResult: `$${(rel.totalGross/1000000).toFixed(1)}M`, outcomeTier: calculateRunOutcome(rel.totalGross + newStreamingRevenue, rel.budget, rel.imdbRating || 5).tier, subtype: rel.projectDetails.subtype, futurePotential: rel.futurePotential || { sequelChance: 0, franchiseChance: 0, rebootChance: 0, renewalChance: 0, isFranchiseStarter: false, isSequelGreenlit: false, isRenewed: false, seriesStatus: 'N/A', playerReturnStatus: undefined, returnStatusNote: undefined }, studioId: rel.projectDetails.studioId, streamingPlatform: rel.streaming.platformId, totalViews, streamingRevenue: newStreamingRevenue, castList: rel.projectDetails.castList, reviews: rel.projectDetails.reviews, budget: rel.budget, gross: rel.totalGross, genre: rel.projectDetails.genre, format: rel.projectDetails.format, subjectName: rel.projectDetails.subjectName, subjectType: rel.projectDetails.subjectType, description: rel.projectDetails.description, projectType: rel.type, royaltyPercentage: rel.royaltyPercentage, franchiseId: rel.projectDetails.franchiseId, universeId: rel.projectDetails.universeId, universeSagaName: rel.projectDetails.universeSagaName, universePhaseName: rel.projectDetails.universePhaseName, installmentNumber: rel.projectDetails.installmentNumber, directorId: rel.projectDetails.directorId,
+                    rightsIpId: rel.projectDetails.hiddenStats?.rightsIpId,
+                    adaptationAwardBonus: rel.projectDetails.hiddenStats?.adaptationAwardBonus,
                 });
+                registerAdaptationResult(nextPlayer, rel);
             } else {
                 const updatedStreamingState: StreamingState = {
                     ...rel.streaming,
@@ -3786,6 +3797,20 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         }
     }
     
+    try {
+        const rightsLogs = await tickRightsWeek(nextPlayer);
+        rightsLogs.forEach(msg => logsToAdd.push({ msg, type: msg.includes('expired') || msg.includes('won the auction') ? 'negative' : 'neutral' }));
+    } catch (error) {
+        console.error('Rights library week failed:', error);
+    }
+
+    try {
+        const commissionLogs = tickCommissionWeek(nextPlayer);
+        commissionLogs.forEach(msg => logsToAdd.push({ msg, type: 'neutral' }));
+    } catch (error) {
+        console.error('Platform commissions week failed:', error);
+    }
+
     if (nextPlayer.ownPlatform) {
         try {
             const platformWeek = tickOwnPlatform(nextPlayer, getAbsoluteWeek(nextPlayer.age, nextPlayer.currentWeek));

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Player, BudgetTier, Genre, ProjectDetails, ActiveRelease, Commitment, Business, LocationDetails, NewsItem, XPost, StudioEquipment, Script, Writer, GameLanguage } from '../../../types';
-import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Tv, ArrowDownLeft, ArrowUpRight, WalletCards } from 'lucide-react';
+import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Tv, ArrowDownLeft, ArrowUpRight, WalletCards, Mail } from 'lucide-react';
 import { NPC_DATABASE, getAvailableTalent, calculateProjectFameMultiplier } from '../../../services/npcLogic';
 import { sellBusiness, liquidateBusiness } from '../../../services/businessLogic';
 import { NPCActor, NPCTier } from '../../../types';
@@ -18,6 +18,10 @@ import { StudioPage } from '../../StudioPage';
 import { ProjectDashboardModal } from './components/ProjectDashboardModal';
 import { SequelSetupModal } from './components/SequelSetupModal';
 import { IPManagement } from './IPManagement';
+import { RightsLibrary } from './RightsLibrary';
+import { CommissionModal, CommissionSlateCards, CommissionToast, OffersPage, openBriefScreen } from './PlatformCommissions';
+import { deskOf } from '../../../services/commissions/logic';
+import type { CommissionBrief, CommissionProject } from '../../../types';
 
 interface ProductionHouseGameProps {
     player: Player;
@@ -26,7 +30,7 @@ interface ProductionHouseGameProps {
     businessId?: string;
 }
 
-type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY';
+type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS' | 'OFFERS';
 
 // --- HELPERS ---
 const formatMoney = (val: number) => {
@@ -63,8 +67,20 @@ const ProductionHouseInner: React.FC<{
     onUpdatePlayer: (p: Player) => void;
 }> = ({ player, studio, onBack, onUpdatePlayer }) => {
     const [view, setView] = useState<StudioView>('DASHBOARD');
+    const [commissionFlow, setCommissionFlow] = useState<{ screen: 'sheet' | 'counter' | 'reply' | 'contract' | 'signed' | 'lost' | 'project'; briefId?: string; projectId?: string } | null>(null);
+    const [snoozedOffers, setSnoozedOffers] = useState<string[]>([]);
+    const openCommission = (brief: CommissionBrief) => setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
+    const openCommissionProject = (project: CommissionProject) => setCommissionFlow({ screen: 'project', projectId: project.id });
     const [selectedProjectDashboard, setSelectedProjectDashboard] = useState<any>(null);
     const [sequelSetupProject, setSequelSetupProject] = useState<{ project: any, isSpinoff: boolean } | null>(null);
+
+    useEffect(() => {
+        const id = player.flags?.openCommissionBriefId;
+        if (!id) return;
+        const brief = deskOf(player).briefs.find(row => row.id === id);
+        if (brief) setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
+        onUpdatePlayer({ ...player, flags: { ...player.flags, openCommissionBriefId: undefined } });
+    }, [player.flags?.openCommissionBriefId]);
 
     const language = getPlayerLanguage(player);
     const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
@@ -534,7 +550,22 @@ const ProductionHouseInner: React.FC<{
     }
 
     if (view === 'DEVELOPMENT') {
-        return <DevelopmentLab player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} />;
+        return <DevelopmentLab player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} onOpenRights={() => setView('RIGHTS')} />;
+    }
+
+    if (view === 'RIGHTS') {
+        return <RightsLibrary player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} />;
+    }
+
+    if (view === 'OFFERS') {
+        return (
+            <>
+                <OffersPage player={player} onBack={() => setView('DASHBOARD')} onOpen={openCommission} onOpenProject={openCommissionProject} />
+                {commissionFlow && (
+                    <CommissionModal player={player} flow={commissionFlow} onFlow={setCommissionFlow} onUpdatePlayer={onUpdatePlayer} onOpenLab={() => { setCommissionFlow(null); setView('DEVELOPMENT'); }} />
+                )}
+            </>
+        );
     }
 
     if (view === 'OFFICE') {
@@ -683,7 +714,7 @@ const ProductionHouseInner: React.FC<{
                     </div>
                     <div className="text-right flex flex-col items-end">
                         <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Studio Capital</div>
-                        <div className="text-lg font-mono font-bold text-emerald-400 drop-shadow-sm">
+                        <div data-testid="studio-capital" className="text-lg font-mono font-bold text-emerald-400 drop-shadow-sm">
                             {formatMoney(studio.balance)}
                         </div>
                         {(studio.studioState?.productionFund || 0) > 0 && (
@@ -730,13 +761,14 @@ const ProductionHouseInner: React.FC<{
                 
                 {/* 2. ACTIVE SLATE (Netflix Style) */}
                 <div className="pt-6 pb-2">
+                    <CommissionToast player={player} snoozed={snoozedOffers} onOpen={openCommission} onLater={id => setSnoozedOffers(current => [...current, id])} />
                     <div className="px-4 mb-3 flex justify-between items-end">
                         <h2 className="text-lg font-bold text-white tracking-tight">{tr('studio.activeSlate')}</h2>
                     </div>
                     
                     <div className="flex gap-4 overflow-x-auto px-4 pb-4 no-scrollbar">
                         {/* New Project Tile */}
-                        <button onClick={() => setView('GREENLIGHT')} className="min-w-[140px] w-[140px] h-[210px] rounded-lg border-2 border-dashed border-amber-500/50 bg-amber-500/5 flex flex-col items-center justify-center gap-3 text-amber-500 hover:bg-amber-500/10 hover:border-amber-500 hover:scale-105 transition-all duration-300 group shrink-0 relative overflow-hidden shadow-lg">
+                        <button data-testid="open-greenlight" onClick={() => setView('GREENLIGHT')} className="min-w-[140px] w-[140px] h-[210px] rounded-lg border-2 border-dashed border-amber-500/50 bg-amber-500/5 flex flex-col items-center justify-center gap-3 text-amber-500 hover:bg-amber-500/10 hover:border-amber-500 hover:scale-105 transition-all duration-300 group shrink-0 relative overflow-hidden shadow-lg">
                             <div className="absolute inset-0 bg-gradient-to-b from-amber-500/0 to-amber-500/10"></div>
                             <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-500/30 transition-all duration-300">
                                 <Plus size={24} className="text-amber-400" />
@@ -745,6 +777,7 @@ const ProductionHouseInner: React.FC<{
                         </button>
 
                         {/* Active Projects */}
+                        <CommissionSlateCards player={player} onOpen={openCommissionProject} />
                         {activeSlate.map((p, idx) => (
                             <ActiveProjectCard 
                                 key={p.id || idx} 
@@ -845,11 +878,38 @@ const ProductionHouseInner: React.FC<{
                             ]}
                             onClick={() => setView('FINANCE')}
                         />
+
+                        <DivisionCard
+                            title="Offers"
+                            subtitle="Platform briefs"
+                            icon={<Mail size={20}/>}
+                            color="bg-indigo-600"
+                            testId="open-offers"
+                            stats={[
+                                { label: "Open", value: String(deskOf(player).briefs.filter(row => row.direction === 'IN' && (row.status === 'OPEN' || row.status === 'REPLIED' || row.status === 'CONTRACT')).length) }
+                            ]}
+                            onClick={() => setView('OFFERS')}
+                        />
+
+                        <DivisionCard
+                            title="Rights Library"
+                            subtitle="Books & lives"
+                            icon={<BookOpen size={20}/>}
+                            color="bg-rose-600"
+                            testId="open-rights-library"
+                            stats={[
+                                { label: "Held", value: String((studio.studioState?.rightsLibrary?.holdings || []).filter(row => row.owner === 'PLAYER' && row.status !== 'LOST' && row.status !== 'EXPIRED').length) }
+                            ]}
+                            onClick={() => setView('RIGHTS')}
+                        />
                     </div>
                 </div>
 
             </div>
                 </motion.div>
+            )}
+            {commissionFlow && view === 'DASHBOARD' && (
+                <CommissionModal player={player} flow={commissionFlow} onFlow={setCommissionFlow} onUpdatePlayer={onUpdatePlayer} onOpenLab={() => { setCommissionFlow(null); setView('DEVELOPMENT'); }} />
             )}
         </AnimatePresence>
     );
@@ -1089,6 +1149,11 @@ const StudioFinanceView: React.FC<{
             case 'CAPITAL_INJECTION': return 'Injection';
             case 'CAPITAL_WITHDRAWAL': return 'Withdrawal';
             case 'PRODUCTION_SPEND': return 'Production';
+            case 'COMMISSION': return 'Commission';
+            case 'BONUS': return 'Bonus';
+            case 'PENALTY': return 'Penalty';
+            case 'RESERVE': return 'Reserve';
+            case 'RIGHTS': return 'Rights';
             default: return 'Studio';
         }
     };
@@ -1949,8 +2014,8 @@ const ArchiveProjectCard: React.FC<{ project: any, isLatestInstallment?: boolean
     );
 };
 
-const DivisionCard: React.FC<{ title: string, subtitle: string, icon: React.ReactNode, color: string, stats: {label: string, value: string}[], onClick: () => void, locked?: boolean }> = ({ title, subtitle, icon, color, stats, onClick, locked }) => (
-    <button onClick={locked ? undefined : onClick} className={`w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all group relative overflow-hidden gap-2 aspect-square shadow-md ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-800 hover:border-zinc-600'}`}>
+const DivisionCard: React.FC<{ title: string, subtitle: string, icon: React.ReactNode, color: string, stats: {label: string, value: string}[], onClick: () => void, locked?: boolean, testId?: string }> = ({ title, subtitle, icon, color, stats, onClick, locked, testId }) => (
+    <button data-testid={testId} onClick={locked ? undefined : onClick} className={`w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all group relative overflow-hidden gap-2 aspect-square shadow-md ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-800 hover:border-zinc-600'}`}>
         {locked && (
             <div className="absolute top-2 right-2 text-zinc-600">
                 <Lock size={10} />

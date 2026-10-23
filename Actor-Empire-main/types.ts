@@ -223,6 +223,23 @@ export enum Page {
       lockedStreamingFunding?: LockedStreamingFunding;
       developmentCost?: number;
       purchaseCost?: number;
+      /** Rights Library title this script was adapted from. */
+      rightsIpId?: string;
+      /** Set when a platform commissioned the production house to make this. */
+      commissionProjectId?: string;
+      /** Platform kept lead casting, so the house cannot recast the lead. */
+      castingLocked?: boolean;
+      rightsKind?: 'BOOK' | 'LIFE';
+      /** 0 is faithful, 100 is loose. */
+      fidelity?: number;
+      seriesSeasonsPotential?: number;
+      preferredFormat?: ProjectType;
+      adaptationAuthorId?: string;
+      regionalFanbase?: number[];
+      sourceFame?: number;
+      publicDomainSource?: boolean;
+      rightsHot?: boolean;
+      unauthorizedLife?: boolean;
       createdAtWeek?: number;
       producedAtWeek?: number;
       returningTalent?: {
@@ -312,6 +329,82 @@ export enum Page {
       financeLedger?: StudioFinanceEntry[];
       genreReputation?: Record<string, number>;
       marketTrends?: GenreMarketTrend[];
+      /** Worldwide book and life-rights market. Missing on saves from before the Rights Library. */
+      rightsLibrary?: RightsLibraryState;
+  }
+
+  export type RightsRegionId =
+      | 'NORTH_AMERICA'
+      | 'LATIN_AMERICA'
+      | 'UK_EUROPE'
+      | 'INDIA_SOUTH_ASIA'
+      | 'EAST_ASIA'
+      | 'SOUTHEAST_ASIA'
+      | 'MIDDLE_EAST'
+      | 'AFRICA'
+      | 'OCEANIA';
+
+  export type RightsHoldingStatus = 'OPTION' | 'OWNED' | 'EXPIRED' | 'LOST';
+
+  export interface RightsHolding {
+      ipId: string;
+      kind: 'BOOK' | 'LIFE';
+      status: RightsHoldingStatus;
+      owner: 'PLAYER' | 'RIVAL';
+      rivalName?: string;
+      paidUsd: number;
+      optionWeek?: number;
+      /** Absolute week the option dies. */
+      expiresWeek?: number;
+      profitShare?: number;
+      finalCut?: boolean;
+      cameo?: boolean;
+      developedScriptId?: string;
+      franchiseFlag?: boolean;
+      sequelFlag?: boolean;
+  }
+
+  export interface RightsBid {
+      ipId: string;
+      playerUsd: number;
+      rivalUsd: number;
+      rivalName: string;
+      round: number;
+      openedWeek: number;
+      status: 'OPEN' | 'WON' | 'LOST' | 'WALKED' | 'SHARE';
+      profitShare?: number;
+  }
+
+  export interface RightsAuthorRelation {
+      authorId: string;
+      mood: number;
+      lastRating?: number;
+  }
+
+  export interface RightsActivity {
+      id: string;
+      week: number;
+      year: number;
+      headline: string;
+      ipId: string;
+  }
+
+  export interface RightsHotRelease {
+      id: string;
+      label: 'BREAKOUT_NOVEL' | 'CHAMPIONSHIP' | 'VIRAL_TRUE';
+      untilAbsolute: number;
+      year: number;
+      record: Record<string, any>;
+  }
+
+  export interface RightsLibraryState {
+      holdings: RightsHolding[];
+      bids: RightsBid[];
+      relations: RightsAuthorRelation[];
+      activity: RightsActivity[];
+      hotReleases: RightsHotRelease[];
+      lastHotYear?: number;
+      clashes: { ipId: string; rivalName: string }[];
   }
   
   export interface GenreMarketTrend {
@@ -341,7 +434,7 @@ export enum Page {
       week: number;
       year: number;
       amount: number;
-      type: 'THEATRICAL' | 'STREAMING_DEAL' | 'STREAMING_ROYALTY' | 'UNIVERSE' | 'CAPITAL_INJECTION' | 'CAPITAL_WITHDRAWAL' | 'PRODUCTION_SPEND';
+      type: 'THEATRICAL' | 'STREAMING_DEAL' | 'STREAMING_ROYALTY' | 'UNIVERSE' | 'CAPITAL_INJECTION' | 'CAPITAL_WITHDRAWAL' | 'PRODUCTION_SPEND' | 'RIGHTS' | 'COMMISSION' | 'PENALTY' | 'BONUS' | 'RESERVE';
       label: string;
       projectId?: string;
   }
@@ -370,6 +463,18 @@ export enum Page {
       nextSeasonFundingPlatformId?: string | null;
       nextSeasonFundingSourceProjectId?: string;
       nextSeasonFundingUsedByProjectId?: string;
+      rightsIpId?: string;
+      rightsKind?: 'BOOK' | 'LIFE';
+      /** Added to theatrical gross. 0.18 is a strong home crowd. */
+      rightsFanbaseBoost?: number;
+      /** Added to streaming views. */
+      rightsStreamBoost?: number;
+      /** 1 when the subject is exclusive. About 0.62 when a rival has a version. */
+      rightsClash?: number;
+      fidelity?: number;
+      adaptationAwardBonus?: number;
+      adaptationAuthorId?: string;
+      franchiseSeed?: boolean;
   }
   
   export interface CastMember {
@@ -468,6 +573,7 @@ export enum Page {
       reviews?: Review[];
       episodes?: number;
       tone?: number; // 0 = Practical, 100 = CGI
+      rightsIpId?: string;
       visualStyle?: 'REALISTIC' | 'STYLISTIC' | 'GRITTY' | 'VIBRANT';
       pacing?: 'SLOW' | 'MODERATE' | 'FAST' | 'FRENETIC';
       equipmentChoices?: Record<string, string>;
@@ -904,6 +1010,8 @@ export enum Page {
       installmentNumber?: number;
       directorId?: string;
       customPoster?: CustomPoster;
+      rightsIpId?: string;
+      adaptationAwardBonus?: number;
   }
   
   export interface Commitment {
@@ -1166,7 +1274,7 @@ export enum Page {
       sender: string;
       subject: string;
       text: string;
-      type: 'OFFER_ROLE' | 'OFFER_SPONSORSHIP' | 'OFFER_NEGOTIATION' | 'OFFER_EVENT' | YoutubeMessageType | 'TEXT' | 'SYSTEM';
+      type: 'OFFER_ROLE' | 'OFFER_SPONSORSHIP' | 'OFFER_NEGOTIATION' | 'OFFER_EVENT' | 'OFFER_COMMISSION' | YoutubeMessageType | 'TEXT' | 'SYSTEM';
       data?: AuditionOpportunity | SponsorshipOffer | NegotiationData | ScheduledEvent | YoutubeCollabOffer | YoutubeBrandDeal | any;
       isRead: boolean;
       weekSent: number;
@@ -1802,6 +1910,185 @@ export enum Page {
   export interface PlayerSettings {
       language: GameLanguage;
   }
+
+  export interface CommissionControls {
+      finalCut: boolean;
+      casting: boolean;
+      showrunner: boolean;
+      marketing: boolean;
+  }
+
+  export type CommissionPayModel = 'COST_PLUS' | 'LICENCE';
+
+  export interface CommissionTerms {
+      payModel: CommissionPayModel;
+      budget: number;
+      premiumPct: number;
+      premium: number;
+      licenceFee: number;
+      weeks: number;
+      exclusivity: boolean;
+      territories: string;
+      controls: CommissionControls;
+      hitBonus: number;
+      season2Bonus: number;
+  }
+
+  export interface CommissionSeat {
+      id: string;
+      name: string;
+      reputation: number;
+      relationship: number;
+      responded: boolean;
+      extraPremium: number;
+      extraWeeks: number;
+      controlSteps: number;
+  }
+
+  export type CommissionBriefStatus = 'OPEN' | 'REPLIED' | 'CONTRACT' | 'SIGNED' | 'LOST' | 'DECLINED' | 'EXPIRED';
+
+  export interface CommissionScoreLine {
+      reputation: number;
+      price: number;
+      speed: number;
+      relationship: number;
+  }
+
+  export interface CommissionWhy {
+      winner: string;
+      you: CommissionScoreLine;
+      them: CommissionScoreLine;
+  }
+
+  export interface CommissionBrief {
+      id: string;
+      direction: 'IN' | 'OUT';
+      platformId: string;
+      platformName: string;
+      platformColor: string;
+      execName: string;
+      execTitle: string;
+      format: 'FILM' | 'SERIES';
+      title: string;
+      genre: Genre;
+      logline: string;
+      seasons: number;
+      episodes: number;
+      runtimeMin: number;
+      rightsIpId?: string;
+      rightsTitle?: string;
+      publicDomain?: boolean;
+      openedWeek: number;
+      closesWeek: number;
+      baseTerms: CommissionTerms;
+      playerAsk?: CommissionTerms;
+      platformReply?: CommissionTerms;
+      finalTerms?: CommissionTerms;
+      status: CommissionBriefStatus;
+      seats: CommissionSeat[];
+      counterRounds: number;
+      winnerName?: string;
+      why?: CommissionWhy;
+      relationshipHit?: number;
+      rivalAlert?: string;
+      targetHouseId?: string;
+      targetHouseName?: string;
+      pitch: string;
+  }
+
+  export type CommissionStage = 'DEVELOPMENT' | 'PRE_PRODUCTION' | 'SHOOTING' | 'POST' | 'DELIVERED' | 'TAKEN_OVER' | 'ABANDONED';
+
+  export interface CommissionLedgerLine {
+      id: string;
+      week: number;
+      year: number;
+      amount: number;
+      kind: 'TRANCHE' | 'RESERVE' | 'SPEND' | 'PENALTY' | 'BONUS' | 'REPAY';
+      label: string;
+  }
+
+  export interface CommissionProject {
+      id: string;
+      briefId: string;
+      houseId: string;
+      houseName: string;
+      platformId: string;
+      platformName: string;
+      platformColor: string;
+      title: string;
+      format: 'FILM' | 'SERIES';
+      genre: Genre;
+      logline: string;
+      seasons: number;
+      episodes: number;
+      runtimeMin: number;
+      seasonIndex: number;
+      rightsIpId?: string;
+      rightsTitle?: string;
+      publicDomain?: boolean;
+      audienceSplit?: boolean;
+      terms: CommissionTerms;
+      stage: CommissionStage;
+      stageWeek: number;
+      shootWeeks: number;
+      shootWeek: number;
+      weeksElapsed: number;
+      weeksLate: number;
+      tranchesPaid: number;
+      received: number;
+      spent: number;
+      reserve: number;
+      scriptId?: string;
+      fidelity?: number;
+      leadName?: string;
+      castingLocked: boolean;
+      ledger: CommissionLedgerLine[];
+      feedLine: string;
+      renewalOffered?: boolean;
+      signature?: string;
+  }
+
+  export interface IndustryDeal {
+      id: string;
+      week: number;
+      year: number;
+      headline: string;
+      platformName: string;
+      houseName: string;
+      title: string;
+      fee: number;
+      bidders: number;
+      kind: 'WON' | 'LOST' | 'RIVAL' | 'BRIEF' | 'EMPIRE';
+  }
+
+  export interface PlatformRightsHold {
+      ipId: string;
+      title: string;
+      platformId: string;
+      platformName: string;
+      status: 'OPTION' | 'OWNED';
+      publicDomain: boolean;
+      week: number;
+  }
+
+  export interface CommissionCooldown {
+      platformId: string;
+      untilAbsolute: number;
+  }
+
+  /** Optional on saves written before platform commissions. */
+  export interface CommissionDeskState {
+      version: 1;
+      briefs: CommissionBrief[];
+      projects: CommissionProject[];
+      feed: IndustryDeal[];
+      platformHoldings: PlatformRightsHold[];
+      cooldowns: CommissionCooldown[];
+      relationships: Record<string, number>;
+      reputation: number;
+      hitWeeks: number[];
+      lastRollWeek?: number;
+  }
   
   export interface Player {
       id: string;
@@ -1922,6 +2209,8 @@ export enum Page {
       logs: LogEntry[];
       /** Player-owned streaming service. Absent on older saves until they open the launch. */
       ownPlatform?: OwnPlatformState;
+      /** Platform commissions. Missing on saves from before this desk. */
+      commissionDesk?: CommissionDeskState;
       activePregnancy?: {
           partnerId: string;
           partnerName?: string;

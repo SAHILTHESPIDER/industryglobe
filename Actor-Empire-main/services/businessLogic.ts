@@ -396,6 +396,14 @@ export const createDefaultStudioState = (currentWeek: number): StudioState => ({
     lockedStreamingFunds: [],
     genreReputation: {},
     marketTrends: createMarketTrends(currentWeek),
+    rightsLibrary: {
+        holdings: [],
+        bids: [],
+        relations: [],
+        activity: [],
+        hotReleases: [],
+        clashes: [],
+    },
 });
 
 export const normalizeStudioState = (studioState: Partial<StudioState> | undefined, currentWeek: number): StudioState => {
@@ -414,6 +422,15 @@ export const normalizeStudioState = (studioState: Partial<StudioState> | undefin
             ...(studioState?.genreReputation || defaults.genreReputation || {}),
         },
         marketTrends: Array.isArray(studioState?.marketTrends) ? studioState!.marketTrends : defaults.marketTrends,
+        rightsLibrary: {
+            holdings: Array.isArray(studioState?.rightsLibrary?.holdings) ? studioState!.rightsLibrary!.holdings : [],
+            bids: Array.isArray(studioState?.rightsLibrary?.bids) ? studioState!.rightsLibrary!.bids : [],
+            relations: Array.isArray(studioState?.rightsLibrary?.relations) ? studioState!.rightsLibrary!.relations : [],
+            activity: Array.isArray(studioState?.rightsLibrary?.activity) ? studioState!.rightsLibrary!.activity : [],
+            hotReleases: Array.isArray(studioState?.rightsLibrary?.hotReleases) ? studioState!.rightsLibrary!.hotReleases : [],
+            lastHotYear: studioState?.rightsLibrary?.lastHotYear,
+            clashes: Array.isArray(studioState?.rightsLibrary?.clashes) ? studioState!.rightsLibrary!.clashes : [],
+        },
         departments: {
             ...defaults.departments,
             ...(studioState?.departments || {}),
@@ -793,8 +810,6 @@ export const processBusinessWeek = (business: Business, playerFame: number, week
         // Refresh IP Market every 3 weeks
         if (week - (b.studioState.lastMarketRefreshWeek || 0) >= 3) {
             b.studioState.marketTrends = createMarketTrends(week);
-            b.studioState.ipMarket = generateIPMarket(5, b.studioState.purchasedIPTitles || [], week);
-            b.studioState.lastMarketRefreshWeek = week;
         }
         
         // Refresh Writers every 3 weeks

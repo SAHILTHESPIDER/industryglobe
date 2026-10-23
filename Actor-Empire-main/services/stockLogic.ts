@@ -186,6 +186,7 @@ export const processStockMarket = (stocks: Stock[], ctx: MarketContext): MarketU
     const headlines = (ctx.headlines || []).join(' ').toLowerCase();
     let news = 0;
     if (headlines.includes('recession') || headlines.includes('flop') || headlines.includes('default')) news -= 0.012;
+    if (headlines.includes('scandal') || headlines.includes('lawsuit')) news -= 0.02;
     if (headlines.includes('record') || headlines.includes('blockbuster') || headlines.includes('hit')) news += 0.008;
     const releaseHit = (ctx.releases || []).filter(row => row.status === 'BLOCKBUSTER_TRACK' || (row.budget > 0 && row.gross > row.budget * 2));
     const releaseFlop = (ctx.releases || []).filter(row => row.status === 'FLOP_WARNING' || (row.budget > 0 && row.gross > 0 && row.gross < row.budget * 0.35));
