@@ -66,13 +66,13 @@ export const ReleaseCalendar: React.FC<Props> = ({ player, onPlayer }) => {
         <div className="space-y-4" data-screen="release-calendar">
             <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-3">
                 <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Release date</div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Release date</div>
                     <h3 className="text-3xl lg:text-5xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Any week this year</h3>
                     <p className="text-sm text-zinc-400 mt-2 max-w-2xl">Pick the film, then put it on any week from this one through the same week next year. A locked streaming deal waits for that week before it earns a view. Other houses already have dates. A clash is the same week in the same country or region.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                     <button onClick={() => shift(-1)} className="px-4 py-3 rounded-full border border-white/15 text-xs font-black uppercase tracking-wider">Bring forward</button>
-                    <button onClick={() => shift(1)} className="px-4 py-3 rounded-full bg-[#ff3b30] text-xs font-black uppercase tracking-wider">Postpone a week</button>
+                    <button onClick={() => shift(1)} className="px-4 py-3 rounded-full bg-[#4F3BFF] text-xs font-black uppercase tracking-wider">Postpone a week</button>
                 </div>
             </div>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -147,7 +147,7 @@ export const ReleaseCalendar: React.FC<Props> = ({ player, onPlayer }) => {
                             key={offset}
                             type="button"
                             onClick={() => moveTo(offset)}
-                            className={`min-w-[240px] lg:min-w-0 text-left rounded-3xl border p-3 ${selected ? 'border-[#ff3b30] bg-[#ff3b30]/10' : 'border-white/10 bg-[#10131a]'}`}
+                            className={`min-w-[240px] lg:min-w-0 text-left rounded-3xl border p-3 ${selected ? 'border-[#4F3BFF] bg-[#4F3BFF]/10' : 'border-white/10 bg-[#10131a]'}`}
                         >
                             <div className="text-[11px] uppercase tracking-wider text-zinc-500">{label}</div>
                             <div className="space-y-2 mt-2">
@@ -155,7 +155,7 @@ export const ReleaseCalendar: React.FC<Props> = ({ player, onPlayer }) => {
                                 {items.map(item => (
                                     <div
                                         key={item.id}
-                                        className={`rounded-2xl px-3 py-2 border ${item.yours ? 'border-[#ff3b30] bg-[#ff3b30]/15' : item.clash ? 'border-amber-300/50 bg-amber-300/10' : 'border-white/10 bg-black/20'}`}
+                                        className={`rounded-2xl px-3 py-2 border ${item.yours ? 'border-[#4F3BFF] bg-[#4F3BFF]/15' : item.clash ? 'border-amber-300/50 bg-amber-300/10' : 'border-white/10 bg-black/20'}`}
                                     >
                                         <div className="text-[10px] uppercase tracking-wider text-zinc-500">{item.yours ? 'You' : item.house}</div>
                                         <div className="font-bold text-sm">{item.title}</div>

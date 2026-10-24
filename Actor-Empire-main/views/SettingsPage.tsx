@@ -515,6 +515,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
               })}
             </div>
           </div>
+
+          <div className="p-4 bg-zinc-900/50 rounded-2xl border border-white/5 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-zinc-800 rounded-lg text-zinc-400"><Sparkles size={20}/></div>
+              <div className="text-left flex-1">
+                <div className="font-bold text-white">AI writing</div>
+                <div className="text-xs text-zinc-500 leading-relaxed mt-1">YouTube comments, creator titles, news lines, and commission pitches can call Firebase AI. Offline templates still write every line when this is off or the network fails.</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onUpdatePlayer(prev => ({
+                ...prev,
+                settings: { ...prev.settings, aiContentEnabled: !prev.settings?.aiContentEnabled },
+              }))}
+              className={`w-full rounded-2xl border p-4 text-left ${player.settings?.aiContentEnabled ? 'border-emerald-400/30 bg-emerald-500/10' : 'border-white/5 bg-black/20'}`}
+            >
+              <div className="font-black text-white">{player.settings?.aiContentEnabled ? 'On' : 'Off'}</div>
+              <div className="text-[10px] uppercase tracking-widest text-zinc-500">Settings stay on this device</div>
+            </button>
+          </div>
         </div>
       </div>
     );

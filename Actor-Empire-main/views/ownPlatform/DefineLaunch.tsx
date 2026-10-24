@@ -18,9 +18,20 @@ import {
 } from '../../services/ownPlatform/logic';
 import { currencyFor, formatLocalAmount, localMonthly, usdFromLocal } from '../../services/ownPlatform/fx';
 import { DayOneMarkets } from './DayOneMarkets';
-import { Card, FooterBar, headingFont } from './ui';
+import { NameIt } from './NameIt';
+import { BillStrip, Card, FooterBar, Pill, PreviewPanel, Segmented, Toggle, headingFont } from './ui';
 
-const STEPS = ['Markets', 'Clearance', 'Ident', 'Storefront', 'Catalogue', 'Pricing', 'Blueprint'];
+const STEPS = ['Name it', 'Markets', 'Clearance', 'Ident', 'Storefront', 'Catalogue', 'Pricing', 'Blueprint'];
+const HINTS = [
+    '',
+    '',
+    'Filing is free. Access fees sit on the launch bill and leave the treasury only when you commission.',
+    'The tone can be replaced with your own audio, under 2MB. The save keeps the name.',
+    'Each layout changes what people find first, and what makes them stay.',
+    'A licence fee joins the launch bill. Nothing leaves the treasury today.',
+    'Price and a thin shelf are what push a household toward piracy.',
+    'This sheet is the whole company. Money still does not move until you sign the build.',
+];
 
 interface Props {
     player: Player;
@@ -34,10 +45,10 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
     const quote = quoteLaunch(player);
     const locked = state.commissioned;
     const patch = (recipe: (current: OwnPlatformState) => OwnPlatformState) => {
-        if (locked && step < 6) return;
+        if (locked && step < 7) return;
         onChange(recipe(state));
     };
-    const go = (next: number) => onChange({ ...state, defineStep: Math.max(0, Math.min(6, next)) });
+    const go = (next: number) => onChange({ ...state, defineStep: Math.max(0, Math.min(7, next)) });
 
     const fileAll = () => {
         const absolute = getAbsoluteWeek(player.age, player.currentWeek);
@@ -77,29 +88,30 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
             leftValue={`${state.selectedCountryIds.length} countries`}
             money={formatCompact(player.money)}
             onBack={step > 0 ? () => go(step - 1) : undefined}
-            onNext={() => step === 6 ? onBuild() : go(step + 1)}
-            nextLabel={step === 6 ? 'Next · Build' : `Next · ${STEPS[step + 1]}`}
+            onNext={() => step === 7 ? onBuild() : go(step + 1)}
+            nextLabel={step === 7 ? 'Next · Build' : `Next · ${STEPS[step + 1]}`}
         />
     );
 
     return (
-        <div className="flex flex-col min-h-full">
-            <div className="px-4 lg:px-10 pt-4 flex gap-2 overflow-x-auto">
-                {STEPS.map((label, index) => (
-                    <button key={label} onClick={() => go(index)} className={`shrink-0 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${index === step ? 'bg-[#ff3b30] text-white' : 'bg-white/5 text-zinc-400'}`}>{index + 1} {label}</button>
-                ))}
-            </div>
-            <div className="p-4 lg:p-10 flex-1">
+        <>
+            <div className="body">
                 {step === 0 && (
+                    <NameIt state={state} locked={locked} quote={quote} onName={name => patch(current => ({ ...current, name }))} />
+                )}
+                {step === 1 && (
                     <DayOneMarkets state={state} locked={locked} onPatch={(recipe) => patch(current => syncRegions(recipe(current)))} />
                 )}
+                {step > 1 && (
+                <div className="grid g-side">
+                <div className="stack">
 
-                {step === 1 && (
+                {step === 2 && (
                     <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
                         <div className="space-y-3">
                             <div className="flex items-end justify-between gap-3">
                                 <div>
-                                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Clearance</div>
+                                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Clearance</div>
                                     <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>File, then wait the weeks out</h2>
                                 </div>
                                 <button onClick={fileAll} disabled={locked} className="px-4 py-2 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider disabled:opacity-40">File selected</button>
@@ -118,7 +130,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                             </div>
                                             <p className="text-sm text-zinc-400 mt-2">{application?.note || 'Not filed.'}</p>
                                             {application && (application.status === 'FILED' || application.status === 'DELAYED') && (
-                                                <div className="mt-3 text-sm"><span className="text-[#ffb4b4] font-bold">{application.weeksLeft} weeks</span> left on the clock</div>
+                                                <div className="mt-3 text-sm"><span className="text-[#8B7BFF] font-bold">{application.weeksLeft} weeks</span> left on the clock</div>
                                             )}
                                             {application?.status === 'CONDITIONS' && !application.acceptedConditions && (
                                                 <button onClick={() => acceptConditions(id)} className="mt-3 text-xs font-black uppercase tracking-wider text-black bg-[#f5c16c] rounded-full px-3 py-2">Accept conditions</button>
@@ -144,7 +156,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                     </div>
                 )}
 
-                {step === 2 && (
+                {step === 3 && (
                     <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
                         <div>
                             <label className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Service name</label>
@@ -185,7 +197,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                     </div>
                 )}
 
-                {step === 3 && (
+                {step === 4 && (
                     <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
                         {STOREFRONTS.map(layout => (
                             <Card key={layout.id} active={state.storefrontId === layout.id} onClick={() => patch(current => ({ ...current, storefrontId: layout.id }))}>
@@ -198,11 +210,11 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                     </div>
                 )}
 
-                {step === 4 && (
+                {step === 5 && (
                     <CatalogueStep player={player} state={state} locked={locked} onChange={onChange} />
                 )}
 
-                {step === 5 && (
+                {step === 6 && (
                     <div className="grid lg:grid-cols-[minmax(0,1fr)_300px] gap-4">
                         <div className="space-y-3">
                             {state.plans.map(plan => (
@@ -234,9 +246,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                     <div className="flex flex-wrap gap-2 mt-3 text-xs">
                                         <Toggle label="Ads" on={plan.ads} disabled={locked} onClick={() => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, ads: !row.ads } : row) }))} />
                                         <Toggle label="Downloads" on={plan.downloads} disabled={locked} onClick={() => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, downloads: !row.downloads } : row) }))} />
-                                        {(['SD', 'HD', '4K'] as const).map(quality => (
-                                            <button key={quality} disabled={locked} onClick={() => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, quality } : row) }))} className={`px-2 py-1 rounded-full ${plan.quality === quality ? 'bg-white text-black' : 'bg-white/10'}`}>{quality}</button>
-                                        ))}
+                                        <Segmented value={plan.quality} options={['SD', 'HD', '4K']} disabled={locked} onChange={quality => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, quality: quality as typeof row.quality } : row) }))} />
                                     </div>
                                     <div className="mt-4">
                                         <div className="text-[11px] uppercase tracking-wider text-zinc-500">Local price in each country</div>
@@ -285,7 +295,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                         <button key={lane} disabled={locked} onClick={() => patch(current => ({
                                             ...current,
                                             revenueLanes: on ? current.revenueLanes.filter(item => item !== lane) : [...current.revenueLanes, lane],
-                                        }))} className={`px-3 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider ${on ? 'bg-[#ff3b30]' : 'bg-white/10 text-zinc-300'}`}>{lane.replace('_', ' ')}</button>
+                                        }))} className={`chip ${on ? 'on' : ''}`}>{lane.replace('_', ' ')}</button>
                                     );
                                 })}
                             </div>
@@ -302,10 +312,10 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                     </div>
                 )}
 
-                {step === 6 && (
+                {step === 7 && (
                     <div className="grid lg:grid-cols-3 gap-3">
-                        <Card className="lg:col-span-2">
-                            <div className="text-[11px] uppercase tracking-[0.18em] text-[#ff4d4d]">Blueprint</div>
+                        <Card className="lg:col-span-2 blueprint">
+                            <div className="text-[11px] uppercase tracking-[0.18em] text-[#8B7BFF]">Blueprint</div>
                             <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>{state.name}</h2>
                             <div className="grid sm:grid-cols-2 gap-3 mt-4 text-sm">
                                 <Line label="Markets" value={`${state.selectedCountryIds.length} chosen`} />
@@ -335,9 +345,14 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                         </Card>
                     </div>
                 )}
+                </div>
+                <PreviewPanel name={state.name} quote={quote} hint={HINTS[step] || ''} />
+                </div>
+                )}
+                <BillStrip quote={quote} />
             </div>
             {footer}
-        </div>
+        </>
     );
 };
 
@@ -377,16 +392,16 @@ const CatalogueStep: React.FC<{ player: Player; state: OwnPlatformState; locked:
 };
 
 const TitleRow: React.FC<{ title: string; meta: string; on: boolean; onClick: () => void }> = ({ title, meta, on, onClick }) => (
-    <button onClick={onClick} className={`w-full text-left rounded-2xl border px-4 py-3 ${on ? 'border-[#ff3b30] bg-[#ff3b30]/10' : 'border-white/10 bg-[#12151c]'}`}>
+    <button onClick={onClick} className={`w-full text-left rounded-2xl border px-4 py-3 ${on ? 'border-[#4F3BFF] bg-[#4F3BFF]/10' : 'border-white/10 bg-[#12151c]'}`}>
         <div className="font-bold">{title}</div>
         <div className="text-xs text-zinc-400">{meta}</div>
     </button>
 );
 
 const StatusPill: React.FC<{ status?: string }> = ({ status }) => {
-    const label = status === 'APPROVED' ? 'Approved' : status === 'DELAYED' ? 'Delayed' : status === 'CONDITIONS' ? 'Conditions' : status === 'REJECTED' ? 'Rejected' : status === 'FILED' ? 'Filed' : 'Waiting';
-    const color = status === 'APPROVED' ? 'text-emerald-300' : status === 'REJECTED' ? 'text-rose-300' : status === 'CONDITIONS' ? 'text-amber-200' : 'text-zinc-300';
-    return <span className={`text-[10px] font-black uppercase tracking-wider ${color}`}>{label}</span>;
+    const label = status === 'APPROVED' ? 'Approved' : status === 'DELAYED' ? 'Delayed' : status === 'CONDITIONS' ? 'Conditions' : status === 'REJECTED' ? 'Rejected' : status === 'FILED' ? 'Filed' : 'Not filed';
+    const tone = status === 'APPROVED' ? 'ok' : status === 'REJECTED' ? 'bad' : status === 'CONDITIONS' || status === 'DELAYED' ? 'warn' : status === 'FILED' ? 'run' : 'idle';
+    return <Pill tone={tone}>{label}</Pill>;
 };
 
 const Line: React.FC<{ label: string; value: string }> = ({ label, value }) => (
@@ -394,10 +409,6 @@ const Line: React.FC<{ label: string; value: string }> = ({ label, value }) => (
         <span className="text-zinc-500">{label}</span>
         <span className="font-semibold text-right">{value}</span>
     </div>
-);
-
-const Toggle: React.FC<{ label: string; on: boolean; onClick: () => void; disabled?: boolean }> = ({ label, on, onClick, disabled }) => (
-    <button disabled={disabled} onClick={onClick} className={`px-2 py-1 rounded-full ${on ? 'bg-emerald-500/20 text-emerald-200' : 'bg-white/10 text-zinc-400'}`}>{label}</button>
 );
 
 const playTone = (frequency: number) => {
