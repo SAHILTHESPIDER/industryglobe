@@ -5,6 +5,7 @@ import { STUDIO_CATALOG } from './studioLogic';
 import { AWARD_GOSSIP_TEMPLATES, SNUB_TEMPLATES } from './awardLogic'; // Import templates
 import { normalizeUniverseMap } from './universeLogic';
 import { getPlayerLanguage } from './i18n';
+import { aiOffline } from '../src/services/aiContent';
 
 // ... (Keep existing TEMPLATES arrays like INDUSTRY_TEMPLATES, NPC_HEADLINES, etc.)
 const INDUSTRY_TEMPLATES = [
@@ -790,5 +791,22 @@ export const generateWeeklyNews = (player: Player): NewsItem[] => {
     const universe = generateUniverseNews(player);
 
     const all = [...topStories, ...personal, ...industry, ...universe];
+    const latest = player.youtube?.videos?.[0];
+    if (latest && (player.youtube?.subscribers || 0) >= 1000) {
+        all.unshift({
+            id: `news_yt_pulse_${player.age}_${player.currentWeek}`,
+            headline: aiOffline.newsHeadline({
+                subject: player.name,
+                event: `${latest.title} is moving on the creator charts`,
+                tone: 'trade',
+                seed: `${player.age}:${player.currentWeek}:yt`,
+            }),
+            subtext: 'YouTube is part of the week’s trade conversation.',
+            category: 'YOU',
+            week: player.currentWeek,
+            year: player.age,
+            impactLevel: 'LOW',
+        });
+    }
     return all;
 };

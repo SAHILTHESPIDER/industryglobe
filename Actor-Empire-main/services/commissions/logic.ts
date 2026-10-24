@@ -9,6 +9,7 @@ import { createRivalRoster, hashString } from '../ownPlatform/catalog';
 import { ensureOwnPlatform } from '../ownPlatform/migrate';
 import { displayTitle, IpRecord } from '../rights/catalogue';
 import { rightsOf } from '../rights/logic';
+import { aiOffline } from '../../src/services/aiContent';
 import {
     SIGN_THRESHOLD, controlSteps, counterCost, displayedWinChance, emptyControls,
     hitBonusFor, licenceFor, marketChance, offerChance, payableOf, premiumFor,
@@ -455,9 +456,13 @@ const buildBrief = (player: Player, desk: CommissionDeskState, seed: BriefSeed):
         counterRounds: 0,
         targetHouseId: seed.targetHouseId,
         targetHouseName: seed.targetHouseName,
-        pitch: seed.rightsTitle
-            ? `${platform.name} owns ${seed.rightsTitle}. They want you to make ${title}.`
-            : `${platform.name} wants ${title} for the slate.`,
+        pitch: aiOffline.execPitch({
+            platform: platform.name,
+            title,
+            rights: seed.rightsTitle,
+            house: seed.targetHouseName,
+            seed: `${platform.id}:${title}`,
+        }),
     };
 };
 

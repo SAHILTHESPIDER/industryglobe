@@ -5,6 +5,7 @@ import { AWARD_GOSSIP_TEMPLATES } from './awardLogic';
 import { getEnabledGlobalCreatorProfiles } from './youtubeLogic';
 import { normalizeUniverseMap } from './universeLogic';
 import { getPlayerLanguage } from './i18n';
+import { aiOffline } from '../src/services/aiContent';
 
 // --- TWEET TEMPLATES ---
 
@@ -133,6 +134,9 @@ export const generateXFeed = (player: Player): XPost[] => {
         const universes = studio && player.world?.universes ? Object.values(normalizeUniverseMap(player.world.universes)).filter(u => u.studioId === studio.id) : [];
         const isUniverseGossip = universes.length > 0 && Math.random() < 0.3;
 
+        const latestVideo = player.youtube?.videos?.[0];
+        const talkYoutube = !!latestVideo && Math.random() < 0.18;
+
         if (isAwardGossip && pendingCeremony) {
              const rival = pick(npcMap);
              content = pick(AWARD_GOSSIP_TEMPLATES)
@@ -144,6 +148,13 @@ export const generateXFeed = (player: Player): XPost[] => {
              const randomUniverse = pick(universes);
              content = pick(isPt ? UNIVERSE_TWEETS_PT : UNIVERSE_TWEETS).replace(/{Universe}/g, randomUniverse.name);
              content += ` #${randomUniverse.name.replace(/\s+/g, '')}`;
+        } else if (talkYoutube && latestVideo) {
+            content = aiOffline.xPosts({
+                speaker: npc.name,
+                subject: latestVideo.title,
+                event: `from ${player.name}'s channel`,
+                seed: `${player.currentWeek}:${npc.id}:yt`,
+            })[0];
         } else if (isNews && npc.tier === 'A_LIST') {
             content = pick(isPt ? NEWS_TWEETS_PT : NEWS_TWEETS);
         } else {

@@ -32,7 +32,12 @@ export enum Page {
   export type SponsorshipFrequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
   export type InstaPostType = 'ANNOUNCEMENT' | 'BTS' | 'CELEBRATION' | 'LIFESTYLE' | 'SELFIE' | 'INDUSTRY_NEWS' | 'REEL' | 'CAROUSEL' | 'RED_CARPET' | 'COUPLE_POST' | 'BRAND_FIT' | 'CONTROVERSIAL';
   export type InteractionType = 'GREET' | 'COMPLIMENT' | 'COFFEE' | 'COLLAB' | 'BEFRIEND';
-  export type YoutubeVideoType = 'VLOG' | 'SKIT' | 'Q_AND_A' | 'TRAILER' | 'COVER' | 'STORYTIME';
+  export type YoutubeVideoType = 'VLOG' | 'SKIT' | 'Q_AND_A' | 'TRAILER' | 'COVER' | 'STORYTIME'
+      | 'TEASER' | 'TRAILER_1' | 'TRAILER_2' | 'FINAL_TRAILER' | 'MOTION_POSTER' | 'CHARACTER_POSTER'
+      | 'CAST_INTERVIEW' | 'BTS' | 'BLOOPERS' | 'MUSIC_VIDEO' | 'JUKEBOX' | 'LYRIC_VIDEO'
+      | 'PREMIERE_LIVE' | 'REVIEW_ROUNDUP' | 'CLIP' | 'DELETED_SCENE' | 'SHORT' | 'REACTION_COLLAB';
+  export type YoutubeChannelKind = 'personal' | 'studio' | 'empirePlus';
+  export type MarketingDropStatus = 'SCHEDULED' | 'RELEASED' | 'LOCKED';
   export type YoutubeMessageType = 'OFFER_YOUTUBE_COLLAB' | 'OFFER_YOUTUBE_BRAND';
   export type YoutubeUploadPlan = 'SAFE' | 'VIRAL_BAIT' | 'BTS' | 'PROJECT_PROMO' | 'SPONSOR_HEAVY';
   export type YoutubeMerchTier = 'BASIC' | 'PREMIUM' | 'LUXURY';
@@ -475,6 +480,10 @@ export enum Page {
       adaptationAwardBonus?: number;
       adaptationAuthorId?: string;
       franchiseSeed?: boolean;
+      /** YouTube campaign hype at the last drop or at release. 0–100. */
+      ytCampaignHype?: number;
+      /** Theatrical opening multiplier from the YouTube campaign. 1 is unchanged. */
+      ytOpeningMultiplier?: number;
   }
   
   export interface CastMember {
@@ -1235,6 +1244,75 @@ export enum Page {
       trustImpact?: number;
       weeklyHistory: number[];
       comments: string[];
+      projectId?: string;
+      channelKind?: YoutubeChannelKind;
+      hype?: number;
+      likeRatio?: number;
+      sentiment?: [number, number, number];
+      countryRanks?: Record<string, number>;
+      ctr?: number;
+      dubCount?: number;
+      isShort?: boolean;
+      songId?: string;
+      durationLabel?: string;
+      /** 0–100 continue-watching bar. Absent means the card draws none. */
+      watchProgress?: number;
+  }
+
+  export interface MarketingDrop {
+      id: string;
+      type: YoutubeVideoType;
+      scheduledWeekAbs: number;
+      status: MarketingDropStatus;
+      videoId?: string;
+      title?: string;
+      H?: number;
+      likeRatio?: number;
+      sentiment?: [number, number, number];
+      countryRanks?: Record<string, number>;
+      views?: number;
+      thumbnailScore?: number;
+  }
+
+  export interface CampaignSong {
+      id: string;
+      title: string;
+      singer: string;
+      composer: string;
+      plays: number;
+      duration: string;
+      status: 'PREMIERE' | 'LYRIC' | 'CHART' | 'LOCKED';
+  }
+
+  export interface YoutubeCampaign {
+      drops: MarketingDrop[];
+      campaignHype: number;
+      lastDropWeekAbs: number;
+      songs?: CampaignSong[];
+      songStreams?: number;
+  }
+
+  export interface OfficialChannel {
+      handle: string;
+      subscribers: number;
+      totalViews: number;
+      lifetimeEarnings: number;
+      videos: YoutubeVideo[];
+  }
+
+  export interface YoutubeStrike {
+      weekAbs: number;
+      reason: string;
+  }
+
+  export interface YoutubeLeak {
+      id: string;
+      projectId: string;
+      title: string;
+      weekAbs: number;
+      spoilsFinal: boolean;
+      views: number;
+      resolved?: 'TAKEDOWN' | 'CLAIM' | 'IGNORE';
   }
   
   export interface YoutubeChannel {
@@ -1257,6 +1335,19 @@ export enum Page {
       lastMerchResult?: string;
       creatorIdentity: YoutubeCreatorIdentity;
       lastIdentityChangeWeek: number;
+      schemaVersion?: 2;
+      officialChannels?: { studio?: OfficialChannel; empirePlus?: OfficialChannel };
+      marketing?: Record<string, YoutubeCampaign>;
+      strikes?: YoutubeStrike[];
+      leaks?: YoutubeLeak[];
+      shortsRemixes?: number;
+      superChatLifetime?: number;
+      peakLive?: number;
+      recordsHeld?: string[];
+      uploadFrozenUntilAbs?: number;
+      demonetizedUntilAbs?: number;
+      activeChannel?: YoutubeChannelKind;
+      savedVideoIds?: string[];
   }
   
   export interface NewsItem {
@@ -1909,6 +2000,8 @@ export enum Page {
   
   export interface PlayerSettings {
       language: GameLanguage;
+      /** When true, YouTube comments, titles, news, and pitches may call Firebase AI. Offline templates always work. */
+      aiContentEnabled?: boolean;
   }
 
   export interface CommissionControls {
