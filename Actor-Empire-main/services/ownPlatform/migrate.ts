@@ -37,6 +37,8 @@ export const createOwnPlatform = (player: Player): OwnPlatformState => {
         version: 1,
         name: 'Empire+',
         stage: 'DEFINE',
+        defineLayout: 2,
+        introSeen: false,
         defineStep: 0,
         buildStep: 0,
         selectedCountryIds: [],
@@ -87,13 +89,21 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
     const selectedCountryIds = Array.isArray(raw.selectedCountryIds)
         ? raw.selectedCountryIds.filter(id => typeof id === 'string' && getCountry(id))
         : [];
+    const legacyLayout = raw.defineLayout !== 2;
+    const pastDefine = raw.stage === 'BUILD' || raw.stage === 'CONSTRUCTING' || raw.stage === 'LIVE' || Boolean(raw.commissioned);
+    const defineStep = legacyLayout
+        ? clampStep((Number(raw.defineStep) || 0) + 1, 7)
+        : clampStep(raw.defineStep, 7);
+    const introSeen = legacyLayout ? pastDefine : Boolean(raw.introSeen);
     const merged: OwnPlatformState = {
         ...created,
         ...raw,
         version: 1,
         name: typeof raw.name === 'string' && raw.name.trim() ? raw.name.slice(0, 32) : created.name,
         stage: raw.stage === 'BUILD' || raw.stage === 'CONSTRUCTING' || raw.stage === 'LIVE' || raw.stage === 'DEFINE' ? raw.stage : 'DEFINE',
-        defineStep: clampStep(raw.defineStep, 6),
+        defineLayout: 2,
+        introSeen,
+        defineStep,
         buildStep: clampStep(raw.buildStep, 3),
         selectedCountryIds,
         applications: Array.isArray(raw.applications) ? raw.applications.filter(row => row && getCountry(row.countryId)) : [],

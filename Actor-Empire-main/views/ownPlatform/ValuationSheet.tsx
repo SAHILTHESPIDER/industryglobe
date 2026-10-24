@@ -49,7 +49,7 @@ export const ValuationSheet: React.FC<Props> = ({ player, dealId, onClose, onCon
 
     return (
         <Scrim onClose={onClose}>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-[#ff8a80]">Valuation · not a sticker price</div>
+            <div className="text-[11px] uppercase tracking-[0.18em] text-[#FFC44D]">Valuation · not a sticker price</div>
             <h3 className="text-3xl sm:text-4xl font-black uppercase leading-none mt-1" style={{ fontFamily: headingFont }}>{quote.name}</h3>
             <p className="text-sm text-zinc-400 mt-2">{quote.note}</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
