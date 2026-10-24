@@ -1,24 +1,172 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { LaunchQuote, formatCompact, formatPeople } from '../../services/ownPlatform/logic';
 import { LaunchRegionId } from '../../types';
 import { MARKET_COUNTRIES, REGION_CITIES } from '../../services/ownPlatform/catalog';
+import './fonts';
+import './empire.css';
 
 export const headingFont = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif';
 
-export const Shell: React.FC<{ children: React.ReactNode; onBack: () => void; kicker: string; title: string; step: string }> = ({ children, onBack, kicker, title, step }) => (
-    <div className="fixed inset-0 z-[180] bg-[#07080d] text-white overflow-hidden flex flex-col" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <header className="shrink-0 px-4 lg:px-10 pt-4 pb-3 flex items-start justify-between gap-4 border-b border-white/5">
-            <div className="min-w-0">
-                <button onClick={onBack} className="ae-tap text-[11px] uppercase tracking-[0.22em] text-zinc-500 hover:text-white mb-2">Back</button>
-                <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#ff4d4d]">{kicker}</div>
-                <h1 className="text-[clamp(1.6rem,7vw,3.75rem)] font-extrabold uppercase leading-[0.9] tracking-tight break-words" style={{ fontFamily: headingFont }}>{title}</h1>
-            </div>
-            {step ? <div className="text-sm font-bold text-zinc-400 shrink-0 pt-8">{step}</div> : null}
-        </header>
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-            <div className="mx-auto w-full max-w-[1400px]">{children}</div>
-        </div>
-    </div>
+export type EmpirePane = 'launch' | 'build' | 'rights' | 'ops' | 'world';
+
+const DEFINE_STEPS: [string, string][] = [
+    ['Name it', ''],
+    ['Markets', ''],
+    ['Clearance', ''],
+    ['Ident', ''],
+    ['Storefront', ''],
+    ['Catalogue', ''],
+    ['Pricing', ''],
+    ['Blueprint', 'review'],
+];
+const BUILD_STEPS = ['Network', 'Cost', 'Rehearsal', 'Commission'];
+const PANES: [EmpirePane, string][] = [
+    ['launch', 'Launch'],
+    ['build', 'Build'],
+    ['rights', 'Rights'],
+    ['ops', 'Operations'],
+    ['world', 'World'],
+];
+
+const BoltMark = ({ fill = '#fff' }: { fill?: string }) => (
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 1.5 3.5 14h7l-2 8.5L20.5 9.5h-7z" fill={fill} /></svg>
 );
+
+interface ShellProps {
+    children: React.ReactNode;
+    onBack: () => void;
+    kicker: string;
+    title: string;
+    pane: EmpirePane;
+    onPane: (pane: EmpirePane) => void;
+    name: string;
+    stage: string;
+    money: number;
+    defineStep: number;
+    buildStep: number;
+    pastDefine: boolean;
+    onDefineStep: (step: number) => void;
+    onBuildStep: (step: number) => void;
+    onWatchIntro?: () => void;
+}
+
+export const Shell: React.FC<ShellProps> = ({
+    children, onBack, kicker, title, pane, onPane, name, stage, money,
+    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro,
+}) => {
+    const live = stage === 'LIVE';
+    const stepNo = pane === 'launch'
+        ? (defineStep >= 7 ? 'B' : String(defineStep + 1).padStart(2, '0'))
+        : pane === 'build' ? String(buildStep + 1).padStart(2, '0') : '';
+    const stepOf = pane === 'launch' && defineStep < 7 ? '07' : pane === 'build' ? '04' : '';
+    const defineCursor = pane === 'launch' ? defineStep : (pastDefine ? 8 : defineStep);
+    const buildCursor = pane === 'build' ? buildStep : (pastDefine || stage === 'BUILD' || stage === 'CONSTRUCTING' || live ? 4 : -1);
+    const railCount = pane === 'build' ? 4 : pane === 'launch' ? 7 : 3;
+    const railIndex = pane === 'build' ? buildStep : pane === 'launch' ? Math.min(defineStep, 6) : pane === 'ops' ? 1 : 0;
+
+    return (
+        <div className="empire fixed inset-0 z-[180]" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+            <div className="app">
+                <aside className="rail">
+                    <div className="brand">
+                        <div className="bolt"><BoltMark /></div>
+                        <div>
+                            <div className="nm">{(name || 'EMPIRE+').toUpperCase()}</div>
+                            <div className="st" style={{ color: live ? 'var(--go)' : undefined }}>{live ? 'On air' : 'Paper company'}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <div className="phase">Define · 7 steps</div>
+                        <ul className="steps">
+                            {DEFINE_STEPS.map(([label, note], index) => {
+                                const done = index < defineCursor;
+                                const current = pane === 'launch' && index === defineStep;
+                                return (
+                                    <li key={label} className={current ? 'cur' : done ? 'done' : ''}>
+                                        <button type="button" className="step-link" onClick={() => onDefineStep(index)}>
+                                            <span className="d">{done && !current ? '✓' : index === 7 ? 'B' : index + 1}</span>
+                                            {label}
+                                            {note ? <span className="r">{note}</span> : null}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                        <div className="phase">Build · 4 stages</div>
+                        <ul className="steps">
+                            {BUILD_STEPS.map((label, index) => {
+                                const done = index < buildCursor;
+                                const current = pane === 'build' && index === buildStep;
+                                return (
+                                    <li key={label} className={current ? 'cur' : done ? 'done' : ''}>
+                                        <button type="button" className="step-link" onClick={() => onBuildStep(index)}>
+                                            <span className="d">{done && !current ? '✓' : index + 1}</span>
+                                            {label}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                        <div className="phase">Run</div>
+                        <ul className="steps">
+                            <li className={pane === 'ops' ? 'cur' : live ? 'done' : ''}>
+                                <button type="button" className="step-link" onClick={() => onPane('ops')}>
+                                    <span className="d">{live && pane !== 'ops' ? '✓' : '●'}</span>
+                                    Operations
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                    <div className="treas">
+                        <div className="l">Treasury</div>
+                        <div className="v">{formatCompact(money)}</div>
+                        <div className="s">Career money · USD books</div>
+                    </div>
+                </aside>
+                <div className="main">
+                    <header className="top">
+                        <div>
+                            <div className="kick">{kicker}</div>
+                            <h1>{title}</h1>
+                            {onWatchIntro && pane === 'launch' && defineStep === 0 && (
+                                <button type="button" className="btn gho sm" style={{ marginTop: 12 }} onClick={onWatchIntro}>Watch intro</button>
+                            )}
+                        </div>
+                        <div className="topR">
+                            <div className="tabs">
+                                {PANES.map(([id, label]) => (
+                                    <span key={id} className={pane === id ? 'on' : ''} onClick={() => onPane(id)} style={{ cursor: 'pointer' }}>{label}</span>
+                                ))}
+                            </div>
+                            {stepNo ? <div className="stepno">{stepNo}{stepOf ? <span>/{stepOf}</span> : null}</div> : null}
+                        </div>
+                    </header>
+                    <div className="mtop">
+                        <div className="bar1">
+                            <button type="button" className="back" onClick={onBack} aria-label="Back">←</button>
+                            <div className="mid">
+                                <div className="kick">{kicker}</div>
+                                <div className="t">{title}</div>
+                            </div>
+                            {stepNo ? <div className="no">{stepNo}{stepOf ? <span>/{stepOf}</span> : null}</div> : <div />}
+                        </div>
+                        <div className="mrail">
+                            {Array.from({ length: railCount }, (_, index) => (
+                                <i key={index} className={index < railIndex ? 'done' : index === railIndex ? 'cur' : ''} />
+                            ))}
+                        </div>
+                        <div className="mtabs">
+                            {PANES.map(([id, label]) => (
+                                <span key={id} className={pane === id ? 'on' : ''} onClick={() => onPane(id)} style={{ cursor: 'pointer' }}>{label}</span>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="scroll">{children}</div>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export const FooterBar: React.FC<{
     leftLabel: string;
@@ -29,83 +177,117 @@ export const FooterBar: React.FC<{
     nextLabel: string;
     disabled?: boolean;
 }> = ({ leftLabel, leftValue, money, onBack, onNext, nextLabel, disabled }) => (
-    <div className="sticky bottom-0 z-10 shrink-0 border-t border-white/10 bg-[#0c0e14]/95 backdrop-blur px-4 lg:px-10 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="flex items-center gap-4 text-xs uppercase tracking-wider text-zinc-400">
-            <div>
-                <div className="text-[10px] text-zinc-500">{leftLabel}</div>
-                <div className="text-white font-bold normal-case tracking-normal text-sm">{leftValue}</div>
-            </div>
-            <div className="hidden sm:block h-8 w-px bg-white/10" />
-            <div>
-                <div className="text-[10px] text-zinc-500">Money</div>
-                <div className="text-white font-black text-sm">{money}</div>
-            </div>
-        </div>
-        <div className="flex-1" />
-        <div className="flex gap-2">
-            {onBack && (
-                <button onClick={onBack} className="px-5 py-3 rounded-full border border-white/15 text-xs font-bold tracking-[0.14em] uppercase text-zinc-300 hover:bg-white/5">Back</button>
-            )}
-            {onNext && (
-                <button onClick={onNext} disabled={disabled} className="flex-1 lg:flex-none px-8 py-3 rounded-full bg-[#ff3b30] text-white text-xs font-black tracking-[0.16em] uppercase disabled:opacity-40">{nextLabel}</button>
-            )}
-        </div>
-    </div>
+    <footer className="foot">
+        <div className="kv"><div className="l">{leftLabel}</div><div className="v">{leftValue}</div></div>
+        <div className="sep" />
+        <div className="kv"><div className="l">Treasury</div><div className="v">{money}</div></div>
+        <div className="sp" />
+        {onBack && <button type="button" onClick={onBack} className="btn gho">← Back</button>}
+        {onNext && <button type="button" onClick={onNext} disabled={disabled} className={`btn pri ${disabled ? 'dis' : ''}`}>{nextLabel}</button>}
+    </footer>
 );
 
-export const Card: React.FC<{ children: React.ReactNode; className?: string; active?: boolean; onClick?: () => void }> = ({ children, className = '', active, onClick }) => (
-    <div
-        onClick={onClick}
-        className={`rounded-3xl border bg-[#12151c] p-4 ${active ? 'border-[#ff3b30]' : 'border-white/10'} ${onClick ? 'cursor-pointer' : ''} ${className}`}
-    >
+export const Card: React.FC<{ children: React.ReactNode; className?: string; active?: boolean; onClick?: () => void; tone?: 'ok' | 'warn' | 'bad' | 'flat' | 'paper' }> = ({ children, className = '', active, onClick, tone }) => (
+    <div onClick={onClick} className={`card ${active ? 'sel' : ''} ${tone || ''} ${onClick ? 'cursor-pointer' : ''} ${className}`}>
         {children}
     </div>
 );
 
+export const Pill: React.FC<{ tone?: 'ok' | 'warn' | 'bad' | 'run' | 'idle'; children: React.ReactNode }> = ({ tone = 'idle', children }) => (
+    <span className={`pill s-${tone}`}>{children}</span>
+);
+
+export const Toggle: React.FC<{ label: string; on: boolean; onClick: () => void; disabled?: boolean }> = ({ label, on, onClick, disabled }) => (
+    <button type="button" disabled={disabled} onClick={onClick} className={`tog ${on ? 'on' : ''}`}><i />{label}</button>
+);
+
+export const Segmented: React.FC<{ value: string; options: string[]; onChange: (value: string) => void; disabled?: boolean }> = ({ value, options, onChange, disabled }) => (
+    <span className="seg">
+        {options.map(option => (
+            <button type="button" key={option} disabled={disabled} className={value === option ? 'on' : ''} onClick={() => onChange(option)}>{option}</button>
+        ))}
+    </span>
+);
+
+export const Stepper: React.FC<{ value: number; onChange: (next: number) => void; disabled?: boolean }> = ({ value, onChange, disabled }) => (
+    <div className="stepper" style={disabled ? { opacity: 0.4, pointerEvents: 'none' } : undefined}>
+        <b role="button" onClick={() => onChange(Math.max(0, value - 1))}>−</b>
+        <span>{value}</span>
+        <b role="button" onClick={() => onChange(value + 1)}>+</b>
+    </div>
+);
+
+export const MoneyBar: React.FC<{ ratio: number; tone?: 'go' | 'bad' | '' }> = ({ ratio, tone = '' }) => (
+    <div className={`bar ${tone}`}><i style={{ width: `${Math.max(6, Math.min(100, ratio * 100))}%` }} /></div>
+);
+
+export const PreviewPanel: React.FC<{ name: string; quote: LaunchQuote; hint: string }> = ({ name, quote, hint }) => (
+    <aside className="pv stack hideM">
+        <div className="lab">Live preview</div>
+        <div className="bb">
+            <span className="tag">Billboard</span>
+            <BoltMark />
+            {(name || 'EMPIRE+').toUpperCase()}
+            <small>Originals · Films · Series</small>
+        </div>
+        <div className="card bill">
+            <div className="lab">Launch bill · nothing paid yet</div>
+            <div className="tot" style={{ marginTop: 8 }}>{formatCompact(quote.dueNow)}</div>
+            <div className="tiny" style={{ marginBottom: 6 }}>due at commission</div>
+            <div className="line"><span>Weekly burn</span><span>{formatCompact(quote.weeklyBurn)}</span></div>
+            <div className="line"><span>Forecast homes</span><span style={{ color: 'var(--go)' }}>{formatPeople(quote.households)}</span></div>
+            <div className="line" style={{ border: 0 }}><span>Piracy</span><span>{Math.round(quote.piracyShare * 100)}% of viewing</span></div>
+        </div>
+        <div className="card flat">
+            <div className="lab" style={{ color: 'var(--volt)' }}>This step</div>
+            <p className="p" style={{ marginTop: 6 }}>{hint}</p>
+        </div>
+    </aside>
+);
+
+export const BillStrip: React.FC<{ quote: LaunchQuote }> = ({ quote }) => {
+    const [open, setOpen] = useState(false);
+    return (
+        <>
+            <button type="button" className="mstrip" onClick={() => setOpen(true)}>
+                <div className="kv"><div className="l">Due</div><div className="v">{formatCompact(quote.dueNow)}</div></div>
+                <div className="kv"><div className="l">Burn</div><div className="v">{formatCompact(quote.weeklyBurn)}/wk</div></div>
+                <div className="kv"><div className="l">Homes</div><div className="v">{formatPeople(quote.households)}</div></div>
+                <div className="up">▲ Bill</div>
+            </button>
+            {open && (
+                <div className="sheet" onClick={() => setOpen(false)}>
+                    <div className="panel card bill" onClick={event => event.stopPropagation()}>
+                        <div className="between"><div className="lab">Launch bill</div><button type="button" className="tiny" onClick={() => setOpen(false)}>Close</button></div>
+                        <div className="tot">{formatCompact(quote.dueNow)}</div>
+                        <div className="line"><span>Weekly burn</span><span>{formatCompact(quote.weeklyBurn)}</span></div>
+                        <div className="line"><span>Forecast homes</span><span>{formatPeople(quote.households)}</span></div>
+                        <div className="line" style={{ border: 0 }}><span>Piracy</span><span>{Math.round(quote.piracyShare * 100)}%</span></div>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+};
+
+const dotFill = (on: boolean, ratio: number) => !on ? '#2A2F47' : ratio >= 0.9 ? '#3DFFA0' : ratio >= 0.45 ? '#FFC44D' : '#FF5470';
+
 export const WorldDots: React.FC<{ selected: string[]; served?: Record<string, number> }> = ({ selected, served }) => (
-    <svg viewBox="0 0 100 56" className="w-full h-44 lg:h-64 rounded-2xl bg-[#0b3a66]">
-        <ellipse cx="22" cy="24" rx="16" ry="10" fill="#166534" opacity="0.55" />
-        <ellipse cx="30" cy="40" rx="8" ry="12" fill="#166534" opacity="0.5" />
-        <ellipse cx="50" cy="22" rx="10" ry="8" fill="#166534" opacity="0.5" />
-        <ellipse cx="54" cy="34" rx="9" ry="12" fill="#166534" opacity="0.45" />
-        <ellipse cx="74" cy="28" rx="14" ry="10" fill="#166534" opacity="0.5" />
-        <ellipse cx="86" cy="42" rx="7" ry="5" fill="#166534" opacity="0.45" />
+    <svg viewBox="0 0 100 56" className="dotmap w-full h-44 lg:h-64">
         {MARKET_COUNTRIES.map(country => {
             const on = selected.includes(country.id);
             const ratio = served?.[country.regionId] ?? (on ? 0.5 : 0);
-            const fill = !on ? '#94a3b8' : ratio >= 0.9 ? '#4ade80' : ratio >= 0.45 ? '#facc15' : '#fb7185';
-            return <rect key={country.id} x={country.x - 1.1} y={country.y * 0.56 - 1.1} width="2.2" height="2.2" rx="0.4" fill={fill} />;
+            return <rect key={country.id} x={country.x - 1.1} y={country.y * 0.56 - 1.1} width="2.2" height="2.2" rx="0.4" fill={dotFill(on, ratio)} />;
         })}
     </svg>
 );
 
 export const NetworkMap: React.FC<{ regions: LaunchRegionId[]; served: Record<string, number> }> = ({ regions, served }) => (
-    <svg viewBox="0 0 100 56" className="w-full h-48 lg:h-72 rounded-2xl bg-gradient-to-b from-[#0c4a6e] to-[#082f49]">
-        <ellipse cx="22" cy="22" rx="18" ry="11" fill="#0f766e" opacity="0.35" />
-        <ellipse cx="32" cy="40" rx="9" ry="12" fill="#0f766e" opacity="0.3" />
-        <ellipse cx="50" cy="20" rx="12" ry="8" fill="#0f766e" opacity="0.3" />
-        <ellipse cx="56" cy="36" rx="10" ry="13" fill="#0f766e" opacity="0.28" />
-        <ellipse cx="76" cy="28" rx="16" ry="11" fill="#0f766e" opacity="0.3" />
-        <ellipse cx="88" cy="44" rx="8" ry="5" fill="#0f766e" opacity="0.28" />
+    <svg viewBox="0 0 100 56" className="dotmap w-full h-48 lg:h-72">
         {(Object.keys(REGION_CITIES) as LaunchRegionId[]).flatMap(regionId => REGION_CITIES[regionId].map(city => {
             const on = regions.includes(regionId);
             const ratio = served[regionId] ?? 0;
-            const fill = !on ? '#64748b' : ratio >= 0.9 ? '#4ade80' : ratio >= 0.45 ? '#facc15' : '#fb7185';
-            return <rect key={city.id} x={city.x - 1.2} y={city.y * 0.56 - 1.2} width="2.4" height="2.4" rx="0.3" fill={fill} />;
+            return <rect key={city.id} x={city.x - 1.2} y={city.y * 0.56 - 1.2} width="2.4" height="2.4" rx="0.3" fill={dotFill(on, ratio)} />;
         }))}
     </svg>
-);
-
-export const Stepper: React.FC<{ value: number; onChange: (next: number) => void; disabled?: boolean }> = ({ value, onChange, disabled }) => (
-    <div className="flex items-center gap-3">
-        <button disabled={disabled} onClick={() => onChange(Math.max(0, value - 1))} className="w-8 h-8 rounded-full border border-white/15 text-lg leading-none disabled:opacity-30">–</button>
-        <div className="w-8 text-center font-black">{value}</div>
-        <button disabled={disabled} onClick={() => onChange(value + 1)} className="w-8 h-8 rounded-full border border-white/15 text-lg leading-none disabled:opacity-30">+</button>
-    </div>
-);
-
-export const MoneyBar: React.FC<{ ratio: number }> = ({ ratio }) => (
-    <div className="h-2 rounded-full bg-white/10 overflow-hidden w-28 sm:w-40">
-        <div className="h-full bg-[#ff3b30]" style={{ width: `${Math.max(6, Math.min(100, ratio * 100))}%` }} />
-    </div>
 );

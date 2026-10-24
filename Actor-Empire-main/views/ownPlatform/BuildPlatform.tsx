@@ -62,7 +62,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
 
     return (
         <div className="flex flex-col min-h-full">
-            <div className="px-4 lg:px-10 pt-4 text-[11px] font-bold uppercase tracking-[0.22em] text-[#ff4d4d]">Build · stage {step + 1} of 4</div>
+            <div className="px-4 lg:px-10 pt-4 text-[11px] font-bold uppercase tracking-[0.22em] text-[#8B7BFF]">Build · stage {step + 1} of 4</div>
             <div className="p-4 lg:p-10 flex-1">
                 {step === 0 && (
                     <div className="grid lg:grid-cols-[minmax(0,1.1fr)_320px_minmax(0,0.9fr)] gap-4">
@@ -76,7 +76,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                             <div className="flex gap-2 overflow-x-auto mb-3">
                                 <button onClick={() => setRegionId(state.regions[0]?.regionId || 'NORTH_AMERICA')} className="text-[10px] uppercase tracking-wider text-zinc-500">World</button>
                                 {LAUNCH_REGIONS.map(item => (
-                                    <button key={item.id} onClick={() => setRegionId(item.id)} className={`px-3 py-1 rounded-full text-xs font-bold ${regionId === item.id ? 'bg-[#ff3b30]' : 'bg-white/10 text-zinc-300'}`}>{item.short}</button>
+                                    <button key={item.id} onClick={() => setRegionId(item.id)} className={`px-3 py-1 rounded-full text-xs font-bold ${regionId === item.id ? 'bg-[#4F3BFF]' : 'bg-white/10 text-zinc-300'}`}>{item.short}</button>
                                 ))}
                             </div>
                             <NetworkMap regions={state.regions.map(row => row.regionId)} served={served} />
@@ -86,7 +86,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                                     <div className="text-[11px] uppercase text-zinc-500">On the night</div>
                                 </div>
                                 <div className="text-right">
-                                    <div className={`text-2xl font-black ${quote.servedPct >= 0.9 ? 'text-emerald-300' : 'text-[#ffb4b4]'}`}>{formatPeople(Math.max(0, quote.nightDemand - quote.capacity))}</div>
+                                    <div className={`text-2xl font-black ${quote.servedPct >= 0.9 ? 'text-emerald-300' : 'text-[#8B7BFF]'}`}>{formatPeople(Math.max(0, quote.nightDemand - quote.capacity))}</div>
                                     <div className="text-[11px] uppercase text-zinc-500">{quote.servedPct >= 0.99 ? 'Covered' : 'Short'}</div>
                                 </div>
                             </div>
@@ -152,7 +152,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                             <div className="text-4xl font-black" style={{ fontFamily: headingFont }}>{formatCompact(quote.dueNow)}</div>
                             <div className="text-sm text-zinc-400">Leaves now · {formatCompact(quote.leftAfter)} left after</div>
                             <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
-                                <div className="h-full bg-[#ff3b30]" style={{ width: `${Math.min(100, player.money > 0 ? (quote.dueNow / player.money) * 100 : 100)}%` }} />
+                                <div className="h-full bg-[#4F3BFF]" style={{ width: `${Math.min(100, player.money > 0 ? (quote.dueNow / player.money) * 100 : 100)}%` }} />
                             </div>
                             <p className="text-xs text-zinc-500 mt-3">Charged when you commission, in USD, against the same treasury as the rest of the career.</p>
                             <div className="mt-4 space-y-2 text-sm">
@@ -197,18 +197,18 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                 {step === 2 && (
                     <div className="grid lg:grid-cols-[280px_minmax(0,1fr)_300px] gap-4">
                         <div className="space-y-3">
-                            <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Simulated · changes nothing</div>
+                            <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Simulated · changes nothing</div>
                             <h2 className="text-4xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Rehearse opening night</h2>
                             <p className="text-sm text-zinc-400">A fake premiere through the halls you drew. The save is not touched.</p>
                             <div className="grid grid-cols-3 gap-2">
                                 {(['QUIET', 'LIKELY', 'SURGE'] as AudienceMode[]).map(item => (
-                                    <button key={item} onClick={() => { setMode(item); setPlaying(false); }} className={`rounded-2xl p-3 text-left border ${mode === item ? 'border-[#ff3b30] bg-[#ff3b30]/10' : 'border-white/10 bg-[#12151c]'}`}>
+                                    <button key={item} onClick={() => { setMode(item); setPlaying(false); }} className={`rounded-2xl p-3 text-left border ${mode === item ? 'border-[#4F3BFF] bg-[#4F3BFF]/10' : 'border-white/10 bg-[#12151c]'}`}>
                                         <div className="text-xs uppercase text-zinc-400">{item === 'QUIET' ? 'Quiet night' : item === 'LIKELY' ? 'Likely' : 'Surge'}</div>
                                         <div className="font-black">{item === 'QUIET' ? 'Fewer' : item === 'LIKELY' ? 'Expected' : 'Everyone'}</div>
                                     </button>
                                 ))}
                             </div>
-                            <button onClick={() => setPlaying(true)} className="w-full py-3 rounded-full bg-[#ff3b30] font-black uppercase tracking-wider text-sm">Run the rehearsal</button>
+                            <button onClick={() => setPlaying(true)} className="w-full py-3 rounded-full bg-[#4F3BFF] font-black uppercase tracking-wider text-sm">Run the rehearsal</button>
                         </div>
                         <Card>
                             <div className="text-[11px] uppercase text-zinc-500">Concurrent streams</div>
@@ -240,24 +240,24 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                 )}
 
                 {step === 3 && (
-                    <div className="grid lg:grid-cols-[minmax(0,1fr)_360px] gap-4 max-w-5xl">
-                        <Card>
-                            <div className="text-[11px] uppercase tracking-[0.2em] text-[#ff4d4d]">Agreement</div>
-                            <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>Commission the build</h2>
-                            <p className="text-sm text-zinc-400 mt-2">Signing spends {formatCompact(quote.dueNow)} from the treasury. The six-week reserve covers burn while the rooms are built. Weekly costs start when the service goes live.</p>
+                    <div className="grid g-side max-w-5xl">
+                        <div className="paper" style={{ padding: '36px 40px' }}>
+                            <div className="lab" style={{ color: '#6B5E44' }}>Agreement</div>
+                            <h2 className="h2" style={{ fontFamily: 'var(--s)', textTransform: 'none', letterSpacing: 0, marginTop: 8 }}>Commission the build</h2>
+                            <p className="p" style={{ marginTop: 8, color: '#4A3F2B' }}>Signing spends {formatCompact(quote.dueNow)} from the treasury. The six-week reserve covers burn while the rooms are built. Weekly costs start when the service goes live.</p>
                             <ul className="mt-4 space-y-2 text-sm">
                                 {(quote.blockers.filter(line => line !== 'Construction has already been signed.').length ? quote.blockers.filter(line => line !== 'Construction has already been signed.') : ['Every requirement on the blueprint is clear.']).map(line => (
                                     <li key={line} className="border-b border-white/5 py-2">{line}</li>
                                 ))}
                             </ul>
                             {error && <p className="mt-3 text-rose-300 text-sm">{error}</p>}
-                            {state.commissioned && <p className="mt-3 text-emerald-300">{state.stage === 'LIVE' ? `${state.name} is live.` : `${state.constructionWeeksLeft} weeks of construction left.`}</p>}
-                        </Card>
-                        <Card>
-                            <div className="text-sm text-zinc-400">Due on signature</div>
-                            <div className="text-5xl font-black" style={{ fontFamily: headingFont }}>{formatCompact(quote.dueNow)}</div>
-                            <button onClick={sign} disabled={locked} className="mt-6 w-full py-4 rounded-full bg-[#ff3b30] font-black uppercase tracking-[0.16em] disabled:opacity-40">Sign and commission</button>
-                        </Card>
+                            {state.commissioned && <p className="mt-3" style={{ color: '#1f7a4d' }}>{state.stage === 'LIVE' ? `${state.name} is live.` : `${state.constructionWeeksLeft} weeks of construction left.`}</p>}
+                        </div>
+                        <div className="card">
+                            <div className="lab">Due on signature</div>
+                            <div className="big">{formatCompact(quote.dueNow)}</div>
+                            <button type="button" onClick={sign} disabled={locked} className={`btn pri full ${locked ? 'dis' : ''}`} style={{ marginTop: 18 }}>Sign and commission</button>
+                        </div>
                     </div>
                 )}
             </div>
