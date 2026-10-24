@@ -57,6 +57,7 @@ import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonW
 import { processWorldTurn, generateIndustryProject } from './worldLogic'; 
 import { generateFamousMovieOpportunity, generateCameoOffer } from './famousMovieLogic'; 
 import { calculateYoutubeCreatorScore, generateYoutubeBrandDeal, generateYoutubeCollabOffer, getYoutubePublicImageLabel, processYoutubeChannel } from './youtubeLogic';
+import { applyYoutubeReleaseBoost, migrateYoutubeSave, processYoutubeCampaignWeek } from './youtubeMarketing';
 import { getInstagramPostComments, pickInstagramMicroBrand } from './instagramLogic';
 import { checkForDirectorDecision, checkForProductionCrisis } from './productionService';
 import { processBusinessWeek } from './businessLogic';
@@ -1010,6 +1011,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     if (typeof nextPlayer.youtube.lastMerchDropWeek !== 'number') nextPlayer.youtube.lastMerchDropWeek = 0;
     if (!nextPlayer.youtube.creatorIdentity) nextPlayer.youtube.creatorIdentity = 'ACTOR_VLOGGER';
     if (typeof nextPlayer.youtube.lastIdentityChangeWeek !== 'number') nextPlayer.youtube.lastIdentityChangeWeek = 0;
+    nextPlayer.youtube = migrateYoutubeSave(nextPlayer);
     nextPlayer.instagram.posts = ensureObjectArray(nextPlayer.instagram.posts);
     nextPlayer.instagram.feed = ensureObjectArray(nextPlayer.instagram.feed);
     nextPlayer.x.posts = ensureObjectArray(nextPlayer.x.posts);
@@ -1196,6 +1198,14 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         }
         ytResult.notifications.forEach(note => logsToAdd.push({ msg: note, type: 'positive' }));
 
+        const campaignWeek = processYoutubeCampaignWeek(nextPlayer);
+        campaignWeek.personal.forEach(line => addTransaction(Math.floor(line.amount), 'BUSINESS', line.label));
+        campaignWeek.logs.forEach(entry => logsToAdd.push(entry));
+        if (campaignWeek.fame) nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + campaignWeek.fame);
+        if (campaignWeek.news.length) nextPlayer.news = [...campaignWeek.news, ...nextPlayer.news].slice(0, 80);
+        if (campaignWeek.posts.length) nextPlayer.x.feed = [...campaignWeek.posts, ...(nextPlayer.x.feed || [])].slice(0, 50);
+        if (campaignWeek.inbox.length) nextPlayer.inbox = [...campaignWeek.inbox, ...nextPlayer.inbox].slice(0, 80);
+
         if (nextPlayer.youtube.membershipsActive) {
             const trust = ensureFiniteNumber(nextPlayer.youtube.audienceTrust, 55);
             const mood = ensureFiniteNumber(nextPlayer.youtube.fanMood, 55);
@@ -1257,6 +1267,26 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + 6);
                     nextPlayer.stats.reputation = Math.min(100, nextPlayer.stats.reputation + 4);
                     nextPlayer.youtube.audienceTrust = Math.min(100, (nextPlayer.youtube.audienceTrust ?? 55) + 8);
+                }
+            },
+            {
+                id: 'subs_10000000',
+                reached: nextPlayer.youtube.subscribers >= 10000000,
+                title: 'Diamond Play Button',
+                headline: `${nextPlayer.name} earns a Diamond Play Button.`,
+                reward: () => {
+                    nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + 8);
+                    nextPlayer.stats.reputation = Math.min(100, nextPlayer.stats.reputation + 5);
+                }
+            },
+            {
+                id: 'subs_100000000',
+                reached: nextPlayer.youtube.subscribers >= 100000000,
+                title: 'Red Diamond Play Button',
+                headline: `${nextPlayer.name} enters the creator Hall of Fame.`,
+                reward: () => {
+                    nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + 10);
+                    nextPlayer.flags.youtubeHallOfFame = true;
                 }
             }
         ];
@@ -2785,6 +2815,12 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
 	                        logsToAdd.push({ msg: `🎭 Career XP: "${updatedC.name}" added ${releaseExperienceGain} experience from a meaningful credit.`, type: 'positive' });
 	                    }
 
+                    const ytBoost = updatedC.projectDetails ? applyYoutubeReleaseBoost(nextPlayer, updatedC) : null;
+                    if (ytBoost && updatedC.projectDetails) {
+                        updatedC.projectDetails.hiddenStats.rawHype = ytBoost.rawHype;
+                        updatedC.projectDetails.hiddenStats.ytCampaignHype = ytBoost.campaignHype;
+                        updatedC.projectDetails.hiddenStats.ytOpeningMultiplier = ytBoost.openingMultiplier;
+                    }
                     let accumulatedBuzz = updatedC.promotionalBuzz || 0;
                     
                     // Add Red Carpet Hype
@@ -2921,6 +2957,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
 	            const releaseStudio = nextPlayer.businesses?.find(b => b.id === rel.projectDetails.studioId && b.type === 'PRODUCTION_HOUSE');
 	            const marketDemand = getProjectMarketDemand(rel.projectDetails, nextPlayer.currentWeek, releaseStudio?.studioState?.marketTrends);
 	            const studioGenreReputation = getStudioGenreReputation(releaseStudio, rel.projectDetails.genre);
+	            const ytOpen = rel.weekNum === 1 ? (rel.projectDetails.hiddenStats.ytOpeningMultiplier || 1) : 1;
 	            const uncappedRevenue = ensureFiniteNumber(calculateWeeklyBoxOffice(
 	                rel.weekNum,
 	                rel.budget,
@@ -2932,7 +2969,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
 	                rel.projectDetails.format || 'LIVE_ACTION',
 	                marketDemand,
 	                studioGenreReputation
-	            ));
+	            )) * ytOpen;
             const boxOfficeCaps = getBoxOfficeCaps(rel.projectDetails.budgetTier);
             const thinSpectaclePenalty =
                 ['ACTION', 'SCI_FI', 'SUPERHERO', 'ADVENTURE'].includes(rel.projectDetails.genre) &&
@@ -3234,6 +3271,10 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             const rightsClash = typeof rel.projectDetails.hiddenStats?.rightsClash === 'number' ? rel.projectDetails.hiddenStats.rightsClash : 1;
             if (rightsStream || rightsClash !== 1) {
                 newViews = Math.floor(newViews * (1 + Math.max(0, rightsStream)) * (rightsClash > 0 ? rightsClash : 1));
+            }
+            const ytHype = rel.projectDetails.hiddenStats?.ytCampaignHype;
+            if (typeof ytHype === 'number') {
+                newViews = Math.floor(newViews * (1 + (ytHype - 50) / 250));
             }
             const totalViews = rel.streaming.totalViews + newViews;
             const newWeeklyViews = [...rel.streaming.weeklyViews, newViews];
