@@ -1,14 +1,28 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Player, InstaPost, InstaPostType, NPCActor, NPCState, InteractionType } from '../../types';
 import { NPC_DATABASE } from '../../services/npcLogic';
 import { getEnabledGlobalCreatorSocialProfiles } from '../../services/youtubeLogic';
 import { getInstagramPostComments, getInstagramPresetCaption, INSTAGRAM_POST_CONFIGS } from '../../services/instagramLogic';
 import { loadMediaBlob, pruneMediaStore, saveMediaBlob } from '../../services/mediaStorage';
-import { Camera, Heart, MessageCircle, Send, Search, User, Grid, ArrowLeft, Video, Sparkles, Popcorn, Zap, XCircle, Check, Briefcase, Handshake, Smile, Lock, Coffee, Images, Clapperboard, Flame, Shirt, Bookmark, BarChart3, ImagePlus } from 'lucide-react';
+import {
+    Camera, Heart, MessageCircle, Send, Search, Grid, ArrowLeft, Video, Sparkles, Popcorn, Zap, Check, Briefcase,
+    Handshake, Smile, Lock, Coffee, Images, Clapperboard, Flame, Shirt, Bookmark, BarChart3, ImagePlus, Home,
+    PlusSquare, MoreHorizontal, UserSquare, ChevronDown, Menu, X, Plus, Phone, Info, BadgeCheck, Settings2
+} from 'lucide-react';
 
 type InstagramFitMode = 'cover' | 'contain';
 const INSTAGRAM_IMAGE_SIZE = 1080;
+
+// Instagram palette
+const IG = {
+    blue: '#0095f6',
+    red: '#ff3040',
+    divider: 'border-[#262626]',
+    muted: 'text-[#a8a8a8]',
+    surface: 'bg-[#121212]',
+    input: 'bg-[#262626]',
+    ring: 'bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7]',
+};
 
 const loadImageElement = (src: string): Promise<HTMLImageElement> =>
     new Promise((resolve, reject) => {
@@ -40,7 +54,7 @@ const createFittedInstagramBlob = async (
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas context unavailable.');
 
-    ctx.fillStyle = '#09090b';
+    ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, INSTAGRAM_IMAGE_SIZE, INSTAGRAM_IMAGE_SIZE);
 
     const baseScale = fitMode === 'contain'
@@ -103,17 +117,33 @@ const InstagramPostVisual: React.FC<{
             {src ? (
                 <img src={src} className="w-full h-full object-cover" />
             ) : (
-                <div className="relative z-10 text-center transform -rotate-6">
-                    <span className="block text-white/90 font-black text-5xl uppercase tracking-tighter drop-shadow-lg scale-y-110">
-                        {post.type.replace(/_/g, ' ')}
-                    </span>
-                </div>
+                <>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.18),transparent_40%),radial-gradient(circle_at_75%_80%,rgba(0,0,0,0.35),transparent_45%)]" />
+                    <div className="relative z-10 text-center px-4">
+                        <span className="block text-white/90 font-black text-3xl uppercase tracking-tight drop-shadow-lg">
+                            {post.type.replace(/_/g, ' ')}
+                        </span>
+                    </div>
+                </>
             )}
-            {!src && <div className="absolute inset-0 bg-black/10"></div>}
             {children}
         </div>
     );
 };
+
+/* Instagram-style icon helpers */
+const VerifiedBadge: React.FC<{ size?: number }> = ({ size = 12 }) => (
+    <BadgeCheck size={size} className="text-[#0095f6] fill-[#0095f6] shrink-0" strokeWidth={2.5} stroke="#000" />
+);
+
+const StoryRing: React.FC<{ src: string; size?: string; seen?: boolean; onClick?: () => void; children?: React.ReactNode }> = ({ src, size = 'w-16 h-16', seen, onClick, children }) => (
+    <div onClick={onClick} className={`${size} rounded-full p-[2.5px] shrink-0 ${seen ? 'bg-[#363636]' : IG.ring} ${onClick ? 'cursor-pointer active:scale-95 transition-transform' : ''}`}>
+        <div className="w-full h-full rounded-full bg-black p-[2px] relative">
+            <img src={src} className="w-full h-full rounded-full object-cover" />
+            {children}
+        </div>
+    </div>
+);
 
 interface InstagramAppProps {
   player: Player;
@@ -131,7 +161,8 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
   const [dmReturnView, setDmReturnView] = useState<'DM_LIST' | 'NPC_PROFILE'>('DM_LIST');
   const [selectedNPC, setSelectedNPC] = useState<NPCActor | null>(null);
   const [selectedPost, setSelectedPost] = useState<InstaPost | null>(null);
-  
+  const [profileGridTab, setProfileGridTab] = useState<'GRID' | 'REELS' | 'TAGGED'>('GRID');
+
   // Post Creation State
   const [isCreatingPost, setIsCreatingPost] = useState(false);
   const [postCaption, setPostCaption] = useState('');
@@ -148,7 +179,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
   const chatEndRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const imageSourceUrlRef = useRef<string | null>(null);
-  
+
   // Safe Access
   const feed = player.instagram?.feed || [];
   const posts = player.instagram?.posts || [];
@@ -174,6 +205,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
           const bLast = b.state.chatHistory[b.state.chatHistory.length - 1]?.timestamp || 0;
           return bLast - aLast;
       });
+  const hasPendingDM = dmContacts.some(entry => entry.state.chatHistory.some(msg => msg.sender === 'NPC' && msg.action?.status === 'PENDING'));
   const selectedNpcState = selectedNPC ? npcStates[selectedNPC.id] : undefined;
   const selectedPendingDmAction = selectedNpcState?.chatHistory?.find(msg => msg.sender === 'NPC' && msg.action?.status === 'PENDING')?.action;
 
@@ -196,13 +228,16 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
       }
       return 'Your reply can affect reputation and relationships.';
   };
+
+  const isBrand = (npc: NPCActor) => npc.id.startsWith('ig_brand_account_') || npc.forbesCategory === 'Brand';
+
   const selectedNpcProfilePosts = useMemo(() => {
       if (!selectedNPC) return [];
       const realPosts = feed
           .filter(post => post.authorId === selectedNPC.id || post.authorHandle === selectedNPC.handle)
           .sort((a, b) => ((b.year || 0) * 52 + (b.week || 0)) - ((a.year || 0) * 52 + (a.week || 0)));
       const accountSeed = selectedNPC.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-      const isBrandAccount = selectedNPC.id.startsWith('ig_brand_account_') || selectedNPC.forbesCategory === 'Brand';
+      const isBrandAccount = isBrand(selectedNPC);
       const typeCycle: InstaPostType[] = isBrandAccount
           ? ['BRAND_FIT', 'CAROUSEL', 'REEL', 'LIFESTYLE', 'BRAND_FIT', 'INDUSTRY_NEWS']
           : selectedNPC.occupation === 'DIRECTOR'
@@ -237,10 +272,11 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
       });
       return [...realPosts, ...syntheticPosts.filter(post => !realPosts.some(real => real.id === post.id))].slice(0, 9);
   }, [selectedNPC, feed, player.age, player.currentWeek]);
+
   const selectedNpcPostCount = selectedNPC
       ? Math.max(
           selectedNpcProfilePosts.length,
-          (selectedNPC.id.startsWith('ig_brand_account_') || selectedNPC.forbesCategory === 'Brand')
+          isBrand(selectedNPC)
               ? 24 + (selectedNPC.followers % 40)
               : selectedNPC.tier === 'A_LIST' || selectedNPC.tier === 'ICON'
                   ? 120 + (selectedNPC.followers % 80)
@@ -305,8 +341,8 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
   };
 
   const formatFollowers = (num: number) => {
-      if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-      if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
+      if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+      if (num >= 10000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
       return num.toLocaleString();
   };
 
@@ -318,18 +354,18 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
 
   const getCommentAuthor = (type: InstaPostType, idx: number) => {
       const pools: Record<InstaPostType, string[]> = {
-          LIFESTYLE: ['@quietfancam', '@softresetclub', '@dailycinema', '@offdaydiary', '@vibesarchive'],
-          SELFIE: ['@facecardfiles', '@goldenhourfan', '@glamwatch', '@portraitclub', '@screencrushie'],
-          REEL: ['@reelwatcher', '@clipculture', '@algorithmfoundme', '@editdetective', '@scrollstopper'],
-          CAROUSEL: ['@slidethree', '@photodumpdaily', '@moodboardfiles', '@tinyframeclub', '@candidcorner'],
-          BTS: ['@setlifeupdates', '@calltimecrew', '@filmsetwatch', '@trailerdoor', '@crewappreciation'],
-          ANNOUNCEMENT: ['@castingroom', '@tradegirlie', '@franchisewatch', '@alreadyseated', '@projecttracker'],
-          CELEBRATION: ['@dayonefan', '@awardseasonwatch', '@winarchive', '@careerarc', '@proudviewer'],
-          RED_CARPET: ['@bestdressedwatch', '@stylistfiles', '@runwayrecap', '@lookbreakdown', '@tailoringnerd'],
-          COUPLE_POST: ['@softlaunchunit', '@chemistrywatch', '@timelinecouple', '@romancearchive', '@datingdetective'],
-          BRAND_FIT: ['@adwatcher', '@fitcheckdaily', '@brandbrief', '@productplacement', '@stylecommerce'],
-          CONTROVERSIAL: ['@prwatchdog', '@screenshotclub', '@messyfeeds', '@quotechaos', '@damagecontrol'],
-          INDUSTRY_NEWS: ['@tradepaper', '@rumorledger', '@studiohallway', '@industryplant', '@castingtea']
+          LIFESTYLE: ['quietfancam', 'softresetclub', 'dailycinema', 'offdaydiary', 'vibesarchive'],
+          SELFIE: ['facecardfiles', 'goldenhourfan', 'glamwatch', 'portraitclub', 'screencrushie'],
+          REEL: ['reelwatcher', 'clipculture', 'algorithmfoundme', 'editdetective', 'scrollstopper'],
+          CAROUSEL: ['slidethree', 'photodumpdaily', 'moodboardfiles', 'tinyframeclub', 'candidcorner'],
+          BTS: ['setlifeupdates', 'calltimecrew', 'filmsetwatch', 'trailerdoor', 'crewappreciation'],
+          ANNOUNCEMENT: ['castingroom', 'tradegirlie', 'franchisewatch', 'alreadyseated', 'projecttracker'],
+          CELEBRATION: ['dayonefan', 'awardseasonwatch', 'winarchive', 'careerarc', 'proudviewer'],
+          RED_CARPET: ['bestdressedwatch', 'stylistfiles', 'runwayrecap', 'lookbreakdown', 'tailoringnerd'],
+          COUPLE_POST: ['softlaunchunit', 'chemistrywatch', 'timelinecouple', 'romancearchive', 'datingdetective'],
+          BRAND_FIT: ['adwatcher', 'fitcheckdaily', 'brandbrief', 'productplacement', 'stylecommerce'],
+          CONTROVERSIAL: ['prwatchdog', 'screenshotclub', 'messyfeeds', 'quotechaos', 'damagecontrol'],
+          INDUSTRY_NEWS: ['tradepaper', 'rumorledger', 'studiohallway', 'industryplant', 'castingtea']
       };
       const pool = pools[type] || pools.LIFESTYLE;
       return pool[idx % pool.length];
@@ -343,12 +379,11 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
   const getRelationshipLabel = (score: number) => {
       if (score >= 80) return { label: 'Inner Circle', color: 'text-emerald-400', bar: 'bg-emerald-500' };
       if (score >= 60) return { label: 'Close Friend', color: 'text-teal-400', bar: 'bg-teal-500' };
-      if (score >= 40) return { label: 'Friendly', color: 'text-blue-400', bar: 'bg-blue-500' };
+      if (score >= 40) return { label: 'Friendly', color: 'text-[#0095f6]', bar: 'bg-[#0095f6]' };
       if (score >= 20) return { label: 'Acquaintance', color: 'text-yellow-400', bar: 'bg-yellow-500' };
-      return { label: 'Stranger', color: 'text-zinc-500', bar: 'bg-zinc-600' };
+      return { label: 'Stranger', color: 'text-[#a8a8a8]', bar: 'bg-[#363636]' };
   };
 
-  // Helper for Post Visuals
   const getPostStyle = (type: InstaPostType) => {
       return INSTAGRAM_POST_CONFIGS[type]?.colorClass || 'bg-zinc-800';
   };
@@ -402,8 +437,6 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
   const handleCreatePost = async () => {
       if (isImageProcessing) return;
       let finalCaption = postCaption.trim();
-      
-      // If user didn't write anything, pick a random preset
       if (!finalCaption) {
           finalCaption = getInstagramPresetCaption(selectedPresetType);
       }
@@ -427,7 +460,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
           setIsImageProcessing(false);
           return;
       }
-      
+
       onPost(selectedPresetType, finalCaption, contentMediaId);
       setIsImageProcessing(false);
       closeCreator();
@@ -438,329 +471,420 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
       title: string;
       subtitle: string;
       icon: React.ReactNode;
-      tint: string;
       lockReason?: string;
   }> = [
-      { type: 'LIFESTYLE', title: 'Lifestyle', subtitle: 'Daily life, soft growth.', icon: <Camera size={17} />, tint: 'emerald' },
-      { type: 'SELFIE', title: 'Selfie', subtitle: 'Personal and fan-friendly.', icon: <Smile size={17} />, tint: 'pink' },
-      { type: 'REEL', title: 'Reel', subtitle: 'More reach, short-form vibe.', icon: <Clapperboard size={17} />, tint: 'fuchsia' },
-      { type: 'CAROUSEL', title: 'Photo Dump', subtitle: 'Authentic multi-photo post.', icon: <Images size={17} />, tint: 'cyan' },
-      { type: 'BTS', title: 'On Set BTS', subtitle: 'Behind the scenes from filming.', icon: <Video size={17} />, tint: 'blue', lockReason: hasFilmingRole ? undefined : 'Start filming a role' },
-      { type: 'ANNOUNCEMENT', title: 'Announcement', subtitle: 'Project or casting news.', icon: <Sparkles size={17} />, tint: 'purple', lockReason: hasActiveRole ? undefined : 'Need an active role' },
-      { type: 'RED_CARPET', title: 'Red Carpet', subtitle: 'Prestige and fashion moment.', icon: <Sparkles size={17} />, tint: 'rose', lockReason: hasReleasedMovie || player.stats.fame >= 20 ? undefined : 'Need release or 20 fame' },
-      { type: 'COUPLE_POST', title: 'Couple Post', subtitle: 'Relationship content.', icon: <Heart size={17} />, tint: 'red', lockReason: hasRomance ? undefined : 'Need a public romance' },
-      { type: 'BRAND_FIT', title: 'Brand Fit', subtitle: 'Influence and style signal.', icon: <Shirt size={17} />, tint: 'lime', lockReason: publicFollowers >= 1000 || player.stats.fame >= 15 ? undefined : 'Need 1k followers or 15 fame' },
-      { type: 'CELEBRATION', title: 'Celebrate Release', subtitle: 'Turn a release into momentum.', icon: <Popcorn size={17} />, tint: 'amber', lockReason: hasReleasedMovie ? undefined : 'Need an active release' },
-      { type: 'CONTROVERSIAL', title: 'Hot Take', subtitle: 'High reach, backlash risk.', icon: <Flame size={17} />, tint: 'red' }
+      { type: 'LIFESTYLE', title: 'Lifestyle', subtitle: 'Daily life, soft growth.', icon: <Camera size={18} /> },
+      { type: 'SELFIE', title: 'Selfie', subtitle: 'Personal and fan-friendly.', icon: <Smile size={18} /> },
+      { type: 'REEL', title: 'Reel', subtitle: 'More reach, short-form vibe.', icon: <Clapperboard size={18} /> },
+      { type: 'CAROUSEL', title: 'Photo Dump', subtitle: 'Authentic multi-photo post.', icon: <Images size={18} /> },
+      { type: 'BTS', title: 'On Set BTS', subtitle: 'Behind the scenes from filming.', icon: <Video size={18} />, lockReason: hasFilmingRole ? undefined : 'Start filming a role' },
+      { type: 'ANNOUNCEMENT', title: 'Announcement', subtitle: 'Project or casting news.', icon: <Sparkles size={18} />, lockReason: hasActiveRole ? undefined : 'Need an active role' },
+      { type: 'RED_CARPET', title: 'Red Carpet', subtitle: 'Prestige and fashion moment.', icon: <Sparkles size={18} />, lockReason: hasReleasedMovie || player.stats.fame >= 20 ? undefined : 'Need release or 20 fame' },
+      { type: 'COUPLE_POST', title: 'Couple Post', subtitle: 'Relationship content.', icon: <Heart size={18} />, lockReason: hasRomance ? undefined : 'Need a public romance' },
+      { type: 'BRAND_FIT', title: 'Brand Fit', subtitle: 'Influence and style signal.', icon: <Shirt size={18} />, lockReason: publicFollowers >= 1000 || player.stats.fame >= 15 ? undefined : 'Need 1k followers or 15 fame' },
+      { type: 'CELEBRATION', title: 'Celebrate Release', subtitle: 'Turn a release into momentum.', icon: <Popcorn size={18} />, lockReason: hasReleasedMovie ? undefined : 'Need an active release' },
+      { type: 'CONTROVERSIAL', title: 'Hot Take', subtitle: 'High reach, backlash risk.', icon: <Flame size={18} /> }
   ];
 
-  const getTypeTintClasses = (tint: string, selected: boolean, locked?: boolean) => {
-      if (locked) return 'bg-zinc-950/80 border-zinc-900 text-zinc-600';
-      if (selected) {
-          const selectedClasses: Record<string, string> = {
-              emerald: 'bg-emerald-500/15 border-emerald-400/70 text-white shadow-[0_0_24px_rgba(16,185,129,0.12)]',
-              pink: 'bg-pink-500/15 border-pink-400/70 text-white shadow-[0_0_24px_rgba(236,72,153,0.12)]',
-              fuchsia: 'bg-fuchsia-500/15 border-fuchsia-400/70 text-white shadow-[0_0_24px_rgba(217,70,239,0.12)]',
-              cyan: 'bg-cyan-500/15 border-cyan-400/70 text-white shadow-[0_0_24px_rgba(34,211,238,0.12)]',
-              blue: 'bg-blue-500/15 border-blue-400/70 text-white shadow-[0_0_24px_rgba(96,165,250,0.12)]',
-              purple: 'bg-purple-500/15 border-purple-400/70 text-white shadow-[0_0_24px_rgba(168,85,247,0.12)]',
-              rose: 'bg-rose-500/15 border-rose-400/70 text-white shadow-[0_0_24px_rgba(244,63,94,0.12)]',
-              red: 'bg-red-500/15 border-red-400/70 text-white shadow-[0_0_24px_rgba(248,113,113,0.12)]',
-              lime: 'bg-lime-500/15 border-lime-400/70 text-white shadow-[0_0_24px_rgba(132,204,22,0.12)]',
-              amber: 'bg-amber-500/15 border-amber-400/70 text-white shadow-[0_0_24px_rgba(245,158,11,0.12)]'
-          };
-          return selectedClasses[tint] || selectedClasses.emerald;
-      }
-      return 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-900';
+  const followingCount = Object.values(npcStates).filter(s => s.isFollowing).length;
+  const likedByNpc = npcPool[0];
+
+  /* ---------- Shared sub-renders ---------- */
+
+  const renderPostCard = (post: InstaPost) => {
+      const authorNPC = npcPool.find(n => n.id === post.authorId);
+      const avatarSrc = getPostAvatar(post);
+      return (
+          <article key={post.id} className="pb-3">
+              {/* Post header */}
+              <div className="flex items-center gap-3 px-3 py-2.5">
+                  <StoryRing src={avatarSrc} size="w-9 h-9" seen={post.isPlayer} onClick={() => authorNPC && handleNPCClick(authorNPC)} />
+                  <div className="flex-1 min-w-0 leading-tight">
+                      <div className="flex items-center gap-1">
+                          <span className="font-semibold text-[13px] cursor-pointer truncate" onClick={() => authorNPC && handleNPCClick(authorNPC)}>{post.authorHandle}</span>
+                          {authorNPC?.tier === 'A_LIST' && <VerifiedBadge />}
+                      </div>
+                      {!post.isPlayer && <div className={`text-[11px] ${IG.muted}`}>Suggested for you</div>}
+                  </div>
+                  <button className="p-1"><MoreHorizontal size={20} /></button>
+              </div>
+
+              {/* Media */}
+              <button onClick={() => openPostDetail(post)} className="w-full block">
+                  <InstagramPostVisual post={post} getPostStyle={getPostStyle} />
+              </button>
+
+              {/* Action row */}
+              <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                  <div className="flex items-center gap-4">
+                      <Heart
+                          size={26}
+                          strokeWidth={1.75}
+                          fill={post.hasLiked ? IG.red : 'none'}
+                          className={`cursor-pointer active:scale-110 transition-transform ${post.hasLiked ? 'text-[#ff3040]' : 'text-white'}`}
+                          onClick={() => onReactPost(post.id, 'LIKE')}
+                      />
+                      <MessageCircle size={26} strokeWidth={1.75} className="cursor-pointer -scale-x-100" onClick={() => openPostDetail(post)} />
+                      <Send size={25} strokeWidth={1.75} className="cursor-pointer" />
+                  </div>
+                  <Bookmark
+                      size={26}
+                      strokeWidth={1.75}
+                      fill={post.hasSaved ? 'white' : 'none'}
+                      className="cursor-pointer"
+                      onClick={() => onReactPost(post.id, 'SAVE')}
+                  />
+              </div>
+
+              {/* Likes */}
+              <div className="px-3 text-[13px]">
+                  {likedByNpc && !post.isPlayer ? (
+                      <div className="flex items-center gap-2">
+                          <img src={likedByNpc.avatar} className="w-5 h-5 rounded-full object-cover border border-black" />
+                          <span>Liked by <span className="font-semibold">{likedByNpc.handle}</span> and <span className="font-semibold">{formatFollowers(Math.max(0, post.likes - 1))} others</span></span>
+                      </div>
+                  ) : (
+                      <div className="font-semibold">{post.likes.toLocaleString()} likes</div>
+                  )}
+              </div>
+
+              {/* Caption */}
+              <div className="px-3 mt-1 text-[13px] leading-snug">
+                  <span className="font-semibold mr-1.5">{post.authorHandle}</span>
+                  <span className="text-white">{post.caption}</span>
+              </div>
+              <button onClick={() => openPostDetail(post)} className={`px-3 mt-1 text-[13px] ${IG.muted}`}>
+                  View all {post.comments.toLocaleString()} comments
+              </button>
+              <div className={`px-3 mt-1 text-[10px] uppercase ${IG.muted}`}>Week {post.week}</div>
+          </article>
+      );
   };
+
+  const renderProfileGrid = (items: InstaPost[], emptyText: string) => (
+      <div className="grid grid-cols-3 gap-[2px]">
+          {items.length === 0 ? (
+              <div className={`col-span-3 py-20 text-center flex flex-col items-center gap-3 ${IG.muted}`}>
+                  <div className="w-16 h-16 rounded-full border-2 border-white flex items-center justify-center text-white"><Camera size={28} strokeWidth={1.25} /></div>
+                  <div className="text-white font-bold text-xl">{emptyText}</div>
+              </div>
+          ) : (
+              items.map(post => (
+                  <button key={post.id} onClick={() => openPostDetail(post)} className="relative block overflow-hidden active:opacity-70">
+                      <InstagramPostVisual post={post} getPostStyle={getPostStyle}>
+                          {post.type === 'REEL' && <Clapperboard size={16} className="absolute top-2 right-2 drop-shadow" />}
+                          {post.type === 'CAROUSEL' && <Images size={16} className="absolute top-2 right-2 drop-shadow" />}
+                      </InstagramPostVisual>
+                  </button>
+              ))
+          )}
+      </div>
+  );
 
   return (
     <div className="absolute inset-0 bg-black flex flex-col z-40 text-white animate-in slide-in-from-right duration-300 overflow-hidden font-sans">
-        
-        {/* HEADER */}
-        <div className="p-4 pt-12 pb-3 border-b border-zinc-800 flex items-center justify-between shrink-0 bg-black z-10">
-            {view === 'MAIN' ? (
+
+        {/* ================= HEADER ================= */}
+        <div className={`pt-12 pb-2 px-4 flex items-center justify-between shrink-0 bg-black z-10 ${view === 'MAIN' && tab === 'FEED' ? '' : `border-b ${IG.divider}`}`}>
+            {view === 'MAIN' && tab === 'FEED' && (
                 <>
-                    {tab === 'FEED' ? (
-                        <>
-                            <button onClick={onBack}><ArrowLeft size={22}/></button>
-                            <div className="font-bold text-lg font-serif italic">Instagram</div>
-                            <div className="flex items-center gap-4">
-                                <button onClick={handleOpenDMInbox} className="relative">
-                                    <Send size={21} />
-                                    {dmContacts.some(entry => entry.state.chatHistory.some(msg => msg.sender === 'NPC' && msg.action?.status === 'PENDING')) && (
-                                        <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 border border-black"></span>
-                                    )}
-                                </button>
-                                <button onClick={() => setIsCreatingPost(true)}><Camera size={22} /></button>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className="font-bold text-lg">{tab === 'SEARCH' ? 'Search' : player.instagram.handle}</div>
-                            <div className="flex items-center gap-4">
-                                <button onClick={handleOpenDMInbox} className="relative">
-                                    <Send size={21} />
-                                    {dmContacts.some(entry => entry.state.chatHistory.some(msg => msg.sender === 'NPC' && msg.action?.status === 'PENDING')) && (
-                                        <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 border border-black"></span>
-                                    )}
-                                </button>
-                                <button onClick={() => setIsCreatingPost(true)}><Camera size={22} /></button>
-                            </div>
-                        </>
-                    )}
-                </>
-            ) : (
-                <>
-                    <button onClick={handleBackNav} className="p-1 -ml-2"><ArrowLeft size={22}/></button>
-                    <div className="font-bold text-sm truncate flex-1 text-center pr-6">
-                        {view === 'POST_DETAIL' ? selectedPost?.authorHandle : view === 'DM_LIST' ? 'Messages' : selectedNPC?.handle}
+                    <div className="flex items-center gap-2">
+                        <button onClick={onBack} className="-ml-1 p-1"><ArrowLeft size={22} /></button>
+                        <div
+                            className="text-[28px] leading-none tracking-tight"
+                            style={{ fontFamily: "'Billabong', 'Grand Hotel', 'Brush Script MT', 'Segoe Script', cursive" }}
+                        >
+                            Instagram
+                        </div>
+                        <ChevronDown size={14} className="mt-1" />
                     </div>
+                    <div className="flex items-center gap-5">
+                        <button className="relative"><Heart size={25} strokeWidth={1.75} /></button>
+                        <button onClick={handleOpenDMInbox} className="relative">
+                            <Send size={24} strokeWidth={1.75} className="-rotate-12 translate-y-[1px]" />
+                            {hasPendingDM && (
+                                <span className="absolute -right-2 -top-2 min-w-[18px] h-[18px] px-1 rounded-full bg-[#ff3040] border-2 border-black text-[10px] font-bold flex items-center justify-center">
+                                    {dmContacts.filter(e => e.state.chatHistory.some(m => m.sender === 'NPC' && m.action?.status === 'PENDING')).length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
+                </>
+            )}
+            {view === 'MAIN' && tab === 'SEARCH' && (
+                <div className={`flex-1 flex items-center gap-2 ${IG.input} rounded-xl px-3 py-2`}>
+                    <Search size={16} className={IG.muted} />
+                    <input
+                        type="text"
+                        placeholder="Search"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="flex-1 bg-transparent text-[15px] text-white placeholder:text-[#a8a8a8] focus:outline-none"
+                    />
+                    {searchQuery && <button onClick={() => setSearchQuery('')}><X size={16} className={IG.muted} /></button>}
+                </div>
+            )}
+            {view === 'MAIN' && tab === 'PROFILE' && (
+                <>
+                    <div className="flex items-center gap-1.5">
+                        <Lock size={13} className="text-white" />
+                        <span className="font-bold text-[20px]">{player.instagram.handle}</span>
+                        <ChevronDown size={16} />
+                    </div>
+                    <div className="flex items-center gap-5">
+                        <button onClick={() => setIsCreatingPost(true)}><PlusSquare size={25} strokeWidth={1.75} /></button>
+                        <button><Menu size={26} strokeWidth={1.75} /></button>
+                    </div>
+                </>
+            )}
+            {view !== 'MAIN' && (
+                <>
+                    <button onClick={handleBackNav} className="p-1 -ml-2"><ArrowLeft size={24} /></button>
+                    {view === 'DM' && selectedNPC ? (
+                        <div className="flex-1 flex items-center gap-2.5 ml-1 min-w-0">
+                            <img src={selectedNPC.avatar} className="w-8 h-8 rounded-full object-cover" />
+                            <div className="min-w-0 leading-tight">
+                                <div className="flex items-center gap-1 text-[14px] font-semibold truncate">{selectedNPC.name} {selectedNPC.tier === 'A_LIST' && <VerifiedBadge />}</div>
+                                <div className={`text-[11px] ${IG.muted} truncate`}>{selectedNPC.handle}</div>
+                            </div>
+                        </div>
+                    ) : view === 'DM_LIST' ? (
+                        <div className="flex-1 flex items-center gap-1 ml-1 font-bold text-[20px]">
+                            {player.instagram.handle} <ChevronDown size={16} />
+                        </div>
+                    ) : (
+                        <div className="font-bold text-[16px] flex-1 text-center pr-6 truncate">
+                            {view === 'POST_DETAIL' ? 'Post' : selectedNPC?.handle}
+                        </div>
+                    )}
+                    {view === 'DM' && (
+                        <div className="flex items-center gap-4">
+                            <Phone size={22} strokeWidth={1.75} />
+                            <Video size={24} strokeWidth={1.75} />
+                        </div>
+                    )}
+                    {view === 'DM_LIST' && <button><PlusSquare size={24} strokeWidth={1.75} /></button>}
+                    {view === 'NPC_PROFILE' && <button><MoreHorizontal size={22} /></button>}
                 </>
             )}
         </div>
 
-        {/* --- MAIN VIEWS (FEED / SEARCH / PROFILE) --- */}
+        {/* ================= MAIN ================= */}
         {view === 'MAIN' && (
             <>
-                {/* FEED TAB */}
+                {/* FEED */}
                 {tab === 'FEED' && (
                     <div className="flex-1 overflow-y-auto custom-scrollbar bg-black">
-                        {/* Stories Rail */}
-                        <div className="flex gap-4 p-4 border-b border-zinc-800 overflow-x-auto no-scrollbar">
-                            <div className="flex flex-col items-center gap-1 shrink-0 cursor-pointer" onClick={() => setIsCreatingPost(true)}>
-                                <div className="w-16 h-16 rounded-full p-[2px] bg-zinc-800 border-2 border-zinc-800 relative">
-                                    <div className="w-full h-full bg-black rounded-full p-0.5 flex items-center justify-center">
-                                        <img src={player.avatar} className="w-full h-full rounded-full object-cover opacity-50" />
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="bg-blue-500 rounded-full p-1 border-2 border-black">
-                                                <div className="text-white font-bold text-lg leading-none">+</div>
-                                            </div>
-                                        </div>
+                        {/* Stories */}
+                        <div className={`flex gap-3.5 px-3 py-2.5 overflow-x-auto no-scrollbar border-b ${IG.divider}`}>
+                            <div className="flex flex-col items-center gap-1.5 shrink-0 cursor-pointer" onClick={() => setIsCreatingPost(true)}>
+                                <div className="w-[76px] h-[76px] rounded-full relative">
+                                    <img src={player.avatar} className="w-full h-full rounded-full object-cover" />
+                                    <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full bg-[#0095f6] border-[3px] border-black flex items-center justify-center">
+                                        <Plus size={14} strokeWidth={3} />
                                     </div>
                                 </div>
-                                <span className="text-[10px] text-zinc-400">Your Story</span>
+                                <span className="text-[11px] text-white">Your story</span>
                             </div>
-                            {npcPool.slice(0, 6).map(npc => (
-                                <div key={npc.id} onClick={() => handleNPCClick(npc)} className="flex flex-col items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-transform">
-                                    <div className="w-16 h-16 rounded-full p-[2px] border-2 border-zinc-800">
-                                        <img src={npc.avatar} className="w-full h-full rounded-full object-cover" />
-                                    </div>
-                                    <span className="text-[10px] text-zinc-400 truncate w-14 text-center">{npc.name.split(' ')[0]}</span>
+                            {npcPool.slice(0, 8).map((npc, i) => (
+                                <div key={npc.id} className="flex flex-col items-center gap-1.5 shrink-0">
+                                    <StoryRing src={npc.avatar} size="w-[76px] h-[76px]" seen={i > 4} onClick={() => handleNPCClick(npc)} />
+                                    <span className="text-[11px] text-white truncate w-[76px] text-center">{npc.handle.replace('@', '')}</span>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Posts Feed */}
-                        <div className="pb-20">
+                        <div className="pb-16">
                             {feed.length === 0 ? (
-                                <div className="p-10 text-center text-zinc-600 text-sm">Feed is empty. Wait a week for updates!</div>
-                            ) : (
-                                feed.map(post => {
-                                    // If author is NPC, find them to link click
-                                    const authorNPC = npcPool.find(n => n.id === post.authorId);
-                                    
-                                    // Fix: Use player avatar directly if it's the player's post, to avoid large base64 strings in post object
-                                    const avatarSrc = getPostAvatar(post);
-
-                                    return (
-                                        <div key={post.id} className="mb-6 border-b border-zinc-900 pb-4">
-                                            <div className="flex items-center gap-2 px-3 mb-2">
-                                                <img 
-                                                    src={avatarSrc} 
-                                                    className="w-8 h-8 rounded-full object-cover cursor-pointer" 
-                                                    onClick={() => authorNPC && handleNPCClick(authorNPC)}
-                                                />
-                                                <div className="flex-1">
-                                                    <div className="font-bold text-xs cursor-pointer" onClick={() => authorNPC && handleNPCClick(authorNPC)}>{post.authorHandle}</div>
-                                                    {!post.isPlayer && <div className="text-[10px] text-zinc-500">Suggested for you</div>}
-                                                </div>
-                                            </div>
-                                            
-                                            {/* VISUAL */}
-                                            <button onClick={() => openPostDetail(post)} className="w-full block">
-                                                <InstagramPostVisual post={post} getPostStyle={getPostStyle} />
-                                            </button>
-
-                                            <div className="px-3 mt-3">
-                                                <div className="flex gap-4 mb-2">
-                                                    <Heart
-                                                        size={22}
-                                                        fill={post.hasLiked ? 'currentColor' : 'none'}
-                                                        className={`cursor-pointer transition-colors ${post.hasLiked ? 'text-red-500' : 'hover:text-red-500'}`}
-                                                        onClick={() => onReactPost(post.id, 'LIKE')}
-                                                    />
-                                                    <MessageCircle size={22} className="cursor-pointer" onClick={() => openPostDetail(post)} />
-                                                    <Send size={22} />
-                                                </div>
-                                                <div className="font-bold text-sm mb-1">{formatFollowers(post.likes)} likes</div>
-                                                <div className="text-xs text-zinc-200">
-                                                    <span className="font-bold mr-2">{post.authorHandle}</span>
-                                                    {post.caption}
-                                                </div>
-                                                <button onClick={() => openPostDetail(post)} className="text-[11px] text-zinc-500 mt-2">
-                                                    View all {formatFollowers(post.comments)} comments
-                                                </button>
-                                                <div className="text-[10px] text-zinc-500 mt-1 uppercase">Week {post.week}</div>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
+                                <div className="py-24 text-center flex flex-col items-center gap-3">
+                                    <div className="w-20 h-20 rounded-full border-2 border-white flex items-center justify-center"><Camera size={34} strokeWidth={1.25} /></div>
+                                    <div className="font-bold text-xl">Welcome to Instagram</div>
+                                    <div className={`text-sm ${IG.muted} max-w-[260px]`}>Follow people to start seeing the photos and videos they share.</div>
+                                </div>
+                            ) : feed.map(renderPostCard)}
                         </div>
                     </div>
                 )}
 
-                {/* SEARCH TAB */}
+                {/* SEARCH */}
                 {tab === 'SEARCH' && (
-                    <div className="flex-1 overflow-y-auto bg-black p-4 custom-scrollbar">
-                        <div className="relative mb-4">
-                            <Search className="absolute left-3 top-2.5 text-zinc-500" size={16} />
-                            <input 
-                                type="text" 
-                                placeholder="Search" 
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-zinc-900 rounded-xl py-2 pl-10 pr-4 text-sm text-white focus:outline-none"
-                            />
+                    <div className="flex-1 overflow-y-auto bg-black custom-scrollbar pb-16">
+                        {searchQuery.trim() === '' && (
+                            <div className="grid grid-cols-3 gap-[2px] mb-2">
+                                {feed.slice(0, 12).map(post => (
+                                    <button key={`explore_${post.id}`} onClick={() => openPostDetail(post)} className="block active:opacity-70">
+                                        <InstagramPostVisual post={post} getPostStyle={getPostStyle} />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+                            <span className="font-semibold text-[15px]">{searchQuery ? 'Accounts' : 'Suggested for you'}</span>
+                            {!searchQuery && <span className="text-[13px] font-semibold">See all</span>}
                         </div>
-                        <div className="space-y-4">
-                            {npcPool.filter(n => n.name.toLowerCase().includes(searchQuery.toLowerCase())).map(npc => {
+                        <div>
+                            {npcPool.filter(n => n.name.toLowerCase().includes(searchQuery.toLowerCase()) || n.handle.toLowerCase().includes(searchQuery.toLowerCase())).map(npc => {
                                 const isFollowing = npcStates[npc.id]?.isFollowing || false;
                                 return (
-                                    <div key={npc.id} onClick={() => handleNPCClick(npc)} className="flex items-center gap-3 active:bg-zinc-900 p-2 rounded-xl transition-colors cursor-pointer">
-                                        <img src={npc.avatar} className="w-12 h-12 rounded-full object-cover" />
-                                        <div className="flex-1">
-                                            <div className="font-bold text-sm flex items-center gap-1">
-                                                {npc.name} 
-                                                {npc.tier === 'A_LIST' && <div className="bg-blue-500 rounded-full p-0.5"><Check size={8} strokeWidth={4} /></div>}
+                                    <div key={npc.id} onClick={() => handleNPCClick(npc)} className="flex items-center gap-3 px-4 py-2 active:bg-[#121212] transition-colors cursor-pointer">
+                                        <img src={npc.avatar} className="w-[54px] h-[54px] rounded-full object-cover" />
+                                        <div className="flex-1 min-w-0 leading-tight">
+                                            <div className="font-semibold text-[14px] flex items-center gap-1 truncate">
+                                                {npc.handle.replace('@', '')}
+                                                {npc.tier === 'A_LIST' && <VerifiedBadge />}
                                             </div>
-                                            <div className="text-xs text-zinc-500">{npc.handle}</div>
+                                            <div className={`text-[13px] ${IG.muted} truncate`}>{npc.name}</div>
+                                            <div className={`text-[12px] ${IG.muted}`}>{formatFollowers(npc.followers)} followers</div>
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={(e) => { e.stopPropagation(); onFollow(npc); }}
-                                            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ${isFollowing ? 'bg-zinc-800 text-zinc-300' : 'bg-blue-600 text-white'}`}
+                                            className={`px-5 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ${isFollowing ? 'bg-[#363636] text-white' : 'bg-[#0095f6] text-white'}`}
                                         >
                                             {isFollowing ? 'Following' : 'Follow'}
                                         </button>
                                     </div>
-                                )
+                                );
                             })}
                         </div>
                     </div>
                 )}
 
-                {/* PROFILE TAB */}
+                {/* PROFILE */}
                 {tab === 'PROFILE' && (
-                    <div className="flex-1 overflow-y-auto bg-black p-0 custom-scrollbar">
-                        <div className="p-4 border-b border-zinc-800">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="w-20 h-20 rounded-full p-[2px] bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500">
-                                    <img src={player.avatar} className="w-full h-full rounded-full object-cover border-2 border-black" />
+                    <div className="flex-1 overflow-y-auto bg-black custom-scrollbar pb-16">
+                        <div className="px-4 pt-3">
+                            <div className="flex items-center gap-6">
+                                <div className="relative shrink-0">
+                                    <StoryRing src={player.avatar} size="w-[86px] h-[86px]" seen />
+                                    <button onClick={() => setIsCreatingPost(true)} className="absolute -bottom-0.5 -right-0.5 w-7 h-7 rounded-full bg-[#0095f6] border-[3px] border-black flex items-center justify-center">
+                                        <Plus size={14} strokeWidth={3} />
+                                    </button>
                                 </div>
-                                <div className="flex flex-1 justify-around text-center ml-2">
-                                    <div>
-                                        <div className="font-bold text-sm">{posts.length}</div>
-                                        <div className="text-[10px] text-zinc-400">Posts</div>
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-sm">{formatFollowers(publicFollowers)}</div>
-                                        <div className="text-[10px] text-zinc-400">Followers</div>
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-sm">{Object.values(npcStates).filter(s => s.isFollowing).length}</div>
-                                        <div className="text-[10px] text-zinc-400">Following</div>
-                                    </div>
+                                <div className="flex flex-1 justify-around text-center">
+                                    <div><div className="font-bold text-[17px]">{posts.length}</div><div className="text-[13px]">posts</div></div>
+                                    <div><div className="font-bold text-[17px]">{formatFollowers(publicFollowers)}</div><div className="text-[13px]">followers</div></div>
+                                    <div><div className="font-bold text-[17px]">{followingCount}</div><div className="text-[13px]">following</div></div>
                                 </div>
                             </div>
-                            <div className="font-bold text-sm">{player.name}</div>
-                            <div className="text-xs text-zinc-300">Actor 🎭 | Dreamer ✨</div>
+                            <div className="mt-3 text-[14px] leading-snug">
+                                <div className="font-semibold">{player.name}</div>
+                                <div className={IG.muted}>Actor</div>
+                                <div>Actor 🎭 | Dreamer ✨</div>
+                                <div className="text-[#e0f1ff]">Week {player.currentWeek} • {player.instagram.weeklyPostCount}/3 posts this week</div>
+                            </div>
+                            <div className="flex gap-2 mt-3">
+                                <button className="flex-1 py-[7px] rounded-lg bg-[#363636] text-[14px] font-semibold">Edit profile</button>
+                                <button className="flex-1 py-[7px] rounded-lg bg-[#363636] text-[14px] font-semibold">Share profile</button>
+                                <button onClick={handleOpenDMInbox} className="w-10 rounded-lg bg-[#363636] flex items-center justify-center"><Send size={16} className="-rotate-12" /></button>
+                            </div>
+
+                            {/* Highlights */}
+                            <div className="flex gap-4 mt-4 overflow-x-auto no-scrollbar">
+                                <div className="flex flex-col items-center gap-1 shrink-0">
+                                    <div className="w-16 h-16 rounded-full border border-[#363636] flex items-center justify-center"><Plus size={24} strokeWidth={1.5} /></div>
+                                    <span className="text-[11px]">New</span>
+                                </div>
+                                {posts.slice(0, 5).map((p, i) => (
+                                    <div key={`hl_${p.id}`} className="flex flex-col items-center gap-1 shrink-0">
+                                        <div className="w-16 h-16 rounded-full border border-[#363636] p-[2px] overflow-hidden">
+                                            <div className="w-full h-full rounded-full overflow-hidden">
+                                                <InstagramPostVisual post={p} getPostStyle={getPostStyle} className="!aspect-auto h-full" />
+                                            </div>
+                                        </div>
+                                        <span className="text-[11px] truncate w-16 text-center">{INSTAGRAM_POST_CONFIGS[p.type]?.shortLabel || `Story ${i + 1}`}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-3 gap-0.5">
-                            {posts.length === 0 ? (
-                                <div className="col-span-3 py-10 text-center text-zinc-600 text-xs">No posts yet.</div>
-                            ) : (
-                                posts.map(post => (
-                                    <div key={post.id} onClick={() => openPostDetail(post)} className="relative group cursor-pointer overflow-hidden">
-                                        <InstagramPostVisual post={post} getPostStyle={getPostStyle}>
-                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                {!post.contentMediaId && !post.contentImage && (
-                                                    <span className="text-[10px] font-black uppercase text-white/50 transform -rotate-12 scale-150">
-                                                        {post.type.replace(/_/g, ' ')}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </InstagramPostVisual>
-                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs font-bold gap-1 transition-opacity z-10">
-                                            <Heart size={12} fill="white"/> {formatFollowers(post.likes)}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
+                        {/* Grid tabs */}
+                        <div className={`flex mt-4 border-b ${IG.divider}`}>
+                            {([['GRID', <Grid size={24} strokeWidth={1.75} />], ['REELS', <Clapperboard size={24} strokeWidth={1.75} />], ['TAGGED', <UserSquare size={24} strokeWidth={1.75} />]] as const).map(([key, icon]) => (
+                                <button
+                                    key={key}
+                                    onClick={() => setProfileGridTab(key)}
+                                    className={`flex-1 py-2.5 flex justify-center border-b-[1.5px] -mb-px ${profileGridTab === key ? 'border-white text-white' : 'border-transparent text-[#a8a8a8]'}`}
+                                >
+                                    {icon}
+                                </button>
+                            ))}
                         </div>
+
+                        {profileGridTab === 'GRID' && renderProfileGrid(posts, 'Share photos')}
+                        {profileGridTab === 'REELS' && renderProfileGrid(posts.filter(p => p.type === 'REEL'), 'Share reels')}
+                        {profileGridTab === 'TAGGED' && renderProfileGrid([], 'Photos of you')}
                     </div>
                 )}
 
                 {/* Bottom Nav */}
-                <div className="flex border-t border-zinc-800 bg-black pb-4 shrink-0">
-                    <button onClick={() => setTab('FEED')} className={`flex-1 py-3 flex justify-center ${tab === 'FEED' ? 'text-white' : 'text-zinc-600'}`}><Grid size={24}/></button>
-                    <button onClick={() => setTab('SEARCH')} className={`flex-1 py-3 flex justify-center ${tab === 'SEARCH' ? 'text-white' : 'text-zinc-600'}`}><Search size={24}/></button>
-                    <button onClick={() => setTab('PROFILE')} className={`flex-1 py-3 flex justify-center ${tab === 'PROFILE' ? 'text-white' : 'text-zinc-600'}`}><User size={24}/></button>
+                <div className={`flex items-center border-t ${IG.divider} bg-black pb-5 pt-1 shrink-0`}>
+                    <button onClick={() => setTab('FEED')} className="flex-1 py-2 flex justify-center"><Home size={26} strokeWidth={tab === 'FEED' ? 2.5 : 1.75} fill={tab === 'FEED' ? 'white' : 'none'} /></button>
+                    <button onClick={() => setTab('SEARCH')} className="flex-1 py-2 flex justify-center"><Search size={26} strokeWidth={tab === 'SEARCH' ? 2.75 : 1.75} /></button>
+                    <button onClick={() => setIsCreatingPost(true)} className="flex-1 py-2 flex justify-center"><PlusSquare size={26} strokeWidth={1.75} /></button>
+                    <button onClick={() => setTab('FEED')} className="flex-1 py-2 flex justify-center"><Clapperboard size={26} strokeWidth={1.75} /></button>
+                    <button onClick={() => setTab('PROFILE')} className="flex-1 py-2 flex justify-center">
+                        <div className={`w-7 h-7 rounded-full p-[1.5px] ${tab === 'PROFILE' ? 'bg-white' : 'bg-transparent'}`}>
+                            <img src={player.avatar} className="w-full h-full rounded-full object-cover" />
+                        </div>
+                    </button>
                 </div>
             </>
         )}
 
-        {/* --- DM INBOX VIEW --- */}
+        {/* ================= DM INBOX ================= */}
         {view === 'DM_LIST' && (
-            <div className="flex-1 overflow-y-auto bg-black custom-scrollbar animate-in slide-in-from-right duration-300 p-4 pb-28">
-                <div className="mb-5 rounded-3xl border border-zinc-800 bg-zinc-950 p-4">
-                    <div className="text-xs font-black uppercase tracking-[0.22em] text-zinc-500 mb-1">Instagram DMs</div>
-                    <div className="text-sm text-zinc-300 leading-relaxed">
-                        Referrals, brand pings, and celebrity messages show up here.
+            <div className="flex-1 overflow-y-auto bg-black custom-scrollbar animate-in slide-in-from-right duration-300 pb-8">
+                <div className="px-4 pt-3">
+                    <div className={`flex items-center gap-2 ${IG.input} rounded-xl px-3 py-2`}>
+                        <Search size={16} className={IG.muted} />
+                        <span className={`text-[15px] ${IG.muted}`}>Search</span>
                     </div>
                 </div>
 
+                {/* Notes rail */}
+                <div className="flex gap-4 px-4 py-4 overflow-x-auto no-scrollbar">
+                    <div className="flex flex-col items-center gap-1 shrink-0 relative">
+                        <div className="absolute -top-3 bg-[#262626] text-[10px] text-[#a8a8a8] px-2.5 py-1.5 rounded-2xl whitespace-nowrap">Note...</div>
+                        <img src={player.avatar} className="w-[70px] h-[70px] rounded-full object-cover mt-5" />
+                        <span className={`text-[11px] ${IG.muted}`}>Your note</span>
+                    </div>
+                    {dmContacts.slice(0, 5).map(({ npc }) => (
+                        <div key={`note_${npc.id}`} className="flex flex-col items-center gap-1 shrink-0" onClick={() => handleOpenDMThread(npc)}>
+                            <img src={npc.avatar} className="w-[70px] h-[70px] rounded-full object-cover mt-5" />
+                            <span className="text-[11px] truncate w-[70px] text-center">{npc.name.split(' ')[0]}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="px-4 flex items-center justify-between mb-1">
+                    <span className="font-bold text-[16px]">Messages</span>
+                    <span className="text-[14px] font-semibold text-[#0095f6]">Requests</span>
+                </div>
+
                 {dmContacts.length === 0 ? (
-                    <div className="py-16 text-center">
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-zinc-900 text-zinc-500">
-                            <Send size={26} />
-                        </div>
-                        <div className="text-sm font-black text-zinc-300">No DMs yet</div>
-                        <div className="mt-2 text-xs text-zinc-600 leading-relaxed">
-                            As your Instagram grows, celebrities, directors, and small brands can message you.
-                        </div>
+                    <div className={`py-20 text-center flex flex-col items-center gap-3 px-8 ${IG.muted}`}>
+                        <div className="w-24 h-24 rounded-full border-2 border-white flex items-center justify-center text-white"><Send size={40} strokeWidth={1.25} className="-rotate-12" /></div>
+                        <div className="text-white font-semibold text-lg">Your messages</div>
+                        <div className="text-sm leading-relaxed">Send private photos and messages to a friend or group. As your profile grows, celebrities, directors, and brands can message you.</div>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div>
                         {dmContacts.map(({ npc, state }) => {
                             const lastMessage = state.chatHistory[state.chatHistory.length - 1];
                             const hasPending = state.chatHistory.some(msg => msg.sender === 'NPC' && msg.action?.status === 'PENDING');
                             return (
-                                <button
-                                    key={npc.id}
-                                    onClick={() => handleOpenDMThread(npc)}
-                                    className="w-full rounded-3xl border border-zinc-800 bg-zinc-950 p-3 text-left active:scale-[0.99] transition-transform"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative shrink-0">
-                                            <img src={npc.avatar} className="h-12 w-12 rounded-2xl object-cover" />
-                                            {hasPending && <span className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-red-500 border-2 border-zinc-950"></span>}
+                                <button key={npc.id} onClick={() => handleOpenDMThread(npc)} className="w-full flex items-center gap-3 px-4 py-2 active:bg-[#121212] text-left">
+                                    <img src={npc.avatar} className="w-14 h-14 rounded-full object-cover shrink-0" />
+                                    <div className="min-w-0 flex-1 leading-tight">
+                                        <div className="flex items-center gap-1">
+                                            <span className={`truncate text-[14px] ${hasPending ? 'font-bold' : 'font-normal'}`}>{npc.name}</span>
+                                            {npc.tier === 'A_LIST' && <VerifiedBadge />}
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <div className="truncate text-sm font-black text-white">{npc.name}</div>
-                                                {npc.tier === 'A_LIST' && <Check size={12} className="text-blue-400 shrink-0" strokeWidth={4} />}
-                                            </div>
-                                            <div className="truncate text-xs text-zinc-500">{npc.handle}</div>
-                                            <div className="mt-1 truncate text-xs text-zinc-300">
-                                                {lastMessage?.sender === 'PLAYER' ? 'You: ' : ''}{lastMessage?.text || 'Open conversation'}
-                                            </div>
-                                        </div>
-                                        <div className={`rounded-full px-2 py-1 text-[9px] font-black uppercase tracking-widest ${hasPending ? 'bg-emerald-500 text-black' : 'bg-zinc-900 text-zinc-500'}`}>
-                                            {hasPending ? 'Action' : 'Open'}
+                                        <div className={`truncate text-[13px] mt-0.5 ${hasPending ? 'text-white font-semibold' : IG.muted}`}>
+                                            {lastMessage?.sender === 'PLAYER' ? 'You: ' : ''}{lastMessage?.text || 'Open conversation'}
                                         </div>
                                     </div>
+                                    {hasPending ? <span className="h-2 w-2 rounded-full bg-[#0095f6] shrink-0" /> : <Camera size={22} strokeWidth={1.5} className={`${IG.muted} shrink-0`} />}
                                 </button>
                             );
                         })}
@@ -769,468 +893,393 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
             </div>
         )}
 
-        {/* --- POST DETAIL VIEW --- */}
+        {/* ================= POST DETAIL ================= */}
         {view === 'POST_DETAIL' && selectedPost && (
-            <div className="flex-1 overflow-y-auto bg-black custom-scrollbar animate-in slide-in-from-right duration-300">
-                <div className="flex items-center gap-3 p-4 border-b border-zinc-900">
-                    <img
-                        src={getPostAvatar(selectedPost)}
-                        className="w-11 h-11 rounded-2xl object-cover border border-white/10"
-                    />
-                    <div className="flex-1 min-w-0">
-                        <div className="font-bold text-sm truncate">{selectedPost.authorName || selectedPost.authorHandle}</div>
-                        <div className="text-[10px] text-zinc-500 uppercase tracking-widest">
-                            {selectedPost.authorHandle} • {INSTAGRAM_POST_CONFIGS[selectedPost.type]?.label || selectedPost.type}
-                        </div>
+            <div className="flex-1 overflow-y-auto bg-black custom-scrollbar animate-in slide-in-from-right duration-300 pb-10">
+                <div className="flex items-center gap-3 px-3 py-2.5">
+                    <img src={getPostAvatar(selectedPost)} className="w-9 h-9 rounded-full object-cover" />
+                    <div className="flex-1 min-w-0 leading-tight">
+                        <div className="font-semibold text-[13px] truncate">{selectedPost.authorHandle}</div>
+                        <div className={`text-[11px] ${IG.muted}`}>{INSTAGRAM_POST_CONFIGS[selectedPost.type]?.label || selectedPost.type}</div>
                     </div>
-                    <div className="px-3 py-1 rounded-full bg-zinc-900 text-[10px] font-black text-zinc-300">
-                        Week {selectedPost.week}
-                    </div>
+                    <MoreHorizontal size={20} />
                 </div>
 
-                <InstagramPostVisual post={selectedPost} getPostStyle={getPostStyle}>
-                    {!selectedPost.contentMediaId && !selectedPost.contentImage && (
-                        <span className="absolute bottom-5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/25 text-[10px] font-black uppercase tracking-widest">
-                            {INSTAGRAM_POST_CONFIGS[selectedPost.type]?.iconLabel || 'Post'}
-                        </span>
-                    )}
-                </InstagramPostVisual>
+                <InstagramPostVisual post={selectedPost} getPostStyle={getPostStyle} />
 
-                <div className="p-4 space-y-4 pb-32">
-                    <div className="flex items-center justify-between">
-                        <div className="flex gap-4">
-                            <Heart
-                                size={24}
-                                className={selectedPost.hasLiked ? 'text-red-500' : 'text-white'}
-                                fill={selectedPost.hasLiked ? 'currentColor' : 'none'}
-                                onClick={() => {
-                                    onReactPost(selectedPost.id, 'LIKE');
-                                    setSelectedPost({ ...selectedPost, hasLiked: !selectedPost.hasLiked, likes: Math.max(0, selectedPost.likes + (selectedPost.hasLiked ? -1 : 1)) });
-                                }}
-                            />
-                            <MessageCircle size={24} />
-                            <Send size={24} />
-                        </div>
-                        <Bookmark
-                            size={23}
-                            className={selectedPost.hasSaved ? 'text-yellow-400' : 'text-white'}
-                            fill={selectedPost.hasSaved ? 'currentColor' : 'none'}
+                <div className="flex items-center justify-between px-3 pt-3 pb-2">
+                    <div className="flex items-center gap-4">
+                        <Heart
+                            size={26} strokeWidth={1.75}
+                            className={`cursor-pointer ${selectedPost.hasLiked ? 'text-[#ff3040]' : 'text-white'}`}
+                            fill={selectedPost.hasLiked ? IG.red : 'none'}
                             onClick={() => {
-                                onReactPost(selectedPost.id, 'SAVE');
-                                setSelectedPost({ ...selectedPost, hasSaved: !selectedPost.hasSaved, saves: Math.max(0, (selectedPost.saves || 0) + (selectedPost.hasSaved ? -1 : 1)) });
+                                onReactPost(selectedPost.id, 'LIKE');
+                                setSelectedPost({ ...selectedPost, hasLiked: !selectedPost.hasLiked, likes: Math.max(0, selectedPost.likes + (selectedPost.hasLiked ? -1 : 1)) });
                             }}
                         />
+                        <MessageCircle size={26} strokeWidth={1.75} className="-scale-x-100" />
+                        <Send size={25} strokeWidth={1.75} />
                     </div>
+                    <Bookmark
+                        size={26} strokeWidth={1.75}
+                        className="cursor-pointer"
+                        fill={selectedPost.hasSaved ? 'white' : 'none'}
+                        onClick={() => {
+                            onReactPost(selectedPost.id, 'SAVE');
+                            setSelectedPost({ ...selectedPost, hasSaved: !selectedPost.hasSaved, saves: Math.max(0, (selectedPost.saves || 0) + (selectedPost.hasSaved ? -1 : 1)) });
+                        }}
+                    />
+                </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="min-w-0 bg-zinc-950 border border-zinc-900 rounded-2xl p-3">
-                            <div className="truncate text-lg font-black">{formatFollowers(selectedPost.likes)}</div>
-                            <div className="text-[9px] text-zinc-500 uppercase font-bold">Likes</div>
-                        </div>
-                        <div className="min-w-0 bg-zinc-950 border border-zinc-900 rounded-2xl p-3">
-                            <div className="truncate text-lg font-black">{formatFollowers(selectedPost.comments)}</div>
-                            <div className="text-[9px] text-zinc-500 uppercase font-bold">Comments</div>
-                        </div>
-                        <div className="min-w-0 bg-zinc-950 border border-zinc-900 rounded-2xl p-3">
-                            <div className="truncate text-lg font-black">{formatFollowers(selectedPost.shares || 0)}</div>
-                            <div className="text-[9px] text-zinc-500 uppercase font-bold">Shares</div>
-                        </div>
-                        <div className="min-w-0 bg-zinc-950 border border-zinc-900 rounded-2xl p-3">
-                            <div className="truncate text-lg font-black">{formatFollowers(selectedPost.saves || 0)}</div>
-                            <div className="text-[9px] text-zinc-500 uppercase font-bold">Saves</div>
-                        </div>
-                    </div>
+                <div className="px-3 text-[13px] font-semibold">{selectedPost.likes.toLocaleString()} likes</div>
+                <div className="px-3 mt-1 text-[13px] leading-snug break-words">
+                    <span className="font-semibold mr-1.5">{selectedPost.authorHandle}</span>{selectedPost.caption}
+                </div>
+                <div className={`px-3 mt-1 text-[10px] uppercase ${IG.muted}`}>Week {selectedPost.week}</div>
 
-                    {selectedPost.isPlayer && selectedPost.engagementScore !== undefined && (
-                        <div className="bg-zinc-950 border border-zinc-900 rounded-2xl p-4 flex items-center gap-3">
-                            <div className="p-2 rounded-xl bg-zinc-900 text-pink-400"><BarChart3 size={18}/></div>
-                                <div className="flex-1 min-w-0">
-                                <div className="text-xs font-black uppercase tracking-widest text-zinc-400">Engagement Score</div>
-                                <div className="h-2 bg-zinc-900 rounded-full mt-2 overflow-hidden">
-                                    <div className="h-full bg-gradient-to-r from-pink-500 to-orange-400" style={{ width: `${selectedPost.engagementScore}%` }}></div>
+                {/* Insights (player posts) */}
+                {selectedPost.isPlayer && (
+                    <div className={`mx-3 mt-4 rounded-xl ${IG.surface} border ${IG.divider} p-3`}>
+                        <div className="flex items-center justify-between mb-3">
+                            <span className="font-semibold text-[14px] flex items-center gap-2"><BarChart3 size={16} /> Insights</span>
+                            {selectedPost.engagementScore !== undefined && <span className={`text-[12px] ${IG.muted}`}>Engagement {selectedPost.engagementScore}</span>}
+                        </div>
+                        <div className="grid grid-cols-4 text-center">
+                            {[['Likes', selectedPost.likes], ['Comments', selectedPost.comments], ['Shares', selectedPost.shares || 0], ['Saves', selectedPost.saves || 0]].map(([label, val]) => (
+                                <div key={label as string}>
+                                    <div className="font-bold text-[16px]">{formatFollowers(val as number)}</div>
+                                    <div className={`text-[11px] ${IG.muted}`}>{label}</div>
                                 </div>
+                            ))}
+                        </div>
+                        {selectedPost.engagementScore !== undefined && (
+                            <div className="h-1 bg-[#262626] rounded-full mt-3 overflow-hidden">
+                                <div className="h-full bg-[#0095f6]" style={{ width: `${selectedPost.engagementScore}%` }} />
                             </div>
-                            <div className="text-xl font-black">{selectedPost.engagementScore}</div>
+                        )}
+                    </div>
+                )}
+
+                {/* Comments */}
+                <div className={`mt-4 border-t ${IG.divider}`}>
+                    <div className="px-3 py-3 font-semibold text-[14px]">Comments</div>
+                    {(selectedPost.commentList && selectedPost.commentList.length > 0 ? selectedPost.commentList : ['Love this.', 'Need more posts like this.', 'The feed is alive.']).map((comment, idx) => {
+                        const author = getCommentAuthor(selectedPost.type, idx);
+                        return (
+                            <div key={`${selectedPost.id}_comment_${idx}`} className="flex gap-3 items-start px-3 py-2.5">
+                                <img src={`https://api.dicebear.com/8.x/pixel-art/svg?seed=${encodeURIComponent(author)}`} className="w-8 h-8 rounded-full bg-[#262626] shrink-0" />
+                                <div className="flex-1 min-w-0 text-[13px] leading-snug">
+                                    <div><span className="font-semibold mr-1.5">{author}</span><span className="break-words whitespace-pre-wrap">{comment}</span></div>
+                                    <div className={`flex gap-4 text-[11px] mt-1 ${IG.muted}`}>
+                                        <span>{Math.max(1, 12 - idx * 2)}w</span>
+                                        <span>{Math.max(1, (selectedPost.likes >> (4 + idx)) )} likes</span>
+                                        <span className="font-semibold">Reply</span>
+                                    </div>
+                                </div>
+                                <Heart size={12} className={`${IG.muted} mt-1 shrink-0`} />
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Comment composer */}
+                <div className={`sticky bottom-0 bg-black border-t ${IG.divider} px-3 py-2.5 flex items-center gap-3`}>
+                    <img src={player.avatar} className="w-8 h-8 rounded-full object-cover" />
+                    <div className={`flex-1 ${IG.input} rounded-full px-4 py-2 text-[13px] ${IG.muted}`}>Add a comment for {selectedPost.authorHandle}...</div>
+                </div>
+            </div>
+        )}
+
+        {/* ================= NPC PROFILE ================= */}
+        {view === 'NPC_PROFILE' && selectedNPC && (
+            <div className="flex-1 overflow-y-auto bg-black custom-scrollbar animate-in slide-in-from-right duration-300 pb-10">
+                <div className="px-4 pt-3">
+                    <div className="flex items-center gap-6">
+                        <StoryRing src={selectedNPC.avatar} size="w-[86px] h-[86px]" onClick={() => {}} />
+                        <div className="flex flex-1 justify-around text-center">
+                            <div><div className="font-bold text-[17px]">{formatFollowers(selectedNpcPostCount)}</div><div className="text-[13px]">posts</div></div>
+                            <div><div className="font-bold text-[17px]">{formatFollowers(selectedNPC.followers)}</div><div className="text-[13px]">followers</div></div>
+                            <div><div className="font-bold text-[17px]">{formatFollowers(selectedNpcFollowingCount)}</div><div className="text-[13px]">following</div></div>
+                        </div>
+                    </div>
+                    <div className="mt-3 text-[14px] leading-snug">
+                        <div className="font-semibold flex items-center gap-1">{selectedNPC.name} {selectedNPC.tier === 'A_LIST' && <VerifiedBadge size={14} />}</div>
+                        <div className={IG.muted}>{isBrand(selectedNPC) ? 'Brand' : selectedNPC.occupation.charAt(0) + selectedNPC.occupation.slice(1).toLowerCase()} • {selectedNPC.tier.replace('_', ' ')}</div>
+                        <div className="mt-0.5">{selectedNPC.bio}</div>
+                    </div>
+                    {npcStates[selectedNPC.id]?.relationshipScore !== undefined && (
+                        <div className={`mt-2 text-[12px] ${IG.muted}`}>
+                            Relationship: <span className={getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).color}>{getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).label}</span>
                         </div>
                     )}
-
-                    <div className="text-sm text-zinc-200 leading-relaxed break-words">
-                        <span className="font-black mr-2">{selectedPost.authorHandle}</span>
-                        {selectedPost.caption}
-                    </div>
-
-                    <div className="space-y-3 pb-8">
-                        <div className="text-xs font-black uppercase tracking-widest text-zinc-500">Comments</div>
-                        {(selectedPost.commentList && selectedPost.commentList.length > 0 ? selectedPost.commentList : ['Love this.', 'Need more posts like this.', 'The feed is alive.']).map((comment, idx) => (
-                            <div key={`${selectedPost.id}_comment_${idx}`} className="flex gap-3 items-start">
-                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-zinc-600 via-zinc-800 to-black border border-white/10 flex items-center justify-center text-[10px] font-black shrink-0">
-                                    {getCommentAuthor(selectedPost.type, idx).slice(1, 2).toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0 bg-zinc-950 border border-zinc-900 rounded-2xl p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                                    <div className="text-[10px] font-bold text-zinc-500 mb-1 truncate">{getCommentAuthor(selectedPost.type, idx)}</div>
-                                    <div className="text-xs text-zinc-200 leading-relaxed break-words whitespace-pre-wrap">{comment}</div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* --- NPC PROFILE VIEW --- */}
-        {view === 'NPC_PROFILE' && selectedNPC && (
-            <div className="flex-1 overflow-y-auto bg-black p-0 custom-scrollbar animate-in slide-in-from-right duration-300">
-                <div className="p-4 border-b border-zinc-800">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="w-20 h-20 rounded-full p-[2px] border-2 border-zinc-800">
-                            <img src={selectedNPC.avatar} className="w-full h-full rounded-full object-cover" />
-                        </div>
-                        <div className="flex flex-1 justify-around text-center ml-2">
-                            <div>
-                                <div className="font-bold text-sm">{formatFollowers(selectedNpcPostCount)}</div>
-                                <div className="text-[10px] text-zinc-400">Posts</div>
-                            </div>
-                            <div>
-                                <div className="font-bold text-sm">{formatFollowers(selectedNPC.followers)}</div>
-                                <div className="text-[10px] text-zinc-400">Followers</div>
-                            </div>
-                            <div>
-                                <div className="font-bold text-sm">{formatFollowers(selectedNpcFollowingCount)}</div>
-                                <div className="text-[10px] text-zinc-400">Following</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="font-bold text-sm flex items-center gap-1">
-                        {selectedNPC.name} 
-                        {selectedNPC.tier === 'A_LIST' && <Check size={12} className="text-blue-500 bg-white rounded-full p-0.5" strokeWidth={4} />}
-                    </div>
-                    <div className="text-xs text-zinc-400 mb-2">
-                        {(selectedNPC.id.startsWith('ig_brand_account_') || selectedNPC.forbesCategory === 'Brand') ? 'BRAND' : selectedNPC.occupation} • {selectedNPC.tier.replace('_', ' ')}
-                    </div>
-                    <div className="text-xs text-zinc-300 mb-4">{selectedNPC.bio}</div>
-
-                    <div className="flex gap-2">
-                        <button 
+                    <div className="flex gap-2 mt-3">
+                        <button
                             onClick={() => onFollow(selectedNPC)}
-                            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-colors ${npcStates[selectedNPC.id]?.isFollowing ? 'bg-zinc-800 text-white' : 'bg-blue-600 text-white'}`}
+                            className={`flex-1 py-[7px] rounded-lg text-[14px] font-semibold flex items-center justify-center gap-1 ${npcStates[selectedNPC.id]?.isFollowing ? 'bg-[#363636] text-white' : 'bg-[#0095f6] text-white'}`}
                         >
-                            {npcStates[selectedNPC.id]?.isFollowing ? 'Following' : 'Follow'}
+                            {npcStates[selectedNPC.id]?.isFollowing ? <>Following <ChevronDown size={14} /></> : 'Follow'}
                         </button>
-                        <button 
-                            onClick={handleOpenDM}
-                            className="flex-1 py-2 bg-zinc-800 text-white rounded-lg text-sm font-bold"
-                        >
-                            Message
-                        </button>
+                        <button onClick={handleOpenDM} className="flex-1 py-[7px] bg-[#363636] text-white rounded-lg text-[14px] font-semibold">Message</button>
+                        <button className="w-10 rounded-lg bg-[#363636] flex items-center justify-center"><ChevronDown size={16} /></button>
                     </div>
                 </div>
-                
-                <div className="grid grid-cols-3 gap-0.5">
-                    {selectedNpcProfilePosts.map(post => (
-                        <button key={post.id} onClick={() => openPostDetail(post)} className="relative block overflow-hidden active:opacity-80">
-                            <InstagramPostVisual post={post} getPostStyle={getPostStyle}>
-                                <div className="absolute inset-0 bg-black/0 hover:bg-black/35 transition-colors"></div>
-                                {!post.contentMediaId && !post.contentImage && (
-                                    <span className="absolute bottom-2 left-2 right-2 truncate text-[8px] font-black uppercase tracking-widest text-white/70">
-                                        {INSTAGRAM_POST_CONFIGS[post.type]?.shortLabel || post.type}
-                                    </span>
-                                )}
-                            </InstagramPostVisual>
-                        </button>
-                    ))}
+
+                <div className={`flex mt-4 border-b ${IG.divider}`}>
+                    <button className="flex-1 py-2.5 flex justify-center border-b-[1.5px] -mb-px border-white"><Grid size={24} strokeWidth={1.75} /></button>
+                    <button className="flex-1 py-2.5 flex justify-center text-[#a8a8a8]"><Clapperboard size={24} strokeWidth={1.75} /></button>
+                    <button className="flex-1 py-2.5 flex justify-center text-[#a8a8a8]"><UserSquare size={24} strokeWidth={1.75} /></button>
                 </div>
+
+                {renderProfileGrid(selectedNpcProfilePosts, 'No posts yet')}
             </div>
         )}
 
+        {/* ================= DM THREAD ================= */}
         {view === 'DM' && selectedNPC && (
             <div className="flex-1 flex flex-col bg-black animate-in slide-in-from-right duration-300 min-h-0">
-                <div className="p-4 border-b border-zinc-800 bg-zinc-950 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <img src={selectedNPC.avatar} className="w-10 h-10 rounded-full object-cover" />
-                        <div className="flex-1">
-                            <div className="flex justify-between items-end mb-1">
-                                <span className={`text-xs font-bold ${getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).color}`}>
-                                    {getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).label}
-                                </span>
-                                <span className="text-[10px] text-zinc-500">{(npcStates[selectedNPC.id]?.relationshipScore || 0)}/100</span>
+                <div className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar">
+                    {/* Contact card */}
+                    <div className="flex flex-col items-center text-center py-6 gap-2">
+                        <img src={selectedNPC.avatar} className="w-24 h-24 rounded-full object-cover" />
+                        <div className="font-semibold text-[16px] flex items-center gap-1">{selectedNPC.name} {selectedNPC.tier === 'A_LIST' && <VerifiedBadge size={14} />}</div>
+                        <div className={`text-[13px] ${IG.muted}`}>{selectedNPC.handle} • Instagram</div>
+                        <div className={`text-[13px] ${IG.muted}`}>{formatFollowers(selectedNPC.followers)} followers • {formatFollowers(selectedNpcPostCount)} posts</div>
+                        <div className="w-full max-w-[240px] mt-2">
+                            <div className="flex justify-between text-[11px] mb-1">
+                                <span className={getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).color}>{getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).label}</span>
+                                <span className={IG.muted}>{npcStates[selectedNPC.id]?.relationshipScore || 0}/100</span>
                             </div>
-                            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                                <div 
-                                    className={`h-full transition-all duration-500 ${getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).bar}`} 
-                                    style={{ width: `${(npcStates[selectedNPC.id]?.relationshipScore || 0)}%` }}
-                                ></div>
+                            <div className="h-1 bg-[#262626] rounded-full overflow-hidden">
+                                <div className={`h-full transition-all duration-500 ${getRelationshipLabel(npcStates[selectedNPC.id]?.relationshipScore || 0).bar}`} style={{ width: `${npcStates[selectedNPC.id]?.relationshipScore || 0}%` }} />
                             </div>
                         </div>
+                        <button onClick={() => { setView('NPC_PROFILE'); }} className="mt-2 px-4 py-1.5 bg-[#363636] rounded-lg text-[13px] font-semibold">View profile</button>
                     </div>
-                </div>
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-                    <div className="text-center text-xs text-zinc-600 py-4">Start of conversation with {selectedNPC.name}</div>
-                    {npcStates[selectedNPC.id]?.chatHistory?.map((msg, idx) => (
-                        <div key={idx} className={`flex ${msg.sender === 'PLAYER' ? 'justify-end' : 'justify-start'}`}>
-                            {msg.text === 'Seen' ? (
-                                <div className="text-[10px] text-zinc-600 italic px-2 py-1">Seen</div>
-                            ) : (
-                                <div className={`max-w-[86%] p-3 rounded-2xl text-sm break-words ${msg.sender === 'PLAYER' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-zinc-800 text-zinc-200 rounded-bl-none'}`}>
-                                    <div className="leading-relaxed whitespace-pre-wrap">{msg.text}</div>
-                                    {msg.sender === 'NPC' && msg.action && (
-                                        <div className="mt-3 rounded-2xl border border-white/10 bg-black/25 p-3">
-                                            <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-black mb-2">
-                                                {getDmActionTitle(msg.action.kind)}
-                                            </div>
-                                            <div className="mb-3 rounded-xl bg-zinc-950/70 p-2 text-[11px] leading-relaxed text-zinc-300">
-                                                {getDmActionDetails(msg.action)}
-                                            </div>
-                                            {msg.action.status === 'PENDING' ? (
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <button
-                                                        onClick={() => onRespondDM(selectedNPC, msg.action!.id, true)}
-                                                        className="rounded-xl bg-emerald-500 px-3 py-2 text-[11px] font-black text-black"
-                                                    >
-                                                        {msg.action.kind === 'IG_BRAND_OFFER' ? 'Accept Deal' : msg.action.kind === 'IG_REFERRAL' ? 'Accept Referral' : 'Reply'}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => onRespondDM(selectedNPC, msg.action!.id, false)}
-                                                        className="rounded-xl bg-zinc-700 px-3 py-2 text-[11px] font-black text-white"
-                                                    >
-                                                        Pass
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <div className={`text-[11px] font-black uppercase tracking-widest ${msg.action.status === 'ACCEPTED' ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                                                    {msg.action.status === 'ACCEPTED' ? 'Accepted' : 'Declined'}
+                    <div className="space-y-1.5">
+                        {npcStates[selectedNPC.id]?.chatHistory?.map((msg, idx) => (
+                            <div key={idx} className={`flex items-end gap-2 ${msg.sender === 'PLAYER' ? 'justify-end' : 'justify-start'}`}>
+                                {msg.text === 'Seen' ? (
+                                    <div className={`w-full text-right text-[11px] ${IG.muted} pr-1 pt-1`}>Seen</div>
+                                ) : (
+                                    <>
+                                        {msg.sender === 'NPC' && <img src={selectedNPC.avatar} className="w-6 h-6 rounded-full object-cover shrink-0" />}
+                                        <div className={`max-w-[75%] px-3.5 py-2 rounded-[22px] text-[14px] break-words ${msg.sender === 'PLAYER' ? 'bg-[#3797f0] text-white' : 'bg-[#262626] text-white'}`}>
+                                            <div className="leading-snug whitespace-pre-wrap">{msg.text}</div>
+                                            {msg.sender === 'NPC' && msg.action && (
+                                                <div className="mt-2.5 rounded-2xl bg-black/40 border border-white/10 overflow-hidden">
+                                                    <div className="px-3 py-2 border-b border-white/10">
+                                                        <div className="text-[12px] font-semibold">{getDmActionTitle(msg.action.kind)}</div>
+                                                        <div className={`text-[11px] mt-0.5 ${IG.muted}`}>{getDmActionDetails(msg.action)}</div>
+                                                    </div>
+                                                    {msg.action.status === 'PENDING' ? (
+                                                        <div className="grid grid-cols-2 divide-x divide-white/10">
+                                                            <button onClick={() => onRespondDM(selectedNPC, msg.action!.id, true)} className="py-2.5 text-[13px] font-semibold text-[#0095f6]">
+                                                                {msg.action.kind === 'IG_BRAND_OFFER' ? 'Accept' : msg.action.kind === 'IG_REFERRAL' ? 'Accept' : 'Reply'}
+                                                            </button>
+                                                            <button onClick={() => onRespondDM(selectedNPC, msg.action!.id, false)} className="py-2.5 text-[13px] font-semibold text-[#ff3040]">Decline</button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className={`py-2 text-center text-[12px] font-semibold ${msg.action.status === 'ACCEPTED' ? 'text-emerald-400' : IG.muted}`}>
+                                                            {msg.action.status === 'ACCEPTED' ? 'Accepted' : 'Declined'}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                    <div ref={chatEndRef}></div>
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <div ref={chatEndRef} />
                 </div>
 
-                <div className="p-3 border-t border-zinc-800 bg-zinc-950 shrink-0">
-                    <div className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-2 pl-1">Actions</div>
+                {/* Composer / actions */}
+                <div className="px-3 pb-5 pt-2 bg-black shrink-0">
                     {selectedPendingDmAction ? (
-                        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-100">
-                            Reply to the pending {getDmActionTitle(selectedPendingDmAction.kind).toLowerCase()} first. Quick chat is paused so you do not accidentally dodge an offer or referral.
+                        <div className={`rounded-2xl ${IG.surface} border ${IG.divider} p-3 text-[13px] leading-snug flex gap-2`}>
+                            <Info size={16} className="text-[#0095f6] shrink-0 mt-0.5" />
+                            <span className={IG.muted}>Reply to the pending {getDmActionTitle(selectedPendingDmAction.kind).toLowerCase()} above first. Quick chat is paused so you don't accidentally dodge an offer.</span>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => onInteract(selectedNPC, 'GREET')} disabled={player.energy.current < 5} className="bg-zinc-800 hover:bg-zinc-700 p-2 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-50">
-                                <div className="p-1.5 bg-zinc-700 rounded-full"><MessageCircle size={14} className="text-white"/></div>
-                                <div className="text-left"><div className="text-xs font-bold text-white">Greet</div><div className="text-[10px] text-zinc-500">-5 Energy</div></div>
-                            </button>
-                            <button onClick={() => onInteract(selectedNPC, 'COMPLIMENT')} disabled={player.energy.current < 10 || (npcStates[selectedNPC.id]?.relationshipScore || 0) < 20} className="bg-zinc-800 hover:bg-zinc-700 p-2 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-30">
-                                <div className="p-1.5 bg-zinc-700 rounded-full"><Sparkles size={14} className="text-yellow-400"/></div>
-                                <div className="text-left"><div className="text-xs font-bold text-white">Compliment</div><div className="text-[10px] text-zinc-500">Rel 20+ • -10E</div></div>
-                            </button>
-                            <button onClick={() => onInteract(selectedNPC, 'COFFEE')} disabled={player.energy.current < 15 || (npcStates[selectedNPC.id]?.relationshipScore || 0) < 40} className="bg-zinc-800 hover:bg-zinc-700 p-2 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-30">
-                                <div className="p-1.5 bg-zinc-700 rounded-full"><Coffee size={14} className="text-orange-400"/></div>
-                                <div className="text-left"><div className="text-xs font-bold text-white">Coffee</div><div className="text-[10px] text-zinc-500">Rel 40+ • -15E</div></div>
-                            </button>
-                            <button onClick={() => onInteract(selectedNPC, 'COLLAB')} disabled={player.energy.current < 20 || (npcStates[selectedNPC.id]?.relationshipScore || 0) < 60} className="bg-zinc-800 hover:bg-zinc-700 p-2 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-30">
-                                <div className="p-1.5 bg-zinc-700 rounded-full"><Briefcase size={14} className="text-blue-400"/></div>
-                                <div className="text-left"><div className="text-xs font-bold text-white">Collab</div><div className="text-[10px] text-zinc-500">Rel 60+ • -20E</div></div>
-                            </button>
-                        </div>
+                        <>
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                                {[
+                                    { label: 'Greet', sub: '-5E', icon: <MessageCircle size={14} />, type: 'GREET' as InteractionType, disabled: player.energy.current < 5 },
+                                    { label: 'Compliment', sub: 'Rel 20+ • -10E', icon: <Sparkles size={14} />, type: 'COMPLIMENT' as InteractionType, disabled: player.energy.current < 10 || (npcStates[selectedNPC.id]?.relationshipScore || 0) < 20 },
+                                    { label: 'Coffee', sub: 'Rel 40+ • -15E', icon: <Coffee size={14} />, type: 'COFFEE' as InteractionType, disabled: player.energy.current < 15 || (npcStates[selectedNPC.id]?.relationshipScore || 0) < 40 },
+                                    { label: 'Collab', sub: 'Rel 60+ • -20E', icon: <Briefcase size={14} />, type: 'COLLAB' as InteractionType, disabled: player.energy.current < 20 || (npcStates[selectedNPC.id]?.relationshipScore || 0) < 60 }
+                                ].map(a => (
+                                    <button
+                                        key={a.type}
+                                        onClick={() => onInteract(selectedNPC, a.type)}
+                                        disabled={a.disabled}
+                                        className="shrink-0 flex items-center gap-2 bg-[#262626] rounded-full pl-3 pr-4 py-2 text-[13px] disabled:opacity-40 active:scale-95 transition-transform"
+                                    >
+                                        <span className="text-[#0095f6]">{a.icon}</span>
+                                        <span className="font-semibold">{a.label}</span>
+                                        <span className={`text-[10px] ${IG.muted}`}>{a.sub}</span>
+                                    </button>
+                                ))}
+                            </div>
+                            <div className={`flex items-center gap-2 ${IG.input} rounded-full pl-1.5 pr-3 py-1.5`}>
+                                <div className="w-9 h-9 rounded-full bg-[#3797f0] flex items-center justify-center shrink-0"><Camera size={18} /></div>
+                                <span className={`flex-1 text-[14px] ${IG.muted}`}>Message...</span>
+                                <Images size={22} strokeWidth={1.75} />
+                                <Smile size={22} strokeWidth={1.75} />
+                            </div>
+                        </>
                     )}
                     {!selectedPendingDmAction && (npcStates[selectedNPC.id]?.relationshipScore || 0) >= 80 && !(npcStates[selectedNPC.id]?.hasMet) && (
-                        <button onClick={() => onInteract(selectedNPC, 'BEFRIEND')} className="w-full mt-3 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 animate-in slide-in-from-bottom">
-                            <Handshake size={16}/> Befriend & Add to Network
+                        <button onClick={() => onInteract(selectedNPC, 'BEFRIEND')} className="w-full mt-2 py-2.5 bg-[#0095f6] text-white font-semibold rounded-lg text-[14px] flex items-center justify-center gap-2 animate-in slide-in-from-bottom">
+                            <Handshake size={16} /> Befriend & Add to Network
                         </button>
                     )}
                 </div>
             </div>
         )}
 
-        {/* --- POST CREATOR MODAL (REDESIGNED) --- */}
+        {/* ================= NEW POST ================= */}
         {isCreatingPost && (
             <div className="absolute inset-0 bg-black z-50 flex flex-col animate-in slide-in-from-bottom duration-300">
-                <div className="flex justify-between items-center px-4 pt-12 pb-3 bg-zinc-950/95 border-b border-zinc-800 shrink-0">
-                    <button onClick={closeCreator} className="rounded-full bg-zinc-900 border border-zinc-800 p-2 active:scale-95 transition-transform">
-                        <XCircle size={21} className="text-zinc-400"/>
-                    </button>
-                    <div className="text-center">
-                        <h3 className="text-white font-black text-lg leading-tight">Create Post</h3>
-                        <div className="text-[9px] text-zinc-500 font-black uppercase tracking-[0.25em]">Instagram Studio</div>
-                    </div>
-                    <div className="w-10" />
-                </div>
-
-                <div className="flex-1 overflow-y-auto custom-scrollbar bg-black pb-36">
-                    <div className="p-4 space-y-4">
-                        <div className="rounded-[2rem] border border-zinc-800 bg-gradient-to-b from-zinc-950 to-black p-3 shadow-2xl">
-                            <div className={`aspect-square rounded-[1.45rem] relative overflow-hidden flex items-center justify-center border border-white/10 ${getPostStyle(selectedPresetType)}`}>
-                                {imageSourceUrl ? (
-                                    <img
-                                        src={imageSourceUrl}
-                                        alt="Selected Instagram post"
-                                        className={imageImageClass(imageFitMode)}
-                                        style={imageImageStyle(imageZoom, imageOffsetX, imageOffsetY)}
-                                    />
-                                ) : (
-                                    <>
-                                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.2),transparent_28%),radial-gradient(circle_at_80%_75%,rgba(0,0,0,0.25),transparent_32%)]" />
-                                        <div className="relative z-10 text-center px-6">
-                                            <div className="text-white/90 font-black text-4xl uppercase tracking-tighter transform -rotate-6 drop-shadow-xl">
-                                                {selectedConfig.shortLabel}
-                                            </div>
-                                            <div className="text-[10px] text-white/60 mt-3 font-black uppercase tracking-[0.25em]">
-                                                Generated visual
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
-                                <button
-                                    onClick={() => imageInputRef.current?.click()}
-                                    className="absolute right-3 top-3 rounded-full bg-black/75 backdrop-blur border border-white/15 px-3 py-2 text-[10px] font-black uppercase tracking-widest flex items-center gap-1 active:scale-95 transition-transform"
-                                >
-                                    <ImagePlus size={13} /> {imageSourceUrl ? 'Change' : 'Upload'}
-                                </button>
-                            </div>
-                            <input
-                                ref={imageInputRef}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={handleImageSelected}
-                            />
-                            <div className="mt-3 flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                    <div className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Selected style</div>
-                                    <div className={`font-black text-lg truncate ${selectedConfig.accentClass}`}>{selectedConfig.label}</div>
-                                </div>
-                                <div className="text-right shrink-0">
-                                    <div className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Cost</div>
-                                    <div className="text-white font-black flex items-center gap-1 justify-end"><Zap size={13} className="text-amber-400" /> {selectedConfig.energy}E</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {imageSourceUrl && (
-                            <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-950 p-3 space-y-4">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <div className="text-white font-black text-sm">Image Fit</div>
-                                        <div className="text-[11px] text-zinc-500">Crop, fit, and position before posting.</div>
-                                    </div>
-                                    <button onClick={resetImageDraft} className="rounded-full border border-zinc-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300">
-                                        Remove
-                                    </button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        onClick={() => setImageFitMode('cover')}
-                                        className={`rounded-2xl p-3 text-left border ${imageFitMode === 'cover' ? 'bg-white text-black border-white' : 'bg-zinc-900 border-zinc-800 text-white'}`}
-                                    >
-                                        <div className="font-black text-xs uppercase tracking-widest">Cover</div>
-                                        <div className="text-[10px] opacity-70 mt-1">Fill square.</div>
-                                    </button>
-                                    <button
-                                        onClick={() => setImageFitMode('contain')}
-                                        className={`rounded-2xl p-3 text-left border ${imageFitMode === 'contain' ? 'bg-white text-black border-white' : 'bg-zinc-900 border-zinc-800 text-white'}`}
-                                    >
-                                        <div className="font-black text-xs uppercase tracking-widest">Fit Full</div>
-                                        <div className="text-[10px] opacity-70 mt-1">Show all.</div>
-                                    </button>
-                                </div>
-
-                                {[
-                                    { label: 'Zoom', value: imageZoom, min: 1, max: 2.4, step: 0.05, onChange: setImageZoom },
-                                    { label: 'Move Left / Right', value: imageOffsetX, min: -320, max: 320, step: 5, onChange: setImageOffsetX },
-                                    { label: 'Move Up / Down', value: imageOffsetY, min: -320, max: 320, step: 5, onChange: setImageOffsetY }
-                                ].map(control => (
-                                    <label key={control.label} className="block">
-                                        <div className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-2">{control.label}</div>
-                                        <input
-                                            type="range"
-                                            min={control.min}
-                                            max={control.max}
-                                            step={control.step}
-                                            value={control.value}
-                                            onChange={(e) => control.onChange(Number(e.target.value))}
-                                            className="w-full accent-pink-500"
-                                        />
-                                    </label>
-                                ))}
-                            </div>
-                        )}
-
-                        {imageError && <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200">{imageError}</div>}
-
-                        <div className="rounded-[1.5rem] border border-zinc-800 bg-zinc-950 p-3">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">Caption</div>
-                                <div className="text-[10px] text-zinc-600 font-bold">Optional</div>
-                            </div>
-                            <textarea
-                                value={postCaption}
-                                onChange={(e) => setPostCaption(e.target.value)}
-                                placeholder="Write a caption, or leave blank for an auto caption..."
-                                className="w-full bg-black text-white p-3 rounded-2xl border border-zinc-800 focus:outline-none focus:border-zinc-600 min-h-[86px] text-sm resize-none"
-                            />
-                        </div>
-
-                        <div className="space-y-3">
-                            <div className="flex items-end justify-between gap-3 px-1">
-                                <div>
-                                    <h4 className="text-xs font-black text-zinc-400 uppercase tracking-[0.22em]">Choose Post Style</h4>
-                                    <div className="text-[11px] text-zinc-600 mt-1">Style affects reach, fan reaction, and event chances.</div>
-                                </div>
-                                <div className="text-[10px] text-zinc-500 font-black uppercase tracking-widest shrink-0">
-                                    {player.instagram.weeklyPostCount}/3 week
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 gap-2">
-                                {postTypeOptions.map(option => {
-                                    const isSelected = selectedPresetType === option.type;
-                                    const isLocked = Boolean(option.lockReason);
-                                    return (
-                                        <button
-                                            key={option.type}
-                                            onClick={() => {
-                                                if (!isLocked) setSelectedPresetType(option.type);
-                                            }}
-                                            disabled={isLocked}
-                                            className={`w-full rounded-2xl border p-3 text-left transition-all active:scale-[0.99] ${getTypeTintClasses(option.tint, isSelected, isLocked)}`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`h-10 w-10 rounded-2xl flex items-center justify-center border ${isSelected ? 'bg-white text-black border-white' : 'bg-black/35 border-white/10'}`}>
-                                                    {isLocked ? <Lock size={16} /> : option.icon}
-                                                </div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="font-black text-sm truncate">{option.title}</div>
-                                                        {isSelected && <span className="rounded-full bg-white text-black px-2 py-0.5 text-[8px] font-black uppercase tracking-widest">Selected</span>}
-                                                    </div>
-                                                    <div className={`text-[11px] mt-0.5 ${isLocked ? 'text-zinc-600' : 'text-zinc-400'}`}>
-                                                        {option.lockReason || option.subtitle}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="text-[11px] text-zinc-400 bg-zinc-950 border border-zinc-900 p-3 rounded-2xl leading-relaxed">
-                            <span className={`font-black ${selectedConfig.accentClass}`}>{selectedConfig.label}: </span>
-                            {selectedConfig.description}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent px-4 pt-8 pb-6">
+                <div className={`flex justify-between items-center px-4 pt-12 pb-3 border-b ${IG.divider} shrink-0`}>
+                    <button onClick={closeCreator} className="p-1 -ml-1"><X size={26} /></button>
+                    <h3 className="font-bold text-[16px]">New post</h3>
                     <button
                         onClick={handleCreatePost}
                         disabled={isImageProcessing}
-                        className="w-full rounded-[1.4rem] bg-gradient-to-r from-pink-600 via-red-500 to-orange-400 py-4 text-white font-black tracking-wide shadow-[0_18px_45px_rgba(244,63,94,0.28)] disabled:opacity-50 active:scale-[0.99] transition-transform"
+                        className="text-[#0095f6] font-semibold text-[15px] disabled:opacity-50"
                     >
-                        {isImageProcessing ? 'Saving Post...' : 'Share Post'}
+                        {isImageProcessing ? 'Sharing…' : 'Share'}
                     </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-black pb-10">
+                    {/* Preview */}
+                    <div className={`aspect-square relative overflow-hidden flex items-center justify-center ${imageSourceUrl ? 'bg-black' : getPostStyle(selectedPresetType)}`}>
+                        {imageSourceUrl ? (
+                            <img
+                                src={imageSourceUrl}
+                                alt="Selected Instagram post"
+                                className={imageImageClass(imageFitMode)}
+                                style={imageImageStyle(imageZoom, imageOffsetX, imageOffsetY)}
+                            />
+                        ) : (
+                            <>
+                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.2),transparent_28%),radial-gradient(circle_at_80%_75%,rgba(0,0,0,0.25),transparent_32%)]" />
+                                <div className="relative z-10 text-center px-6">
+                                    <div className="text-white/90 font-black text-4xl uppercase tracking-tight drop-shadow-xl">{selectedConfig.shortLabel}</div>
+                                    <div className="text-[11px] text-white/70 mt-2">Generated visual · tap to add your own photo</div>
+                                </div>
+                            </>
+                        )}
+                        <button
+                            onClick={() => imageInputRef.current?.click()}
+                            className="absolute left-3 bottom-3 rounded-full bg-black/70 backdrop-blur border border-white/15 px-3 py-2 text-[12px] font-semibold flex items-center gap-1.5 active:scale-95 transition-transform"
+                        >
+                            <ImagePlus size={14} /> {imageSourceUrl ? 'Change photo' : 'Add photo'}
+                        </button>
+                        {imageSourceUrl && (
+                            <button
+                                onClick={() => setImageFitMode(imageFitMode === 'cover' ? 'contain' : 'cover')}
+                                className="absolute right-3 bottom-3 w-9 h-9 rounded-full bg-black/70 backdrop-blur border border-white/15 flex items-center justify-center"
+                                title="Toggle fit"
+                            >
+                                <Settings2 size={16} />
+                            </button>
+                        )}
+                        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
+                    </div>
+
+                    {imageSourceUrl && (
+                        <div className={`px-4 py-3 border-b ${IG.divider} space-y-3`}>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[13px] font-semibold">Adjust ({imageFitMode === 'cover' ? 'Fill' : 'Fit'})</span>
+                                <button onClick={resetImageDraft} className="text-[13px] text-[#ff3040] font-semibold">Remove</button>
+                            </div>
+                            {[
+                                { label: 'Zoom', value: imageZoom, min: 1, max: 2.4, step: 0.05, onChange: setImageZoom },
+                                { label: 'Horizontal', value: imageOffsetX, min: -320, max: 320, step: 5, onChange: setImageOffsetX },
+                                { label: 'Vertical', value: imageOffsetY, min: -320, max: 320, step: 5, onChange: setImageOffsetY }
+                            ].map(control => (
+                                <label key={control.label} className="flex items-center gap-3">
+                                    <span className={`w-20 text-[12px] ${IG.muted}`}>{control.label}</span>
+                                    <input
+                                        type="range" min={control.min} max={control.max} step={control.step} value={control.value}
+                                        onChange={(e) => control.onChange(Number(e.target.value))}
+                                        className="flex-1 accent-white"
+                                    />
+                                </label>
+                            ))}
+                        </div>
+                    )}
+
+                    {imageError && <div className="mx-4 mt-3 rounded-lg bg-[#ff3040]/10 border border-[#ff3040]/30 p-3 text-[13px] text-[#ff6b7a]">{imageError}</div>}
+
+                    {/* Caption */}
+                    <div className={`flex gap-3 px-4 py-3 border-b ${IG.divider}`}>
+                        <img src={player.avatar} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                        <textarea
+                            value={postCaption}
+                            onChange={(e) => setPostCaption(e.target.value)}
+                            placeholder="Write a caption..."
+                            className="flex-1 bg-transparent text-white placeholder:text-[#a8a8a8] focus:outline-none min-h-[80px] text-[14px] resize-none"
+                        />
+                    </div>
+
+                    {/* Settings rows */}
+                    <div className={`border-b ${IG.divider}`}>
+                        <div className="flex items-center justify-between px-4 py-3.5 text-[15px]">
+                            <span>Post type</span>
+                            <span className={`flex items-center gap-1 ${IG.muted}`}>{selectedConfig.label} <ChevronDown size={16} className="-rotate-90" /></span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3.5 text-[15px]">
+                            <span>Energy cost</span>
+                            <span className={`flex items-center gap-1 ${IG.muted}`}><Zap size={14} className="text-amber-400" /> {selectedConfig.energy}E</span>
+                        </div>
+                        <div className="flex items-center justify-between px-4 py-3.5 text-[15px]">
+                            <span>Posts this week</span>
+                            <span className={IG.muted}>{player.instagram.weeklyPostCount}/3</span>
+                        </div>
+                    </div>
+
+                    {/* Post type picker */}
+                    <div className="px-4 pt-4 pb-2">
+                        <div className="text-[13px] font-semibold">Choose post style</div>
+                        <div className={`text-[12px] ${IG.muted} mt-0.5`}>Style affects reach, fan reaction, and event chances.</div>
+                    </div>
+                    <div>
+                        {postTypeOptions.map(option => {
+                            const isSelected = selectedPresetType === option.type;
+                            const isLocked = Boolean(option.lockReason);
+                            return (
+                                <button
+                                    key={option.type}
+                                    onClick={() => { if (!isLocked) setSelectedPresetType(option.type); }}
+                                    disabled={isLocked}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 text-left active:bg-[#121212] ${isLocked ? 'opacity-40' : ''}`}
+                                >
+                                    <div className={`h-11 w-11 rounded-full flex items-center justify-center ${INSTAGRAM_POST_CONFIGS[option.type]?.colorClass || 'bg-zinc-800'}`}>
+                                        {isLocked ? <Lock size={16} /> : option.icon}
+                                    </div>
+                                    <div className="min-w-0 flex-1 leading-tight">
+                                        <div className="font-semibold text-[14px] truncate">{option.title}</div>
+                                        <div className={`text-[12px] ${IG.muted} truncate`}>{option.lockReason || option.subtitle}</div>
+                                    </div>
+                                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#0095f6] border-[#0095f6]' : 'border-[#555]'}`}>
+                                        {isSelected && <Check size={14} strokeWidth={3} />}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    <div className={`mx-4 mt-3 text-[12px] ${IG.muted} leading-relaxed`}>
+                        <span className={`font-semibold ${selectedConfig.accentClass}`}>{selectedConfig.label}: </span>
+                        {selectedConfig.description}
+                    </div>
                 </div>
             </div>
         )}
