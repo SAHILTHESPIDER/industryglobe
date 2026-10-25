@@ -1,0 +1,364 @@
+
+import React from 'react';
+import { Player, Commitment } from '../types';
+import { getBuzzLabel } from '../services/roleLogic';
+import { getAbsoluteWeek, getElapsedWeeks } from '../services/legacyLogic';
+import { getPlayerLanguage, t } from '../services/i18n';
+import { Film, Clapperboard, Trophy, Mic2, Video, Zap, PenTool, Coffee, TrendingUp, Twitter, Camera, Hourglass, CheckCircle2, Calendar, Smartphone } from 'lucide-react';
+import { useGameNav } from '../components/GameNav';
+
+interface CareerPageProps {
+  player: Player;
+  onQuitJob: (id: string) => void;
+  onRehearse: (id: string) => void;
+}
+
+export const CareerPage: React.FC<CareerPageProps> = ({ player, onQuitJob, onRehearse }) => {
+  const pendingApps = player.applications || [];
+  const actingCommitments = player.commitments.filter(c => c.type === 'ACTING_GIG');
+  const pastProjects = player.pastProjects || [];
+  const nav = useGameNav();
+  const language = getPlayerLanguage(player);
+  const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
+
+  const auditionPhase = actingCommitments.filter(c => c.projectPhase === 'AUDITION');
+  const planningPhase = actingCommitments.filter(c => c.projectPhase === 'PLANNING');
+  const preProductionPhase = actingCommitments.filter(c => c.projectPhase === 'PRE_PRODUCTION');
+  const productionPhase = actingCommitments.filter(c => c.projectPhase === 'PRODUCTION');
+  const postPhase = actingCommitments.filter(c => c.projectPhase === 'POST_PRODUCTION');
+  const scheduledPhase = actingCommitments.filter(c => c.projectPhase === 'SCHEDULED');
+
+  return (
+    <div className="space-y-8 pb-8 pt-2 relative">
+      {/* Header Stats */}
+      <div className="flex flex-wrap items-center gap-3 mb-2">
+         <div className="p-3 bg-amber-500/10 rounded-xl text-amber-500">
+            <Film size={28} />
+         </div>
+         <div>
+            <h2 className="text-3xl font-bold text-white">{tr('career.title')}</h2>
+            <div className="flex flex-wrap gap-3 text-xs text-zinc-400 mt-1">
+                <span className="flex items-center gap-1"><Trophy size={12} className="text-blue-500"/> {tr('home.reputation')}: {Math.round(player.stats.reputation || 0)}</span>
+                <span className="flex items-center gap-1"><Clapperboard size={12} /> {tr('career.credits')}: {pastProjects.filter(p => p.type === 'ACTING_GIG').length}</span>
+            </div>
+         </div>
+      </div>
+
+      {/* 1. AUDITION ROOM */}
+      {auditionPhase.length > 0 && (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-300">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
+                <Mic2 size={12} className="text-pink-500"/> {tr('career.auditionRoom')}
+            </h3>
+            {auditionPhase.map(gig => {
+                const isMaxed = (gig.auditionPerformance || 0) >= 100;
+                return (
+                    <div key={gig.id} className="glass-card p-5 rounded-3xl border-l-4 border-l-pink-500 relative">
+                         <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <div className="font-bold text-white text-lg">{gig.name}</div>
+                                <div className="text-[10px] text-zinc-500 uppercase tracking-wide">
+                                    {tr('career.role')}: <span className="text-pink-400 font-bold">{gig.roleType}</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                 <div className="text-[10px] text-zinc-600 uppercase">{tr('career.selectionIn')}</div>
+                                 <div className="font-mono font-bold text-white">{gig.phaseWeeksLeft} {tr('career.weeksShort')}</div>
+                            </div>
+                         </div>
+                         
+                         <div className="bg-zinc-900/50 rounded-xl p-3 mb-3 border border-white/5">
+                            <div className="flex justify-between text-[10px] text-zinc-400 uppercase mb-1">
+                                <span>{tr('career.preparationLevel')}</span>
+                                <span>{Math.round(gig.auditionPerformance || 0)}/100</span>
+                            </div>
+                            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-pink-500 transition-all duration-500" style={{ width: `${Math.min(100, gig.auditionPerformance || 0)}%` }}></div>
+                            </div>
+                         </div>
+
+                         <button 
+                            onClick={() => !isMaxed && onRehearse(gig.id)}
+                            disabled={player.energy.current < 20 || isMaxed}
+                            className={`w-full py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-colors border border-white/5 ${
+                                isMaxed 
+                                ? 'bg-emerald-900/30 text-emerald-400 cursor-default' 
+                                : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+                            }`}
+                         >
+                             {isMaxed ? <><CheckCircle2 size={12}/> {tr('career.readyForAudition')}</> : <><Zap size={12} className="text-amber-400 fill-amber-400" /> {tr('career.rehearseEnergy')}</>}
+                         </button>
+                    </div>
+                );
+            })}
+          </div>
+      )}
+
+      {/* 2. DEVELOPMENT HELL (PLANNING) */}
+      {planningPhase.length > 0 && (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-300">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
+                <PenTool size={12} className="text-yellow-500"/> {tr('career.development')}
+            </h3>
+            {planningPhase.map(gig => (
+                <div key={gig.id} className="glass-card p-5 rounded-3xl border-l-4 border-l-yellow-500 relative opacity-80">
+                     <div className="flex justify-between items-start mb-2">
+                        <div>
+                            <div className="font-bold text-white text-lg">{gig.name}</div>
+                            <div className="text-[10px] text-zinc-500 uppercase tracking-wide">
+                                {tr('home.status')}: <span className="text-yellow-400 font-bold">{tr('career.scripting')}</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                             <div className="text-[10px] text-zinc-600 uppercase">{tr('career.preProdIn')}</div>
+                             <div className="font-mono font-bold text-white">{gig.phaseWeeksLeft} {tr('career.weeksShort')}</div>
+                        </div>
+                     </div>
+                     <div className="bg-zinc-900/30 p-3 rounded-xl text-center">
+                         <p className="text-[10px] text-zinc-500 italic">"{tr('career.writersWorking')}"</p>
+                     </div>
+                </div>
+            ))}
+          </div>
+      )}
+
+      {/* 3. PRE-PRODUCTION */}
+      {preProductionPhase.length > 0 && (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-300">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
+                <Coffee size={12} className="text-orange-500"/> {tr('career.preProduction')}
+            </h3>
+            {preProductionPhase.map(gig => {
+                const isMaxed = (gig.auditionPerformance || 0) >= 100; // Using auditionPerf variable for 'Readiness' in pre-prod
+                return (
+                    <div key={gig.id} className="glass-card p-5 rounded-3xl border-l-4 border-l-orange-500 relative">
+                         <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <div className="font-bold text-white text-lg">{gig.name}</div>
+                                <div className="text-[10px] text-zinc-500 uppercase tracking-wide">
+                                    {tr('home.status')}: <span className="text-orange-400 font-bold">{tr('career.prepPhase')}</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                 <div className="text-[10px] text-zinc-600 uppercase">{tr('career.shootingIn')}</div>
+                                 <div className="font-mono font-bold text-white">{gig.phaseWeeksLeft} {tr('career.weeksShort')}</div>
+                            </div>
+                         </div>
+                         
+                         <div className="bg-zinc-900/50 rounded-xl p-3 mb-3 border border-white/5">
+                            <div className="flex justify-between text-[10px] text-zinc-400 uppercase mb-1">
+                                <span>{tr('career.readiness')}</span>
+                                <span>{Math.round(gig.auditionPerformance || 0)}/100</span>
+                            </div>
+                            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-orange-500 transition-all duration-500" style={{ width: `${Math.min(100, gig.auditionPerformance || 0)}%` }}></div>
+                            </div>
+                         </div>
+
+                         <button 
+                            onClick={() => !isMaxed && onRehearse(gig.id)}
+                            disabled={player.energy.current < 10 || isMaxed}
+                            className={`w-full py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-colors border border-white/5 ${
+                                isMaxed 
+                                ? 'bg-emerald-900/30 text-emerald-400 cursor-default' 
+                                : 'bg-zinc-800 hover:bg-zinc-700 text-white'
+                            }`}
+                         >
+                             {isMaxed ? <><CheckCircle2 size={12}/> {tr('career.readyToFilm')}</> : <><Coffee size={12} className="text-amber-200" /> {tr('career.tableRead')}</>}
+                         </button>
+                    </div>
+                );
+            })}
+          </div>
+      )}
+
+      {/* 4. ON SET (PRODUCTION) */}
+      {productionPhase.length > 0 && (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-500">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
+                <Video size={12} className="text-emerald-500"/> {tr('career.onSet')}
+            </h3>
+            {productionPhase.map(gig => {
+                const isMaxed = (gig.productionPerformance || 0) >= 100;
+                return (
+                    <div key={gig.id} className="glass-card p-5 rounded-3xl border-l-4 border-l-emerald-500 bg-emerald-900/10 relative">
+                         <div className="absolute right-0 top-0 p-3 opacity-10">
+                             <Clapperboard size={60} className="text-white" />
+                         </div>
+                         <div className="flex justify-between items-start mb-2 relative z-10">
+                            <div>
+                                <div className="font-bold text-white text-lg">{gig.name}</div>
+                                <div className="text-[10px] text-zinc-500 uppercase tracking-wide">
+                                    {tr('career.shootingPhase')}
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                 <div className="text-[10px] text-zinc-600 uppercase">{tr('career.wrapIn')}</div>
+                                 <div className="font-mono font-bold text-white">{gig.phaseWeeksLeft} {tr('career.weeksShort')}</div>
+                            </div>
+                         </div>
+                         
+                         <div className="bg-zinc-900/80 rounded-xl p-3 mb-3 border border-white/5 relative z-10">
+                            <div className="flex justify-between text-[10px] text-zinc-400 uppercase mb-1">
+                                <span>{tr('career.scenePerformance')}</span>
+                                <span>{Math.round(gig.productionPerformance || 0)}/100</span>
+                            </div>
+                            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${Math.min(100, gig.productionPerformance || 0)}%` }}></div>
+                            </div>
+                         </div>
+
+                         <button 
+                            onClick={() => !isMaxed && onRehearse(gig.id)}
+                            disabled={player.energy.current < 20 || isMaxed}
+                            className={`relative z-10 w-full py-2 rounded-xl flex items-center justify-center gap-2 text-xs font-bold transition-colors shadow-lg ${
+                                isMaxed 
+                                ? 'bg-emerald-800 text-emerald-200 cursor-default border border-emerald-500/30' 
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-900/20'
+                            }`}
+                         >
+                             {isMaxed ? <><CheckCircle2 size={12}/> {tr('career.scenePerfected')}</> : <><Zap size={12} className="text-yellow-300 fill-yellow-300" /> {tr('career.rehearseScene')}</>}
+                         </button>
+                    </div>
+                );
+            })}
+          </div>
+      )}
+
+      {/* 5. POST PRODUCTION (PROMOTION PHASE) */}
+      {postPhase.length > 0 && (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-700">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
+                <TrendingUp size={12} className="text-blue-500"/> {tr('career.promotionBuzz')}
+            </h3>
+            {postPhase.map(gig => {
+                const buzz = gig.promotionalBuzz || 0;
+                const buzzLabel = getBuzzLabel(buzz);
+                const weeksSincePress = typeof gig.lastPressAbsolute === 'number'
+                  ? Math.max(0, getAbsoluteWeek(player.age, player.currentWeek) - gig.lastPressAbsolute)
+                  : getElapsedWeeks(
+                      player.age,
+                      gig.lastPressWeek || Math.max(1, player.currentWeek - 10),
+                      player.age,
+                      player.currentWeek
+                    );
+                const canPress = weeksSincePress >= 4;
+
+                return (
+                    <div key={gig.id} className="glass-card p-5 rounded-3xl border-l-4 border-l-blue-500 relative">
+                        <div className="flex justify-between items-start mb-4">
+                            <div>
+                                <div className="font-bold text-white text-lg">{gig.name}</div>
+                                <div className="text-[10px] text-zinc-500 uppercase tracking-wide">
+                                    {tr('career.releasesIn')}: <span className="text-blue-400 font-bold">{gig.phaseWeeksLeft} {tr('career.weeksShort')}</span>
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">{tr('career.hypeLevel')}</div>
+                                <div className={`font-bold text-sm ${buzzLabel.color} px-2 py-0.5 bg-zinc-900 rounded border border-white/5`}>
+                                    {buzzLabel.label}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                            {/* Instagram Promo */}
+                            <button 
+                                onClick={() => onRehearse(`PROMO_IG_${gig.id}`)}
+                                disabled={player.energy.current < 10}
+                                className="flex flex-col items-center justify-center p-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl gap-1 transition-colors border border-white/5 disabled:opacity-50"
+                            >
+                                <Camera size={18} className="text-pink-500" />
+                                <span className="text-[10px] font-bold text-zinc-300">{tr('career.post')}</span>
+                                <span className="text-[9px] text-zinc-500">-10E</span>
+                            </button>
+
+                            {/* X Hype */}
+                            <button 
+                                onClick={() => onRehearse(`PROMO_X_${gig.id}`)}
+                                disabled={player.energy.current < 15}
+                                className="flex flex-col items-center justify-center p-3 bg-zinc-800 hover:bg-zinc-700 rounded-xl gap-1 transition-colors border border-white/5 disabled:opacity-50"
+                            >
+                                <Twitter size={18} className="text-blue-400" />
+                                <span className="text-[10px] font-bold text-zinc-300">{tr('career.hype')}</span>
+                                <span className="text-[9px] text-zinc-500">-15E</span>
+                            </button>
+
+                            {/* Press Conference */}
+                            <button 
+                                onClick={() => onRehearse(`PROMO_PRESS_${gig.id}`)}
+                                disabled={!canPress || player.energy.current < 25}
+                                className={`flex flex-col items-center justify-center p-3 rounded-xl gap-1 transition-colors border border-white/5 disabled:opacity-50 ${!canPress ? 'bg-zinc-900 cursor-not-allowed' : 'bg-blue-900/30 hover:bg-blue-900/50 border-blue-500/30'}`}
+                            >
+                                <Mic2 size={18} className={canPress ? "text-blue-300" : "text-zinc-600"} />
+                                <span className={`text-[10px] font-bold ${canPress ? 'text-blue-200' : 'text-zinc-500'}`}>{tr('career.press')}</span>
+                                <span className="text-[9px] text-zinc-500">{!canPress ? tr('career.cooldown', { count: 4 - weeksSincePress }) : '-25E'}</span>
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
+          </div>
+      )}
+
+      {/* 6. UPCOMING SCHEDULE (NEW) */}
+      {scheduledPhase.length > 0 && (
+          <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 animate-in slide-in-from-left duration-700">
+             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1 flex items-center gap-2 lg:col-span-2">
+                <Calendar size={12} className="text-indigo-500"/> {tr('career.upcomingSlate')}
+            </h3>
+            {scheduledPhase.map((gig, idx) => (
+                <div key={gig.id} className="glass-card p-4 rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/30 flex items-center justify-between">
+                    <div>
+                        <div className="font-bold text-zinc-300 text-base">{gig.name}</div>
+                        <div className="text-[10px] text-zinc-500">{gig.projectDetails?.subtype.replace('_', ' ')} • {gig.roleType}</div>
+                    </div>
+                    <div className="text-right">
+                        <div className="text-[10px] text-zinc-600 uppercase font-bold">{tr('career.startsIn')}</div>
+                        <div className="text-indigo-400 font-mono font-bold text-sm">~{gig.phaseWeeksLeft}{tr('career.weeksShort')}</div>
+                    </div>
+                </div>
+            ))}
+          </div>
+      )}
+
+      {/* 7. PENDING APPLICATIONS */}
+      {pendingApps.length > 0 && (
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest pl-1">{tr('career.applicationsSent')}</h3>
+            <div className="grid grid-cols-1 gap-2">
+                {pendingApps.map(app => (
+                    <div key={app.id} className="glass-card p-3 rounded-xl flex items-center justify-between border-dashed border-zinc-700">
+                         <div className="flex items-center gap-3">
+                             <div className="p-2 rounded-lg bg-zinc-800 text-zinc-400">
+                                 <Hourglass size={14} className="animate-pulse" />
+                             </div>
+                             <div>
+                                 <div className="font-bold text-zinc-200 text-sm">{app.name}</div>
+                                 <div className="text-[10px] text-zinc-500">{tr('career.castingReview')}</div>
+                             </div>
+                         </div>
+                         <div className="text-xs text-zinc-500 font-mono">
+                             ~{app.weeksRemaining}{tr('career.weeksShort')}
+                         </div>
+                    </div>
+                ))}
+            </div>
+          </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button onClick={() => nav?.openPhone({ app: 'CASTLINK' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-left text-sm font-bold text-white"><Smartphone size={14} className="mb-1 text-indigo-300" /> Find work on CastLink</button>
+          <button onClick={() => nav?.openPhone({ app: 'BOXOFFICE' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-left text-sm font-bold text-white">Box office</button>
+          <button onClick={() => nav?.openPhone({ app: 'STREAMING' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-4 py-3 text-left text-sm font-bold text-white">Streaming desk</button>
+      </div>
+
+      {/* EMPTY STATE */}
+      {auditionPhase.length === 0 && planningPhase.length === 0 && preProductionPhase.length === 0 && productionPhase.length === 0 && postPhase.length === 0 && pendingApps.length === 0 && scheduledPhase.length === 0 && (
+          <div className="border border-dashed border-zinc-800 rounded-3xl p-8 text-center bg-zinc-900/30 mt-8">
+               <p className="text-zinc-500 text-sm">{tr('career.noActiveProjects')}</p>
+          </div>
+      )}
+    </div>
+  );
+};

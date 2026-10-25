@@ -1,0 +1,646 @@
+import React, { useMemo, useState } from 'react';
+import { LoanBorrower, Player, PlayerLoan } from '../../types';
+import { formatMoney } from '../../services/formatUtils';
+import {
+  ArrowLeft,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  PieChart,
+  Landmark,
+  CreditCard,
+  ChevronDown,
+  Shield,
+  AlertCircle,
+  BadgeDollarSign,
+  Clock3,
+} from 'lucide-react';
+import {
+  LENDERS,
+  borrowerDesk,
+  debtPicture,
+  getAbsoluteBorrowingCeiling,
+  getAverageWeeklyCashFlow,
+  getCreditScore,
+  getCreditTier,
+  getEstimatedNetWorth,
+  getLoanDecisionLabel,
+  getOutstandingLoanBalance,
+  getSafeBorrowingCapacity,
+  getWeeklyDebtBurden,
+  issueLoan,
+  productionHouse,
+  quoteLoan,
+  repayLoan,
+} from '../../services/loanLogic';
+import { getPlayerLanguage, t } from '../../services/i18n';
+
+interface BankAppProps {
+  player: Player;
+  onBack: () => void;
+  onUpdatePlayer: (player: Player) => void;
+}
+
+const TERM_OPTIONS = [
+  { label: '3 Mo', weeks: 12 },
+  { label: '6 Mo', weeks: 26 },
+  { label: '12 Mo', weeks: 52 },
+  { label: '24 Mo', weeks: 104 },
+] as const;
+
+const INCOME_CATEGORIES = ['SALARY', 'ROYALTY', 'SPONSORSHIP', 'DIVIDEND', 'BUSINESS', 'AD_REVENUE'] as const;
+
+const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
+
+export const BankApp: React.FC<BankAppProps> = ({ player, onBack, onUpdatePlayer }) => {
+  const [tab, setTab] = useState<'OVERVIEW' | 'BREAKDOWN' | 'HISTORY'>('OVERVIEW');
+  const language = getPlayerLanguage(player);
+  const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
+  const [selectedYear, setSelectedYear] = useState<number>(player.age);
+  const [showYearMenu, setShowYearMenu] = useState(false);
+  const [requestedAmountInput, setRequestedAmountInput] = useState('50000');
+  const [selectedTermWeeks, setSelectedTermWeeks] = useState<number>(26);
+  const [borrower, setBorrower] = useState<LoanBorrower>('PERSONAL');
+  const [lenderId, setLenderId] = useState('harbor');
+  const [loanFeedback, setLoanFeedback] = useState<{ text: string; tone: 'success' | 'error' | 'neutral' } | null>(null);
+
+  const availableYears = useMemo(() => {
+    const historyYears = player.finance.yearly.map(y => y.year);
+    return [player.age, ...historyYears].sort((a, b) => b - a);
+  }, [player.age, player.finance.yearly]);
+
+  const yearData = useMemo(() => {
+    if (selectedYear === player.age) {
+      const ytdTx = player.finance.history.filter(t => t.year === selectedYear);
+      const income = ytdTx.filter(t => t.amount > 0 && t.category !== 'LOAN').reduce((sum, t) => sum + t.amount, 0);
+      const expense = ytdTx.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(t.amount), 0);
+
+      const breakdown = INCOME_CATEGORIES.map(cat => {
+        const amount = ytdTx.filter(t => t.amount > 0 && t.category === cat).reduce((sum, t) => sum + t.amount, 0);
+        return { label: cat, amount, percent: income > 0 ? (amount / income) * 100 : 0 };
+      }).sort((a, b) => b.amount - a.amount);
+
+      return { income, expense, breakdown, history: ytdTx };
+    }
+
+    const record = player.finance.yearly.find(y => y.year === selectedYear);
+    const income = record?.totalIncome || 0;
+    const expense = record?.totalExpenses || 0;
+    const breakdown = INCOME_CATEGORIES.map(cat => {
+      const amount = record?.incomeByCategory[cat] || 0;
+      return { label: cat, amount, percent: income > 0 ? (amount / income) * 100 : 0 };
+    }).sort((a, b) => b.amount - a.amount);
+    const history = player.finance.history.filter(t => t.year === selectedYear);
+    return { income, expense, breakdown, history };
+  }, [selectedYear, player.finance, player.age]);
+
+  const requestedAmount = useMemo(() => {
+    const parsed = Math.floor(Number(requestedAmountInput.replace(/[^0-9]/g, '')));
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }, [requestedAmountInput]);
+
+  const unpaidLoans = useMemo(
+    () => (player.finance.loans || []).filter(loan => loan.status !== 'PAID' && loan.principal > 0),
+    [player.finance.loans]
+  );
+  const creditScore = useMemo(() => getCreditScore(player), [player]);
+  const creditTier = getCreditTier(creditScore);
+  const creditColor =
+    creditTier === 'Elite'
+      ? 'text-emerald-400'
+      : creditTier === 'Strong'
+        ? 'text-sky-400'
+        : creditTier === 'Fair'
+          ? 'text-amber-400'
+          : 'text-rose-400';
+
+  const safeBorrowingCapacity = useMemo(() => getSafeBorrowingCapacity(player), [player]);
+  const absoluteBorrowingCeiling = useMemo(() => getAbsoluteBorrowingCeiling(player), [player]);
+  const outstandingDebt = useMemo(() => getOutstandingLoanBalance(player), [player]);
+  const weeklyDebtBurden = useMemo(() => getWeeklyDebtBurden(player), [player]);
+  const weeklyCashFlow = useMemo(() => getAverageWeeklyCashFlow(player), [player]);
+  const estimatedNetWorth = useMemo(() => getEstimatedNetWorth(player), [player]);
+
+  const desk = useMemo(() => borrowerDesk(player, borrower), [player, borrower]);
+  const quote = useMemo(
+    () => quoteLoan(player, Math.max(1, requestedAmount), selectedTermWeeks, borrower, lenderId),
+    [player, requestedAmount, selectedTermWeeks, borrower, lenderId]
+  );
+  const picture = useMemo(() => debtPicture(player), [player]);
+  const annualRate = quote.rate;
+  const weeklyPayment = quote.weekly;
+  const approvalOdds = quote.odds;
+
+  const requestTooSmall = quote.tooSmall;
+  const requestTooLarge = quote.tooLarge || !desk.available;
+  const totalRepayment = weeklyPayment * selectedTermWeeks;
+  const approvalLabel = getLoanDecisionLabel(approvalOdds);
+  const nextTermLabel = TERM_OPTIONS.find(option => option.weeks === selectedTermWeeks)?.label || `${selectedTermWeeks}w`;
+  const netIncome = yearData.income - yearData.expense;
+  const savingsRate = yearData.income > 0 ? ((yearData.income - yearData.expense) / yearData.income) * 100 : 0;
+
+  const transactionHistory = useMemo(() => {
+    const loansForHistory = player.finance.history.filter(tx => tx.category === 'LOAN');
+    const generalHistory = yearData.history.filter(tx => tx.category !== 'LOAN');
+    return selectedYear === player.age ? [...loansForHistory, ...generalHistory] : yearData.history;
+  }, [player.finance.history, yearData.history, selectedYear, player.age]);
+
+  const handleApplyForLoan = () => {
+    const result = issueLoan(player, requestedAmount, selectedTermWeeks, borrower, lenderId);
+    if (result.error) {
+      setLoanFeedback({ tone: 'error', text: result.error });
+      return;
+    }
+    onUpdatePlayer(result.player);
+    setLoanFeedback({
+      tone: 'success',
+      text: `${quote.lender.name} approved ${formatMoney(requestedAmount)} for ${desk.label}. First repayment is ${formatMoney(quote.weekly)} next week.`,
+    });
+  };
+
+  const handleManualLoanPayment = (loan: PlayerLoan, mode: 'SCHEDULED' | 'BALANCE') => {
+    const result = repayLoan(player, loan.id, mode);
+    if (result.error) {
+      setLoanFeedback({ tone: 'error', text: result.error });
+      return;
+    }
+    const paidOff = (result.player.finance.loans || []).find(row => row.id === loan.id)?.status === 'PAID';
+    onUpdatePlayer(result.player);
+    setLoanFeedback({
+      tone: 'success',
+      text: paidOff
+        ? tr('bank.loanFullyPaid', { lender: loan.lenderName })
+        : tr('bank.loanPaymentMade', { amount: formatMoney(Math.min(loan.principal, loan.weeklyPayment)), lender: loan.lenderName }),
+    });
+  };
+
+  return (
+    <div className="absolute inset-0 z-40 flex flex-col bg-zinc-950 font-sans text-white animate-in slide-in-from-right duration-300">
+      <div className="relative shrink-0 overflow-hidden bg-[#004b87] p-4 pb-6 pt-12 shadow-xl transition-all">
+        <div className="relative z-20 mb-4 flex items-start justify-between">
+          <button onClick={onBack} className="rounded-full bg-black/10 p-1 text-white/80 hover:text-white">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="flex flex-col items-end">
+            <button
+              onClick={() => setShowYearMenu(!showYearMenu)}
+              className="flex items-center gap-1 rounded-full bg-black/20 px-3 py-1 text-xs font-bold transition-colors hover:bg-black/30"
+            >
+              {selectedYear === player.age ? tr('bank.currentYear', { year: selectedYear }) : tr('bank.year', { year: selectedYear })} <ChevronDown size={14} />
+            </button>
+            {showYearMenu && (
+              <div className="absolute right-0 top-10 z-50 flex w-32 flex-col gap-1 rounded-xl bg-white py-2 text-slate-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                {availableYears.map(y => (
+                  <button
+                    key={y}
+                    onClick={() => {
+                      setSelectedYear(y);
+                      setShowYearMenu(false);
+                    }}
+                    className={`px-4 py-2 text-left text-xs font-bold hover:bg-slate-100 ${selectedYear === y ? 'bg-blue-50 text-blue-600' : ''}`}
+                  >
+                    {y === player.age ? tr('bank.current', { year: y }) : tr('bank.year', { year: y })}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-white/60">{tr('bank.totalLiquidAssets')}</div>
+          <div className={`font-mono leading-none tracking-tight text-white ${player.money > 99999999 ? 'text-3xl' : 'text-4xl'} font-bold`}>
+            {formatMoney(player.money)}
+          </div>
+          <div className="mt-3 flex items-center gap-2 text-[11px] text-white/75">
+            <BadgeDollarSign size={14} />
+            <span>{tr('bank.safeBorrowingRoom')}: {formatMoney(safeBorrowingCapacity)}</span>
+          </div>
+        </div>
+
+        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute bottom-0 right-20 h-32 w-32 rounded-full bg-blue-400/20 blur-2xl" />
+      </div>
+
+      <div className="sticky top-0 z-30 flex border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm">
+        <button
+          onClick={() => setTab('OVERVIEW')}
+          className={`flex flex-1 items-center justify-center gap-2 py-4 text-[10px] font-bold uppercase tracking-wider ${tab === 'OVERVIEW' ? 'border-b-2 border-blue-400 bg-zinc-900 text-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+        >
+          <Wallet size={14} />
+          {tr('bank.overview')}
+        </button>
+        <button
+          onClick={() => setTab('BREAKDOWN')}
+          className={`flex flex-1 items-center justify-center gap-2 py-4 text-[10px] font-bold uppercase tracking-wider ${tab === 'BREAKDOWN' ? 'border-b-2 border-blue-400 bg-zinc-900 text-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+        >
+          <PieChart size={14} />
+          {tr('bank.breakdown')}
+        </button>
+        <button
+          onClick={() => setTab('HISTORY')}
+          className={`flex flex-1 items-center justify-center gap-2 py-4 text-[10px] font-bold uppercase tracking-wider ${tab === 'HISTORY' ? 'border-b-2 border-blue-400 bg-zinc-900 text-blue-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+        >
+          <CreditCard size={14} />
+          {tr('bank.passbook')}
+        </button>
+      </div>
+
+      <div className="custom-scrollbar flex-1 overflow-y-auto bg-black p-4">
+        {tab === 'OVERVIEW' && (
+          <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-indigo-500/10 p-2.5 text-indigo-400">
+                  <Shield size={20} />
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{tr('bank.creditRating')}</div>
+                  <div className={`text-lg font-bold ${creditColor}`}>
+                    {creditScore} <span className="text-sm font-normal text-zinc-500">• {creditTier}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="relative h-10 w-10">
+                <svg className="h-full w-full" viewBox="0 0 36 36">
+                  <path
+                    className="text-zinc-800"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className={creditTier === 'Elite' ? 'text-emerald-500' : creditTier === 'Strong' ? 'text-sky-500' : creditTier === 'Fair' ? 'text-amber-500' : 'text-rose-500'}
+                    strokeDasharray={`${(creditScore / 850) * 100}, 100`}
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <MetricCard label={tr('bank.outstandingDebt')} value={formatMoney(outstandingDebt)} tone="text-amber-300" icon={<Landmark size={42} className="absolute -bottom-2 -right-2 text-amber-500/10" />} />
+              <MetricCard label={tr('bank.weeklyDebtLoad')} value={formatMoney(weeklyDebtBurden)} tone="text-rose-300" icon={<Clock3 size={42} className="absolute -bottom-2 -right-2 text-rose-500/10" />} />
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4" data-screen="bank-debt">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Everyone who owes</div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <DebtLine label="You" value={formatMoney(picture.personal)} />
+                <DebtLine label="Production house" value={formatMoney(picture.house)} />
+                <DebtLine label="Empire+" value={formatMoney(picture.empire)} />
+                <DebtLine label="Assumed in deals" value={formatMoney(picture.assumed)} />
+                <DebtLine label="Total debt" value={formatMoney(picture.total)} />
+                <DebtLine label="Debt / equity" value={Number.isFinite(picture.ratio) ? picture.ratio.toFixed(2) : '—'} />
+              </div>
+              <div className="mt-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500">Coming out of cash</div>
+              {picture.upcoming.length === 0 && <p className="mt-2 text-xs text-zinc-500">No loan payments are scheduled.</p>}
+              <div className="mt-2 space-y-1">
+                {picture.upcoming.map(row => (
+                  <div key={row.id} className="flex justify-between gap-2 text-xs text-zinc-300">
+                    <span className="truncate">{row.lender} · {row.borrower === 'HOUSE' ? 'house' : row.borrower === 'EMPIRE' ? 'Empire+' : 'you'}</span>
+                    <span className="shrink-0 font-mono">{formatMoney(row.weekly)} · {row.weeks}w</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{tr('bank.personalLoanRequest')}</div>
+                  <div className="mt-1 text-xs text-zinc-400">{tr('bank.personalLoanSub')}</div>
+                </div>
+                <div className="rounded-full bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-blue-300">
+                  {approvalLabel}
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Who is borrowing</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['PERSONAL', 'HOUSE', 'EMPIRE'] as LoanBorrower[]).map(kind => {
+                      const option = borrowerDesk(player, kind);
+                      return (
+                        <button
+                          key={kind}
+                          disabled={!option.available}
+                          onClick={() => setBorrower(kind)}
+                          className={`rounded-xl border px-2 py-2 text-[11px] font-bold ${borrower === kind ? 'border-blue-400 bg-blue-500/10 text-blue-200' : 'border-zinc-800 bg-zinc-950 text-zinc-400'} disabled:opacity-40`}
+                        >
+                          {kind === 'PERSONAL' ? 'You' : kind === 'HOUSE' ? 'House' : 'Empire+'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[11px] text-zinc-500">{desk.reason} Room left {formatMoney(desk.capacity)}.</p>
+                </div>
+                <div>
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Lender</div>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {LENDERS.map(lender => {
+                      const open = desk.score >= lender.minScore;
+                      return (
+                        <button
+                          key={lender.id}
+                          disabled={!open}
+                          onClick={() => setLenderId(lender.id)}
+                          className={`shrink-0 rounded-full border px-3 py-1 text-[11px] font-bold ${lenderId === lender.id ? 'border-blue-400 text-blue-200' : 'border-zinc-800 text-zinc-400'} disabled:opacity-30`}
+                        >
+                          {lender.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-2 block text-[10px] font-bold uppercase tracking-wider text-zinc-500">{tr('bank.requestedAmount')}</label>
+                  <input
+                    value={requestedAmountInput}
+                    onChange={(e) => setRequestedAmountInput(e.target.value)}
+                    inputMode="numeric"
+                    className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 font-mono text-lg font-bold text-white outline-none ring-0 transition-colors focus:border-blue-500"
+                    placeholder="2500000"
+                  />
+                  <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-zinc-500">
+                    <span>{tr('bank.safeRange')}: {tr('bank.upTo')} {formatMoney(borrower === 'PERSONAL' ? safeBorrowingCapacity : desk.capacity)}</span>
+                    <span className="text-right">{borrower === 'PERSONAL' ? `${tr('bank.hardCeiling')}: ${formatMoney(absoluteBorrowingCeiling)}` : `Ceiling: ${formatMoney(desk.capacity)}`}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">{tr('bank.term')}</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {TERM_OPTIONS.map(option => (
+                      <button
+                        key={option.weeks}
+                        onClick={() => setSelectedTermWeeks(option.weeks)}
+                        className={`rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${selectedTermWeeks === option.weeks ? 'border-blue-400 bg-blue-500/10 text-blue-300' : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'}`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <DetailChip label={tr('bank.rate')} value={formatPercent(annualRate)} />
+                  <DetailChip label={tr('bank.weeklyPayment')} value={formatMoney(weeklyPayment)} />
+                  <DetailChip label={tr('bank.totalRepayment')} value={formatMoney(totalRepayment)} />
+                  <DetailChip label={tr('bank.approval')} value={`${Math.round(approvalOdds * 100)}%`} />
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-[11px] text-zinc-400">
+                  <div className="flex items-center justify-between">
+                    <span>{tr('bank.netWorth')}</span>
+                    <span className="font-mono text-zinc-200">{formatMoney(estimatedNetWorth)}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span>{tr('bank.avgWeeklyCashFlow')}</span>
+                    <span className={`font-mono ${weeklyCashFlow.freeCashFlow >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>{formatMoney(Math.round(weeklyCashFlow.freeCashFlow))}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span>{tr('bank.debtAfterLoan')}</span>
+                    <span className="font-mono text-zinc-200">{formatMoney(outstandingDebt + requestedAmount)}</span>
+                  </div>
+                </div>
+
+                {(requestTooSmall || requestTooLarge) && (
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-200">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                    <span>
+                      {requestTooSmall
+                        ? tr('bank.warningTooSmall')
+                        : tr('bank.warningTooLarge')}
+                    </span>
+                  </div>
+                )}
+
+                {loanFeedback && (
+                  <div className={`rounded-xl border p-3 text-xs ${
+                    loanFeedback.tone === 'success'
+                      ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200'
+                      : loanFeedback.tone === 'error'
+                        ? 'border-rose-500/20 bg-rose-500/10 text-rose-200'
+                        : 'border-zinc-700 bg-zinc-900 text-zinc-300'
+                  }`}>
+                    {loanFeedback.text}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleApplyForLoan}
+                  disabled={requestTooSmall || requestTooLarge || approvalOdds <= 0}
+                  className="w-full rounded-xl bg-white px-4 py-3 text-sm font-black text-zinc-950 transition-opacity hover:opacity-95 disabled:cursor-not-allowed disabled:bg-zinc-800 disabled:text-zinc-500"
+                >
+                  {tr('bank.applyFor', { amount: formatMoney(requestedAmount || 0), term: nextTermLabel })}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-widest text-zinc-400">{tr('bank.activeLoans')}</div>
+                  <div className="text-[11px] text-zinc-500">{tr('bank.activeLoansSub')}</div>
+                </div>
+                <div className="text-sm font-bold text-white">{unpaidLoans.length}</div>
+              </div>
+
+              {unpaidLoans.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950 p-6 text-center">
+                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-800 text-zinc-500">
+                    <Landmark size={20} />
+                  </div>
+                  <h3 className="mb-1 text-sm font-bold text-white">{tr('bank.noActiveLoans')}</h3>
+                  <p className="text-xs text-zinc-500">{tr('bank.noActiveLoansSub')}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {unpaidLoans.map(loan => {
+                    const isDefaulted = loan.status === 'DEFAULTED';
+                    const who = loan.borrower || 'PERSONAL';
+                    const houseCash = who === 'HOUSE'
+                      ? ((player.businesses || []).find(business => business.id === loan.businessId)?.balance ?? productionHouse(player)?.balance ?? 0)
+                      : player.money;
+                    const scheduledPayment = Math.min(Math.max(1, Math.floor(loan.weeklyPayment)), Math.max(0, Math.floor(loan.principal)));
+                    const canPayScheduled = houseCash >= scheduledPayment && loan.status === 'ACTIVE';
+                    const canPayBalance = houseCash >= loan.principal && loan.status !== 'PAID';
+
+                    return (
+                    <div key={loan.id} className={`rounded-xl border p-4 ${isDefaulted ? 'border-rose-500/25 bg-rose-950/20' : 'border-zinc-800 bg-zinc-950'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-bold text-white">{loan.lenderName}</div>
+                            <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest ${
+                              isDefaulted ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-500/15 text-emerald-300'
+                            }`}>
+                              {isDefaulted ? tr('bank.loanStatus.defaulted') : tr('bank.loanStatus.active')}
+                            </span>
+                          </div>
+                          <div className="text-[10px] uppercase tracking-widest text-zinc-500">{who === 'HOUSE' ? 'House' : who === 'EMPIRE' ? 'Empire+' : 'Personal'} • {formatPercent(loan.annualInterestRate)} APR • {loan.weeksRemaining} weeks left</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-zinc-500">{tr('bank.balance')}</div>
+                          <div className="font-mono text-sm font-bold text-amber-200">{formatMoney(loan.principal)}</div>
+                        </div>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+                        <LoanMiniStat label="Weekly" value={formatMoney(loan.weeklyPayment)} />
+                        <LoanMiniStat label="Original" value={formatMoney(loan.originalPrincipal)} />
+                        <LoanMiniStat label="Missed" value={`${loan.missedPayments}`} />
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleManualLoanPayment(loan, 'SCHEDULED')}
+                          disabled={!canPayScheduled}
+                          className="rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 py-2 text-[11px] font-black uppercase tracking-widest text-sky-200 transition-colors hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+                        >
+                          {tr('bank.payScheduled')}
+                        </button>
+                        <button
+                          onClick={() => handleManualLoanPayment(loan, 'BALANCE')}
+                          disabled={!canPayBalance}
+                          className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[11px] font-black uppercase tracking-widest text-emerald-200 transition-colors hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600"
+                        >
+                          {tr('bank.payBalance')}
+                        </button>
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <MetricCard label={`Income (${selectedYear})`} value={formatMoney(yearData.income)} tone="text-emerald-400" icon={<TrendingUp size={48} className="absolute -bottom-2 -right-2 text-emerald-500/5" />} />
+              <MetricCard label={`Expenses (${selectedYear})`} value={`-${formatMoney(yearData.expense)}`} tone="text-rose-400" icon={<TrendingDown size={48} className="absolute -bottom-2 -right-2 text-rose-500/5" />} />
+            </div>
+
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-xs font-bold uppercase tracking-widest text-zinc-400">{tr('bank.netIncome')}</div>
+                <div className={`font-mono font-bold ${netIncome >= 0 ? 'text-white' : 'text-rose-400'}`}>
+                  {netIncome >= 0 ? '+' : ''}{formatMoney(netIncome)}
+                </div>
+              </div>
+              <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-zinc-800">
+                <div className={`h-full ${netIncome >= 0 ? 'bg-blue-500' : 'bg-rose-500'}`} style={{ width: `${Math.min(100, Math.abs(savingsRate))}%` }} />
+              </div>
+              <div className="flex justify-between text-[10px] text-zinc-500">
+                <span>{tr('bank.savingsRate')}</span>
+                <span>{savingsRate.toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'BREAKDOWN' && (
+          <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-500">Income Sources ({selectedYear})</h3>
+              <div className="font-mono text-xs font-bold text-emerald-400">+{formatMoney(yearData.income)}</div>
+            </div>
+
+            <div className="space-y-3">
+              {yearData.breakdown.map(cat => (
+                <div key={cat.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
+                  <div className="mb-2 flex items-end justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${cat.amount > 0 ? 'bg-blue-500' : 'bg-zinc-700'}`} />
+                      <span className="text-sm font-bold capitalize text-zinc-300">{cat.label.toLowerCase().replace('_', ' ')}</span>
+                    </div>
+                    <span className="font-mono text-sm font-bold text-white">{formatMoney(cat.amount)}</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-950">
+                    <div
+                      className={`h-full ${
+                        cat.label === 'ROYALTY'
+                          ? 'bg-amber-500'
+                          : cat.label === 'SALARY'
+                            ? 'bg-blue-500'
+                            : cat.label === 'SPONSORSHIP'
+                              ? 'bg-emerald-500'
+                              : cat.label === 'BUSINESS'
+                                ? 'bg-violet-500'
+                                : 'bg-cyan-500'
+                      }`}
+                      style={{ width: `${cat.percent}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            {yearData.income === 0 && <div className="py-10 text-center text-sm text-zinc-600">No operating income recorded for {selectedYear}.</div>}
+          </div>
+        )}
+
+        {tab === 'HISTORY' && (
+          <div className="space-y-3 animate-in slide-in-from-bottom-2 duration-300">
+            <div className="mb-2 px-1 text-xs font-bold uppercase tracking-widest text-zinc-500">Passbook • {selectedYear}</div>
+            {transactionHistory.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-900 py-10 text-center text-sm text-zinc-600">
+                No transaction history available for this period.
+              </div>
+            ) : (
+              transactionHistory.map(tx => (
+                <div key={tx.id} className="group flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-colors hover:bg-zinc-800">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className={`rounded-full p-2 ${tx.amount > 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                      {tx.amount > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="max-w-[170px] truncate text-sm font-bold text-white sm:max-w-[220px]">{tx.description}</div>
+                      <div className="text-[10px] text-zinc-500">Wk {tx.week} • {tx.category}</div>
+                    </div>
+                  </div>
+                  <div className={`font-mono text-sm font-bold ${tx.amount > 0 ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                    {tx.amount > 0 ? '+' : ''}{formatMoney(tx.amount)}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const MetricCard = ({ label, value, tone, icon }: { label: string; value: string; tone: string; icon: React.ReactNode }) => (
+  <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+    <div className="relative z-10">
+      <div className="mb-1 text-[10px] font-bold uppercase text-zinc-500">{label}</div>
+      <div className={`truncate text-lg font-bold ${tone}`}>{value}</div>
+    </div>
+    {icon}
+  </div>
+);
+
+const DetailChip = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+    <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{label}</div>
+    <div className="mt-1 font-mono text-sm font-bold text-white">{value}</div>
+  </div>
+);
+
+const LoanMiniStat = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2">
+    <div className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</div>
+    <div className="mt-1 font-mono font-bold text-white">{value}</div>
+  </div>
+);
+
+const DebtLine = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2">
+    <div className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</div>
+    <div className="mt-1 font-mono text-sm font-bold text-white">{value}</div>
+  </div>
+);
