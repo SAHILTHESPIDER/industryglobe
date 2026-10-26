@@ -301,7 +301,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
       category: reportCategory,
     });
 
-    const subject = `Actor Empire bug report: ${selectedIssueCategory.label} (${sentIssueId})`;
+    const subject = `Industry Globe bug report: ${selectedIssueCategory.label} (${sentIssueId})`;
     const body = [
       'Please attach your screenshot or screen recording to this email.',
       '',

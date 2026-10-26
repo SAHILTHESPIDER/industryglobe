@@ -44,7 +44,7 @@ const GuideTagRow: React.FC<{ tags: string[] }> = ({ tags }) => (
 
 const WIZARD_STEPS = [
     {
-        title: "Welcome to Actor Empire",
+        title: "Welcome to Industry Globe",
         icon: <Star size={48} className="text-amber-400" />,
         content: "You are building a life, not just chasing one role. The best saves balance career, money, fame, relationships, studio power, and long-term planning.",
         color: "bg-zinc-900"
@@ -274,7 +274,7 @@ const HANDBOOK_SECTIONS: GuideSection[] = [
         icon: <Users size={18} className="text-cyan-400" />,
         content: (
             <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Actor Empire rewards long saves:</strong> careers rise and fall, businesses mature, and family choices change the shape of your run.</p>
+                <p><strong className="text-white">Industry Globe rewards long saves:</strong> careers rise and fall, businesses mature, and family choices change the shape of your run.</p>
                 <p><strong className="text-white">Legacy is about continuity:</strong> your choices now can shape what the next chapter inherits.</p>
                 <p><strong className="text-white">The strongest dynasties are balanced:</strong> fame alone is flashy, but legacy usually comes from combining status, wealth, stability, and relationships.</p>
             </div>
@@ -355,7 +355,7 @@ const PLAYBOOK_SECTIONS: GuideSection[] = [
         icon: <DollarSign size={18} className="text-emerald-400" />,
         content: (
             <div className="space-y-3 text-xs text-zinc-400">
-                <p>Actor Empire lets you go big, but the game punishes ignoring recurring costs. Loans, production budgets, assets, and business expenses all compete with your next opportunity.</p>
+                <p>Industy Globe lets you go big, but the game punishes ignoring recurring costs. Loans, production budgets, assets, and business expenses all compete with your next opportunity.</p>
                 <GuideBullets items={[
                     'Keep enough cash for several weeks of commitments before taking huge swings.',
                     'Use loans for intentional moves, not as a habit to cover weak planning.',

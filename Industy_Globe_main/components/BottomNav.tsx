@@ -54,7 +54,7 @@ export const SideNav: React.FC<BottomNavProps> = ({ activePage, setPage }) => {
   return (
     <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-[248px] flex-col border-r border-white/10 bg-zinc-950/95 px-3 py-5">
       <div className="px-3 pb-5">
-        <div className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400">Actor Empire</div>
+        <div className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400">Industry Globe</div>
         <div className="mt-1 text-lg font-black text-white leading-tight">Career desk</div>
       </div>
       <nav className="flex flex-1 flex-col gap-1">
