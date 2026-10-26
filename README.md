@@ -89,7 +89,7 @@ git clone https://github.com/SAHILTHESPIDER/industryglobe.git
 **2. Navigate to the project directory**
 
 ```bash
-cd industryglobe/Actor-Empire-main
+cd industryglobe/industry_Globe_main
 ```
 
 **3. Install dependencies**
@@ -109,7 +109,7 @@ npm run dev
 Visit the local URL shown in your terminal, usually:
 
 ```text
-http://localhost:5173
+http://localhost:3000
 ```
 
 ## 🏗️ Build & Quality Checks
