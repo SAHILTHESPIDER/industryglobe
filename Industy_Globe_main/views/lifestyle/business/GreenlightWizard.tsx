@@ -1541,7 +1541,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
             let act = availableActors.find(a => a.id === talentId);
             if (!act) {
                 const rel = player.relationships.find(r => (r.npcId || r.id) === talentId);
-                if (rel) act = rel;
+                if (rel) act = rel as unknown as typeof act;
             }
             if (act) {
                 talentName = act.name;
@@ -2325,7 +2325,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                 visibleDirectorTier: directorData.tier,
                 visibleScriptBuzz: 'High',
                 visibleCastStrength: currentCastingStrength > 80 ? 'Star-Studded' : currentCastingStrength > 62 ? 'Solid' : 'Thin',
-                castList: finalizedCastList,
+                castList: finalizedCastList as any,
                 crewList: fullCrewList,
                 location: selectedLocations.length > 0 ? { id: selectedLocations[0], name: locationName, region: 'Global', costModifier: 1, qualityBonus: locationQualityBonus, status: 'PENDING', description: `${selectedLocations.length} locations`, coordinates: {x:0,y:0} } : undefined,
                 tone: tone,
@@ -4153,7 +4153,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                                             {linkedCastSummary.slice(0, 4).map(role => (
                                                 <div key={role.id} className="flex items-center justify-between gap-3 bg-black/25 border border-white/5 rounded-lg px-3 py-2">
                                                     <div className="min-w-0">
-                                                        <p className="text-xs font-black text-white truncate">{role.characterName || role.roleName}</p>
+                                                        <p className="text-xs font-black text-white truncate">{role.characterName || (role as { roleName?: string }).roleName}</p>
                                                         <p className="text-[9px] text-zinc-500 uppercase tracking-widest truncate">
                                                             {role.actorName || 'Casting needed'} • {role.roleType}
                                                         </p>

@@ -32,7 +32,7 @@ export enum Page {
   export type SponsorshipFrequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
   export type InstaPostType = 'ANNOUNCEMENT' | 'BTS' | 'CELEBRATION' | 'LIFESTYLE' | 'SELFIE' | 'INDUSTRY_NEWS' | 'REEL' | 'CAROUSEL' | 'RED_CARPET' | 'COUPLE_POST' | 'BRAND_FIT' | 'CONTROVERSIAL';
   export type InteractionType = 'GREET' | 'COMPLIMENT' | 'COFFEE' | 'COLLAB' | 'BEFRIEND';
-  export type YoutubeVideoType = 'VLOG' | 'SKIT' | 'Q_AND_A' | 'TRAILER' | 'COVER' | 'STORYTIME'
+  export type YoutubeVideoType = 'VLOG' | 'SKIT' | 'Q_AND_A' | 'TRAILER' | 'COVER' | 'STORYTIME' | string
       | 'TEASER' | 'TRAILER_1' | 'TRAILER_2' | 'FINAL_TRAILER' | 'MOTION_POSTER' | 'CHARACTER_POSTER'
       | 'CAST_INTERVIEW' | 'BTS' | 'BLOOPERS' | 'MUSIC_VIDEO' | 'JUKEBOX' | 'LYRIC_VIDEO'
       | 'PREMIERE_LIVE' | 'REVIEW_ROUNDUP' | 'CLIP' | 'DELETED_SCENE' | 'SHORT' | 'REACTION_COLLAB';
@@ -167,7 +167,7 @@ export enum Page {
       creativity: number;
       dialogue: number;
       structure: number;
-      pacing: number;
+      pacing?: number;
   }
   
   export interface DirectorStats {
@@ -199,6 +199,9 @@ export enum Page {
       quality: number;
       options: ScriptOption[];
       writerId: string | null;
+      /** Older slate cards stored a display type and title alias on the script. */
+      type?: string;
+      name?: string;
       assignedSkill?: number;
       assignedSpeed?: number;
       weeksInDevelopment: number;
@@ -336,6 +339,7 @@ export enum Page {
       marketTrends?: GenreMarketTrend[];
       /** Worldwide book and life-rights market. Missing on saves from before the Rights Library. */
       rightsLibrary?: RightsLibraryState;
+      universes?: Record<string, any>;
   }
 
   export type RightsRegionId =
@@ -439,7 +443,7 @@ export enum Page {
       week: number;
       year: number;
       amount: number;
-      type: 'THEATRICAL' | 'STREAMING_DEAL' | 'STREAMING_ROYALTY' | 'UNIVERSE' | 'CAPITAL_INJECTION' | 'CAPITAL_WITHDRAWAL' | 'PRODUCTION_SPEND' | 'RIGHTS' | 'COMMISSION' | 'PENALTY' | 'BONUS' | 'RESERVE';
+      type: string;
       label: string;
       projectId?: string;
   }
@@ -868,6 +872,7 @@ export enum Page {
       budget: number;
       gross: number;
       simulated: boolean;
+      phase?: string;
       offer: StandingOfferTerms;
       plan: ReleasePlanState;
   }
@@ -972,6 +977,19 @@ export enum Page {
       royaltyPercentage?: number;
       previousBestBidValue?: number;
       generatedNewsKeys?: string[];
+      franchiseId?: string;
+      sourceMaterial?: any;
+      installmentNumber?: number;
+      /** Week number (1–52) the film opened. Missing on older saves. */
+      releaseWeek?: number;
+      /** Game calendar year of the opening, not the player's age. */
+      releaseCalendarYear?: number;
+      /** Actual opening-weekend gross. Missing until the first theatrical week is simulated. */
+      openingGross?: number;
+      /** Multiplier applied because of a same-week or adjacent-week clash. 1 means no clash. */
+      clashFactor?: number;
+      /** True when opening was backfilled from a single lifetime total. */
+      grossIsEstimate?: boolean;
   }
   
   export interface Award {
@@ -1014,6 +1032,8 @@ export enum Page {
       subjectType?: ScriptSubjectType;
       description?: string;
       projectType: ProjectType;
+      projectDetails?: any;
+      sourceMaterial?: any;
       royaltyPercentage?: number;
       awards?: Award[]; 
       franchiseId?: string;
@@ -1025,6 +1045,13 @@ export enum Page {
       customPoster?: CustomPoster;
       rightsIpId?: string;
       adaptationAwardBonus?: number;
+      /** Real opening weekend. Missing on saves from before weekly tracking. */
+      openingGross?: number;
+      weeklyGrosses?: number[];
+      releaseWeek?: number;
+      /** Game calendar year, not the age stored in `year`. */
+      calendarYear?: number;
+      grossIsEstimate?: boolean;
   }
   
   export interface Commitment {
@@ -1232,7 +1259,7 @@ export enum Page {
   export interface YoutubeVideo {
       id: string;
       title: string;
-      type: YoutubeVideoType;
+      type: YoutubeVideoType | string;
       thumbnailColor: string;
       thumbnailMediaId?: string;
       views: number;
@@ -1358,10 +1385,11 @@ export enum Page {
       id: string;
       headline: string;
       subtext?: string;
-      category: NewsCategory;
+      category: NewsCategory | string;
       week: number;
       year: number;
-      impactLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+      impactLevel: 'LOW' | 'MEDIUM' | 'HIGH' | string;
+      projectId?: string;
   }
   
   export interface Message {
@@ -1475,6 +1503,8 @@ export enum Page {
       controversyScore?: number;
       sentiment?: 'SUPPORTIVE' | 'MESSY' | 'FUNNY' | 'INDUSTRY' | 'NEUTRAL';
       quoteOfId?: string;
+      /** Injected by the sim (campaigns, rights, box office). Kept when the feed regenerates. */
+      system?: boolean;
   }
   
   export interface StudioContract {
@@ -1670,6 +1700,56 @@ export enum Page {
       incomeByCategory: Record<TransactionCategory, number>;
   }
   
+  /** Weekly theatrical tracking. Missing on industry films saved before the box office hub. */
+  export interface IndustryRun {
+      openingGross: number;
+      weeklyGrosses: number[];
+      starPower: number;
+      budgetUsd: number;
+      /** Game calendar year of the opening. */
+      calendarYear: number;
+      maxWeeks: number;
+      inTheaters: boolean;
+      /** Lifetime total was split into a decay curve because the save had no weekly data. */
+      grossIsEstimate?: boolean;
+      /** Absolute week (age * 52 + week) the film opened or is scheduled to open. */
+      openedAbsoluteWeek?: number;
+      /** Last absolute week a real (non-estimate) gross was written. */
+      lastSimulatedAbs?: number;
+      clashFactor?: number;
+      /** Pre-sim projection kept so NPC paychecks stay stable. Not shown as the real total. */
+      projectedGross?: number;
+  }
+
+  export interface BoxOfficeChartEntry {
+      id: string;
+      title: string;
+      studioId: string;
+      genre: string;
+      weekGross: number;
+      totalGross: number;
+      weeksInRelease: number;
+      rank: number;
+      /** Previous weekend rank. Missing when the film is new to the chart. */
+      previousRank?: number;
+      isPlayer: boolean;
+      grossIsEstimate?: boolean;
+  }
+
+  export interface BoxOfficeWeekend {
+      week: number;
+      calendarYear: number;
+      absoluteWeek: number;
+      entries: BoxOfficeChartEntry[];
+  }
+
+  export interface BoxOfficeRecord {
+      opening: number;
+      title: string;
+      calendarYear: number;
+      week: number;
+  }
+
   export interface IndustryProject {
       id: string;
       title: string;
@@ -1686,7 +1766,9 @@ export enum Page {
       directorName: string;
       reviews: string;
       universeId?: UniverseId;
-      isFamous?: boolean; 
+      isFamous?: boolean;
+      /** Weekly grosses. Absent on older saves until migration. */
+      run?: IndustryRun;
   }
   
   export interface UniverseCharacter {
@@ -1855,13 +1937,16 @@ export enum Page {
       npcVentures?: Record<string, NpcVentureState>;
       /** Per-save fame and net worth for NPC_DATABASE. Missing on older saves. */
       npcEconomy?: Record<string, NpcEconomyEntry>;
+      /** Newest weekend last. Capped. Missing on older saves. */
+      boxOfficeCharts?: BoxOfficeWeekend[];
+      boxOfficeRecord?: BoxOfficeRecord;
   }
   
   export interface LogEntry {
       week: number;
       year: number;
       message: string;
-      type: 'positive' | 'negative' | 'neutral';
+      type: 'positive' | 'negative' | 'neutral' | string;
   }
   
   export interface Application {
@@ -1938,6 +2023,7 @@ export enum Page {
       qualityBias: { script: number, hype: number, distribution: number };
       payMultiplier: number;
       budgetComfort: BudgetTier[];
+      studioState?: StudioState;
   }
   
   export interface Relationship {
@@ -2006,6 +2092,7 @@ export enum Page {
       language: GameLanguage;
       /** When true, YouTube comments, titles, news, and pitches may call Firebase AI. Offline templates always work. */
       aiContentEnabled?: boolean;
+      smoothMode?: boolean;
   }
 
   export interface CommissionControls {
@@ -2207,6 +2294,10 @@ export enum Page {
       commitments: Commitment[];
       activeReleases: ActiveRelease[];
       pastProjects: PastProject[];
+      /** Legacy profile credits. Older checkpoints read this; current saves use pastProjects. */
+      filmography?: PastProject[];
+      productionHouse?: any;
+      messages?: Message[];
       applications: Application[];
       relationships: Relationship[];
       bloodline?: BloodlineMember[];
@@ -2294,7 +2385,7 @@ export enum Page {
       pendingEventQueue?: PendingEvent[];
       activeUniverseContract?: UniverseContract;
       lastForbesRank?: number;
-      studioMemory: Record<StudioId, { projectOutcomes: number[] }>;
+      studioMemory: Record<string, any>;
       heat: number;
       activeCases: LegalCase[];
       studio: {

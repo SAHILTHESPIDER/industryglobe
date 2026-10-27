@@ -164,7 +164,7 @@ export const DeathScreen: React.FC<DeathScreenProps> = ({
                                         <div className="text-white font-bold">{rememberedFor.name}</div>
                                         <div className="text-zinc-400 text-xs mt-1">
                                             {rememberedFor.imdbRating ? `IMDb ${rememberedFor.imdbRating.toFixed(1)} • ` : ''}
-                                            {rememberedFor.type === 'SERIES' ? 'Series Event' : 'Film Landmark'}
+                                            {rememberedFor.projectType === 'SERIES' ? 'Series Event' : 'Film Landmark'}
                                         </div>
                                     </div>
                                 )}

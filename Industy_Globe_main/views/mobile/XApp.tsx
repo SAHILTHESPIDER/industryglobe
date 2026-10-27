@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Player, XPost, NPCActor, NPCState } from '../../types';
 import { generateXFeed, generateTrendingTopics } from '../../services/xLogic';
 import { NPC_DATABASE } from '../../services/npcLogic';
 import { getEnabledGlobalCreatorSocialProfiles } from '../../services/youtubeLogic';
 import { spendPlayerEnergy } from '../../services/premiumLogic';
+import { gameCalendarYear, playerCityLabel } from '../../services/boxOfficeSim';
 import { getPlayerLanguage, t } from '../../services/i18n';
 import {
     ArrowLeft, Home, Search, PenTool, Heart, Repeat, MessageCircle, MoreHorizontal, Check, User, Mail,
@@ -58,9 +59,21 @@ interface XExtras {
     dms: Record<string, DMMessage[]>;
 }
 
+const DM_THREAD_CAP = 200;
+const DEFAULT_BIO = 'Actor based in Los Angeles. Living the dream. 🎬';
+const DEFAULT_LOCATION = 'Los Angeles, CA';
+
+const capDmThreads = (dms: Record<string, DMMessage[]>) => {
+    const next: Record<string, DMMessage[]> = {};
+    Object.entries(dms || {}).forEach(([id, thread]) => {
+        next[id] = (thread || []).slice(-DM_THREAD_CAP);
+    });
+    return next;
+};
+
 const DEFAULT_EXTRAS: XExtras = {
     premium: 'NONE', premiumUntil: 0, bookmarks: [], muted: [], communities: [], pinnedPostId: null,
-    bio: 'Actor based in Los Angeles. Living the dream. 🎬', location: 'Los Angeles, CA', link: 'imdb.com/name',
+    bio: DEFAULT_BIO, location: DEFAULT_LOCATION, link: 'imdb.com/name',
     adBalance: 0, adLifetime: 0, spacesHosted: 0, dms: {}
 };
 
@@ -79,7 +92,7 @@ const COMMUNITIES = [
     { id: 'writers', name: 'Screenwriters Room', members: 230_000, emoji: '✍️', reach: 1.0, conversion: 0.005 }
 ];
 
-const SPACE_TOPICS = ['Is the theatrical window dead?', 'Awards season predictions', 'Casting horror stories', 'Best performances of the year', 'Method acting: genius or nonsense?', 'Streaming vs cinema', 'Late night script notes', 'Indie financing in 2026'];
+const SPACE_TOPIC_STEMS = ['Is the theatrical window dead?', 'Awards season predictions', 'Casting horror stories', 'Best performances of the year', 'Method acting: genius or nonsense?', 'Streaming vs cinema', 'Late night script notes'];
 
 const X_POST_TYPES: Record<XPostType, {
     label: string; prompt: string; icon: React.ElementType; reach: number; conversion: number; controversy: number; reputation: number; placeholder: string;
@@ -151,17 +164,22 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
     const [chatDraft, setChatDraft] = useState('');
     const [toast, setToast] = useState<string | null>(null);
     const [profileDraft, setProfileDraft] = useState({ bio: '', location: '', link: '' });
+    const [replyDraft, setReplyDraft] = useState('');
     const [liveSpaceId, setLiveSpaceId] = useState<string | null>(null);
 
-    const [feed, setFeed] = useState<XPostEx[]>(() => {
-        if (player.x.feed.length === 0 || player.x.lastPostWeek !== player.currentWeek) {
-            return generateXFeed(player);
-        }
-        return player.x.feed;
-    });
+    const needsFreshFeed = player.x.feed.length === 0 || player.x.lastPostWeek !== player.currentWeek;
+    const [feed, setFeed] = useState<XPostEx[]>(() => needsFreshFeed ? generateXFeed(player) : player.x.feed);
+    const feedBootstrapped = useRef(false);
 
     // --- DERIVED ---
-    const extras: XExtras = { ...DEFAULT_EXTRAS, ...((player.flags as any)?.xExtras || {}) };
+    const extras: XExtras = { ...DEFAULT_EXTRAS, ...((player.flags as any)?.xExtras || {}), dms: capDmThreads(((player.flags as any)?.xExtras?.dms) || {}) };
+    const cityLabel = playerCityLabel(player);
+    const shownLocation = !extras.location || extras.location === DEFAULT_LOCATION ? cityLabel : extras.location;
+    const shownBio = extras.bio === DEFAULT_BIO ? `Actor based in ${cityLabel}. Living the dream. 🎬` : extras.bio;
+    const spaceTopics = useMemo(
+        () => [...SPACE_TOPIC_STEMS, `Indie financing in ${gameCalendarYear(player.age)}`],
+        [player.age]
+    );
     const absWeek = player.age * 52 + player.currentWeek;
     const premiumActive: PremiumTier = extras.premium !== 'NONE' && extras.premiumUntil >= absWeek ? extras.premium : 'NONE';
     const premiumPlan = premiumActive === 'NONE' ? null : PREMIUM_PLANS[premiumActive];
@@ -223,9 +241,15 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
     const spaces = useMemo(() => npcPool.slice(0, 6).map((npc, i) => ({
         id: `space_${npc.id}`,
         host: npc,
-        topic: SPACE_TOPICS[(npc.id.charCodeAt(0) + i + player.currentWeek) % SPACE_TOPICS.length],
+        topic: spaceTopics[(npc.id.charCodeAt(0) + i + player.currentWeek) % spaceTopics.length],
         listeners: Math.max(40, Math.floor((npc.followers || 1000) * 0.002 * (1 + i * 0.3)))
-    })), [npcPool, player.currentWeek]);
+    })), [npcPool, player.currentWeek, spaceTopics]);
+
+    useEffect(() => {
+        if (feedBootstrapped.current || !needsFreshFeed) return;
+        feedBootstrapped.current = true;
+        onUpdatePlayer({ ...player, x: { ...player.x, feed, lastPostWeek: player.currentWeek } });
+    }, [feed, needsFreshFeed, onUpdatePlayer, player]);
 
     // --- HELPERS ---
     const formatNumber = (num: number) => {
@@ -242,7 +266,7 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
 
     const withExtras = (base: Player, partial: Partial<XExtras>): Player => ({
         ...base,
-        flags: { ...(base.flags || {}), xExtras: { ...extras, ...partial } } as any
+        flags: { ...(base.flags || {}), xExtras: { ...extras, ...partial, dms: capDmThreads(partial.dms || extras.dms) } } as any
     });
 
     const patchExtras = (partial: Partial<XExtras>) => onUpdatePlayer(withExtras(player, partial));
@@ -270,9 +294,13 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
         setComposeOpen(true);
     };
 
+    const postEnergyCost = 5 + (threadParts.length ? 2 : 0);
+    const canAffordPost = editingPostId ? true : player.energy.current >= postEnergyCost;
+
     const handlePost = () => {
         if (!tweetContent.trim()) return;
         if (tweetContent.length > charLimit) return;
+        if (!editingPostId && player.energy.current < postEnergyCost) return;
 
         // EDIT MODE (Premium)
         if (editingPostId) {
@@ -413,6 +441,7 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
     };
 
     const handleQuoteOrReply = (post: XPostEx, tone: XReplyTone, mode: 'QUOTE' | 'REPLY') => {
+        if (player.energy.current < (mode === 'QUOTE' ? 8 : 5)) return;
         const toneConfig = X_REPLY_TONES[tone];
         const sourceReach = Math.max(40, post.likes + post.retweets * 2 + post.replies * 4);
         const reach = Math.floor(sourceReach * toneConfig.reach * (premiumPlan?.reach ?? 1) * (0.2 + Math.random() * 0.25));
@@ -456,7 +485,55 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
         spendPlayerEnergy(nextPlayer, mode === 'QUOTE' ? 8 : 5);
         setFeed(updatedFeed);
         setSelectedPost(newPost);
+        setReplyDraft('');
         onUpdatePlayer(nextPlayer);
+    };
+
+    const submitCustomReply = () => {
+        if (!selectedPost) return;
+        const text = replyDraft.trim();
+        if (!text || player.energy.current < 5) return;
+        const newPost: XPostEx = {
+            id: `x_reply_${Date.now()}`,
+            authorId: 'PLAYER',
+            authorName: player.name,
+            authorHandle: player.x.handle,
+            authorAvatar: player.avatar.startsWith('data:') ? '' : player.avatar,
+            content: text,
+            timestamp: player.currentWeek,
+            likes: Math.max(1, Math.floor((selectedPost.likes || 10) * 0.04)),
+            retweets: 0,
+            replies: 0,
+            isPlayer: true,
+            isLiked: false,
+            isRetweeted: false,
+            isVerified: isPlayerVerified,
+            postType: 'DRAMA_REPLY',
+            replyList: [],
+            sentiment: 'NEUTRAL',
+        };
+        const updatedTarget: XPostEx = {
+            ...selectedPost,
+            replies: selectedPost.replies + 1,
+            replyList: [text, ...(selectedPost.replyList || [])].slice(0, 12),
+        };
+        const updatedFeed = [newPost, ...feed.map(post => post.id === selectedPost.id ? updatedTarget : post)].slice(0, 80);
+        const nextPlayer: Player = {
+            ...player,
+            x: {
+                ...player.x,
+                posts: [newPost, ...player.x.posts].slice(0, 80),
+                feed: updatedFeed,
+                lastPostWeek: player.currentWeek,
+            },
+            logs: [{ week: player.currentWeek, year: player.age, message: `Replied to ${selectedPost.authorName} on X.`, type: 'neutral' as const }, ...player.logs].slice(0, 50),
+        };
+        spendPlayerEnergy(nextPlayer, 5);
+        setFeed(updatedFeed);
+        setSelectedPost(updatedTarget);
+        setReplyDraft('');
+        onUpdatePlayer(nextPlayer);
+        showToast('Reply posted');
     };
 
     // --- ACTIONS: SOCIAL ---
@@ -673,7 +750,7 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                     {post.quoteOfId && <div className="mb-3 rounded-2xl border border-zinc-800 bg-zinc-950 p-3 text-xs text-zinc-400">Quoted post</div>}
 
                     <div className="flex justify-between items-center text-zinc-500 pr-1">
-                        <button className="flex items-center gap-1 group hover:text-blue-400 transition-colors">
+                        <button onClick={(e) => { e.stopPropagation(); openPostDetail(post); setReplyDraft(''); }} className="flex items-center gap-1 group hover:text-blue-400 transition-colors">
                             <MessageCircle size={16} className="group-hover:bg-blue-500/10 rounded-full p-1 box-content" />
                             <span className="text-xs">{formatNumber(post.replies)}</span>
                         </button>
@@ -727,7 +804,7 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
     // RENDER
     // =====================================================================
     return (
-        <div className="absolute inset-0 bg-black flex flex-col z-40 text-white animate-in slide-in-from-right duration-300 font-sans overflow-hidden">
+        <div className="absolute inset-0 bg-black flex flex-col lg:flex-row z-40 text-white animate-in slide-in-from-right duration-300 font-sans overflow-hidden">
 
             {/* TOAST */}
             {toast && <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[90] rounded-full bg-blue-500 px-4 py-2 text-xs font-bold text-white shadow-xl">{toast}</div>}
@@ -824,7 +901,11 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                         </div>
 
                         <div className="flex justify-around border-b border-zinc-800 py-2 text-zinc-500">
-                            <button className="p-2"><MessageCircle size={20} /></button>
+                            <button onClick={() => {
+                                if (selectedPost.isPlayer) { setTab('MESSAGES'); setView('MAIN'); return; }
+                                const npc = npcPool.find(entry => entry.id === selectedPost.authorId);
+                                if (npc) openChat(npc);
+                            }} className="p-2 hover:text-blue-400" aria-label="Message"><MessageCircle size={20} /></button>
                             <button onClick={() => toggleRetweet(selectedPost.id)} className={`p-2 ${selectedPost.isRetweeted ? 'text-green-500' : ''}`}><Repeat size={20} /></button>
                             <button onClick={() => toggleLike(selectedPost.id)} className={`p-2 ${selectedPost.isLiked ? 'text-pink-500' : ''}`}><Heart size={20} fill={selectedPost.isLiked ? 'currentColor' : 'none'} /></button>
                             <button onClick={() => toggleBookmark(selectedPost)} className={`p-2 ${extras.bookmarks.includes(selectedPost.id) ? 'text-blue-400' : ''}`}><Bookmark size={20} fill={extras.bookmarks.includes(selectedPost.id) ? 'currentColor' : 'none'} /></button>
@@ -859,22 +940,26 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                                     ))}
                                 </div>
                                 {premiumActive !== 'NONE' && <div className="mt-2 text-[10px] text-amber-400 font-bold uppercase tracking-widest flex items-center gap-1"><Sparkles size={11} /> Premium reply boost active</div>}
+                                {player.energy.current < 5 && <div className="mt-2 text-[11px] font-bold text-amber-300">Need 5 energy to reply. You have {player.energy.current}.</div>}
                             </div>
                         )}
 
                         <div className="p-4 space-y-4">
                             <div>
                                 <div className="mb-3 text-xs font-black uppercase tracking-widest text-zinc-500">Replies</div>
-                                {(selectedPost.replyList && selectedPost.replyList.length > 0 ? selectedPost.replyList : X_REPLY_BANK[selectedPost.postType || 'GENERAL']).map((reply, index) => (
+                                {(selectedPost.replyList && selectedPost.replyList.length > 0 ? selectedPost.replyList : X_REPLY_BANK[selectedPost.postType || 'GENERAL']).map((reply, index) => {
+                                    const mine = player.x.posts.some(post => post.isPlayer && (post.content === reply || post.content.endsWith(reply)));
+                                    return (
                                     <div key={`${selectedPost.id}_reply_${index}`} className="flex gap-3 border-b border-zinc-900 py-3">
-                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-black text-zinc-400">@</div>
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-zinc-900 text-xs font-black text-zinc-400">{mine ? <img src={player.avatar} className="h-full w-full object-cover" /> : '@'}</div>
                                         <div className="min-w-0">
-                                            <div className="text-xs font-bold text-zinc-500 flex items-center gap-1">@timeline_{index + 1} {index === 0 && <Verified size={11} />}</div>
+                                            <div className="text-xs font-bold text-zinc-500 flex items-center gap-1">{mine ? player.x.handle : `@timeline_${index + 1}`} {index === 0 && <Verified size={11} />}</div>
                                             <div className="text-sm leading-relaxed text-zinc-200">{reply}</div>
                                             <div className="mt-1 flex gap-4 text-[11px] text-zinc-600"><span>{formatNumber(Math.floor(selectedPost.likes * 0.04 / (index + 1)))} likes</span><span>{formatNumber(Math.floor(viewsOf(selectedPost) * 0.05 / (index + 1)))} views</span></div>
                                         </div>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                             <div>
                                 <div className="mb-3 text-xs font-black uppercase tracking-widest text-zinc-500">Quotes</div>
@@ -883,6 +968,14 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                                 ))}
                             </div>
                         </div>
+                    </div>
+                    <div className="border-t border-zinc-800 bg-black px-3 pb-6 pt-3">
+                        <div className="flex items-center gap-2">
+                            <img src={player.avatar} className="h-9 w-9 rounded-full object-cover" />
+                            <input value={replyDraft} onChange={e => setReplyDraft(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitCustomReply()} placeholder={`Reply to ${selectedPost.authorHandle}`} className="flex-1 rounded-full border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none" />
+                            <button onClick={submitCustomReply} disabled={!replyDraft.trim() || player.energy.current < 5} className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-black disabled:opacity-40">Reply</button>
+                        </div>
+                        {player.energy.current < 5 && <div className="mt-2 text-center text-[11px] font-bold text-amber-300">Need 5 energy to reply. You have {player.energy.current}.</div>}
                     </div>
                 </div>
             )}
@@ -1043,6 +1136,28 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                     </div>
                 </div>
             )}
+
+            <aside className="hidden lg:flex w-[248px] shrink-0 flex-col border-r border-zinc-800 px-3 py-6">
+                <div className="px-3 text-2xl font-black">𝕏</div>
+                <nav className="mt-4 space-y-1">
+                    {([
+                        ['HOME', Home, 'Home'],
+                        ['SEARCH', Search, 'Explore'],
+                        ['SPACES', Mic, 'Spaces'],
+                        ['NOTIFICATIONS', Bell, 'Notifications'],
+                        ['MESSAGES', Mail, 'Messages'],
+                        ['PROFILE', User, 'Profile'],
+                    ] as const).map(([id, Icon, label]) => (
+                        <button key={id} onClick={() => { setTab(id); if (id === 'PROFILE') setSelectedProfile(null); }} className={`flex w-full items-center gap-4 rounded-full px-4 py-3 text-left text-lg font-bold ${tab === id ? 'bg-zinc-900 text-white' : 'text-zinc-300 hover:bg-zinc-950'}`}>
+                            <Icon size={24} strokeWidth={tab === id ? 2.6 : 2} /> {label}
+                        </button>
+                    ))}
+                </nav>
+                <button onClick={() => openComposer('GENERAL')} disabled={player.energy.current < 5} className="mx-2 mt-4 rounded-full bg-blue-500 py-3 text-sm font-black text-white disabled:opacity-40">Post</button>
+                {player.energy.current < 5 && <div className="mx-3 mt-2 text-[11px] font-bold text-amber-300">Need 5 energy to post. You have {player.energy.current}.</div>}
+                <button onClick={onBack} className="mt-auto flex items-center gap-3 px-4 py-3 text-sm font-bold text-zinc-400 hover:text-white"><ArrowLeft size={16} /> Exit X</button>
+            </aside>
+            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col lg:max-w-[680px] lg:border-r lg:border-zinc-800">
 
             {/* ================= HEADER ================= */}
             {tab === 'HOME' ? (
@@ -1256,7 +1371,7 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                                 ) : (
                                     <div className="flex gap-2">
                                         {premiumActive === 'NONE' && <button onClick={() => setView('PREMIUM')} className="px-3 py-1.5 rounded-full text-sm font-bold bg-white text-black flex items-center gap-1"><Crown size={14} /> Get verified</button>}
-                                        <button onClick={() => { setProfileDraft({ bio: extras.bio, location: extras.location, link: extras.link }); setView('EDIT_PROFILE'); }} className="px-4 py-1.5 rounded-full text-sm font-bold border border-zinc-600 text-white">{tr('x.editProfile')}</button>
+                                        <button onClick={() => { setProfileDraft({ bio: shownBio, location: shownLocation, link: extras.link }); setView('EDIT_PROFILE'); }} className="px-4 py-1.5 rounded-full text-sm font-bold border border-zinc-600 text-white">{tr('x.editProfile')}</button>
                                     </div>
                                 )}
                             </div>
@@ -1266,9 +1381,9 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                                     {((!selectedProfile && isPlayerVerified) || (selectedProfile && isNpcVerified(selectedProfile))) && <Verified size={18} gold={!selectedProfile && premiumActive === 'PLUS'} />}
                                 </div>
                                 <div className="text-zinc-500 text-sm mb-3">{selectedProfile ? selectedProfile.handle : player.x.handle}</div>
-                                <div className="text-sm text-white mb-3">{selectedProfile ? selectedProfile.bio : extras.bio}</div>
+                                <div className="text-sm text-white mb-3">{selectedProfile ? selectedProfile.bio : shownBio}</div>
                                 <div className="flex flex-wrap gap-x-4 gap-y-2 text-zinc-500 text-sm mb-3">
-                                    <div className="flex items-center gap-1"><MapPin size={14} /> {selectedProfile ? 'Los Angeles, CA' : extras.location}</div>
+                                    <div className="flex items-center gap-1"><MapPin size={14} /> {selectedProfile ? cityLabel : shownLocation}</div>
                                     <div className="flex items-center gap-1"><LinkIcon size={14} /> <span className="text-blue-400">{selectedProfile ? 'imdb.com/name' : extras.link}</span></div>
                                     <div className="flex items-center gap-1"><Calendar size={14} /> {tr('x.joined')} {selectedProfile ? 'March 2018' : 'September 2024'}</div>
                                 </div>
@@ -1320,22 +1435,36 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
 
             {/* FAB */}
             {(tab === 'HOME' || tab === 'SEARCH' || tab === 'PROFILE') && (
-                <button onClick={() => openComposer('GENERAL')} className="absolute bottom-20 right-4 w-14 h-14 bg-blue-500 rounded-full flex items-center justify-center shadow-lg shadow-blue-900/20 active:scale-90 transition-transform z-30">
+                <button onClick={() => openComposer('GENERAL')} className="absolute bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 shadow-lg shadow-blue-900/20 transition-transform active:scale-90 lg:hidden">
                     <Plus size={26} className="text-white" />
                 </button>
             )}
             {tab === 'MESSAGES' && (
-                <button onClick={() => openChat(npcPool[0])} className="absolute bottom-20 right-4 w-14 h-14 bg-blue-500 rounded-full flex items-center justify-center shadow-lg z-30"><Mail size={22} /></button>
+                <button onClick={() => openChat(npcPool[0])} className="absolute bottom-20 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 shadow-lg lg:hidden"><Mail size={22} /></button>
             )}
 
             {/* BOTTOM NAV */}
-            <div className="h-14 border-t border-zinc-800 bg-black flex justify-around items-center px-1 pb-2 shrink-0 z-30">
+            <div className="z-30 flex h-14 shrink-0 items-center justify-around border-t border-zinc-800 bg-black px-1 pb-2 lg:hidden">
                 <NavButton id="HOME" icon={Home} />
                 <NavButton id="SEARCH" icon={Search} />
                 <NavButton id="SPACES" icon={Mic} />
                 <NavButton id="NOTIFICATIONS" icon={Bell} badge={Math.min(9, notifications.length)} />
                 <NavButton id="MESSAGES" icon={Mail} />
             </div>
+            </div>
+            <aside className="hidden w-[320px] shrink-0 overflow-y-auto px-4 py-6 lg:block">
+                <div className="rounded-2xl bg-zinc-950 p-4">
+                    <div className="mb-3 text-lg font-black">What&apos;s happening</div>
+                    <div className="mb-3 text-xs font-bold text-zinc-500">{cityLabel} · {gameCalendarYear(player.age)}</div>
+                    {trending.map(trend => (
+                        <button key={trend.tag} onClick={() => { setSearchQuery(trend.tag); setTab('SEARCH'); }} className="block w-full border-b border-zinc-900 py-3 text-left last:border-0 hover:bg-white/5">
+                            <div className="text-[11px] font-bold text-zinc-500">{trend.category}</div>
+                            <div className="font-bold">{trend.tag}</div>
+                            <div className="text-xs text-zinc-500">{trend.posts}</div>
+                        </button>
+                    ))}
+                </div>
+            </aside>
 
             {/* ================= COMPOSE ================= */}
             {composeOpen && (
@@ -1346,7 +1475,12 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                             <div className="font-black text-lg leading-tight">{editingPostId ? 'Edit post' : tr('x.studio')}</div>
                             <div className="text-[9px] text-blue-400 font-black uppercase tracking-[0.25em]">{editingPostId ? 'Premium' : tr('x.createPost')}</div>
                         </div>
-                        <button onClick={handlePost} disabled={!tweetContent.trim() || tweetContent.length > charLimit} className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-black disabled:opacity-40">{editingPostId ? 'Save' : 'Post'}</button>
+                        <div className="flex flex-col items-end">
+                            <button onClick={handlePost} disabled={!tweetContent.trim() || tweetContent.length > charLimit || !canAffordPost} className="rounded-full bg-white px-4 py-2 text-xs font-black uppercase tracking-widest text-black disabled:opacity-40">{editingPostId ? 'Save' : 'Post'}</button>
+                            {!editingPostId && player.energy.current < postEnergyCost && (
+                                <div className="mt-1 max-w-[140px] text-right text-[10px] font-bold leading-tight text-amber-300">Need {postEnergyCost} energy. You have {player.energy.current}.</div>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar pb-36">
@@ -1456,9 +1590,12 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
                     </div>
 
                     <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black to-transparent px-4 pt-10 pb-8">
-                        <button onClick={handlePost} disabled={!tweetContent.trim() || tweetContent.length > charLimit} className="pointer-events-auto w-full rounded-[1.4rem] bg-gradient-to-r from-blue-600 to-sky-400 py-4 text-white font-black tracking-wide shadow-[0_18px_45px_rgba(37,99,235,0.28)] disabled:opacity-50 disabled:from-zinc-800 disabled:to-zinc-800 disabled:text-zinc-500 active:scale-[0.99] transition-transform">
+                        <button onClick={handlePost} disabled={!tweetContent.trim() || tweetContent.length > charLimit || !canAffordPost} className="pointer-events-auto w-full rounded-[1.4rem] bg-gradient-to-r from-blue-600 to-sky-400 py-4 text-white font-black tracking-wide shadow-[0_18px_45px_rgba(37,99,235,0.28)] disabled:opacity-50 disabled:from-zinc-800 disabled:to-zinc-800 disabled:text-zinc-500 active:scale-[0.99] transition-transform">
                             {editingPostId ? 'Save edit' : threadParts.length > 0 ? `Post thread (${threadParts.length + 1})` : tr('x.postToX')}
                         </button>
+                        {!editingPostId && player.energy.current < postEnergyCost && (
+                            <div className="pointer-events-none mt-2 text-center text-[11px] font-bold text-amber-300">Need {postEnergyCost} energy to post. You have {player.energy.current}.</div>
+                        )}
                     </div>
                 </div>
             )}

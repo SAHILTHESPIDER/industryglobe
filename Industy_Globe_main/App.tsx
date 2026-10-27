@@ -20,6 +20,7 @@ import { DeathScreen } from './views/DeathScreen';
 import { RedCarpetEvent } from './views/RedCarpetEvent';
 import { PressConferenceEvent } from './views/PressConferenceEvent';
 import { processGameWeek, promotePendingEvent } from './services/gameLoop';
+import { migrateBoxOfficeHistory } from './services/boxOfficeSim';
 import { seedCommissionPlaytest } from './services/commissions/logic';
 import { generateAuditions, generatePartTimeJobs, rewardGenreExperience } from './services/roleLogic';
 import { generateWeeklyFeed, calculateInteraction, getGenderedAvatar, applyNpcEconomy } from './services/npcLogic';
@@ -104,8 +105,8 @@ const makeTimelineEntry = (
   week: number,
   title: string,
   kind: CompactTimelineEntry['kind'],
-  tone: CompactTimelineEntry['tone'],
-  impact?: CompactTimelineEntry['impact']
+  tone: CompactTimelineEntry['tone'] | string,
+  impact?: CompactTimelineEntry['impact'] | string
 ): CompactTimelineEntry => ({
   id: `${kind}_${sourceId}_${year}_${week}`,
   year,
@@ -113,8 +114,8 @@ const makeTimelineEntry = (
   absoluteWeek: getApproxAbsoluteWeek(year, week),
   title: title.replace(/\s+/g, ' ').trim().slice(0, 180),
   kind,
-  tone,
-  impact,
+  tone: tone === 'negative' || tone === 'positive' ? tone : 'neutral',
+  impact: impact === 'HIGH' || impact === 'MEDIUM' || impact === 'LOW' ? impact : undefined,
 });
 
 const isLegacyWorthyText = (text: string) => {
@@ -226,6 +227,14 @@ const normalizeActiveRelease = (release: Partial<ActiveRelease>, playerAge: numb
         ...(release.promotionalBuzz !== undefined ? { promotionalBuzz: release.promotionalBuzz } : {}),
         ...(release.royaltyPercentage !== undefined ? { royaltyPercentage: release.royaltyPercentage } : {}),
         ...(release.previousBestBidValue !== undefined ? { previousBestBidValue: release.previousBestBidValue } : {}),
+        ...(release.openingGross !== undefined ? { openingGross: release.openingGross } : {}),
+        ...(release.releaseWeek !== undefined ? { releaseWeek: release.releaseWeek } : {}),
+        ...(release.releaseCalendarYear !== undefined ? { releaseCalendarYear: release.releaseCalendarYear } : {}),
+        ...(release.grossIsEstimate !== undefined ? { grossIsEstimate: release.grossIsEstimate } : {}),
+        ...(release.clashFactor !== undefined ? { clashFactor: release.clashFactor } : {}),
+        ...(release.franchiseId !== undefined ? { franchiseId: release.franchiseId } : {}),
+        ...(release.sourceMaterial !== undefined ? { sourceMaterial: release.sourceMaterial } : {}),
+        ...(release.installmentNumber !== undefined ? { installmentNumber: release.installmentNumber } : {}),
         ...(distributionPhase === 'STREAMING' ? { streaming: normalizeStreamingState(release.streaming, projectDetails, playerAge, currentWeek) } : {}),
     };
 };
@@ -302,8 +311,6 @@ type GameErrorBoundaryProps = { onRecover: () => void; children: React.ReactNode
 type GameErrorBoundaryState = { hasError: boolean };
 
 class GameErrorBoundary extends React.Component<GameErrorBoundaryProps, GameErrorBoundaryState> {
-    declare props: GameErrorBoundaryProps;
-    declare setState: (state: Partial<GameErrorBoundaryState>) => void;
     state: GameErrorBoundaryState = { hasError: false };
 
     constructor(props: GameErrorBoundaryProps) {
@@ -806,7 +813,7 @@ export const App: React.FC = () => {
     const existingSave = saveSlots[slot];
     if (existingSave) {
         applyNpcEconomy(existingSave.world?.npcEconomy);
-        setPlayer(existingSave);
+        setPlayer(migrateBoxOfficeHistory(clone(existingSave)));
         setGameStatus('PLAYING');
     } else {
         applyNpcEconomy(null);

@@ -907,7 +907,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
           logs: [{ week: player.currentWeek, year: player.age, message: `▶️ CHEAT: YouTube creator QA channel boosted.`, type: 'positive' as const }, ...player.logs].slice(0, 50)
       };
 
-      onUpdatePlayer(boostedPlayer);
+      onUpdatePlayer(boostedPlayer as Player);
       setActiveCheatMenu('NONE');
       alert('YouTube QA channel boosted. Open Phone > Social > YouTube Studio.');
   };

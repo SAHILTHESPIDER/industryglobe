@@ -82,7 +82,7 @@ const UNIVERSE_TWEETS_PT = [
 ];
 
 const HASHTAGS = [
-    "#ActorEmpire", "#Hollywood", "#FilmTwitter", "#SetLife", "#Cinema", 
+    "#IndustryGlobe", "#Hollywood", "#FilmTwitter", "#SetLife", "#Cinema", 
     "#Trending", "#MondayMotivation", "#ThrowbackThursday", "#NewRelease", "#IndieFilm"
 ];
 
@@ -103,6 +103,11 @@ const QUOTES_PT = [
 // --- GENERATORS ---
 
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+/** Random NPC filler is rebuilt each week. Everything else (player posts, campaigns, rights, charts) stays. */
+const isGeneratedNpcPost = (post: XPost) => /^x_post_(?!player_)/.test(post.id) && !post.system;
+
+export const isPreservedXPost = (post: XPost) => !isGeneratedNpcPost(post);
 
 export const generateXFeed = (player: Player): XPost[] => {
     const feed: XPost[] = [];
@@ -203,15 +208,38 @@ export const generateXFeed = (player: Player): XPost[] => {
     }
 
     feed.sort((a, b) => b.likes - a.likes);
+    const previous = player.x?.feed || [];
+    const priorById = new Map(previous.map(post => [post.id, post]));
     const seen = new Set(feed.map(post => post.id));
-    const trades = (player.x?.feed || []).filter(post => post.id.startsWith('x_commission_') && !seen.has(post.id));
-    return [...trades, ...feed];
+    const preserved = previous.filter(post => !post.isPlayer && isPreservedXPost(post) && !seen.has(post.id));
+    const withLikes = (post: XPost): XPost => {
+        const prior = priorById.get(post.id);
+        if (!prior) return post;
+        const liked = prior.isLiked || post.isLiked;
+        const retweeted = prior.isRetweeted || post.isRetweeted;
+        return {
+            ...post,
+            isLiked: liked,
+            isRetweeted: retweeted,
+            likes: liked && !post.isLiked ? Math.max(post.likes, prior.likes) : post.likes,
+            retweets: retweeted && !post.isRetweeted ? Math.max(post.retweets, prior.retweets) : post.retweets,
+        };
+    };
+    const merged: XPost[] = [];
+    const ids = new Set<string>();
+    [...preserved, ...feed].forEach(post => {
+        const next = withLikes(post);
+        if (ids.has(next.id)) return;
+        ids.add(next.id);
+        merged.push(next);
+    });
+    return merged.slice(0, 80);
 };
 
 export const generateTrendingTopics = (player: Player): { tag: string, posts: string, category: string }[] => {
     // Dynamic trends based on player events?
     const trends = [
-        { tag: "#ActorEmpire", posts: "54.2K posts", category: "Entertainment" },
+        { tag: "#IndustryGlobe", posts: "54.2K posts", category: "Entertainment" },
         { tag: "Hollywood", posts: "120K posts", category: "Movies" },
         { tag: "Politics", posts: "2.5M posts", category: "Politics" },
         { tag: "The Academy", posts: "12K posts", category: "Entertainment" },

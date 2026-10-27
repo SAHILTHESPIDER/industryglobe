@@ -449,6 +449,7 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
                                         attributes: writer?.stats ? {
                                             plot: writer.stats.creativity,
                                             characters: writer.stats.dialogue,
+                                            dialogue: writer.stats.dialogue,
                                             pacing: writer.stats.structure
                                         } : undefined
                                     };

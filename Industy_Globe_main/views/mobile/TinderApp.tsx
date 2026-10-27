@@ -292,7 +292,7 @@ export const TinderApp: React.FC<TinderAppProps> = ({ player, onBack, onUpdatePl
     const getMatchPregnancyCarrier = (match: DatingMatch) => getPregnancyCarrier(player.gender, match.gender);
 
     const buildPregnancyRequest = (match: DatingMatch, pregnancyCarrier: PregnancyCarrier) => {
-        const babyGender = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
+        const babyGender: 'MALE' | 'FEMALE' = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
         const suggestedFirstName = babyGender === 'MALE' ? 'Leo' : 'Mia';
         const activePartner = player.relationships.find(rel => (rel.relation === 'Partner' || rel.relation === 'Spouse') && rel.name !== match.name);
 

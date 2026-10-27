@@ -6,6 +6,7 @@ import { generateProjectTitle, getEstimatedBudget, generateProjectDetails, sanit
 import { initUniverses, normalizeUniverseMap, processUniverseTurn } from './universeLogic';
 import { processNpcVentures, syncNpcVenturesToStudios } from './npcVentureLogic';
 import { ALL_GENRES } from './genreCatalog';
+import { absoluteWeek, attachRunSkeleton, creditName, gameCalendarYear, simulateIndustryWeek, weekParts } from './boxOfficeSim';
 
 // Helpers
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -81,8 +82,9 @@ export const generateIndustryProject = (
     if (director.name === "Nyanika Mishra") luck = Math.max(luck, 1.5);
  
     const safeBudget = Number.isFinite(budget) ? budget : 0;
-    let boxOffice = safeBudget * fameMultiplier * qualityMod * luck;
-    if (tier === 'HIGH' && boxOffice < safeBudget) boxOffice = safeBudget * 0.8; 
+    let projected = safeBudget * fameMultiplier * qualityMod * luck;
+    if (tier === 'HIGH' && projected < safeBudget) projected = safeBudget * 0.8;
+    const boxOffice = 0; 
     
     let review = "MIXED";
     if (quality > 80) review = "HIT";
@@ -91,9 +93,10 @@ export const generateIndustryProject = (
     const targetAudiences: TargetAudience[] = ['G', 'PG', 'PG-13', 'R', 'NC-17'];
     const targetAudience = targetAudiences[Math.floor(Math.random() * targetAudiences.length)];
 
-    return {
+    const openedAbs = absoluteWeek(year, currentWeek > 52 ? ((currentWeek - 1) % 52) + 1 : currentWeek);
+    const project: IndustryProject = {
         id: `ind_proj_${Date.now()}_${Math.random()}`,
-        title: generateProjectTitle([]), 
+        title: generateProjectTitle([]),
         genre,
         targetAudience,
         studioId,
@@ -101,12 +104,16 @@ export const generateIndustryProject = (
         quality,
         boxOffice: sanitizeGross(boxOffice),
         year,
-        weekReleased: currentWeek,
+        weekReleased: currentWeek > 52 ? ((currentWeek - 1) % 52) + 1 : currentWeek,
         leadActorId: lead.id,
-        leadActorName: lead.name,
-        directorName: director.name,
+        leadActorName: creditName(lead.name, (lead.age ?? 40) < 100),
+        directorName: creditName(director.name, (director.age ?? 50) < 100),
         reviews: review
     };
+    const seeded = attachRunSkeleton(project, gameCalendarYear(year), openedAbs);
+    if (seeded.run) seeded.run.projectedGross = sanitizeGross(projected);
+    seeded.run && (seeded.run.budgetUsd = safeBudget);
+    return seeded;
 };
 
 // 2. Process World Turn (Runs Weekly)
@@ -136,22 +143,30 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
     // --- A. MAINTAIN RIVAL SCHEDULE ---
     // Ensure we have at least 12 weeks of upcoming rivals
     if (!newWorld.upcomingRivals) newWorld.upcomingRivals = [];
-    
-    // Remove rivals that were released this week or earlier
-    newWorld.upcomingRivals = newWorld.upcomingRivals.filter(r => r.weekReleased > player.currentWeek);
 
-    // Fill up the schedule
-    while (newWorld.upcomingRivals.length < 24) { // 2 movies per week for 12 weeks
-        const releaseWeek = player.currentWeek + Math.floor(newWorld.upcomingRivals.length / 2) + 1;
-        const project = generateIndustryProject(releaseWeek, player.age);
+    const rivalAbs = (project: IndustryProject) => project.run?.openedAbsoluteWeek || absoluteWeek(project.year || player.age, project.weekReleased || player.currentWeek);
+    const nowAbs = absoluteWeek(player.age, player.currentWeek);
+
+    // --- B. RELEASE RIVALS THAT ARE DUE ---
+    const rivalsToRelease = newWorld.upcomingRivals.filter(project => rivalAbs(project) <= nowAbs);
+    newWorld.upcomingRivals = newWorld.upcomingRivals.filter(project => rivalAbs(project) > nowAbs);
+
+    while (newWorld.upcomingRivals.length < 24) {
+        const ahead = Math.floor(newWorld.upcomingRivals.length / 2) + 1;
+        const openAbs = nowAbs + ahead;
+        const parts = weekParts(openAbs);
+        const project = generateIndustryProject(parts.week, parts.age);
+        if (project.run) {
+            project.run.openedAbsoluteWeek = openAbs;
+            project.run.calendarYear = gameCalendarYear(parts.age);
+            project.run.inTheaters = false;
+        }
+        project.year = parts.age;
+        project.weekReleased = parts.week;
         newWorld.upcomingRivals.push(project);
     }
 
-    // Sort by week
-    newWorld.upcomingRivals.sort((a, b) => a.weekReleased - b.weekReleased);
-
-    // --- B. RELEASE RIVALS FOR THIS WEEK ---
-    const rivalsToRelease = newWorld.upcomingRivals.filter(r => r.weekReleased === player.currentWeek);
+    newWorld.upcomingRivals.sort((a, b) => rivalAbs(a) - rivalAbs(b));
     rivalsToRelease.forEach(project => {
         newWorld.projects.unshift(project);
 
@@ -174,18 +189,19 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
 
             // Backend Logic
             const estimatedBudget = getEstimatedBudget(project.budgetTier);
-            if (project.boxOffice > estimatedBudget * 2.5 && project.budgetTier !== 'LOW') {
-                // Hit! 1% to 4% backend
+            const trackedGross = project.run?.projectedGross || project.boxOffice;
+            if (trackedGross > estimatedBudget * 2.5 && project.budgetTier !== 'LOW') {
                 const points = 0.01 + (Math.random() * 0.03);
-                const backend = Math.floor(project.boxOffice * points);
+                const backend = Math.floor(trackedGross * points);
                 salary += backend;
             }
 
             lead.netWorth += salary;
         }
 
-        const isHit = project.boxOffice > getEstimatedBudget(project.budgetTier) * 3;
-        const isFlop = project.boxOffice < getEstimatedBudget(project.budgetTier) * 0.8;
+        const trackedGross = project.run?.projectedGross || project.boxOffice;
+        const isHit = trackedGross > getEstimatedBudget(project.budgetTier) * 3;
+        const isFlop = trackedGross > 0 && trackedGross < getEstimatedBudget(project.budgetTier) * 0.8;
         
         if (project.budgetTier === 'HIGH' || isHit || isFlop || project.directorName === "Nyanika Mishra") {
             let headline = `'${project.title}' releases this week.`;
@@ -275,7 +291,20 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         news.push(...res.news);
         
         if (res.project) {
-            newWorld.projects.unshift(res.project);
+            const stamped = attachRunSkeleton({
+                ...res.project,
+                leadActorName: creditName(res.project.leadActorName),
+                directorName: creditName(res.project.directorName),
+            }, gameCalendarYear(player.age), nowAbs);
+            if (stamped.run) {
+                stamped.run.openedAbsoluteWeek = nowAbs;
+                stamped.run.projectedGross = res.project.boxOffice;
+                stamped.run.budgetUsd = getEstimatedBudget(res.project.budgetTier);
+            }
+            stamped.boxOffice = 0;
+            stamped.year = player.age;
+            stamped.weekReleased = player.currentWeek;
+            newWorld.projects.unshift(stamped);
             news.push({
                 id: `news_uni_rel_${res.project.id}`,
                 headline: `Universe Release: ${res.project.title} lands in theaters.`,
@@ -316,18 +345,19 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
 
             // Backend Logic
             const estimatedBudget = getEstimatedBudget(project.budgetTier);
-            if (project.boxOffice > estimatedBudget * 2.5 && project.budgetTier !== 'LOW') {
-                // Hit! 1% to 4% backend
+            const trackedGross = project.run?.projectedGross || project.boxOffice;
+            if (trackedGross > estimatedBudget * 2.5 && project.budgetTier !== 'LOW') {
                 const points = 0.01 + (Math.random() * 0.03);
-                const backend = Math.floor(project.boxOffice * points);
+                const backend = Math.floor(trackedGross * points);
                 salary += backend;
             }
 
             lead.netWorth += salary;
         }
 
-        const isHit = project.boxOffice > getEstimatedBudget(project.budgetTier) * 3;
-        const isFlop = project.boxOffice < getEstimatedBudget(project.budgetTier) * 0.8;
+        const trackedGross = project.run?.projectedGross || project.boxOffice;
+        const isHit = trackedGross > getEstimatedBudget(project.budgetTier) * 3;
+        const isFlop = trackedGross > 0 && trackedGross < getEstimatedBudget(project.budgetTier) * 0.8;
         
         if (project.budgetTier === 'HIGH' || isHit || isFlop || project.directorName === "Nyanika Mishra") {
             let headline = `'${project.title}' releases this week.`;
@@ -349,6 +379,11 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
                 impactLevel: isHit || isFlop ? 'HIGH' : 'MEDIUM'
             });
         }
+    }
+
+    newWorld.projects = simulateIndustryWeek({ ...player, world: newWorld });
+    if (newWorld.projects.length > 100) {
+        newWorld.projects = newWorld.projects.slice(0, 100);
     }
 
     newWorld.npcEconomy = captureNpcEconomy();

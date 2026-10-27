@@ -5,6 +5,7 @@ import { ArrowLeft, Film, Tv, Calendar, TrendingUp, CheckCircle2, Camera, Star, 
 import { FESTIVALS, CALENDAR_EVENTS } from '../../../services/worldLogic';
 import { mergeUniverseRosterWithProject, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getAbsoluteWeek } from '../../../services/legacyLogic';
+import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -303,6 +304,18 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
     const auctionTimeLeftRef = React.useRef(100);
 
     const isSeries = project.projectDetails?.type === 'SERIES';
+    const clashWarnings = useMemo(() => {
+        if (isSeries || releaseType === 'STREAMING_ONLY') return [];
+        return scheduleClashWarnings(player, {
+            id: String(project.id || 'pending_release'),
+            title: project.name || project.projectDetails?.title || 'Your film',
+            genre: project.projectDetails?.genre,
+            audience: project.projectDetails?.targetAudience,
+            starPower: project.projectDetails?.hiddenStats?.castingStrength,
+            hype: project.projectDetails?.hiddenStats?.rawHype,
+            budget: project.projectDetails?.estimatedBudget,
+        }, releaseWeek).filter(warning => warning.factor < 0.995);
+    }, [isSeries, player, project, releaseType, releaseWeek]);
     const getProjectAuctionContext = () => {
         const hiddenStats = project.projectDetails?.hiddenStats || {};
         const estQuality = hiddenStats.qualityScore || 50;
@@ -905,7 +918,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     {SCREENING_STRATEGIES.map(strategy => (
                                         <button 
                                             key={strategy.id}
-                                            onClick={() => setScreeningStrategy(strategy.id)}
+                                            onClick={() => setScreeningStrategy(strategy.id as ScreeningStrategy)}
                                             className={`group relative p-6 rounded-3xl border transition-all duration-500 text-left overflow-hidden ${screeningStrategy === strategy.id ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.1)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                                         >
                                             <div className="relative z-10 flex justify-between items-center">
@@ -1196,6 +1209,21 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     <h2 className="text-5xl md:text-7xl font-serif font-light tracking-tight text-white/90">Calendar</h2>
                                     <p className="text-lg text-white/50 font-light tracking-wide">Select your opening weekend.</p>
                                 </div>
+
+                                {clashWarnings.length > 0 && (
+                                    <div className="rounded-3xl border border-rose-500/40 bg-rose-500/10 px-6 py-5 text-left">
+                                        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-rose-300">Release clash</div>
+                                        <p className="mt-2 text-sm text-rose-50/90">Opening weekend gross drops about {Math.round((1 - clashWarnings[0].factor) * 100)}% while these films share the audience.</p>
+                                        <div className="mt-3 space-y-2">
+                                            {clashWarnings.slice(0, 3).map(warning => (
+                                                <div key={warning.id} className="text-sm text-white/80">
+                                                    <span className="font-semibold text-white">{warning.title}</span>
+                                                    <span className="text-white/50"> · {warning.genre.replace(/_/g, ' ')} · {warning.sameWeek ? 'same week' : `week ${warning.week}`}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-1 gap-4 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
                                     {[1, 2, 3, 4, 5, 6, 7, 8].map(offset => {
