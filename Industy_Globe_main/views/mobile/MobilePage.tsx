@@ -6,7 +6,7 @@ import { getPhaseDuration } from '../../services/roleLogic';
 
 // Import sub-apps
 import { InstagramApp } from './InstagramApp';
-import { BoxOfficeApp } from './BoxOfficeApp';
+import { BoxOfficeHub } from './boxoffice';
 import { CastLinkApp } from './CastLinkApp';
 import { MessagesApp } from './MessagesApp';
 import { TeamApp } from './TeamApp';
@@ -596,7 +596,7 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     />
                 )}
                 {appMode === 'BOXOFFICE' && (
-                    <BoxOfficeApp player={props.player} onBack={() => setAppMode('HOME')} />
+                    <BoxOfficeHub player={props.player} onBack={() => setAppMode('HOME')} />
                 )}
                 {appMode === 'STREAMING' && (
                     <StreamingPage player={props.player} onBack={() => setAppMode('HOME')} onOpenRights={() => { setPlatformPane('rights'); setAppMode('OWN_PLATFORM'); }} />
