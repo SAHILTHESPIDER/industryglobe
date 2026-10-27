@@ -1,752 +1,686 @@
-import React, { useState } from 'react';
-import { Zap, DollarSign, Star, Film, TrendingUp, Users, ArrowLeft, BookOpen, Briefcase, PlayCircle, X, GraduationCap, Activity, Globe, Smartphone, BarChart3, ChevronRight, HelpCircle, Heart, Clapperboard, Landmark, Sparkles, Building2, Clock3 } from 'lucide-react';
+import React, { useState } from "react";
+import {
+  Activity,
+  ArrowLeft,
+  BarChart3,
+  BookOpen,
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Clapperboard,
+  Clock3,
+  DollarSign,
+  Film,
+  Globe,
+  GraduationCap,
+  Heart,
+  HelpCircle,
+  Landmark,
+  PlayCircle,
+  Sparkles,
+  Smartphone,
+  Star,
+  TrendingUp,
+  Users,
+  Zap,
+} from "lucide-react";
 
 interface GuideViewProps {
-    onBack: () => void;
+  onBack: () => void;
 }
 
-type GuideMode = 'MENU' | 'HANDBOOK' | 'PLAYBOOKS' | 'FAQ' | 'WIZARD';
+type GuideMode = "MENU" | "HANDBOOK" | "PLAYBOOKS" | "FAQ" | "WIZARD";
 
 type GuideSection = {
-    id: string;
-    title: string;
-    icon: React.ReactNode;
-    content: React.ReactNode;
+  id: string;
+  title: string;
+  icon: React.ReactNode;
+  content: React.ReactNode;
 };
 
-const GuideNote: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3">
-        <div className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-300 mb-1">{title}</div>
-        <div className="text-xs leading-relaxed text-amber-50/80">{children}</div>
+const GuideNote: React.FC<{ title: string; children: React.ReactNode }> = ({
+  title,
+  children,
+}) => (
+  <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] p-3">
+    <div className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">
+      {title}
     </div>
+    <div className="text-xs leading-relaxed text-zinc-300">{children}</div>
+  </div>
 );
 
 const GuideBullets: React.FC<{ items: string[] }> = ({ items }) => (
-    <div className="space-y-2">
-        {items.map(item => (
-            <div key={item} className="flex gap-2 text-xs text-zinc-400 leading-relaxed">
-                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-zinc-600 shrink-0" />
-                <span>{item}</span>
-            </div>
-        ))}
-    </div>
+  <div className="space-y-2">
+    {items.map((item) => (
+      <div key={item} className="flex gap-2 text-xs leading-relaxed text-zinc-400">
+        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
+        <span>{item}</span>
+      </div>
+    ))}
+  </div>
 );
 
 const GuideTagRow: React.FC<{ tags: string[] }> = ({ tags }) => (
-    <div className="flex flex-wrap gap-2">
-        {tags.map(tag => (
-            <span key={tag} className="rounded-full border border-zinc-700 bg-black/40 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-300">
-                {tag}
-            </span>
-        ))}
-    </div>
+  <div className="flex flex-wrap gap-2">
+    {tags.map((tag) => (
+      <span
+        key={tag}
+        className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-300"
+      >
+        {tag}
+      </span>
+    ))}
+  </div>
 );
 
 const WIZARD_STEPS = [
-    {
-        title: "Welcome to Industry Globe",
-        icon: <Star size={48} className="text-amber-400" />,
-        content: "You are building a life, not just chasing one role. The best saves balance career, money, fame, relationships, studio power, and long-term planning.",
-        color: "bg-zinc-900"
-    },
-    {
-        title: "Your Weekly Loop",
-        icon: <Clock3 size={48} className="text-sky-400" />,
-        content: "Each week is a resource puzzle. Spend energy on acting, social growth, business, or personal life, then age up to see the results. Momentum matters more than one perfect week.",
-        color: "bg-sky-900/20"
-    },
-    {
-        title: "Build the Career First",
-        icon: <Film size={48} className="text-indigo-400" />,
-        content: "CastLink, rehearsals, better agents, and strong performances open the entertainment ladder. Early on, steady work and smart role choices usually matter more than chasing only giant projects.",
-        color: "bg-indigo-900/20"
-    },
-    {
-        title: "Know What Each Stat Does",
-        icon: <Sparkles size={48} className="text-fuchsia-400" />,
-        content: "Fame raises your profile. Reputation improves trust and credibility. Followers improve reach and monetization. Money gives you options. None of them fully replaces the others.",
-        color: "bg-fuchsia-900/20"
-    },
-    {
-        title: "Businesses Need Management",
-        icon: <BarChart3 size={48} className="text-emerald-400" />,
-        content: "Businesses do not print money by themselves. Pricing, hype, staffing, stock, and expansion all matter. Product businesses reward active management, while service businesses are steadier.",
-        color: "bg-emerald-900/20"
-    },
-    {
-        title: "Production House is a Long Game",
-        icon: <Clapperboard size={48} className="text-rose-400" />,
-        content: "Your studio shines when you develop strong projects, manage releases, and turn wins into a library. Big payoffs can take time, so think in stages instead of expecting instant results.",
-        color: "bg-rose-900/20"
-    },
-    {
-        title: "Connected Stories Need Care",
-        icon: <Globe size={48} className="text-blue-400" />,
-        content: "Franchises and universes are powerful because characters, cast, sequels, crossovers, and market memory carry forward. Keep identities clean and plan the next move before stacking too many links.",
-        color: "bg-blue-900/20"
-    }
+  {
+    title: "Welcome to Industry Globe",
+    eyebrow: "YOUR STORY. YOUR EMPIRE.",
+    icon: <Star size={36} className="text-amber-300" />,
+    content:
+      "You are building a life, not just chasing one role. Balance your career, money, fame, relationships, studio power, and long-term planning.",
+    color: "from-amber-500/20 to-orange-500/5",
+  },
+  {
+    title: "Master the Weekly Loop",
+    eyebrow: "TIME IS YOUR MOST VALUABLE RESOURCE",
+    icon: <Clock3 size={36} className="text-sky-300" />,
+    content:
+      "Every week is a resource puzzle. Spend energy on acting, social growth, business, or personal life, then advance time to see the results.",
+    color: "from-sky-500/20 to-blue-500/5",
+  },
+  {
+    title: "Build Your Career",
+    eyebrow: "START SMALL. BUILD MOMENTUM.",
+    icon: <Film size={36} className="text-violet-300" />,
+    content:
+      "Use auditions, preparation, representation, and strong performances to build a credible career. Consistent progress usually beats waiting for one giant opportunity.",
+    color: "from-violet-500/20 to-fuchsia-500/5",
+  },
+  {
+    title: "Become an Owner",
+    eyebrow: "FROM CREATIVE TO EXECUTIVE",
+    icon: <Clapperboard size={36} className="text-rose-300" />,
+    content:
+      "Develop scripts, greenlight projects, manage budgets, plan releases, and grow a valuable catalogue. Think about the full project lifecycle.",
+    color: "from-rose-500/20 to-pink-500/5",
+  },
+  {
+    title: "Go Global",
+    eyebrow: "THINK BEYOND ONE MARKET",
+    icon: <Globe size={36} className="text-cyan-300" />,
+    content:
+      "Expand your audience through distribution, streaming, licensing, regional strategy, and connected stories. Build a sustainable empire, not just a headline.",
+    color: "from-cyan-500/20 to-blue-500/5",
+  },
 ];
 
 const HANDBOOK_SECTIONS: GuideSection[] = [
-    {
-        id: 'GETTING_STARTED',
-        title: 'Getting Started',
-        icon: <GraduationCap size={18} className="text-sky-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Your first goal:</strong> create reliable momentum. Small wins in auditions, social activity, and money management usually beat risky all-in plays at the start.</p>
-                <p><strong className="text-white">Think week to week:</strong> every decision competes for your time and energy. If you spread yourself too thin, your progress slows everywhere.</p>
-                <p><strong className="text-white">Use the phone apps often:</strong> most important systems live there. CastLink grows your career, Team manages contracts, social apps build reach, and Guide helps you understand the rest.</p>
-            </div>
-        )
-    },
-    {
-        id: 'STATS',
-        title: 'Stats Explained',
-        icon: <Sparkles size={18} className="text-amber-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Fame:</strong> your public profile. It helps you get seen, land bigger opportunities, and stay culturally relevant.</p>
-                <p><strong className="text-white">Reputation:</strong> how seriously the industry takes you. High reputation supports long-term career growth, trust, and better professional outcomes.</p>
-                <p><strong className="text-white">Followers:</strong> your social reach. Great for influence, sponsorships, and online growth, but followers alone will not carry an acting career.</p>
-                <p><strong className="text-white">Mood and energy:</strong> these shape how much you can do and how strong your weeks feel. A rich account means less if your character is exhausted or unhappy.</p>
-            </div>
-        )
-    },
-    {
-        id: 'CAREER',
-        title: 'Career Flow',
-        icon: <Film size={18} className="text-indigo-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">CastLink:</strong> the main place to find work. Better talent, preparation, experience, and representation improve the quality of roles you can compete for.</p>
-                <p><strong className="text-white">Preparation matters:</strong> rehearsals and smart role selection help your performances feel more consistent. Strong fits usually outperform random prestige chasing.</p>
-                <p><strong className="text-white">Career growth:</strong> early game is about building a record, mid game is about momentum, and late game is about leverage, choice, and legacy.</p>
-            </div>
-        )
-    },
-    {
-        id: 'WEEKLY_LOOP',
-        title: 'Weekly Loop & Energy',
-        icon: <Zap size={18} className="text-yellow-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Energy is your weekly fuel:</strong> acting, social moves, business work, and personal actions all draw from it.</p>
-                <p><strong className="text-white">Do not waste empty weeks:</strong> if you are waiting on a project, use that time to build fame, relationships, skills, or business progress.</p>
-                <p><strong className="text-white">Recovery has value:</strong> sometimes the best move is restoring your character so the next few weeks become stronger and more efficient.</p>
-            </div>
-        )
-    },
-    {
-        id: 'SOCIAL_MEDIA',
-        title: 'Fame, Followers & Social',
-        icon: <Smartphone size={18} className="text-pink-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Social media keeps you visible:</strong> posting helps maintain attention and can support your broader entertainment career.</p>
-                <p><strong className="text-white">Different platforms do different jobs:</strong> visual content is strong for image, short-form commentary can spike reach, and longer content can become a deeper monetization lane.</p>
-                <p><strong className="text-white">Use social with purpose:</strong> not every post needs to chase virality. Sometimes the right move is staying active enough to support your career and brand.</p>
-            </div>
-        )
-    },
-    {
-        id: 'RELATIONSHIPS',
-        title: 'Relationships & Networking',
-        icon: <Heart size={18} className="text-rose-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Professional relationships:</strong> directors, agents, managers, and contacts can change the quality of opportunities you see.</p>
-                <p><strong className="text-white">Personal relationships:</strong> romance and family are not just flavor. Neglect can create drama, while healthy relationships support a stronger life path.</p>
-                <p><strong className="text-white">Networking works best over time:</strong> repeated effort usually beats one expensive gesture.</p>
-            </div>
-        )
-    },
-    {
-        id: 'BUSINESSES',
-        title: 'Businesses',
-        icon: <Building2 size={18} className="text-emerald-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Businesses are long-term income engines:</strong> some are stable service businesses, while others are active product businesses that reward hands-on management.</p>
-                <p><strong className="text-white">What usually matters:</strong> pricing, quality, hype, staffing, stock, and expansion. If one of those is weak, profits can stall even when another looks strong.</p>
-                <p><strong className="text-white">Marketing helps best when the basics are healthy:</strong> ads can bring demand, but they work better when your product, capacity, and setup are already in a good place.</p>
-            </div>
-        )
-    },
-    {
-        id: 'PRODUCTION_HOUSE',
-        title: 'Production House',
-        icon: <Clapperboard size={18} className="text-violet-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Think in stages:</strong> development, production, release, and afterlife all matter. A great studio run comes from managing the whole chain well.</p>
-                <p><strong className="text-white">Not every project should be rushed:</strong> stronger planning can produce better release outcomes than forcing everything out quickly.</p>
-                <p><strong className="text-white">Your library matters:</strong> over time, the studio becomes more valuable when you build a catalog instead of relying on one hit.</p>
-            </div>
-        )
-    },
-    {
-        id: 'DEVELOPMENT_LAB',
-        title: 'Development Lab',
-        icon: <BookOpen size={18} className="text-amber-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Vault:</strong> your saved scripts and concepts. It is where ideas wait until you are ready to develop, sell, or produce them.</p>
-                <p><strong className="text-white">Concept:</strong> where you shape the basics, genre, tone, audience, and story identity. These choices influence the script profile, but the game keeps room for surprise.</p>
-                <p><strong className="text-white">Market:</strong> where scripts can be bought or discovered. Pay attention to format, genre, quality, and whether the idea already carries a known subject, franchise, or biopic/documentary hook.</p>
-                <GuideNote title="No exact formula">
-                    The guide will tell you what matters, not the hidden math. A strong concept usually comes from fit, clarity, and timing rather than chasing one perfect stat.
-                </GuideNote>
-            </div>
-        )
-    },
-    {
-        id: 'SCRIPT_FORMATS',
-        title: 'Scripts, Genres & Formats',
-        icon: <Film size={18} className="text-pink-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Format is the production shape:</strong> movie or series decides how the project is packaged. Live action, animated feature, and anime film describe how that story is produced and presented.</p>
-                <p><strong className="text-white">Genre is the audience promise:</strong> drama, action, biopic, sports, documentary, musical, animation, anime, and similar lanes tell players and the market what kind of experience the project offers.</p>
-                <p><strong className="text-white">Primary and secondary genres:</strong> primary genre carries the main identity. Secondary genre adds flavor, but it should support the project instead of confusing it.</p>
-                <GuideTagRow tags={['Format = package', 'Genre = promise', 'Tone = feel', 'Audience = reach']} />
-            </div>
-        )
-    },
-    {
-        id: 'GREENLIGHT',
-        title: 'Greenlight Flow',
-        icon: <PlayCircle size={18} className="text-emerald-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Greenlight turns a script into a production plan:</strong> you attach director, cast, crew, gear, locations, tone, and final package.</p>
-                <p><strong className="text-white">Budget is not just a number:</strong> talent fees, crew quality, production choices, known characters, and scale all push the estimate around.</p>
-                <p><strong className="text-white">Negotiation matters:</strong> returning cast, known characters, and bigger names can be powerful, but they still need deals to make the package real.</p>
-                <GuideBullets items={[
-                    'Use the cast step to lock who plays each role.',
-                    'Use connected characters when the story is part of a franchise or universe.',
-                    'Use the review step to catch weak spots before committing.'
-                ]} />
-            </div>
-        )
-    },
-    {
-        id: 'FINANCE',
-        title: 'Money, Assets & Lifestyle',
-        icon: <Landmark size={18} className="text-amber-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Cash flow matters:</strong> large paydays feel great, but weekly expenses, upkeep, and commitments decide whether your account actually stays healthy.</p>
-                <p><strong className="text-white">Assets and lifestyle choices:</strong> these can improve your overall life quality and image, but buying too much too early can slow career progress.</p>
-                <p><strong className="text-white">Loans:</strong> borrowed money creates monthly pressure. Pay attention to the balance, scheduled payment, and whether paying it down now protects your future weeks.</p>
-                <p><strong className="text-white">Diversify when possible:</strong> one income stream can carry you for a while, but long runs are safer with multiple pillars.</p>
-            </div>
-        )
-    },
-    {
-        id: 'UNIVERSES',
-        title: 'Franchises & Universes',
-        icon: <Globe size={18} className="text-blue-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Big universes are prestige opportunities:</strong> they can open huge visibility, but the road in is usually competitive.</p>
-                <p><strong className="text-white">Some roles are stepping stones:</strong> a smaller part, cameo, or supporting appearance can lead to better franchise positioning later.</p>
-                <p><strong className="text-white">Character identity matters:</strong> a character should keep its identity across sequels, events, recasts, and crossovers. If you are continuing a story, use existing characters instead of creating duplicates.</p>
-                <p><strong className="text-white">Preparation still matters:</strong> high profile roles are easier to reach when your overall career, cast plan, and studio setup are already strong.</p>
-            </div>
-        )
-    },
-    {
-        id: 'RELEASES_AWARDS',
-        title: 'Releases, Streaming & Awards',
-        icon: <TrendingUp size={18} className="text-green-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Release life has stages:</strong> a project may move through theatrical performance, streaming interest, library value, awards attention, and long-tail reputation.</p>
-                <p><strong className="text-white">Streaming bids:</strong> offers care about project value, audience fit, momentum, and the platform's appetite. The highest-looking number is not always the only thing to consider.</p>
-                <p><strong className="text-white">Awards:</strong> awards reward more than popularity. Quality, performance strength, category fit, timing, and industry buzz all help shape awards season.</p>
-            </div>
-        )
-    },
-    {
-        id: 'LEGACY',
-        title: 'Legacy & Long-Term Play',
-        icon: <Users size={18} className="text-cyan-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Industry Globe rewards long saves:</strong> careers rise and fall, businesses mature, and family choices change the shape of your run.</p>
-                <p><strong className="text-white">Legacy is about continuity:</strong> your choices now can shape what the next chapter inherits.</p>
-                <p><strong className="text-white">The strongest dynasties are balanced:</strong> fame alone is flashy, but legacy usually comes from combining status, wealth, stability, and relationships.</p>
-            </div>
-        )
-    }
+  {
+    id: "GETTING_STARTED",
+    title: "Getting Started",
+    icon: <GraduationCap size={18} className="text-sky-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Your first goal:</strong> create reliable momentum. Small wins in auditions, social activity, and money management usually beat risky all-in plays at the start.</p>
+        <p><strong className="text-white">Think week to week:</strong> every decision competes for your time and energy. If you spread yourself too thin, progress slows everywhere.</p>
+        <p><strong className="text-white">Use your apps:</strong> career tools help you find work, management tools track contracts, social apps build reach, and this guide explains the bigger systems.</p>
+      </div>
+    ),
+  },
+  {
+    id: "STATS",
+    title: "Stats Explained",
+    icon: <Sparkles size={18} className="text-amber-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Fame:</strong> your public profile. It helps you get seen, land bigger opportunities, and stay culturally relevant.</p>
+        <p><strong className="text-white">Reputation:</strong> how seriously the industry takes you. It supports trust, credibility, and professional outcomes.</p>
+        <p><strong className="text-white">Followers:</strong> your social reach. Useful for influence and sponsorships, but followers alone will not carry an acting career.</p>
+        <p><strong className="text-white">Mood and energy:</strong> these shape how much you can do and how strong your weeks feel.</p>
+      </div>
+    ),
+  },
+  {
+    id: "CAREER",
+    title: "Career Flow",
+    icon: <Film size={18} className="text-violet-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Find opportunities:</strong> use career listings and representation to discover roles that fit your profile.</p>
+        <p><strong className="text-white">Preparation matters:</strong> rehearsals and smart role selection help your performances feel more consistent.</p>
+        <p><strong className="text-white">Career growth:</strong> early game is about building a record, mid game is about momentum, and late game is about leverage and legacy.</p>
+      </div>
+    ),
+  },
+  {
+    id: "WEEKLY_LOOP",
+    title: "Weekly Loop & Energy",
+    icon: <Zap size={18} className="text-yellow-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Energy is your weekly fuel:</strong> acting, social moves, business work, and personal actions all draw from it.</p>
+        <p><strong className="text-white">Do not waste empty weeks:</strong> build skills, relationships, visibility, or business progress while waiting on projects.</p>
+        <p><strong className="text-white">Recovery has value:</strong> restoring your character can make the next few weeks more productive.</p>
+      </div>
+    ),
+  },
+  {
+    id: "SOCIAL_MEDIA",
+    title: "Fame, Followers & Social Media",
+    icon: <Smartphone size={18} className="text-pink-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Social media keeps you visible and can support your entertainment career.</p>
+        <p>Different platforms serve different audiences. Visual content can strengthen your image, short-form content can grow reach, and long-form content can deepen audience loyalty.</p>
+        <p>Use social activity with purpose. Not every post needs to chase virality.</p>
+      </div>
+    ),
+  },
+  {
+    id: "RELATIONSHIPS",
+    title: "Relationships & Networking",
+    icon: <Heart size={18} className="text-rose-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Professional relationships with directors, agents, managers, and contacts can change the quality of opportunities you see.</p>
+        <p>Personal relationships and family are part of the life simulation too. Neglect can create strain, while healthy bonds support a stronger life path.</p>
+        <p>Networking works best over time. Repeated effort usually beats one expensive gesture.</p>
+      </div>
+    ),
+  },
+  {
+    id: "BUSINESSES",
+    title: "Businesses & Management",
+    icon: <Building2 size={18} className="text-emerald-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Businesses can become long-term income engines, but they need active management.</p>
+        <p>Pricing, quality, hype, staffing, stock, and expansion all matter. If one part is weak, profits can stall even when another looks strong.</p>
+        <p>Marketing works best when the product, capacity, and operations are ready to handle demand.</p>
+      </div>
+    ),
+  },
+  {
+    id: "PRODUCTION_HOUSE",
+    title: "Production House",
+    icon: <Clapperboard size={18} className="text-violet-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Think in stages: development, production, release, and the long-term life of the title all matter.</p>
+        <p>Not every project should be rushed. Planning can produce better outcomes than forcing everything out quickly.</p>
+        <p>Your catalogue matters. A studio becomes more resilient when it builds a library instead of relying on one hit.</p>
+      </div>
+    ),
+  },
+  {
+    id: "DEVELOPMENT_LAB",
+    title: "Development Lab & Scripts",
+    icon: <BookOpen size={18} className="text-amber-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Vault:</strong> saved scripts and concepts wait here until you are ready to develop, sell, or produce them.</p>
+        <p><strong className="text-white">Concept:</strong> shape the basics, genre, tone, audience, and story identity.</p>
+        <p><strong className="text-white">Market:</strong> review format, genre, quality, and whether the idea carries a franchise, biopic, or documentary hook.</p>
+        <GuideNote title="Creative principle">Aim for fit, clarity, and timing instead of chasing one supposedly perfect stat.</GuideNote>
+      </div>
+    ),
+  },
+  {
+    id: "SCRIPT_FORMATS",
+    title: "Scripts, Genres & Formats",
+    icon: <Film size={18} className="text-pink-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Format</strong> is the package, such as a movie or series.</p>
+        <p><strong className="text-white">Genre</strong> is the audience promise: drama, action, biopic, sports, documentary, musical, animation, anime, and more.</p>
+        <p><strong className="text-white">Tone</strong> describes how the story feels. Secondary genres should add flavour without confusing the project's identity.</p>
+        <GuideTagRow tags={["Format = package", "Genre = promise", "Tone = feel", "Audience = reach"]} />
+      </div>
+    ),
+  },
+  {
+    id: "GREENLIGHT",
+    title: "Greenlight Flow",
+    icon: <PlayCircle size={18} className="text-emerald-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Greenlight turns a script into a production plan: director, cast, crew, equipment, locations, tone, and final package.</p>
+        <p>Budget is shaped by talent fees, crew quality, production choices, story scale, and the people attached.</p>
+        <GuideBullets items={["Lock the cast and key creative roles.", "Connect existing characters when a project belongs to a franchise.", "Review the package for weak spots before committing."]} />
+      </div>
+    ),
+  },
+  {
+    id: "FINANCE",
+    title: "Money, Assets & Lifestyle",
+    icon: <Landmark size={18} className="text-amber-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Large paydays feel great, but recurring expenses and commitments decide whether your account stays healthy.</p>
+        <p>Assets and lifestyle choices can improve image and quality of life, but buying too much too early can slow career progress.</p>
+        <p>Loans create future pressure. Keep enough cash for obligations and unexpected costs.</p>
+        <p>Diversify when possible. Multiple income pillars make long runs more resilient.</p>
+      </div>
+    ),
+  },
+  {
+    id: "UNIVERSES",
+    title: "Franchises & Universes",
+    icon: <Globe size={18} className="text-blue-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Franchises can create visibility and long-term value, but the road into major roles can be competitive.</p>
+        <p>Smaller roles and cameos can become stepping stones toward stronger franchise positioning.</p>
+        <p>Keep character identity consistent across sequels, events, recasts, and crossovers. Avoid duplicate versions of the same continuing character.</p>
+      </div>
+    ),
+  },
+  {
+    id: "RELEASES_AWARDS",
+    title: "Releases, Streaming & Awards",
+    icon: <TrendingUp size={18} className="text-green-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>A title may move through theatrical performance, streaming interest, library value, awards attention, and long-tail reputation.</p>
+        <p>Streaming offers can depend on project value, audience fit, momentum, and platform appetite. The highest-looking number is not always the only factor.</p>
+        <p>Awards can depend on quality, performance strength, category fit, timing, and industry buzz—not popularity alone.</p>
+      </div>
+    ),
+  },
+  {
+    id: "STREAMING_PLATFORM",
+    title: "Streaming Platform & Global Markets",
+    icon: <Globe size={18} className="text-cyan-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Build a platform with an identity:</strong> decide which audiences and genres your service should be known for before spending heavily on content.</p>
+        <p><strong className="text-white">Plan your catalogue:</strong> balance original productions with licensed titles, and pay attention to rights, exclusivity, territory, and contract duration.</p>
+        <p><strong className="text-white">Expand market by market:</strong> local audience fit, language, pricing, payment options, and distribution all influence adoption.</p>
+        <p><strong className="text-white">Track sustainability:</strong> subscriber growth matters, but so do churn, content costs, operating expenses, and cash runway.</p>
+        <GuideTagRow tags={["Content", "Rights", "Pricing", "Regions", "Operating Costs"]} />
+      </div>
+    ),
+  },
+  {
+    id: "GLOBAL_PRODUCTION",
+    title: "Production House to Global Empire",
+    icon: <Clapperboard size={18} className="text-rose-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p><strong className="text-white">Plan a slate, not just one title:</strong> combine safer projects, ambitious bets, and long-term intellectual property.</p>
+        <p><strong className="text-white">Protect the budget:</strong> match project scale to your available cash, studio capacity, and expected market opportunity.</p>
+        <p><strong className="text-white">Build multiple release paths:</strong> theatrical distribution, streaming, licensing, international sales, and catalogue value can each play a role.</p>
+        <p><strong className="text-white">Expand deliberately:</strong> grow your team and market reach as your catalogue and cash flow become more dependable.</p>
+        <GuideNote title="Owner mindset">A successful entertainment empire needs creative quality, financial discipline, reliable operations, and a catalogue that keeps creating value over time.</GuideNote>
+      </div>
+    ),
+  },
+  {
+    id: "LEGACY",
+    title: "Legacy & Long-Term Play",
+    icon: <Users size={18} className="text-cyan-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Industry Globe rewards long saves: careers rise and fall, businesses mature, and family choices change the shape of your run.</p>
+        <p>Legacy is about continuity. Your choices now can shape what the next chapter inherits.</p>
+        <p>The strongest dynasties balance status, wealth, stability, relationships, and meaningful work.</p>
+      </div>
+    ),
+  },
 ];
 
 const PLAYBOOK_SECTIONS: GuideSection[] = [
-    {
-        id: 'EARLY_GAME',
-        title: 'Early Game: Build Momentum',
-        icon: <Zap size={18} className="text-yellow-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Early saves are about creating options. Do enough acting work to build proof, keep money healthy, and avoid burning every week on one stat.</p>
-                <GuideBullets items={[
-                    'Take roles that build experience instead of waiting forever for perfect prestige.',
-                    'Use spare weeks for skills, relationships, and visibility.',
-                    'Avoid lifestyle purchases that look cool but trap your cash flow too early.'
-                ]} />
-                <GuideNote title="Good instinct">
-                    If a choice makes the next ten weeks easier, it is usually better than a flashy move that only looks good this week.
-                </GuideNote>
-            </div>
-        )
-    },
-    {
-        id: 'ACTOR_CAREER',
-        title: 'Actor Career: From Work to Leverage',
-        icon: <Film size={18} className="text-indigo-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Your career grows through a mix of talent, preparation, public heat, reputation, relationships, and the quality of past work.</p>
-                <GuideBullets items={[
-                    'Use CastLink for opportunities and Team for the business side of your career.',
-                    'Build enough consistency that bigger projects feel earned, not random.',
-                    'Think about fit: the right role at the right moment can beat a bigger role that your profile cannot support yet.'
-                ]} />
-            </div>
-        )
-    },
-    {
-        id: 'STUDIO_SLATE',
-        title: 'Studio Slate: Develop Like an Owner',
-        icon: <Clapperboard size={18} className="text-violet-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>A studio run becomes stronger when you think in slates, not single swings. Mix safer projects, ambitious bets, and long-term IP.</p>
-                <GuideBullets items={[
-                    'Keep a few scripts ready so you are not forced to greenlight weak ideas.',
-                    'Match project scale to your cash, studio strength, and market moment.',
-                    'Use past projects and filmography to understand what your studio is becoming known for.'
-                ]} />
-            </div>
-        )
-    },
-    {
-        id: 'UNIVERSE_WORKFLOW',
-        title: 'Universe Workflow: Clean Continuity',
-        icon: <Globe size={18} className="text-blue-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Universes and franchises work best when the player keeps character identity clean. Returning characters, sequels, crossovers, and events should feel connected instead of duplicated.</p>
-                <GuideBullets items={[
-                    'For sequels, continue the existing story identity instead of rebuilding the same character from scratch.',
-                    'For crossovers, bring in known characters only when the project is meant to connect those worlds.',
-                    'For reboots, treat the project as a new era while still respecting that the IP already has history.'
-                ]} />
-                <GuideNote title="Player-facing rule">
-                    If the audience would recognize the character as the same role, link the character. If it is a fresh person or fresh mythology, create new.
-                </GuideNote>
-            </div>
-        )
-    },
-    {
-        id: 'MONEY_RISK',
-        title: 'Money & Risk: Stay Liquid',
-        icon: <DollarSign size={18} className="text-emerald-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Industy Globe lets you go big, but the game punishes ignoring recurring costs. Loans, production budgets, assets, and business expenses all compete with your next opportunity.</p>
-                <GuideBullets items={[
-                    'Keep enough cash for several weeks of commitments before taking huge swings.',
-                    'Use loans for intentional moves, not as a habit to cover weak planning.',
-                    'A smaller project you can finish cleanly often beats a massive one that breaks your balance.'
-                ]} />
-            </div>
-        )
-    },
-    {
-        id: 'SOCIAL_PERSONAL',
-        title: 'Social & Personal: Support the Run',
-        icon: <Heart size={18} className="text-rose-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Social systems are not only side content. They shape reach, relationships, public image, stress, and the feeling of your character's life.</p>
-                <GuideBullets items={[
-                    'Use social apps to stay visible, but do not let visibility replace real career progress.',
-                    'Relationships improve through consistency, timing, and choosing actions that match the bond.',
-                    'Self-improvement is slower than instant fame, but it makes the whole save more stable.'
-                ]} />
-            </div>
-        )
-    }
+  {
+    id: "EARLY_GAME",
+    title: "Early Game: Build Momentum",
+    icon: <Zap size={18} className="text-yellow-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Early saves are about creating options. Build experience, keep money healthy, and avoid burning every week on one stat.</p>
+        <GuideBullets items={["Take roles that build experience instead of waiting forever for perfect prestige.", "Use spare weeks for skills, relationships, and visibility.", "Avoid lifestyle purchases that trap your cash flow too early."]} />
+        <GuideNote title="Good instinct">If a choice makes the next ten weeks easier, it may be better than a flashy move that only looks good this week.</GuideNote>
+      </div>
+    ),
+  },
+  {
+    id: "ACTOR_CAREER",
+    title: "Actor Career: From Work to Leverage",
+    icon: <Film size={18} className="text-violet-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Your career grows through talent, preparation, public attention, reputation, relationships, and the quality of past work.</p>
+        <GuideBullets items={["Use career listings for opportunities and management tools for contracts.", "Build enough consistency that bigger projects feel earned.", "The right role at the right moment can beat a larger role your profile cannot support yet."]} />
+      </div>
+    ),
+  },
+  {
+    id: "STUDIO_SLATE",
+    title: "Studio Slate: Develop Like an Owner",
+    icon: <Clapperboard size={18} className="text-rose-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>A studio becomes stronger when you plan a slate, not just one swing. Mix safer projects, ambitious bets, and long-term IP.</p>
+        <GuideBullets items={["Keep scripts ready so you are not forced to greenlight weak ideas.", "Match project scale to cash, studio strength, and market conditions.", "Use past projects to understand what your studio is becoming known for."]} />
+      </div>
+    ),
+  },
+  {
+    id: "GLOBAL_EXPANSION",
+    title: "Streaming & Global Expansion",
+    icon: <Globe size={18} className="text-cyan-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Expansion adds opportunity and complexity. Do not treat every new market as guaranteed profit.</p>
+        <GuideBullets items={["Check content rights and territory restrictions before licensing.", "Localize content and pricing for the audience you want to reach.", "Monitor operating costs, subscriber retention, and cash runway as you grow."]} />
+      </div>
+    ),
+  },
+  {
+    id: "UNIVERSE_WORKFLOW",
+    title: "Universe Workflow: Clean Continuity",
+    icon: <Globe size={18} className="text-blue-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Universes work best when character identity stays consistent. Sequels, crossovers, and events should feel connected instead of duplicated.</p>
+        <GuideBullets items={["Continue existing character identities in sequels.", "Connect worlds only when the project is intended to do so.", "Treat reboots as a new era while respecting the existing IP history."]} />
+        <GuideNote title="Continuity rule">If the audience would recognize the character as the same role, link the character. If it is a new person or mythology, create a new one.</GuideNote>
+      </div>
+    ),
+  },
+  {
+    id: "MONEY_RISK",
+    title: "Money & Risk: Stay Liquid",
+    icon: <DollarSign size={18} className="text-emerald-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Big moves can be exciting, but recurring costs, loans, production budgets, assets, and business expenses compete with future opportunities.</p>
+        <GuideBullets items={["Keep enough cash for several weeks of commitments.", "Use loans for intentional investments, not to cover weak planning.", "A smaller project you can finish cleanly can beat a huge project that breaks your balance."]} />
+      </div>
+    ),
+  },
+  {
+    id: "SOCIAL_PERSONAL",
+    title: "Social & Personal: Support the Run",
+    icon: <Heart size={18} className="text-rose-300" />,
+    content: (
+      <div className="space-y-3 text-xs text-zinc-400">
+        <p>Social systems shape reach, relationships, public image, stress, and the feeling of your character's life.</p>
+        <GuideBullets items={["Stay visible without letting social activity replace career progress.", "Relationships improve through consistency and good timing.", "Self-improvement is slower than instant fame, but it makes a run more stable."]} />
+      </div>
+    ),
+  },
 ];
 
 const FAQ_SECTIONS: GuideSection[] = [
-    {
-        id: 'FAQ_ROLES',
-        title: 'Why am I not getting bigger roles?',
-        icon: <Film size={18} className="text-indigo-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Bigger roles usually come from the full picture, not one stat. Improve your talent, reputation, preparation, experience, and representation together. Some doors open faster once your career has more proof behind it.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_STATS',
-        title: 'What is the difference between fame, followers, and reputation?',
-        icon: <Star size={18} className="text-amber-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Fame</strong> is how known you are. <strong className="text-white">Followers</strong> are your social audience. <strong className="text-white">Reputation</strong> is how trusted and respected you are professionally. Strong runs usually build all three.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_BUSINESS_MONEY',
-        title: 'Why is my business not making much money?',
-        icon: <BarChart3 size={18} className="text-emerald-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Check the whole setup, not just one lever. Weak pricing, low hype, poor quality, low stock, limited staff, or too little expansion can all hold a business back. Marketing works best when the rest of the machine is ready to convert demand.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_MARKETING',
-        title: 'Why does marketing not always explode sales?',
-        icon: <TrendingUp size={18} className="text-pink-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Marketing is a booster, not a replacement for fundamentals. It helps create demand, but if your business is understocked, overpriced, under-staffed, or not positioned well, more promo alone will not solve everything.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_ENERGY',
-        title: 'How do I manage energy better?',
-        icon: <Zap size={18} className="text-yellow-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Plan your week around the one or two outcomes that matter most right now. Avoid spending energy everywhere at once. Rest, recovery, and selective focus usually outperform chaotic activity.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_SPONSOR',
-        title: 'Why did I lose a sponsorship or take a fine?',
-        icon: <Briefcase size={18} className="text-emerald-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Active contracts still need follow-through. Once you sign a sponsorship, check the Team app and complete the required action on time. A good deal still fails if you do not fulfill it.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_RELATIONSHIP',
-        title: 'Why did my relationship get worse?',
-        icon: <Heart size={18} className="text-rose-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Relationships need attention over time. Long stretches of neglect can cause strain, especially when your character is heavily focused on career or business. Consistency matters more than one big gesture.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_STUDIO',
-        title: 'How does the production house really work?',
-        icon: <Clapperboard size={18} className="text-violet-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Your studio performs best when the full pipeline is healthy: development, production, release timing, and catalog building. It is usually better to think like an owner managing a slate than like a player looking for one instant jackpot.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_SCRIPT_QUALITY',
-        title: 'Why did my script quality change?',
-        icon: <BookOpen size={18} className="text-amber-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Script quality is shaped by the choices you make during development, the creative identity of the project, genre fit, story direction, and how coherent the final package feels. It is not meant to be fully predictable, but better-aligned choices usually create better drafts.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_GENRES',
-        title: 'What is the difference between format, genre, and tone?',
-        icon: <Film size={18} className="text-pink-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p><strong className="text-white">Format</strong> is the package, like movie or series. <strong className="text-white">Genre</strong> is the promise, like sports, biopic, musical, documentary, anime, or drama. <strong className="text-white">Tone</strong> is how the story feels moment to moment.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_CONNECTED_CHARACTERS',
-        title: 'When should I link a character?',
-        icon: <Globe size={18} className="text-blue-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Link a character when the role is meant to be the same identity across projects: a sequel return, crossover, event film, recast, or continuing franchise part. Create new when the person is new to the world or the project is meant to stand alone.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_SEQUEL_CAST',
-        title: 'Why do sequels care about old cast?',
-        icon: <Users size={18} className="text-cyan-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Returning cast helps continuity and audience recognition, but they still need to be brought into the new production properly. A sequel is not just the old movie repeated; it is a new package built on existing history.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_STREAMING',
-        title: 'Why did my movie leave theaters or move on?',
-        icon: <PlayCircle size={18} className="text-blue-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Releases move through stages. A theatrical run does not last forever, and different outcomes can push a title toward the next release phase. Keep watching how your project performs instead of expecting one endless box office window.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_LOANS',
-        title: 'How should I think about loans?',
-        icon: <Landmark size={18} className="text-amber-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Loans are useful when they unlock a clear move, but the monthly payment keeps affecting your save until the balance is handled. Watch your unpaid balance and pay down debt when it protects future flexibility.</p>
-            </div>
-        )
-    },
-    {
-        id: 'FAQ_LEGACY',
-        title: 'How do I keep a save strong for the long term?',
-        icon: <Users size={18} className="text-cyan-400" />,
-        content: (
-            <div className="space-y-3 text-xs text-zinc-400">
-                <p>Build more than one pillar. Career success, stable money, healthy relationships, and good long-term choices usually produce stronger late-game saves than chasing only one number.</p>
-            </div>
-        )
-    }
+  {
+    id: "FAQ_ROLES",
+    title: "Why am I not getting bigger roles?",
+    icon: <Film size={18} className="text-violet-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Bigger roles usually come from the full picture, not one stat. Improve talent, reputation, preparation, experience, and representation together. Some doors open faster once your career has more proof behind it.</p>,
+  },
+  {
+    id: "FAQ_STATS",
+    title: "What is the difference between fame, followers, and reputation?",
+    icon: <Star size={18} className="text-amber-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400"><strong className="text-white">Fame</strong> is how known you are. <strong className="text-white">Followers</strong> are your social audience. <strong className="text-white">Reputation</strong> is how trusted and respected you are professionally. Strong runs usually build all three.</p>,
+  },
+  {
+    id: "FAQ_BUSINESS",
+    title: "Why is my business not making much money?",
+    icon: <BarChart3 size={18} className="text-emerald-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Check the whole setup, not just one lever. Pricing, hype, quality, stock, staffing, or limited expansion can hold a business back. Marketing works best when the rest of the operation is ready.</p>,
+  },
+  {
+    id: "FAQ_ENERGY",
+    title: "How do I manage energy better?",
+    icon: <Zap size={18} className="text-yellow-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Plan your week around one or two outcomes that matter most. Avoid spending energy everywhere at once. Rest and selective focus usually outperform chaotic activity.</p>,
+  },
+  {
+    id: "FAQ_SPONSOR",
+    title: "Why did I lose a sponsorship or take a fine?",
+    icon: <Briefcase size={18} className="text-emerald-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Active contracts need follow-through. Check your management tools and complete required actions on time. A good deal can still fail if you do not fulfil it.</p>,
+  },
+  {
+    id: "FAQ_RELATIONSHIP",
+    title: "Why did my relationship get worse?",
+    icon: <Heart size={18} className="text-rose-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Relationships need attention over time. Long stretches of neglect can cause strain, especially when your character is focused on career or business. Consistency matters more than one big gesture.</p>,
+  },
+  {
+    id: "FAQ_STUDIO",
+    title: "How does the production house work?",
+    icon: <Clapperboard size={18} className="text-violet-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">The studio pipeline includes development, production, release timing, and catalogue building. Think like an owner managing a slate rather than a player looking for one instant jackpot.</p>,
+  },
+  {
+    id: "FAQ_STREAMING",
+    title: "What should I consider before launching a streaming platform?",
+    icon: <Globe size={18} className="text-cyan-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability.</p>,
+  },
+  {
+    id: "FAQ_SCRIPT",
+    title: "What is the difference between format, genre, and tone?",
+    icon: <BookOpen size={18} className="text-amber-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400"><strong className="text-white">Format</strong> is the package, like movie or series. <strong className="text-white">Genre</strong> is the promise, like sports, biopic, musical, documentary, anime, or drama. <strong className="text-white">Tone</strong> is how the story feels moment to moment.</p>,
+  },
+  {
+    id: "FAQ_CHARACTERS",
+    title: "When should I link a character?",
+    icon: <Users size={18} className="text-cyan-300" />,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Link a character when the role is meant to be the same identity across sequels, crossovers, events, or recasts. Create a new character when the person is new or the project is meant to stand alone.</p>,
+  },
 ];
 
 const SectionList: React.FC<{
-    title: string;
-    subtitle: string;
-    icon: React.ReactNode;
-    sections: GuideSection[];
-    expandedSection: string | null;
-    onToggle: (id: string) => void;
-    onBack: () => void;
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  sections: GuideSection[];
+  expandedSection: string | null;
+  onToggle: (id: string) => void;
+  onBack: () => void;
 }> = ({ title, subtitle, icon, sections, expandedSection, onToggle, onBack }) => (
-    <div className="absolute inset-0 z-40 flex flex-col h-full bg-zinc-950 text-white animate-in slide-in-from-right duration-300">
-        <div className="p-4 pt-12 border-b border-zinc-800 bg-zinc-900 shrink-0 flex items-center gap-3">
-            <button onClick={onBack} className="p-2 -ml-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
-                <ArrowLeft size={20} />
-            </button>
-            <div className="font-bold text-lg flex items-center gap-2">
-                {icon}
-                {title}
-            </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3 pb-24">
-            <div className="px-1 pb-1">
-                <p className="text-xs text-zinc-500 leading-relaxed">{subtitle}</p>
-            </div>
-            {sections.map(section => (
-                <div key={section.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl overflow-hidden">
-                    <button
-                        onClick={() => onToggle(section.id)}
-                        className="w-full p-4 flex items-center justify-between hover:bg-zinc-800 transition-colors text-left"
-                    >
-                        <div className="flex items-center gap-3">
-                            <div className="p-2 bg-black rounded-lg">{section.icon}</div>
-                            <span className="font-bold text-sm">{section.title}</span>
-                        </div>
-                        <ChevronRight size={16} className={`text-zinc-500 transition-transform duration-300 ${expandedSection === section.id ? 'rotate-90' : ''}`} />
-                    </button>
-                    {expandedSection === section.id && (
-                        <div className="p-4 pt-0 border-t border-zinc-800/50 bg-black/20 animate-in slide-in-from-top-2">
-                            <div className="mt-4">{section.content}</div>
-                        </div>
-                    )}
-                </div>
-            ))}
-        </div>
+  <div className="absolute inset-0 z-40 flex h-full flex-col bg-[#070910] font-sans text-white">
+    <div className="flex shrink-0 items-center gap-3 border-b border-white/10 bg-[#0b0e18] px-4 pb-4 pt-10">
+      <button onClick={onBack} aria-label="Back to guide" className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-zinc-300 transition hover:bg-white/10">
+        <ArrowLeft size={19} />
+      </button>
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10">{icon}</div>
+      <div className="min-w-0">
+        <h2 className="text-lg font-black tracking-tight">{title}</h2>
+        <p className="text-[11px] text-zinc-500">INDUSTRY GLOBE / GUIDE</p>
+      </div>
     </div>
+    <div className="flex-1 space-y-4 overflow-y-auto p-4 pb-24">
+      <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">{subtitle}</p>
+      {sections.map((section, index) => {
+        const expanded = expandedSection === section.id;
+        return (
+          <div key={section.id} className={`overflow-hidden rounded-2xl border transition ${expanded ? "border-cyan-400/30 bg-cyan-400/[0.04]" : "border-white/[0.08] bg-white/[0.025]"}`}>
+            <button onClick={() => onToggle(section.id)} className="flex w-full items-center gap-3 p-4 text-left">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.05]">{section.icon}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-600">SECTION {String(index + 1).padStart(2, "0")}</span>
+                <span className="mt-1 block text-sm font-bold text-zinc-100">{section.title}</span>
+              </span>
+              {expanded ? <ChevronDown size={18} className="text-cyan-300" /> : <ChevronRight size={18} className="text-zinc-600" />}
+            </button>
+            {expanded && <div className="border-t border-white/[0.07] px-4 py-4">{section.content}</div>}
+          </div>
+        );
+      })}
+      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.025] p-4 text-xs leading-relaxed text-zinc-500">
+        Guide tip: use these systems together. Career, relationships, cash flow, production, and global growth are connected parts of one long simulation.
+      </div>
+    </div>
+  </div>
 );
 
-export const GuideView: React.FC<GuideViewProps> = ({ onBack }) => {
-    const [mode, setMode] = useState<GuideMode>('MENU');
-    const [wizardStep, setWizardStep] = useState(0);
-    const [expandedSection, setExpandedSection] = useState<string | null>(null);
+const GuideView: React.FC<GuideViewProps> = ({ onBack }) => {
+  const [mode, setMode] = useState<GuideMode>("MENU");
+  const [expandedSection, setExpandedSection] = useState<string | null>("GETTING_STARTED");
+  const [wizardStep, setWizardStep] = useState(0);
 
-    const openMode = (nextMode: GuideMode) => {
-        setExpandedSection(null);
-        setMode(nextMode);
-    };
-
-    const toggleSection = (id: string) => {
-        setExpandedSection(expandedSection === id ? null : id);
-    };
-
-    const nextStep = () => {
-        if (wizardStep < WIZARD_STEPS.length - 1) {
-            setWizardStep(wizardStep + 1);
-        } else {
-            setMode('MENU');
-            setWizardStep(0);
-        }
-    };
-
-    const renderWizard = () => {
-        const step = WIZARD_STEPS[wizardStep];
-        return (
-            <div className="absolute inset-0 z-50 flex flex-col h-full bg-black animate-in fade-in zoom-in-95 duration-300">
-                <button onClick={() => setMode('MENU')} className="absolute top-12 right-6 text-zinc-500 hover:text-white z-10 bg-zinc-900 rounded-full p-2">
-                    <X size={20} />
-                </button>
-
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8 overflow-y-auto custom-scrollbar">
-                    <div className={`w-32 h-32 rounded-full flex items-center justify-center ${step.color} shadow-[0_0_50px_rgba(0,0,0,0.5)] shrink-0`}>
-                        {step.icon}
-                    </div>
-                    <div>
-                        <div className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Step {wizardStep + 1} / {WIZARD_STEPS.length}</div>
-                        <h2 className="text-3xl font-bold text-white mb-4">{step.title}</h2>
-                        <p className="text-zinc-300 text-sm leading-relaxed max-w-xs mx-auto">{step.content}</p>
-                    </div>
-                </div>
-
-                <div className="p-6 pb-20 bg-black border-t border-zinc-900 shrink-0">
-                    <button onClick={nextStep} className="w-full py-4 bg-white text-black font-bold rounded-2xl shadow-lg hover:bg-zinc-200 transition-colors">
-                        {wizardStep === WIZARD_STEPS.length - 1 ? 'Finish Tour' : 'Next'}
-                    </button>
-                </div>
-            </div>
-        );
-    };
-
-    if (mode === 'WIZARD') {
-        return renderWizard();
-    }
-
-    if (mode === 'HANDBOOK') {
-        return (
-            <SectionList
-                title="Handbook"
-                subtitle="A plain-language reference for how the game works, what each system is for, and when to care about it."
-                icon={<BookOpen size={20} className="text-amber-500" />}
-                sections={HANDBOOK_SECTIONS}
-                expandedSection={expandedSection}
-                onToggle={toggleSection}
-                onBack={() => setMode('MENU')}
-            />
-        );
-    }
-
-    if (mode === 'PLAYBOOKS') {
-        return (
-            <SectionList
-                title="Playbooks"
-                subtitle="No-spoiler strategy guidance for building stronger saves without exposing the exact hidden formulas."
-                icon={<Activity size={20} className="text-emerald-400" />}
-                sections={PLAYBOOK_SECTIONS}
-                expandedSection={expandedSection}
-                onToggle={toggleSection}
-                onBack={() => setMode('MENU')}
-            />
-        );
-    }
-
-    if (mode === 'FAQ') {
-        return (
-            <SectionList
-                title="FAQ"
-                subtitle="Quick answers to the most common player questions without spoiling the hidden formulas behind the systems."
-                icon={<HelpCircle size={20} className="text-cyan-400" />}
-                sections={FAQ_SECTIONS}
-                expandedSection={expandedSection}
-                onToggle={toggleSection}
-                onBack={() => setMode('MENU')}
-            />
-        );
-    }
-
-    return (
-        <div className="absolute inset-0 z-40 flex flex-col h-full bg-zinc-950 text-white font-sans animate-in slide-in-from-right duration-300">
-            <div className="p-4 pt-12 border-b border-zinc-800 bg-zinc-900 shrink-0 flex items-center gap-3">
-                <button onClick={onBack} className="p-2 -ml-2 hover:bg-zinc-800 rounded-full text-zinc-400 hover:text-white transition-colors">
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="font-bold text-lg flex items-center gap-2">
-                    Guide
-                </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 pb-24 custom-scrollbar">
-                <div className="text-center mb-1">
-                    <h2 className="text-2xl font-bold text-white mb-2">Player Guide</h2>
-                    <p className="text-zinc-400 text-sm leading-relaxed">Learn the game faster, understand what each system is doing, and find answers without hunting through random screens.</p>
-                </div>
-
-                <button onClick={() => openMode('WIZARD')} className="group min-h-[136px] bg-gradient-to-br from-indigo-600 to-purple-700 p-5 rounded-3xl text-left relative overflow-hidden shadow-xl hover:scale-[1.02] transition-transform">
-                    <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:opacity-30 transition-opacity"><PlayCircle size={80} /></div>
-                    <div className="relative z-10 flex gap-4 items-start">
-                        <div className="bg-white/20 w-12 h-12 rounded-2xl flex items-center justify-center backdrop-blur-sm shrink-0">
-                            <GraduationCap size={24} className="text-white" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white mb-1 leading-tight">Quick Start Tour</h3>
-                            <p className="text-indigo-100 text-xs font-medium leading-relaxed">A short guided intro to the game loop, core stats, businesses, and studio play.</p>
-                        </div>
-                    </div>
-                </button>
-
-                <button onClick={() => openMode('HANDBOOK')} className="group min-h-[124px] bg-zinc-900 border border-zinc-800 p-5 rounded-3xl text-left relative overflow-hidden hover:border-zinc-600 transition-colors">
-                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><BookOpen size={80} /></div>
-                    <div className="relative z-10 flex gap-4 items-start">
-                        <div className="bg-zinc-800 w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
-                            <BookOpen size={24} className="text-zinc-300" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white mb-1 leading-tight">Handbook</h3>
-                            <p className="text-zinc-400 text-xs font-medium leading-relaxed">Where things are, what they do, why they matter, and how to think about them.</p>
-                        </div>
-                    </div>
-                </button>
-
-                <button onClick={() => openMode('PLAYBOOKS')} className="group min-h-[124px] bg-zinc-900 border border-emerald-900/60 p-5 rounded-3xl text-left relative overflow-hidden hover:border-emerald-500/50 transition-colors">
-                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><Activity size={80} /></div>
-                    <div className="relative z-10 flex gap-4 items-start">
-                        <div className="bg-emerald-950/80 w-12 h-12 rounded-2xl flex items-center justify-center border border-emerald-700/50 shrink-0">
-                            <Activity size={24} className="text-emerald-300" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white mb-1 leading-tight">Playbooks</h3>
-                            <p className="text-zinc-400 text-xs font-medium leading-relaxed">How to think through career, studio, money, and connected-story decisions without spoiling exact outcomes.</p>
-                        </div>
-                    </div>
-                </button>
-
-                <button onClick={() => openMode('FAQ')} className="group min-h-[124px] bg-zinc-900 border border-zinc-800 p-5 rounded-3xl text-left relative overflow-hidden hover:border-zinc-600 transition-colors">
-                    <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity"><HelpCircle size={80} /></div>
-                    <div className="relative z-10 flex gap-4 items-start">
-                        <div className="bg-zinc-800 w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
-                            <HelpCircle size={24} className="text-cyan-300" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-bold text-white mb-1 leading-tight">FAQ</h3>
-                            <p className="text-zinc-400 text-xs font-medium leading-relaxed">Quick answers to the questions players ask most often.</p>
-                        </div>
-                    </div>
-                </button>
-            </div>
-        </div>
+  const openMode = (nextMode: GuideMode) => {
+    setExpandedSection(
+      nextMode === "HANDBOOK"
+        ? "GETTING_STARTED"
+        : nextMode === "PLAYBOOKS"
+          ? "EARLY_GAME"
+          : nextMode === "FAQ"
+            ? "FAQ_ROLES"
+            : null
     );
+    setMode(nextMode);
+  };
+
+  const toggleSection = (id: string) => {
+    setExpandedSection((current) => (current === id ? null : id));
+  };
+
+  if (mode === "WIZARD") {
+    const step = WIZARD_STEPS[wizardStep];
+    const isLastStep = wizardStep === WIZARD_STEPS.length - 1;
+    return (
+      <div className="absolute inset-0 z-40 flex h-full flex-col bg-[#070910] font-sans text-white">
+        <div className="flex items-center gap-3 border-b border-white/10 px-4 pb-4 pt-10">
+          <button onClick={() => setMode("MENU")} aria-label="Back to guide" className="rounded-xl border border-white/10 bg-white/[0.04] p-2 text-zinc-300 hover:bg-white/10"><ArrowLeft size={19} /></button>
+          <div>
+            <div className="text-sm font-black">QUICK START TOUR</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500">Step {wizardStep + 1} of {WIZARD_STEPS.length}</div>
+          </div>
+        </div>
+        <div className="flex flex-1 items-center justify-center overflow-y-auto p-5">
+          <div className={`w-full max-w-lg rounded-3xl border border-white/10 bg-gradient-to-br ${step.color} p-6 sm:p-8`}>
+            <div className="mb-8 flex items-center justify-between">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/10 bg-black/20">{step.icon}</div>
+              <div className="text-right text-[10px] font-black tracking-[0.2em] text-zinc-400">{step.eyebrow}</div>
+            </div>
+            <h2 className="text-3xl font-black tracking-tight">{step.title}</h2>
+            <p className="mt-4 text-sm leading-7 text-zinc-300">{step.content}</p>
+            <div className="mt-8 flex gap-1.5">
+              {WIZARD_STEPS.map((item, index) => <div key={item.title} className={`h-1.5 flex-1 rounded-full ${index <= wizardStep ? "bg-cyan-300" : "bg-white/10"}`} />)}
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button disabled={wizardStep === 0} onClick={() => setWizardStep((stepIndex) => Math.max(0, stepIndex - 1))} className="rounded-xl border border-white/10 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-30">Previous</button>
+              <button onClick={() => { if (isLastStep) setMode("MENU"); else setWizardStep((stepIndex) => Math.min(WIZARD_STEPS.length - 1, stepIndex + 1)); }} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-cyan-200">
+                {isLastStep ? "Finish Tour" : "Next Step"} <ChevronRight size={17} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "HANDBOOK") {
+    return <SectionList title="Handbook" subtitle="A plain-language reference for the systems, choices, and long-term strategy behind your Industry Globe save." icon={<BookOpen size={20} className="text-amber-300" />} sections={HANDBOOK_SECTIONS} expandedSection={expandedSection} onToggle={toggleSection} onBack={() => setMode("MENU")} />;
+  }
+
+  if (mode === "PLAYBOOKS") {
+    return <SectionList title="Playbooks" subtitle="Practical strategy guidance for building a stronger career, studio, and global entertainment business." icon={<Activity size={20} className="text-emerald-300" />} sections={PLAYBOOK_SECTIONS} expandedSection={expandedSection} onToggle={toggleSection} onBack={() => setMode("MENU")} />;
+  }
+
+  if (mode === "FAQ") {
+    return <SectionList title="FAQ" subtitle="Quick answers to common player questions and the most important systems to review when a run slows down." icon={<HelpCircle size={20} className="text-cyan-300" />} sections={FAQ_SECTIONS} expandedSection={expandedSection} onToggle={toggleSection} onBack={() => setMode("MENU")} />;
+  }
+
+  const menuCards = [
+    { title: "Quick Start Tour", description: "Learn the core loop in five short steps.", detail: "5 STEPS", icon: <PlayCircle size={21} />, color: "text-cyan-300", action: () => { setWizardStep(0); openMode("WIZARD"); } },
+    { title: "Handbook", description: "Explore career, finance, production, streaming, and legacy systems.", detail: `${HANDBOOK_SECTIONS.length} TOPICS`, icon: <BookOpen size={21} />, color: "text-amber-300", action: () => openMode("HANDBOOK") },
+    { title: "Playbooks", description: "Strategies for momentum, studio planning, money, and expansion.", detail: `${PLAYBOOK_SECTIONS.length} GUIDES`, icon: <Activity size={21} />, color: "text-emerald-300", action: () => openMode("PLAYBOOKS") },
+    { title: "FAQ", description: "Troubleshoot common problems and understand key decisions.", detail: `${FAQ_SECTIONS.length} ANSWERS`, icon: <HelpCircle size={21} />, color: "text-violet-300", action: () => openMode("FAQ") },
+  ];
+
+  return (
+    <div className="absolute inset-0 z-40 flex h-full flex-col overflow-hidden bg-[#070910] font-sans text-white">
+      <div className="relative shrink-0 overflow-hidden border-b border-white/[0.08] bg-[#0b0e18] px-5 pb-6 pt-10 sm:px-7">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-16 top-10 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
+        <div className="relative flex items-center gap-3">
+          <button onClick={onBack} aria-label="Back" className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-zinc-300 transition hover:bg-white/10"><ArrowLeft size={19} /></button>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200 shadow-lg shadow-cyan-950/20"><Globe size={23} /></div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-300">INDUSTRY GLOBE</div>
+            <h1 className="text-xl font-black tracking-tight sm:text-2xl">Player Guide</h1>
+          </div>
+          <div className="hidden rounded-full border border-emerald-400/20 bg-emerald-400/[0.06] px-3 py-1.5 text-[9px] font-black tracking-[0.16em] text-emerald-300 sm:block">CAREER • BUSINESS • LEGACY</div>
+        </div>
+        <div className="relative mt-7 max-w-2xl">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.2em] text-cyan-200"><Sparkles size={12} /> Your next chapter starts here</div>
+          <h2 className="text-3xl font-black leading-[1.08] tracking-tight sm:text-4xl">From rising talent to a <span className="bg-gradient-to-r from-cyan-300 via-sky-300 to-violet-300 bg-clip-text text-transparent">global empire.</span></h2>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-zinc-400">Master the entertainment industry, build your production house, launch new ventures, and create a legacy that lasts.</p>
+        </div>
+        <div className="relative mt-6 grid grid-cols-3 gap-2">
+          {[
+            { icon: <Star size={16} />, title: "Build a Career", subtitle: "Talent & fame", color: "text-amber-300" },
+            { icon: <Clapperboard size={16} />, title: "Own a Studio", subtitle: "Create IP", color: "text-violet-300" },
+            { icon: <Globe size={16} />, title: "Go Global", subtitle: "Reach markets", color: "text-cyan-300" },
+          ].map((item) => (
+            <div key={item.title} className="rounded-2xl border border-white/[0.08] bg-black/20 p-3 sm:p-4">
+              <div className={`mb-2 ${item.color}`}>{item.icon}</div>
+              <div className="text-[11px] font-black text-zinc-100 sm:text-xs">{item.title}</div>
+              <div className="mt-1 text-[10px] text-zinc-500">{item.subtitle}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 space-y-5 overflow-y-auto p-4 pb-24 sm:p-6">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-600">KNOW YOUR SYSTEMS</div>
+            <h3 className="mt-1 text-lg font-black">Choose your guide</h3>
+          </div>
+          <span className="text-[10px] text-zinc-600">PLAYER RESOURCES</span>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {menuCards.map((card, index) => (
+            <button key={card.title} onClick={card.action} className="group rounded-2xl border border-white/[0.09] bg-white/[0.025] p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:border-cyan-300/30 hover:bg-white/[0.045]">
+              <div className="flex items-start gap-3">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-black/20 ${card.color}`}>{card.icon}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="text-sm font-black text-white">{card.title}</h4>
+                    <ChevronRight size={17} className="shrink-0 text-zinc-600 transition group-hover:translate-x-0.5 group-hover:text-cyan-300" />
+                  </div>
+                  <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">{card.description}</p>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between border-t border-white/[0.06] pt-3">
+                <span className="text-[9px] font-black tracking-[0.18em] text-zinc-600">{card.detail}</span>
+                <span className="text-[10px] font-bold text-cyan-300/80">OPEN GUIDE ↗</span>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <div className="relative overflow-hidden rounded-3xl border border-cyan-300/15 bg-gradient-to-br from-cyan-400/[0.09] via-[#101321] to-violet-500/[0.08] p-5 sm:p-6">
+          <div className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-cyan-400/10 blur-3xl" />
+          <div className="relative flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-300/20 bg-cyan-300/10 text-cyan-200"><Landmark size={22} /></div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[9px] font-black uppercase tracking-[0.22em] text-cyan-300">THE EMPIRE VISION</div>
+              <h3 className="mt-1 text-lg font-black">From studio to streamer.</h3>
+              <p className="mt-2 max-w-2xl text-xs leading-relaxed text-zinc-400">Build a catalogue, protect your cash flow, explore distribution, and grow into global markets. Every new business should strengthen the bigger ecosystem.</p>
+              <button onClick={() => openMode("HANDBOOK")} className="mt-4 inline-flex items-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.08] px-3.5 py-2.5 text-xs font-black text-cyan-200 transition hover:bg-cyan-300/[0.14]">Explore the handbook <ChevronRight size={15} /></button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center gap-2 pb-2 text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-700"><CheckCircle2 size={12} /> Plan smart • Build steadily • Think globally</div>
+      </div>
+    </div>
+  );
 };
+
+export { GuideView };
