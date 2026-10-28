@@ -208,7 +208,12 @@ export const releaseBeforeFestival = (currentWeek: number, releaseWeek: number, 
     if (!festivalWeeks.length) return false;
     const currentWeekOfYear = ((currentWeek - 1) % 52) + 1;
     const start = Math.min(...festivalWeeks);
-    const weeksUntilFestival = start >= currentWeekOfYear ? start - currentWeekOfYear : (52 - currentWeekOfYear) + start;
+    const end = Math.max(...festivalWeeks);
+    // The festival is already underway. Later dates in this window are not early.
+    if (currentWeekOfYear >= start && currentWeekOfYear <= end) return false;
+    const weeksUntilFestival = currentWeekOfYear < start
+        ? start - currentWeekOfYear
+        : (52 - currentWeekOfYear) + start;
     return releaseWeek - currentWeek < weeksUntilFestival;
 };
 
