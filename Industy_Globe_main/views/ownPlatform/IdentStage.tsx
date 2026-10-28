@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { playIdentSting, stopIdentSting, takeArmedIdent } from '../../services/ownPlatform/identAudio';
 import { identityById } from '../../services/ownPlatform/logic';
 import { headingFont } from './ui';
@@ -40,12 +41,13 @@ export const IdentBumper: React.FC<{ name: string; identityId: string; onDone: (
         };
     }, [identityId, purpose]);
 
-    return (
+    return createPortal(
         <div className="fixed bottom-6 left-1/2 z-[260] w-[min(520px,calc(100%-2rem))] -translate-x-1/2" data-testid="ident-bumper">
             <button type="button" onClick={() => onDoneRef.current()} className="w-full text-left" aria-label="Skip ident">
                 <IdentStage name={name} accent={preset.accent} playing />
                 <div className="mt-2 text-center text-[11px] uppercase tracking-[0.18em] text-zinc-400">Tap to skip</div>
             </button>
-        </div>
+        </div>,
+        document.body,
     );
 };

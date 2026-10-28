@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CataloguePick, Player } from '../../types';
 import { displayTitle, loadCatalogue, preferredFormat } from '../../services/rights/catalogue';
 import { allRecords, rightsOf } from '../../services/rights/logic';
@@ -165,8 +166,8 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     }}
                 />
             )}
-            {detail && (
-                <div className="fixed inset-0 z-[230] bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setDetail(null)}>
+            {detail && createPortal(
+                <div className="fixed inset-0 z-[250] bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setDetail(null)}>
                     <div data-testid="title-detail" className="w-full max-w-md rounded-3xl border border-white/10 bg-[#12151c] p-6" onClick={event => event.stopPropagation()}>
                         <div className="text-[11px] uppercase tracking-[0.18em] text-[#8B7BFF]">Now playing · {state.name}</div>
                         <div className="text-4xl font-black uppercase leading-none mt-2" style={{ fontFamily: headingFont }}>{detail.title}</div>
@@ -178,7 +179,8 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                         </p>
                         <button type="button" onClick={() => setDetail(null)} className="mt-5 w-full rounded-full bg-white text-black py-3 text-xs font-black uppercase tracking-wider">Close</button>
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </div>
     );
