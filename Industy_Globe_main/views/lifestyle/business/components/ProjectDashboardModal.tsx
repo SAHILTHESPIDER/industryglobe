@@ -4,6 +4,7 @@ import { X, Film, Tv, Users, DollarSign, Star, TrendingUp, Calendar, Check, Acti
 import { Player, Studio, CustomPoster, PlatformId } from '../../../../types';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { getAbsoluteWeek } from '../../../../services/legacyLogic';
+import { ReleaseGauntletPanels } from './ReleaseGauntletPanels';
 
 const formatMoney = (val: number) => {
     if (val >= 1_000_000_000_000) return `$${(val/1_000_000_000_000).toFixed(2)}T`;
@@ -833,6 +834,8 @@ export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ pr
                                     </div>
                                 </div>
 
+
+                                <ReleaseGauntletPanels player={player} project={project} onUpdatePlayer={onUpdatePlayer} />
 
                                  {/* Actions */}
                                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-4 mt-8">

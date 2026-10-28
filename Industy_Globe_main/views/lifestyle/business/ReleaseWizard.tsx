@@ -6,6 +6,7 @@ import { FESTIVALS, CALENDAR_EVENTS } from '../../../services/worldLogic';
 import { mergeUniverseRosterWithProject, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
+import { applyFestivalTurn, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -702,12 +703,25 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
         const updatedPlayer = { ...player };
         let totalCost = totalCampaignCost;
 
-        if (festivalPremiere) {
+        const existingFestivalRun = project.projectDetails?.festivalRun;
+        if (festivalPremiere && !existingFestivalRun) {
             const fest = FESTIVALS.find(f => f.id === festivalPremiere);
             if (fest) totalCost += fest.cost;
         }
 
         updatedPlayer.money -= totalCost;
+        if (selectedCampaigns.includes('tv_spots')) {
+            updatedPlayer.world = {
+                ...updatedPlayer.world,
+                critics: shiftCriticsFromTalkShow(updatedPlayer.world?.critics, updatedPlayer),
+            };
+            updatedPlayer.logs = [{
+                week: updatedPlayer.currentWeek,
+                year: updatedPlayer.age,
+                message: `The talk-show tour for "${project.name}" moved the critic corps.`,
+                type: 'neutral'
+            }, ...(updatedPlayer.logs || [])].slice(0, 50);
+        }
         updatedPlayer.finance.history.unshift({
             id: Math.random().toString(),
             week: updatedPlayer.currentWeek,
@@ -744,10 +758,18 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                     campaignItems: selectedCampaigns,
                     totalCampaignSpend: totalCampaignCost,
                     releaseDate: releaseWeek,
+                    festivalRun: existingFestivalRun || (festivalPremiere ? {
+                        festivalId: festivalPremiere,
+                        status: 'SUBMITTED' as const,
+                        submittedWeek: player.currentWeek,
+                        submittedYear: player.age,
+                    } : commitment.projectDetails.festivalRun),
                     hiddenStats: {
                         ...commitment.projectDetails.hiddenStats,
                         redCarpetHype: selectedCampaigns.includes('red_carpet') ? 20 : 0,
-                        festivalPremiere: festivalPremiere || undefined
+                        festivalPremiere: existingFestivalRun && (existingFestivalRun.status === 'SELECTED' || existingFestivalRun.status === 'PREMIERED')
+                            ? existingFestivalRun.festivalId
+                            : commitment.projectDetails.hiddenStats.festivalPremiere
                     }
                 } : undefined
             };
@@ -774,7 +796,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
             }
         }
 
-        onUpdatePlayer(updatedPlayer);
+        onUpdatePlayer(applyFestivalTurn(updatedPlayer));
         onComplete();
     };
 
@@ -1137,7 +1159,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                             <motion.div key="step4" initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }} transition={{ duration: 0.4 }} className="space-y-12">
                                 <div className="text-center space-y-4">
                                     <h2 className="text-5xl md:text-7xl font-serif font-light tracking-tight text-white/90">Festivals</h2>
-                                    <p className="text-lg text-white/50 font-light tracking-wide">Prestigious debuts for critical acclaim.</p>
+                                    <p className="text-lg text-white/50 font-light tracking-wide">Submit. The festival can still say no. A prize later helps at the Oscars and BAFTA.</p>
                                 </div>
 
                                 <div className="space-y-4">
@@ -1150,14 +1172,14 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     </button>
 
                                     {FESTIVALS.map(fest => {
-                                        const weekOfYear = getWeekOfYear(releaseWeek);
+                                        const weekOfYear = getWeekOfYear(player.currentWeek);
                                         const timingMeta = getFestivalTimingMeta(fest.weeks, weekOfYear);
-                                        const isTimingRight = timingMeta.isTimingRight;
-                                        const canAfford = player.money >= fest.cost;
+                                        const alreadySubmitted = Boolean(project.projectDetails?.festivalRun);
+                                        const canAfford = player.money >= fest.cost || alreadySubmitted;
                                         const projectQualityScore = project.projectDetails?.hiddenStats?.qualityScore || 0;
                                         const displayQualityScore = Math.round(projectQualityScore);
-                                        const hasPrestige = projectQualityScore >= fest.prestigeReq;
-                                        const isEligible = canAfford && hasPrestige && isTimingRight;
+                                        const chance = Math.round(selectionChance(projectQualityScore, fest.prestigeReq) * 100);
+                                        const isEligible = !alreadySubmitted && canAfford;
 
                                         return (
                                             <button
@@ -1180,8 +1202,8 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                                 </div>
                                                 <div className="flex gap-6">
                                                     <div className="flex flex-col gap-1">
-                                                        <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Quality Req</span>
-                                                        <span className={`text-xs font-bold ${hasPrestige ? 'text-emerald-400' : 'text-rose-400'}`}>{fest.prestigeReq} (Yours: {displayQualityScore})</span>
+                                                        <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Selection chance</span>
+                                                        <span className="text-xs font-bold text-emerald-300">{chance}% · bar {fest.prestigeReq} · yours {displayQualityScore}</span>
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Timing</span>

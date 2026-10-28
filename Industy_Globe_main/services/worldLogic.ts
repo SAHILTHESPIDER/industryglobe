@@ -14,7 +14,9 @@ const GENRES: Genre[] = ALL_GENRES;
 
 export const FESTIVALS: Festival[] = [
     { id: 'sundance', name: 'Sundance Film Festival', weeks: [3, 4], prestigeReq: 60, cost: 100000, description: 'Best for Indie/Limited releases. High prestige boost.' },
+    { id: 'berlin', name: 'Berlin International Film Festival', weeks: [7, 8], prestigeReq: 68, cost: 180000, description: 'A winter competition slot. Serious films, serious buyers.' },
     { id: 'cannes', name: 'Cannes Film Festival', weeks: [19, 20, 21], prestigeReq: 80, cost: 500000, description: 'The most prestigious festival in the world. High quality required.' },
+    { id: 'venice', name: 'Venice Film Festival', weeks: [35, 36], prestigeReq: 76, cost: 400000, description: 'The Golden Lion room. Prestige first, commerce second.' },
     { id: 'tiff', name: 'Toronto International Film Festival', weeks: [36, 37, 38], prestigeReq: 70, cost: 250000, description: 'The Oscar Launchpad. Great for building awards buzz.' }
 ];
 

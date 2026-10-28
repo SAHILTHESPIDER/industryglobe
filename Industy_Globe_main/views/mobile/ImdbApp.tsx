@@ -1,7 +1,8 @@
 
 // ... existing imports
 import React, { useState } from 'react';
-import { Player, PastProject, ActiveRelease, CastMember, Review, Award, Universe, UniverseId, IndustryProject, CustomPoster } from '../../types';
+import { Player, PastProject, ActiveRelease, CastMember, Review, Award, Universe, UniverseId, IndustryProject, CustomPoster, ReviewBombState } from '../../types';
+import { displayedAudienceScore, respondToReviewBomb } from '../../services/releaseGauntlet';
 import { formatMoney } from '../../services/formatUtils';
 import { getProjectIdentityLabel } from '../../services/genreCatalog';
 import { AWARD_CALENDAR, AWARD_SHOW_DB, AwardShowLore, AwardDefinition, Nomination, sanitizeAwardRecords, getAwardCeremonyYear } from '../../services/awardLogic';
@@ -11,6 +12,7 @@ import { buildUniverseRoster, calculateUniverseProductWeeklyRevenue, getFallback
 interface ImdbAppProps {
   player: Player;
   onBack: () => void;
+  onUpdatePlayer?: (player: Player) => void;
 }
 
 // Unified interface for UI display
@@ -32,6 +34,9 @@ interface DisplayProject {
     mediaType: 'MOVIE' | 'SERIES';
     customPoster?: CustomPoster;
     identityLabel: string;
+    criticScore?: number;
+    audienceScore?: number;
+    reviewBomb?: ReviewBombState;
 }
 
 type Tab = 'PROFILE' | 'FILMOGRAPHY' | 'AWARDS' | 'FRANCHISES' | 'SEASON'; // Added SEASON
@@ -123,7 +128,17 @@ const getReturnStatusMeta = (status?: 'RETURNING' | 'WRITTEN_OFF' | 'KILLED_OFF'
     }
 };
 
-export const ImdbApp: React.FC<ImdbAppProps> = ({ player, onBack }) => {
+const readFilmScores = (source: { criticScore?: number; audienceScore?: number; reviewBomb?: ReviewBombState; projectDetails?: { hiddenStats?: { criticScore?: number; audienceScore?: number } } }) => {
+  const criticScore = typeof source.criticScore === 'number' ? source.criticScore : source.projectDetails?.hiddenStats?.criticScore;
+  const cleanAudience = typeof source.audienceScore === 'number' ? source.audienceScore : source.projectDetails?.hiddenStats?.audienceScore;
+  return {
+    criticScore,
+    audienceScore: displayedAudienceScore(cleanAudience, source.reviewBomb),
+    reviewBomb: source.reviewBomb,
+  };
+};
+
+export const ImdbApp: React.FC<ImdbAppProps> = ({ player, onBack, onUpdatePlayer }) => {
   const [activeTab, setActiveTab] = useState<Tab>('PROFILE');
   const [awardView, setAwardView] = useState<AwardView>('HOME');
   const [creditFilter, setCreditFilter] = useState<'ALL' | 'MOVIE' | 'TV'>('ALL');
@@ -145,13 +160,15 @@ export const ImdbApp: React.FC<ImdbAppProps> = ({ player, onBack }) => {
       id: r.id, name: r.name, year: player.age, role: r.roleType, rating: r.imdbRating || 0, status: 'ACTIVE' as const,
       gross: r.totalGross, budget: r.budget, description: r.projectDetails.description, cast: r.projectDetails.castList,
       reviews: r.projectDetails.reviews, streamingViews: r.streaming?.totalViews, originalObject: r,
-      mediaType: r.type, customPoster: r.projectDetails.customPoster, identityLabel: getProjectIdentityLabel(r.projectDetails)
+      mediaType: r.type, customPoster: r.projectDetails.customPoster, identityLabel: getProjectIdentityLabel(r.projectDetails),
+      ...readFilmScores(r)
   }));
 
   const pastList: DisplayProject[] = player.pastProjects.map(p => ({
       id: p.id, name: p.name, year: p.year, role: p.roleType || 'Role', rating: p.imdbRating || 0, status: 'ARCHIVED' as const,
       gross: p.gross, budget: p.budget, description: p.description, cast: p.castList, reviews: p.reviews, streamingViews: p.totalViews, awards: p.awards, originalObject: p,
-      mediaType: p.projectType || 'MOVIE', customPoster: p.customPoster, identityLabel: getProjectIdentityLabel(p)
+      mediaType: p.projectType || 'MOVIE', customPoster: p.customPoster, identityLabel: getProjectIdentityLabel(p),
+      ...readFilmScores(p)
   })).reverse();
 
   const fullList = [...activeList, ...pastList];
@@ -757,6 +774,8 @@ export const ImdbApp: React.FC<ImdbAppProps> = ({ player, onBack }) => {
                                             <Star size={20} className="text-yellow-400 fill-yellow-400" />
                                             <span className="text-xl font-bold text-white">{selectedProject.rating > 0 ? selectedProject.rating.toFixed(1) : 'TBD'}</span>
                                             <span className="text-xs text-zinc-500">/10</span>
+                                            {typeof selectedProject.criticScore === 'number' && <span data-testid="film-critic-score" className="ml-2 text-sm font-black text-sky-200">{selectedProject.criticScore}% <span className="text-[9px] uppercase text-zinc-400">Critics</span></span>}
+                                            {typeof selectedProject.audienceScore === 'number' && <span data-testid="film-audience-score" className="text-sm font-black text-emerald-200">{selectedProject.audienceScore}% <span className="text-[9px] uppercase text-zinc-400">Audience</span></span>}
                                         </div>
                                     </div>
                                 </div>
@@ -792,6 +811,8 @@ export const ImdbApp: React.FC<ImdbAppProps> = ({ player, onBack }) => {
                                         <Star size={20} className="text-yellow-400 fill-yellow-400" />
                                         <span className="text-xl font-bold text-white">{selectedProject.rating > 0 ? selectedProject.rating.toFixed(1) : 'TBD'}</span>
                                         <span className="text-xs text-zinc-500">/10</span>
+                                            {typeof selectedProject.criticScore === 'number' && <span data-testid="film-critic-score" className="ml-2 text-sm font-black text-sky-200">{selectedProject.criticScore}% <span className="text-[9px] uppercase text-zinc-400">Critics</span></span>}
+                                            {typeof selectedProject.audienceScore === 'number' && <span data-testid="film-audience-score" className="text-sm font-black text-emerald-200">{selectedProject.audienceScore}% <span className="text-[9px] uppercase text-zinc-400">Audience</span></span>}
                                     </div>
                                 </div>
                             </div>
@@ -812,6 +833,35 @@ export const ImdbApp: React.FC<ImdbAppProps> = ({ player, onBack }) => {
                                 </div>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {selectedProject.reviewBomb?.active && (
+                    <div className="p-4 border-b border-rose-500/30 bg-rose-950/40" data-testid="review-bomb-banner">
+                        <div className="text-[10px] font-black uppercase tracking-[0.2em] text-rose-300">Review bomb</div>
+                        <p className="mt-1 text-sm text-rose-50">Audience score is down {selectedProject.reviewBomb.drop} points. {selectedProject.reviewBomb.weeksLeft} weeks left unless you ask for a cleanup.</p>
+                        {!selectedProject.reviewBomb.response && onUpdatePlayer && (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {(['IGNORE', 'CALL_OUT', 'CLEANUP'] as const).map(response => (
+                                    <button
+                                        key={response}
+                                        onClick={() => {
+                                            const next = respondToReviewBomb(player, selectedProject.id, response);
+                                            onUpdatePlayer(next);
+                                            const source = next.activeReleases.find(release => release.id === selectedProject.id)
+                                                || next.pastProjects.find(project => project.id === selectedProject.id);
+                                            if (source) setSelectedProject({ ...selectedProject, ...readFilmScores(source) });
+                                        }}
+                                        className={`rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-wider ${response === 'CLEANUP' ? 'bg-white text-black' : 'border border-white/15 text-white'}`}
+                                    >
+                                        {response === 'IGNORE' ? 'Ignore' : response === 'CALL_OUT' ? 'Call it out' : 'Clean it up'}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                        {selectedProject.reviewBomb.response && (
+                            <p className="mt-2 text-xs uppercase tracking-[0.16em] text-rose-200">{selectedProject.reviewBomb.response === 'CLEANUP' ? 'Cleanup in progress' : selectedProject.reviewBomb.response === 'CALL_OUT' ? 'You called it out' : 'You are letting it ride'}</p>
+                        )}
                     </div>
                 )}
 
@@ -911,7 +961,18 @@ export const ImdbApp: React.FC<ImdbAppProps> = ({ player, onBack }) => {
                                         {review.rating && <div className="text-xs font-bold text-zinc-400 flex items-center gap-1"><Star size={10} className="fill-zinc-400"/> {review.rating}/5</div>}
                                     </div>
                                     <p className="text-sm text-zinc-300 italic leading-relaxed">"{review.text}"</p>
-                                    <div className="text-[10px] text-zinc-600 mt-2 text-right font-serif">- {review.author}</div>
+                                    <div className="mt-2 flex items-center justify-between gap-2">
+                                        <div className="text-[10px] uppercase tracking-wider text-zinc-500">
+                                            {(() => {
+                                                const critic = player.world?.critics?.find(person => person.name === review.author);
+                                                if (!critic) return review.type === 'AUDIENCE' ? 'Audience' : '';
+                                                if (critic.feeling >= 25) return 'In your corner';
+                                                if (critic.feeling <= -25) return 'Long feud';
+                                                return critic.tastes.slice(0, 2).join(' · ').replace(/_/g, ' ');
+                                            })()}
+                                        </div>
+                                        <div className="text-[10px] text-zinc-600 text-right font-serif">- {review.author}</div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
