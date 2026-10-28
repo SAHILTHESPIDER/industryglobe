@@ -78,6 +78,9 @@ export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ pl
                             <ul className="space-y-2 text-sm text-zinc-200">
                                 {(screening.notes || []).map(note => <li key={note}>• {note}</li>)}
                             </ul>
+                            {releaseLocked && (
+                                <p className="text-xs text-amber-100/80">The opening date is already locked. A recut or reshoot slips that date by the work weeks, once.</p>
+                            )}
                             <div className="grid grid-cols-2 gap-2">
                                 <button onClick={() => apply(chooseTestScreening(player, live.id, 'RELEASE'))} className="rounded-2xl bg-white py-3 text-[11px] font-black uppercase tracking-[0.14em] text-black">Release as is</button>
                                 <button onClick={() => apply(chooseTestScreening(player, live.id, 'RECUT'))} className="rounded-2xl border border-white/15 py-3 text-[11px] font-black uppercase tracking-[0.14em]">Recut · 2–4 wks</button>

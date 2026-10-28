@@ -187,6 +187,31 @@ export const screeningCost = (tier: BudgetTier = 'MID'): number => {
     return 250_000;
 };
 
+const RELEASE_CAMPAIGN_BUZZ: Record<string, number> = {
+    red_carpet: 20,
+    exclusive_screening: 12,
+    social_ads: 15,
+    youtube_trailer: 10,
+    tv_spots: 25,
+    billboards: 18,
+};
+
+/** Fold the release campaign into raw hype before the audience score is locked. */
+export const applyReleaseCampaignHype = (details: ProjectDetails): ProjectDetails => {
+    const buzz = (details.campaignItems || []).reduce((sum, id) => sum + (RELEASE_CAMPAIGN_BUZZ[id] || 0), 0);
+    if (!buzz) return details;
+    const rawHype = clamp(Math.round((details.hiddenStats.rawHype ?? 50) + buzz * 0.5), 0, 100);
+    return { ...details, hiddenStats: { ...details.hiddenStats, rawHype } };
+};
+
+export const releaseBeforeFestival = (currentWeek: number, releaseWeek: number, festivalWeeks: number[]): boolean => {
+    if (!festivalWeeks.length) return false;
+    const currentWeekOfYear = ((currentWeek - 1) % 52) + 1;
+    const start = Math.min(...festivalWeeks);
+    const weeksUntilFestival = start >= currentWeekOfYear ? start - currentWeekOfYear : (52 - currentWeekOfYear) + start;
+    return releaseWeek - currentWeek < weeksUntilFestival;
+};
+
 const hypeFitScore = (stats: ProjectHiddenStats): number => {
     const quality = stats.qualityScore ?? 50;
     const hype = stats.rawHype ?? 50;
@@ -278,7 +303,9 @@ export const buildNamedReviews = (
 export const lockReleaseScores = (details: ProjectDetails, critics: CriticProfile[], playerName: string) => {
     const fresh = scoreFilm(details.hiddenStats, details.genre, critics);
     const screening = details.testScreening;
+    const hypeChanged = typeof screening?.anchorHype === 'number' && screening.anchorHype !== (details.hiddenStats.rawHype ?? 50);
     const sameCut = typeof screening?.trueAudience === 'number'
+        && !hypeChanged
         && screening.anchorQuality === details.hiddenStats.qualityScore
         && screening.choice !== 'RECUT'
         && screening.choice !== 'RESHOOT';
@@ -408,6 +435,24 @@ const creditHouse = (player: Player, studioId: string | undefined, amount: numbe
     return { ...player, businesses };
 };
 
+/** Opening before the festival gives the submission fee back and clears the slot. */
+export const withdrawUnfinishedFestival = (player: Player, details: ProjectDetails, title: string): { player: Player; log?: string } => {
+    const run = details.festivalRun;
+    if (!run || run.status !== 'SUBMITTED') return { player };
+    const fest = FESTIVALS.find(item => item.id === run.festivalId);
+    details.festivalRun = { ...run, status: 'WITHDRAWN' };
+    details.hiddenStats = { ...details.hiddenStats, festivalPremiere: undefined };
+    const next = fest && fest.cost > 0
+        ? creditHouse(player, details.studioId, fest.cost, `${fest.name} fee returned`, title)
+        : player;
+    return {
+        player: next,
+        log: fest
+            ? `"${title}" opened before ${fest.name}. The $${fest.cost.toLocaleString()} submission fee was returned.`
+            : `"${title}" opened before the festival. The submission was withdrawn.`,
+    };
+};
+
 const replaceCommitment = (player: Player, commitment: Commitment): Player => ({
     ...player,
     commitments: player.commitments.map(item => item.id === commitment.id ? commitment : item),
@@ -431,6 +476,7 @@ export const holdTestScreening = (player: Player, projectId: string): { player: 
         testScore,
         trueAudience,
         anchorQuality: details.hiddenStats.qualityScore,
+        anchorHype: details.hiddenStats.rawHype ?? 50,
         notes: screeningNotes(details.hiddenStats, details.genre),
         spent: cost,
     };
@@ -793,7 +839,7 @@ export const acceptFestivalBid = (
     const streamer = offer.kind === 'STREAMER' && offer.platformId;
     next = patchRun(next, projectId, current => ({
         ...current,
-        releaseStrategy: streamer ? 'STREAMING_ONLY' : 'THEATRICAL',
+        releaseStrategy: streamer ? 'STREAMING_ONLY' : current.releaseStrategy,
         screeningStrategy: streamer ? current.screeningStrategy : (current.screeningStrategy || 'INTERNATIONAL'),
         hiddenStats: {
             ...current.hiddenStats,
@@ -808,7 +854,9 @@ export const acceptFestivalBid = (
         } : current.festivalRun,
     }));
     return {
-        player: withLog(next, `${offer.bidderName} takes "${commitment.name}" for $${offer.amount.toLocaleString()}.`, 'positive')
+        player: withLog(next, streamer
+            ? `${offer.bidderName} takes "${commitment.name}" for $${offer.amount.toLocaleString()}.`
+            : `${offer.bidderName} is distributing "${commitment.name}" for $${offer.amount.toLocaleString()}. Set the opening date before it can play.`, 'positive')
     };
 };
 

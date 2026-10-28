@@ -6,7 +6,7 @@ import { FESTIVALS, CALENDAR_EVENTS } from '../../../services/worldLogic';
 import { mergeUniverseRosterWithProject, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
-import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
+import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, releaseBeforeFestival, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -706,6 +706,14 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
             ? FESTIVALS.find(fest => fest.id === festivalPremiere)
             : undefined;
         const studioId = project.projectDetails?.studioId || studio?.id;
+        const festivalOnSubmission = newFestival
+            || (existingFestivalRun?.status === 'SUBMITTED'
+                ? FESTIVALS.find(fest => fest.id === existingFestivalRun.festivalId)
+                : undefined);
+        if (festivalOnSubmission && releaseBeforeFestival(player.currentWeek, releaseWeek, festivalOnSubmission.weeks)) {
+            setLockError(`Open on or after ${festivalOnSubmission.name}, or skip the festival. An earlier date drops the submission and the fee.`);
+            return;
+        }
         const commitmentIndex = player.commitments.findIndex(item => item.id === project.id);
         if (newFestival && commitmentIndex === -1) {
             setLockError('That film is no longer on the lot.');
@@ -1269,12 +1277,20 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                         const weekOfYear = getWeekOfYear(week);
                                         const season = weekOfYear <= 13 ? 'Spring' : weekOfYear <= 26 ? 'Summer' : weekOfYear <= 39 ? 'Fall' : 'Winter';
                                         const calendarEvent = CALENDAR_EVENTS.find(e => e.week === weekOfYear);
+                                        const submittedRun = project.projectDetails?.festivalRun?.status === 'SUBMITTED'
+                                            ? project.projectDetails.festivalRun
+                                            : undefined;
+                                        const festivalForDate = submittedRun
+                                            ? FESTIVALS.find(fest => fest.id === submittedRun.festivalId)
+                                            : (festivalPremiere ? FESTIVALS.find(fest => fest.id === festivalPremiere) : undefined);
+                                        const beforeFestival = festivalForDate ? releaseBeforeFestival(player.currentWeek, week, festivalForDate.weeks) : false;
                                         
                                         return (
                                             <button
                                                 key={week}
+                                                disabled={beforeFestival}
                                                 onClick={() => setReleaseWeek(week)}
-                                                className={`group relative w-full p-6 rounded-3xl border transition-all duration-300 text-left overflow-hidden ${isSelected ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                                                className={`group relative w-full p-6 rounded-3xl border transition-all duration-300 text-left overflow-hidden ${beforeFestival ? 'opacity-40 cursor-not-allowed' : isSelected ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                                             >
                                                 {isSelected && (
                                                     <div className="absolute top-6 right-6">
@@ -1294,6 +1310,9 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                                     </div>
                                                 </div>
                                                 
+                                                {beforeFestival && (
+                                                    <div className="mb-4 text-xs text-amber-200/80">Before {festivalForDate?.name}. This date would drop the submission.</div>
+                                                )}
                                                 <div className="space-y-3">
                                                     <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Box Office Competition</div>
                                                     {rivals.length > 0 ? (

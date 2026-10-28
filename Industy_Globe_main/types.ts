@@ -554,6 +554,8 @@ export enum Page {
       testScore?: number;
       /** Audience score the test was aiming at, before the ±8 hint. */
       trueAudience?: number;
+      /** Hype when the screening was held. A later campaign can move the real audience score. */
+      anchorHype?: number;
       /** Quality when the screening was held, so a recut can invalidate the lock. */
       anchorQuality?: number;
       notes?: string[];

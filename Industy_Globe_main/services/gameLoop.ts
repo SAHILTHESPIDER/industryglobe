@@ -54,7 +54,7 @@ import { generateAgentOffers, generateManagerOffer, generateDirectOffer, getRand
 import { processStockMarket, calculatePortfolioValue, getDividendPayout, initializeStocks, normalizeListedStocks, empireFundamentals } from './stockLogic';
 import { serviceWeeklyLoans } from './loanLogic';
 import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonWinners, generateFullBallot, getAwardCeremonyYear } from './awardLogic';
-import { advanceReviewBomb, advanceScreeningWork, hydrateReleaseWorld, lockReleaseScores, offerTestScreeningOnWrap, resolveDueFestivals } from './releaseGauntlet';
+import { advanceReviewBomb, advanceScreeningWork, applyReleaseCampaignHype, hydrateReleaseWorld, lockReleaseScores, offerTestScreeningOnWrap, resolveDueFestivals, withdrawUnfinishedFestival } from './releaseGauntlet';
 import { processWorldTurn, generateIndustryProject } from './worldLogic';
 import { absoluteWeek, clashFactorFor, gameCalendarYear, migrateBoxOfficeHistory, publishBoxOfficeWeekend } from './boxOfficeSim'; 
 import { generateFamousMovieOpportunity, generateCameoOffer } from './famousMovieLogic'; 
@@ -2755,7 +2755,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 if (worked.log) logsToAdd.push({ msg: `✂️ ${worked.log}`, type: worked.tone || 'neutral' });
             }
             if (updatedC.projectDetails?.testScreening?.status === 'WORKING') {
-                nextCommitments.push(updatedC);
+                nextCommitments.push({ ...updatedC, phaseWeeksLeft: Math.max(1, weeksLeft) });
             } else {
             const isStudioProject = updatedC.projectDetails?.studioId !== undefined;
             
@@ -2796,21 +2796,6 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     updatedC.projectDetails.hiddenStats.castDepthScore = updatedC.projectDetails.hiddenStats.castDepthScore ?? castDepth.score;
                     updatedC.projectDetails.hiddenStats.castDepthNote = updatedC.projectDetails.hiddenStats.castDepthNote ?? castDepth.note;
 
-                    const lockedScores = lockReleaseScores(updatedC.projectDetails, nextPlayer.world.critics || [], nextPlayer.name);
-                    updatedC.projectDetails.hiddenStats.criticScore = lockedScores.criticScore;
-                    updatedC.projectDetails.hiddenStats.audienceScore = lockedScores.audienceScore;
-                    updatedC.projectDetails.reviews = lockedScores.reviews.length
-                        ? lockedScores.reviews
-                        : generateReviews(
-                            updatedC.projectDetails.hiddenStats.qualityScore,
-                            updatedC.projectDetails.genre,
-                            nextPlayer.name,
-                            updatedC.projectDetails.hiddenStats.isRecast,
-                            updatedC.projectDetails.hiddenStats.castDepthScore,
-                            updatedC.projectDetails.budgetTier,
-                            updatedC.projectDetails.format || 'LIVE_ACTION',
-                            updatedC.projectDetails.subjectName
-                        );
                 }
 
                 let streamingState: StreamingState | undefined = undefined;
@@ -2863,6 +2848,24 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         updatedC.projectDetails.hiddenStats.ytCampaignHype = ytBoost.campaignHype;
                         updatedC.projectDetails.hiddenStats.ytOpeningMultiplier = ytBoost.openingMultiplier;
                     }
+                    if (updatedC.projectDetails) {
+                        updatedC.projectDetails = applyReleaseCampaignHype(updatedC.projectDetails);
+                        const lockedScores = lockReleaseScores(updatedC.projectDetails, nextPlayer.world.critics || [], nextPlayer.name);
+                        updatedC.projectDetails.hiddenStats.criticScore = lockedScores.criticScore;
+                        updatedC.projectDetails.hiddenStats.audienceScore = lockedScores.audienceScore;
+                        updatedC.projectDetails.reviews = lockedScores.reviews.length
+                            ? lockedScores.reviews
+                            : generateReviews(
+                                updatedC.projectDetails.hiddenStats.qualityScore,
+                                updatedC.projectDetails.genre,
+                                nextPlayer.name,
+                                updatedC.projectDetails.hiddenStats.isRecast,
+                                updatedC.projectDetails.hiddenStats.castDepthScore,
+                                updatedC.projectDetails.budgetTier,
+                                updatedC.projectDetails.format || 'LIVE_ACTION',
+                                updatedC.projectDetails.subjectName
+                            );
+                    }
                     let accumulatedBuzz = updatedC.promotionalBuzz || 0;
                     
                     // Add Red Carpet Hype
@@ -2870,12 +2873,9 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         accumulatedBuzz += updatedC.projectDetails.hiddenStats.redCarpetHype;
                     }
                     
-                    const openRun = updatedC.projectDetails.festivalRun;
-                    if (openRun?.status === 'SUBMITTED') {
-                        updatedC.projectDetails.festivalRun = { ...openRun, status: 'WITHDRAWN' };
-                        updatedC.projectDetails.hiddenStats.festivalPremiere = undefined;
-                        logsToAdd.push({ msg: `"${updatedC.name}" opened before the festival. The submission was withdrawn.`, type: 'neutral' });
-                    }
+                    const withdrawn = withdrawUnfinishedFestival(nextPlayer, updatedC.projectDetails, updatedC.name);
+                    nextPlayer = withdrawn.player;
+                    if (withdrawn.log) logsToAdd.push({ msg: withdrawn.log, type: 'neutral' });
 
                     // Add Festival Hype
                     if (updatedC.projectDetails.hiddenStats.festivalPremiere) {
