@@ -141,13 +141,25 @@ const regionEnergy = (region: RegionBuild) =>
 export const STANDARD_PLAN_USD = 11;
 
 const finiteNumber = (value: unknown, fallback: number) => {
+    if (typeof value !== 'number' && (value == null || value === '')) return fallback;
     const number = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(number) ? number : fallback;
 };
 
-/** USD anchor for one plan. A missing or NaN sticker becomes the standard $11, never NaN. */
+/**
+ * A stored sticker. JSON saves NaN as null, and Number(null) is 0, so null must not
+ * become a free plan. Explicit 0 is a real price. Negatives and non-finite values are not.
+ */
+export const finiteSticker = (value: unknown): number | undefined => {
+    if (value == null || value === '') return undefined;
+    const number = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(number) || number < 0) return undefined;
+    return number;
+};
+
+/** USD anchor for one plan. A missing, null, or negative sticker becomes the standard $11. */
 export const planAnchorUsd = (plan: { monthlyUsd?: number } | undefined): number =>
-    Math.max(0, finiteNumber(plan?.monthlyUsd, STANDARD_PLAN_USD));
+    finiteSticker(plan?.monthlyUsd) ?? STANDARD_PLAN_USD;
 
 export const averageUsdInCountry = (state: OwnPlatformState, countryId: string): number => {
     if (!state.plans.length) return 0;
