@@ -83,6 +83,12 @@ const us = owned.regions.find(row => row.regionId === 'NORTH_AMERICA');
 if (!us || us.scout + us.workhorse + us.titan <= 0) fail('own-it-all placed no servers');
 if (owned.cloud.some(order => order.racks > 0)) fail('own-it-all kept rented racks');
 if (owned.regionCoverage?.NORTH_AMERICA !== 100) fail('own-it-all coverage was not 100');
+const tinyBuilt = applyInfraPreset({ ...fresh, selectedCountryIds: ['TV', 'NR', 'PW'] }, 'OWN');
+const tinyRegion = tinyBuilt.regions.find(row => row.regionId === 'OCEANIA');
+const tinyBoxes = (tinyRegion?.scout || 0) + (tinyRegion?.workhorse || 0) + (tinyRegion?.titan || 0);
+if (tinyBoxes < 1) fail('Tuvalu, Nauru, and Palau got no servers');
+const tinyQuote = quoteLaunch({ ...player, ownPlatform: tinyBuilt });
+if (tinyQuote.regionRows.some(row => row.countries > 0 && row.servedPct < 0.35)) fail('tiny markets still fail the capacity check');
 
 const billboard = storefrontEffectLine(storefrontById('billboard'));
 if (!billboard.includes('+12%') || !billboard.includes('new viewers')) fail(`billboard line unexpected: ${billboard}`);

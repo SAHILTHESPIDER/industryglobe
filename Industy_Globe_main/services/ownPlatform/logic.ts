@@ -863,12 +863,15 @@ export const INFRA_PRESETS: { id: InfraPresetId; name: string; blurb: string }[]
     { id: 'OWN', name: 'Own it all', blurb: 'Titans until the night fits in rooms you own. Rented racks go back to zero.' },
 ];
 
-/** Pick the smallest box that covers most of the remaining gap, without buying a titan to finish a scout-sized hole. */
+/**
+ * Pick the smallest box that covers most of the remaining gap, without buying a titan to finish a scout-sized hole.
+ * Any positive demand gets at least one room. Tuvalu's opening night is under one stream, and `cap + 1 < need` used to skip it.
+ */
 const fitServers = (need: number, kinds: ServerBox[]) => {
     const counts = { scout: 0, workhorse: 0, titan: 0 };
     let cap = 0;
     let guard = 0;
-    while (cap + 1 < need && guard < 80) {
+    while (cap < need && guard < 80) {
         guard += 1;
         const gap = need - cap;
         const choices = kinds
