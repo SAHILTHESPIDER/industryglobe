@@ -1,4 +1,6 @@
 import { MARKET_COUNTRIES, getCountry } from '../services/ownPlatform/catalog';
+import { paintedWorldPaths, pointInPath } from '../services/ownPlatform/worldMapPaint';
+import { WORLD_PATHS } from '../services/ownPlatform/worldPaths';
 import { defaultLocalPrice } from '../services/ownPlatform/fx';
 import { identityEffects } from '../services/ownPlatform/identEffects';
 import { applyInfraPreset, quoteLaunch, storefrontById, storefrontEffectLine } from '../services/ownPlatform/logic';
@@ -98,8 +100,40 @@ const quoteLinen = quoteLaunch({ ...player, ownPlatform: { ...built, identityId:
 if (!(quoteVoltage.households > quoteBase.households)) fail('voltage did not grow the audience');
 if (!(quoteLinen.forecastWeeklyRevenue > quoteBase.forecastWeeklyRevenue)) fail('linen did not lift premium revenue');
 
+const painted = paintedWorldPaths();
+const indexOf = (id: string) => painted.findIndex(row => row.id === id);
+const southAfrica = painted.find(row => row.id === 'ZA');
+const lesotho = painted.find(row => row.id === 'LS');
+if (!southAfrica?.holed || !southAfrica.d.includes(WORLD_PATHS.LS)) fail('South Africa does not cut a hole for Lesotho');
+if (!(indexOf('LS') > indexOf('ZA'))) fail('Lesotho is still painted under South Africa');
+if (!(indexOf('SZ') > indexOf('ZA'))) fail('Eswatini is still painted under South Africa');
+if (!(indexOf('GM') > indexOf('SN'))) fail('Gambia is still painted under Senegal');
+const lesothoInside = (() => {
+    const matcher = /(\d+) (\d+)/g;
+    const pts: [number, number][] = [];
+    let match: RegExpExecArray | null = matcher.exec(WORLD_PATHS.LS);
+    while (match) {
+        pts.push([Number(match[1]), Number(match[2])]);
+        match = matcher.exec(WORLD_PATHS.LS);
+    }
+    const minX = Math.min(...pts.map(point => point[0]));
+    const maxX = Math.max(...pts.map(point => point[0]));
+    const minY = Math.min(...pts.map(point => point[1]));
+    const maxY = Math.max(...pts.map(point => point[1]));
+    for (let y = minY; y <= maxY; y += 0.25) {
+        for (let x = minX; x <= maxX; x += 0.25) {
+            if (pointInPath(x, y, WORLD_PATHS.LS)) return [x, y] as const;
+        }
+    }
+    return null;
+})();
+if (!lesothoInside) fail('could not find a point inside Lesotho');
+else if (!pointInPath(lesothoInside[0], lesothoInside[1], lesotho?.d || '')) fail('Lesotho path missed its own interior');
+else if (pointInPath(lesothoInside[0], lesothoInside[1], southAfrica.d)) fail('Lesotho interior is still filled by South Africa');
+if (WORLD_PATHS.SM || WORLD_PATHS.VA) fail('San Marino and Vatican should stay dots, painted after the coastlines');
+
 if (process.exitCode) {
     console.error('market checks failed');
 } else {
-    console.log(`ok ${MARKET_COUNTRIES.length} countries · India sticker ${defaultLocalPrice(11, 'IN')} · billboard ${billboard}`);
+    console.log(`ok ${MARKET_COUNTRIES.length} countries · India sticker ${defaultLocalPrice(11, 'IN')} · billboard ${billboard} · Lesotho hole`);
 }

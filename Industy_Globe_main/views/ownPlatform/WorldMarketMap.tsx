@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { COUNTRY_SEEDS } from '../../services/ownPlatform/countrySeeds';
 import { getCountry } from '../../services/ownPlatform/catalog';
 import { WORLD_MAP_HEIGHT, WORLD_MAP_WIDTH, WORLD_PATHS, projectMarket } from '../../services/ownPlatform/worldPaths';
+import { paintedWorldPaths } from '../../services/ownPlatform/worldMapPaint';
 
 interface Props {
     selectedIds: string[];
@@ -10,7 +11,8 @@ interface Props {
     onPick: (countryId: string) => void;
 }
 
-const PATHS = Object.entries(WORLD_PATHS);
+/** Largest first, so an enclave painted later sits above the country around it. */
+const PATHS = paintedWorldPaths();
 
 export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId, onPick }) => {
     const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
@@ -37,7 +39,7 @@ export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId
         <div data-testid="world-market-map" className="rounded-3xl border border-white/10 bg-[#070b16] p-2">
             <svg viewBox={`0 0 ${WORLD_MAP_WIDTH} ${WORLD_MAP_HEIGHT}`} className="w-full h-auto" role="img" aria-label="World map of launch markets">
                 <rect width={WORLD_MAP_WIDTH} height={WORLD_MAP_HEIGHT} fill="#070b16" />
-                {PATHS.map(([id, d]) => {
+                {PATHS.map(({ id, d, holed }) => {
                     const country = getCountry(id);
                     if (!country) return null;
                     const focused = id === focusId;
@@ -47,8 +49,9 @@ export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId
                             d={d}
                             data-country={id}
                             fill={fillFor(id, country.regionId)}
+                            fillRule={holed ? 'evenodd' : 'nonzero'}
                             stroke={focused ? '#ffffff' : selected.has(id) ? '#c4b5fd' : '#0b1020'}
-                            strokeWidth={focused ? 3 : 1.2}
+                            strokeWidth={focused ? 2.2 : 0.8}
                             className="cursor-pointer"
                             onClick={() => onPick(id)}
                         >
@@ -78,7 +81,7 @@ export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId
                     );
                 })}
                 {focus && focusPoint && (
-                    <text x={Math.min(WORLD_MAP_WIDTH - 8, focusPoint.x + 8)} y={Math.max(14, focusPoint.y - 8)} fill="#ffffff" fontSize="14" fontWeight="700">
+                    <text x={Math.min(WORLD_MAP_WIDTH - 8, focusPoint.x + 8)} y={Math.max(14, focusPoint.y - 8)} fill="#ffffff" fontSize="14" fontWeight="700" style={{ pointerEvents: 'none' }}>
                         {focus.name}
                     </text>
                 )}
