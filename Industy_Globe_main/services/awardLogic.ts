@@ -208,7 +208,10 @@ export const checkAwardEligibility = (player: Player, week: number, awardYear = 
             mediaType: fromActive ? p.projectDetails.type : (p.projectType || 'MOVIE'),
             adaptationAwardBonus: fromActive
                 ? p.projectDetails?.hiddenStats?.adaptationAwardBonus
-                : p.adaptationAwardBonus
+                : p.adaptationAwardBonus,
+            festivalPrizeBonus: fromActive
+                ? p.projectDetails?.hiddenStats?.festivalPrizeBonus
+                : p.festivalPrizeBonus
         });
     };
 
@@ -250,6 +253,9 @@ export const checkAwardEligibility = (player: Player, week: number, awardYear = 
         let nomScore = (perfScore * 0.5) + (imdbScore * 0.5);
         const adaptationBonus = Number(project.adaptationAwardBonus) || 0;
         if (adaptationBonus > 0) nomScore += adaptationBonus;
+        // A festival prize is worth +5 at the Oscars (week 10) and BAFTA (week 4) that season.
+        const festivalPrizeBonus = Number(project.festivalPrizeBonus) || 0;
+        if (festivalPrizeBonus > 0 && (awardType === 'OSCAR' || awardType === 'BAFTA')) nomScore += Math.min(5, festivalPrizeBonus);
 
         // Oscar Bias: Drama/Prestige
         if (week === 10) {

@@ -5,6 +5,7 @@ import { NPC_DATABASE } from '../../services/npcLogic';
 import { getEnabledGlobalCreatorSocialProfiles } from '../../services/youtubeLogic';
 import { spendPlayerEnergy } from '../../services/premiumLogic';
 import { gameCalendarYear, playerCityLabel } from '../../services/boxOfficeSim';
+import { shiftCriticsFromX } from '../../services/releaseGauntlet';
 import { getPlayerLanguage, t } from '../../services/i18n';
 import {
     ArrowLeft, Home, Search, PenTool, Heart, Repeat, MessageCircle, MoreHorizontal, Check, User, Mail,
@@ -385,6 +386,10 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
             logs: [{ week: player.currentWeek, year: player.age, message: controversyDelta >= 7 ? `X heated up after your ${typeConfig.label.toLowerCase()} post.` : `Posted a ${typeConfig.label.toLowerCase()} update on X.`, type: logType }, ...player.logs].slice(0, 50)
         };
         if (adRevenue > 0) nextPlayer = withExtras(nextPlayer, { adBalance: extras.adBalance + adRevenue, adLifetime: extras.adLifetime + adRevenue });
+        nextPlayer = {
+            ...nextPlayer,
+            world: { ...nextPlayer.world, critics: shiftCriticsFromX(nextPlayer.world?.critics, controversyDelta) },
+        };
         spendPlayerEnergy(nextPlayer, 5 + (cleanThread.length ? 2 : 0));
         onUpdatePlayer(nextPlayer);
         setFeed(updatedFeed);
@@ -482,11 +487,15 @@ export const XApp: React.FC<XAppProps> = ({ player, onBack, onUpdatePlayer }) =>
             instagram: { ...player.instagram, controversy: Math.max(0, Math.min(100, (player.instagram.controversy || 0) + Math.max(0, toneConfig.controversy))) },
             logs: [{ week: player.currentWeek, year: player.age, message: mode === 'QUOTE' ? `Quoted ${post.authorName} on X.` : `Replied to ${post.authorName} on X.`, type: toneConfig.controversy >= 6 ? 'negative' as const : 'positive' as const }, ...player.logs].slice(0, 50)
         };
-        spendPlayerEnergy(nextPlayer, mode === 'QUOTE' ? 8 : 5);
+        const remembered = {
+            ...nextPlayer,
+            world: { ...nextPlayer.world, critics: shiftCriticsFromX(nextPlayer.world?.critics, toneConfig.controversy) },
+        };
+        spendPlayerEnergy(remembered, mode === 'QUOTE' ? 8 : 5);
         setFeed(updatedFeed);
         setSelectedPost(newPost);
         setReplyDraft('');
-        onUpdatePlayer(nextPlayer);
+        onUpdatePlayer(remembered);
     };
 
     const submitCustomReply = () => {

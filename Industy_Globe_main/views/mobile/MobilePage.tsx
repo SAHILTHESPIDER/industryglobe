@@ -646,7 +646,7 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <NewsApp player={props.player} onBack={() => setAppMode('HOME')} />
                 )}
                 {appMode === 'IMDB' && (
-                    <ImdbApp player={props.player} onBack={() => setAppMode('HOME')} />
+                    <ImdbApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />
                 )}
                 {appMode === 'FORBES' && (
                     <ForbesApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />

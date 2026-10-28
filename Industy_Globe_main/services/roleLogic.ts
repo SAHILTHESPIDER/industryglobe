@@ -956,6 +956,12 @@ export const calculateWeeklyBoxOffice = (
     if (SPECTACLE_GENRES.has(genre) && ['HIGH', 'BLOCKBUSTER'].includes(budgetTier) && castDepthScore < 55) dropRate += 0.1;
     if (castDepthScore > 84 && qualityScore > 75) dropRate -= 0.03;
 
+    // Critic score above 60 improves holds. Below 40 makes the weekly drop steeper.
+    if (typeof stats.criticScore === 'number') {
+        if (stats.criticScore > 60) dropRate -= 0.06;
+        else if (stats.criticScore < 40) dropRate += 0.08;
+    }
+
     const variance = (Math.random() * 0.1) - 0.05; 
     dropRate += variance;
 
