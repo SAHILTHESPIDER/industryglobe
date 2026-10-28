@@ -12,7 +12,7 @@ import {
 } from '../../types';
 import { CLOUD_PROVIDERS, IDENTITY_PRESETS, LAUNCH_REGIONS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
 import { anchorRates, decorateRival } from './fx';
-import { REVENUE_LANES, STANDARD_PLAN_USD, syncRegions } from './logic';
+import { REVENUE_LANES, STANDARD_PLAN_USD, finiteSticker, syncRegions } from './logic';
 import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
 import { clampReleaseOffset } from './weeks';
 
@@ -121,18 +121,16 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
             }))
             : [],
         plans: Array.isArray(raw.plans) ? raw.plans.filter(plan => plan && plan.name).map(plan => {
-            const monthlyUsd = Number(plan.monthlyUsd);
-            const countryPrices = plan.countryPrices && typeof plan.countryPrices === 'object'
-                ? Object.fromEntries(
-                    Object.entries(plan.countryPrices)
-                        .filter(([, value]) => Number.isFinite(Number(value)))
-                        .map(([key, value]) => [key, Math.max(0, Number(value))])
-                )
-                : undefined;
+            const countryEntries = plan.countryPrices && typeof plan.countryPrices === 'object'
+                ? Object.entries(plan.countryPrices).flatMap(([key, value]) => {
+                    const sticker = finiteSticker(value);
+                    return sticker === undefined ? [] : [[key, sticker] as const];
+                })
+                : [];
             return {
                 ...plan,
-                monthlyUsd: Number.isFinite(monthlyUsd) ? Math.max(0, monthlyUsd) : STANDARD_PLAN_USD,
-                countryPrices,
+                monthlyUsd: finiteSticker(plan.monthlyUsd) ?? STANDARD_PLAN_USD,
+                countryPrices: countryEntries.length ? Object.fromEntries(countryEntries) : undefined,
             };
         }) : created.plans,
         revenueLanes: asLanes(raw.revenueLanes),
