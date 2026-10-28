@@ -6,13 +6,48 @@
 type OscKind = OscillatorType;
 
 let shared: AudioContext | null = null;
+let generation = 0;
+let liveOscillators: OscillatorNode[] = [];
+let liveSources: AudioBufferSourceNode[] = [];
+let liveMaster: GainNode | null = null;
+let liveTimer = 0;
+let armedStyle: string | null = null;
+let armedToken: number | null = null;
 
 const context = (): AudioContext | null => {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return null;
-    if (!shared) shared = new AudioCtx();
-    if (shared.state === 'suspended') void shared.resume();
-    return shared;
+    try {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtx) return null;
+        if (!shared || shared.state === 'closed') shared = new AudioCtx();
+        if (shared.state === 'suspended') void shared.resume().catch(() => undefined);
+        return shared;
+    } catch {
+        return null;
+    }
+};
+
+const silence = () => {
+    window.clearTimeout(liveTimer);
+    liveTimer = 0;
+    liveOscillators.forEach(node => { try { node.stop(); } catch { /* already stopped */ } });
+    liveSources.forEach(node => { try { node.stop(); } catch { /* already stopped */ } });
+    liveOscillators = [];
+    liveSources = [];
+    if (liveMaster) {
+        try { liveMaster.disconnect(); } catch { /* already disconnected */ }
+        liveMaster = null;
+    }
+};
+
+/** Stop the current bumper. Pass the token from playIdentSting to ignore a newer sting. */
+export const stopIdentSting = (token?: number): void => {
+    try {
+        if (token !== undefined && token !== generation) return;
+        generation += 1;
+        silence();
+    } catch {
+        /* Audio can fail closed. The bumper still dismisses. */
+    }
 };
 
 const tone = (
@@ -38,6 +73,7 @@ const tone = (
     gain.connect(dest);
     osc.start(start);
     osc.stop(start + dur + 0.05);
+    liveOscillators.push(osc);
 };
 
 const noise = (ctx: AudioContext, dest: AudioNode, start: number, dur: number, peak: number, cutoff: number) => {
@@ -61,6 +97,7 @@ const noise = (ctx: AudioContext, dest: AudioNode, start: number, dur: number, p
     gain.connect(dest);
     source.start(start);
     source.stop(start + dur + 0.02);
+    liveSources.push(source);
 };
 
 const schedule = (styleId: string, ctx: AudioContext, dest: AudioNode, t: number) => {
@@ -109,15 +146,50 @@ const schedule = (styleId: string, ctx: AudioContext, dest: AudioNode, t: number
     }
 };
 
-export const playIdentSting = (styleId: string) => {
-    const ctx = context();
-    if (!ctx) return;
-    const master = ctx.createGain();
-    master.gain.setValueAtTime(0.85, ctx.currentTime);
-    master.connect(ctx.destination);
-    const start = ctx.currentTime + 0.02;
-    schedule(styleId, ctx, master, start);
-    master.gain.setValueAtTime(0.85, start + 1.15);
-    master.gain.exponentialRampToValueAtTime(0.0001, start + 1.45);
-    window.setTimeout(() => master.disconnect(), 1800);
+/** Start the sting inside the tap that opened the platform, before React paints. */
+export const armPlatformIdent = (player: { ownPlatform?: { identityId?: string; identSound?: boolean; introSeen?: boolean } | null }): void => {
+    try {
+        const platform = player.ownPlatform;
+        if (!platform?.identityId || platform.identSound === false || !platform.introSeen) return;
+        armedStyle = platform.identityId;
+        armedToken = playIdentSting(platform.identityId);
+    } catch {
+        armedStyle = null;
+        armedToken = null;
+    }
+};
+
+/** If this open already started the sting, reuse that token instead of playing it again. */
+export const takeArmedIdent = (styleId: string): number | null => {
+    if (armedStyle !== styleId || armedToken === null) return null;
+    const token = armedToken;
+    armedStyle = null;
+    armedToken = null;
+    return token;
+};
+
+/** Plays the style's sting. Returns a token so an older bumper can stop only itself. Never throws. */
+export const playIdentSting = (styleId: string): number => {
+    try {
+        silence();
+        const token = ++generation;
+        const ctx = context();
+        if (!ctx) return token;
+        const master = ctx.createGain();
+        liveMaster = master;
+        master.gain.setValueAtTime(0.85, ctx.currentTime);
+        master.connect(ctx.destination);
+        const start = ctx.currentTime + 0.02;
+        schedule(styleId, ctx, master, start);
+        master.gain.setValueAtTime(0.85, start + 0.9);
+        master.gain.exponentialRampToValueAtTime(0.0001, start + 1.35);
+        liveTimer = window.setTimeout(() => {
+            if (token !== generation) return;
+            try { master.disconnect(); } catch { /* already disconnected */ }
+            if (liveMaster === master) liveMaster = null;
+        }, 1500);
+        return token;
+    } catch {
+        return generation;
+    }
 };

@@ -110,6 +110,7 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         selectedCountryIds,
         applications: Array.isArray(raw.applications) ? raw.applications.filter(row => row && getCountry(row.countryId)) : [],
         identityId: IDENTITY_PRESETS.some(row => row.id === raw.identityId) ? raw.identityId! : created.identityId,
+        identSound: raw.identSound === false ? false : undefined,
         storefrontId: STOREFRONTS.some(row => row.id === raw.storefrontId) ? raw.storefrontId! : created.storefrontId,
         catalogue: Array.isArray(raw.catalogue)
             ? raw.catalogue.filter(row => row && row.title).map(row => ({

@@ -907,6 +907,8 @@ export enum Page {
       selectedCountryIds: string[];
       applications: MarketApplication[];
       identityId: string;
+      /** When false, the opening and title idents stay silent. Missing means on. */
+      identSound?: boolean;
       customAudioName?: string;
       customAudioMediaId?: string;
       storefrontId: string;

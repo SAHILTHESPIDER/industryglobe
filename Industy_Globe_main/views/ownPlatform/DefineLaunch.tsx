@@ -20,6 +20,7 @@ import {
 import { currencyFor, formatLocalAmount, localMonthly, usdFromLocal } from '../../services/ownPlatform/fx';
 import { identityEffects } from '../../services/ownPlatform/identEffects';
 import { playIdentSting } from '../../services/ownPlatform/identAudio';
+import { IdentStage } from './IdentStage';
 import { DayOneMarkets } from './DayOneMarkets';
 import { NameIt } from './NameIt';
 import { StorefrontPreview, type PreviewDevice } from './StorefrontPreview';
@@ -181,7 +182,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                         <div>
                             <label className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Service name</label>
                             <input value={state.name} disabled={locked} onChange={(event) => patch(current => ({ ...current, name: event.target.value.slice(0, 32) }))} className="mt-1 w-full bg-transparent border-b border-white/20 text-4xl font-black uppercase outline-none py-2" style={{ fontFamily: headingFont }} />
-                            <IdentStage name={state.name} accent={identityById(state.identityId).accent} playing={stingId === state.identityId} />
+                            <IdentStage className="mt-4" name={state.name} accent={identityById(state.identityId).accent} playing={stingId === state.identityId} />
                             <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-6">
                                 {IDENTITY_PRESETS.map(preset => {
                                     const effect = identityEffects(preset.id);
@@ -219,6 +220,15 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                 }}
                             />
                             {state.customAudioName && <div className="mt-3 text-sm text-emerald-300">{state.customAudioName}</div>}
+                            <button
+                                type="button"
+                                data-testid="ident-sound-toggle"
+                                disabled={locked}
+                                onClick={() => patch(current => ({ ...current, identSound: current.identSound === false ? undefined : false }))}
+                                className="mt-4 w-full rounded-full border border-white/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider"
+                            >
+                                Ident sound {state.identSound === false ? 'Off' : 'On'}
+                            </button>
                         </Card>
                     </div>
                 )}
@@ -457,21 +467,5 @@ const Line: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     <div className="flex justify-between gap-3 border-b border-white/5 py-2">
         <span className="text-zinc-500">{label}</span>
         <span className="font-semibold text-right">{value}</span>
-    </div>
-);
-
-const IdentStage: React.FC<{ name: string; accent: string; playing: boolean }> = ({ name, accent, playing }) => (
-    <div className="relative mt-4 h-36 overflow-hidden rounded-3xl bg-black border border-white/10" data-testid="ident-stage">
-        <style>{`
-            @keyframes ident-in { 0% { transform: scale(0.72); opacity: 0; filter: brightness(2.4); } 40% { opacity: 1; } 100% { transform: scale(1); opacity: 1; filter: brightness(1); } }
-            .ident-play { animation: ident-in 1.15s ease both; }
-        `}</style>
-        <div className={`absolute inset-0 flex items-center justify-center gap-4 ${playing ? 'ident-play' : ''}`}>
-            <div className="w-14 h-14 rounded-2xl grid place-items-center text-2xl font-black" style={{ background: accent, color: '#05060a' }}>▶</div>
-            <div>
-                <div className="text-3xl font-black uppercase tracking-wide" style={{ fontFamily: headingFont, color: accent }}>{(name || 'Empire').toUpperCase()}</div>
-                <div className="text-[10px] tracking-[0.35em] text-zinc-400">ORIGINALS</div>
-            </div>
-        </div>
     </div>
 );

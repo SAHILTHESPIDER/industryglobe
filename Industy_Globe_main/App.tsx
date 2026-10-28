@@ -12,6 +12,7 @@ import { CareerPage } from './views/CareerPage';
 import { ImprovePage } from './views/ImprovePage';
 import { SocialPage } from './views/SocialPage';
 import { LifestylePage } from './views/LifestylePage';
+import { armPlatformIdent } from './services/ownPlatform/identAudio';
 import { SettingsPage } from './views/SettingsPage';
 import { StorePage } from './views/StorePage';
 import { StartMenu } from './views/StartMenu';
@@ -2444,7 +2445,7 @@ export const App: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                     <button onClick={() => openPhone({ app: 'BANK' })} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-black text-emerald-300">{formatMoney(player.money)}</button>
-                    <button onClick={() => openPhone({ app: 'OWN_PLATFORM', pane: player.ownPlatform?.stage === 'LIVE' ? 'ops' : 'launch' })} className="rounded-full border border-[#ff3b30]/40 bg-[#ff3b30]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#ffb4b0]">{player.ownPlatform?.name || 'Empire+'}</button>
+                    <button onClick={() => { armPlatformIdent(player); openPhone({ app: 'OWN_PLATFORM', pane: player.ownPlatform?.stage === 'LIVE' ? 'ops' : 'launch' }); }} className="rounded-full border border-[#ff3b30]/40 bg-[#ff3b30]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#ffb4b0]">{player.ownPlatform?.name || 'Empire+'}</button>
                     <button onClick={() => openPage(Page.STORE)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">Store</button>
                     <button onClick={() => openPage(Page.SETTINGS)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">Settings</button>
                 </div>

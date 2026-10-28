@@ -10,6 +10,8 @@ import { DefineLaunch } from './DefineLaunch';
 import { BuildPlatform } from './BuildPlatform';
 import { DealRoom } from './DealRoom';
 import { Operations } from './Operations';
+import { IdentBumper } from './IdentStage';
+import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
 import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
 
 interface Props {
@@ -172,7 +174,9 @@ const EmpirePaywall: React.FC<{ player: Player; onBack: () => void; onUnlock: ()
 export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer, initialPane }) => {
     const [pane, setPane] = useState<EmpirePane>(initialPane || (player.ownPlatform?.stage === 'BUILD' || player.ownPlatform?.stage === 'CONSTRUCTING' || player.ownPlatform?.stage === 'LIVE' ? 'build' : 'launch'));
     const [replay, setReplay] = useState(false);
+    const [showOpenIdent, setShowOpenIdent] = useState(false);
     const migratedUnlock = useRef(false);
+    const playedOpenIdent = useRef(false);
 
     useEffect(() => {
         if (!player.ownPlatform) onUpdatePlayer(ensureOwnPlatform(player));
@@ -181,6 +185,15 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const beyondInitial = platformBeyondInitial(player);
     const unlocked = isEmpireUnlocked(player) || beyondInitial;
     const rightsOpen = pane === 'rights' || initialPane === 'rights';
+    const introBlocking = Boolean(player.ownPlatform) && (!player.ownPlatform.introSeen || replay) && pane !== 'rights';
+    const shellReady = Boolean(unlocked && player.ownPlatform && !introBlocking);
+
+    useEffect(() => {
+        if (!shellReady || playedOpenIdent.current) return;
+        playedOpenIdent.current = true;
+        if (player.ownPlatform?.identSound === false) return;
+        setShowOpenIdent(true);
+    }, [shellReady, player.ownPlatform?.identSound]);
 
     useEffect(() => {
         if (migratedUnlock.current || !beyondInitial || isEmpireUnlocked(player)) return;
@@ -245,8 +258,10 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 <EmpireIntro
                     player={player}
                     onDone={() => {
+                        const fromReplay = replay;
                         setReplay(false);
                         onUpdatePlayer({ ...player, ownPlatform: { ...state, introSeen: true } });
+                        if (!fromReplay) armPlatformIdent({ ownPlatform: { ...state, introSeen: true } });
                     }}
                 />
             </>
@@ -256,6 +271,9 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     return createPortal(
         <>
             <CloseButton onClick={onBack} />
+            {showOpenIdent && (
+                <IdentBumper name={serviceName} identityId={state.identityId} onDone={() => setShowOpenIdent(false)} />
+            )}
             <Shell
                 onBack={onBack}
                 kicker={kicker}
@@ -324,6 +342,14 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                                         </label>
                                     )}
                                     <div className="tiny" style={{ marginTop: 8 }}>Customer pressure {Math.round(state.customerPressure)}</div>
+                                    <button
+                                        type="button"
+                                        data-testid="ident-sound-toggle"
+                                        onClick={() => setPlatform({ ...state, identSound: state.identSound === false ? undefined : false })}
+                                        className="mt-4 w-full rounded-full border border-white/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider"
+                                    >
+                                        Ident sound {state.identSound === false ? 'Off' : 'On'}
+                                    </button>
                                 </div>
                                 <div className="card flat">
                                     <div className="line"><span>Recession</span><span>{Math.round(state.pulse.recession * 100)}</span></div>
