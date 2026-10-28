@@ -186,17 +186,20 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             const application = state.applications.find(row => row.countryId === country.id);
             return application && (application.status === 'APPROVED' || (application.status === 'CONDITIONS' && application.acceptedConditions));
         });
-        const piracy = countries.length
+        const piracyRaw = countries.length
             ? countries.reduce((sum, country) => sum + countryPiracy(state, country), 0) / countries.length
             : quote.piracyShare;
+        const piracy = Number.isFinite(piracyRaw) ? piracyRaw : 0;
         state.piracyShare = piracy;
         const pressure = clamp(state.enforcement * 0.45 + piracy * 80, 0, 100);
         state.customerPressure = pressure;
         const target = quote.households * (1 - pulse.recession * 0.15) * (pressure > 75 ? 0.9 : 1);
         const step = target > state.subscribers ? 0.18 : 0.08;
         state.subscribers = Math.max(0, Math.round(state.subscribers + (target - state.subscribers) * step));
-        const revenue = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0));
-        const burn = Math.round(quote.weeklyBurn);
+        const revenueRaw = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0));
+        const burnRaw = Math.round(quote.weeklyBurn);
+        const revenue = Number.isFinite(revenueRaw) ? revenueRaw : 0;
+        const burn = Number.isFinite(burnRaw) ? burnRaw : 0;
         state.lastWeeklyRevenue = revenue;
         state.lastWeeklyBurn = burn;
         if (revenue > 0) transactions.push({ amount: revenue, description: `${state.name} subscriber and ad receipts` });

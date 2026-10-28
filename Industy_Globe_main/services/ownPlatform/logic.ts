@@ -137,20 +137,46 @@ const regionEnergy = (region: RegionBuild) =>
     + region.workhorse * serverById('WORKHORSE').energyMwh
     + region.titan * serverById('TITAN').energyMwh;
 
+/** Matches the Standard plan sticker. Used when a saved price is missing or not a real number. */
+export const STANDARD_PLAN_USD = 11;
+
+const finiteNumber = (value: unknown, fallback: number) => {
+    const number = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(number) ? number : fallback;
+};
+
+/** USD anchor for one plan. A missing or NaN sticker becomes the standard $11, never NaN. */
+export const planAnchorUsd = (plan: { monthlyUsd?: number } | undefined): number =>
+    Math.max(0, finiteNumber(plan?.monthlyUsd, STANDARD_PLAN_USD));
+
 export const averageUsdInCountry = (state: OwnPlatformState, countryId: string): number => {
     if (!state.plans.length) return 0;
-    const total = state.plans.reduce((sum, plan) => sum + planUsdInCountry(plan, countryId, state.fxRates), 0);
-    return total / state.plans.length;
+    const total = state.plans.reduce((sum, plan) => {
+        const usd = planUsdInCountry(plan, countryId, state.fxRates);
+        return sum + (Number.isFinite(usd) ? Math.max(0, usd) : 0);
+    }, 0);
+    const average = total / state.plans.length;
+    return Number.isFinite(average) ? average : 0;
 };
 
 export const averagePlanPrice = (state: OwnPlatformState): number => {
     if (!state.plans.length) return 0;
+    const anchor = state.plans.reduce((sum, plan) => sum + planAnchorUsd(plan), 0) / state.plans.length;
     const countries = selectedCountries(state);
-    if (!countries.length) {
-        return state.plans.reduce((sum, plan) => sum + Math.max(0, plan.monthlyUsd), 0) / state.plans.length;
-    }
-    const weight = countries.reduce((sum, country) => sum + country.audienceM, 0) || 1;
-    return countries.reduce((sum, country) => sum + averageUsdInCountry(state, country.id) * country.audienceM, 0) / weight;
+    if (!countries.length) return finiteNumber(anchor, STANDARD_PLAN_USD);
+    const weight = countries.reduce((sum, country) => sum + Math.max(0, finiteNumber(country.audienceM, 0)), 0);
+    if (!(weight > 0)) return finiteNumber(anchor, STANDARD_PLAN_USD);
+    const weighted = countries.reduce((sum, country) => {
+        const usd = averageUsdInCountry(state, country.id);
+        const audience = Math.max(0, finiteNumber(country.audienceM, 0));
+        return sum + finiteNumber(usd, 0) * audience;
+    }, 0) / weight;
+    return finiteNumber(weighted, finiteNumber(anchor, STANDARD_PLAN_USD));
+};
+
+export const formatAveragePlanPrice = (state: OwnPlatformState): string => {
+    const price = averagePlanPrice(state);
+    return Number.isFinite(price) ? `$${price.toFixed(0)}` : `$${STANDARD_PLAN_USD}`;
 };
 
 const liveCatalogue = (state: OwnPlatformState) => state.catalogue.filter(title => titleIsLive(title.releaseWeekOffset));
@@ -181,7 +207,8 @@ export const countryPiracy = (state: OwnPlatformState, country: MarketCountry): 
     const rightsGap = liveCatalogue(state).some(title => title.language === country.languages[0]?.name) ? 0 : 0.06;
     piracy += rightsGap;
     piracy -= (state.enforcement / 100) * 0.14;
-    return clamp(piracy, 0.02, 0.72);
+    const share = clamp(piracy, 0.02, 0.72);
+    return Number.isFinite(share) ? share : 0.06;
 };
 
 const approvedCountries = (state: OwnPlatformState): MarketCountry[] => selectedCountries(state).filter(country => {
@@ -278,7 +305,8 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         paid += viewers * (1 - piracy);
         piracyWeight += viewers * piracy;
     });
-    const piracyShare = reached > 0 ? piracyWeight / reached : 0;
+    const piracyShareRaw = reached > 0 ? piracyWeight / reached : 0;
+    const piracyShare = Number.isFinite(piracyShareRaw) ? piracyShareRaw : 0;
     const laneBoost = 1 + Math.max(0, state.revenueLanes.length - 1) * 0.04;
     const adBoost = state.revenueLanes.includes('ADVERTISING') ? 1.08 : 1;
     const fatigue = 1 - (state.pulse?.fatigue || 0) * 0.25;
@@ -297,8 +325,8 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         households += paying * conversion;
         monthly += paying * conversion * usd * adBoost;
     });
-    households = Math.round(households);
-    const forecastWeeklyRevenue = Math.round(monthly / 4.3);
+    households = Number.isFinite(households) ? Math.round(households) : 0;
+    const forecastWeeklyRevenue = Number.isFinite(monthly) ? Math.round(monthly / 4.3) : 0;
 
     const marketingReady = opened.length > 0;
     const fame = player.stats?.fame || 0;

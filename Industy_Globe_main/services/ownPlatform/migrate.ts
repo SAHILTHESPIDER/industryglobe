@@ -10,7 +10,7 @@ import {
 } from '../../types';
 import { CLOUD_PROVIDERS, IDENTITY_PRESETS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
 import { anchorRates, decorateRival } from './fx';
-import { REVENUE_LANES, syncRegions } from './logic';
+import { REVENUE_LANES, STANDARD_PLAN_USD, syncRegions } from './logic';
 import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
 import { clampReleaseOffset } from './weeks';
 
@@ -117,7 +117,21 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
                     : undefined,
             }))
             : [],
-        plans: Array.isArray(raw.plans) ? raw.plans.filter(plan => plan && plan.name) : created.plans,
+        plans: Array.isArray(raw.plans) ? raw.plans.filter(plan => plan && plan.name).map(plan => {
+            const monthlyUsd = Number(plan.monthlyUsd);
+            const countryPrices = plan.countryPrices && typeof plan.countryPrices === 'object'
+                ? Object.fromEntries(
+                    Object.entries(plan.countryPrices)
+                        .filter(([, value]) => Number.isFinite(Number(value)))
+                        .map(([key, value]) => [key, Math.max(0, Number(value))])
+                )
+                : undefined;
+            return {
+                ...plan,
+                monthlyUsd: Number.isFinite(monthlyUsd) ? Math.max(0, monthlyUsd) : STANDARD_PLAN_USD,
+                countryPrices,
+            };
+        }) : created.plans,
         revenueLanes: asLanes(raw.revenueLanes),
         regions: Array.isArray(raw.regions) ? raw.regions.filter(row => row && row.regionId) : [],
         cloud,
