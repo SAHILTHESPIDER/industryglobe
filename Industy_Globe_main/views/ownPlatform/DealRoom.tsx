@@ -175,7 +175,7 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
     const savePlan = (recipe: (plan: PendingRightsDeal['plan']) => PendingRightsDeal['plan']) => {
         if (!player.ownPlatform) return;
         const plan = recipe(deal.plan);
-        plan.forecastUsd = forecastRelease(deal, plan.channels, plan.festivalId, plan.weekendOffset);
+        plan.forecastUsd = forecastRelease({ ...deal, phase: deal.phase || 'DEAL' }, plan.channels, plan.festivalId, plan.weekendOffset);
         onPlayer({ ...player, ownPlatform: { ...player.ownPlatform, pendingDeal: { ...deal, plan } } });
     };
     const chooseWeekend = (offset: number) => {
@@ -188,7 +188,7 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
         const plan = {
             ...pending.plan,
             weekendOffset: offset,
-            forecastUsd: forecastRelease(deal, pending.plan.channels, pending.plan.festivalId, offset),
+            forecastUsd: forecastRelease({ ...deal, phase: deal.phase || 'DEAL' }, pending.plan.channels, pending.plan.festivalId, offset),
         };
         onPlayer({ ...moved, ownPlatform: { ...moved.ownPlatform!, pendingDeal: { ...pending, plan } } });
     };

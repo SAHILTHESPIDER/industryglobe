@@ -578,7 +578,8 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                         onReactPost={props.onReactInstagramPost!}
                         onRespondDM={props.onRespondInstagramDM!}
                         onFollow={props.onFollowNPC!} 
-                        onInteract={props.onInteractNPC!} 
+                        onInteract={props.onInteractNPC!}
+                        onUpdatePlayer={handleUpdatePlayer}
                     />
                 )}
                 {appMode === 'X' && (

@@ -410,7 +410,7 @@ const FranchiseMarketplace: React.FC<{ player: Player; studio: Business; onUpdat
 
         onUpdatePlayer({
             ...player,
-            businesses: player.businesses.map(b => b.id === studio.id ? updatedStudio : b)
+            businesses: player.businesses.map(b => b.id === studio.id ? updatedStudio as typeof b : b)
         });
     };
 
@@ -443,14 +443,14 @@ const FranchiseMarketplace: React.FC<{ player: Player; studio: Business; onUpdat
         
         updatedStudio.studioState = {
             ...studioState,
-            scripts: [...(studioState.scripts || []), { ...ip, status: 'READY', createdAtWeek: player.currentWeek }],
+            scripts: [...(studioState.scripts || []), { ...ip, status: 'READY' as const, createdAtWeek: player.currentWeek }],
             ipMarket: (studioState.ipMarket || []).filter(s => s.id !== ip.id),
             purchasedIPTitles: purchased
-        };
+        } as any;
 
         onUpdatePlayer({
             ...player,
-            businesses: player.businesses.map(b => b.id === studio.id ? updatedStudio : b)
+            businesses: player.businesses.map(b => b.id === studio.id ? updatedStudio as typeof b : b)
         });
     };
 

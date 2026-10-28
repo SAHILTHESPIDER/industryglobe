@@ -54,7 +54,8 @@ import { generateAgentOffers, generateManagerOffer, generateDirectOffer, getRand
 import { processStockMarket, calculatePortfolioValue, getDividendPayout, initializeStocks, normalizeListedStocks, empireFundamentals } from './stockLogic';
 import { serviceWeeklyLoans } from './loanLogic';
 import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonWinners, generateFullBallot, getAwardCeremonyYear } from './awardLogic';
-import { processWorldTurn, generateIndustryProject } from './worldLogic'; 
+import { processWorldTurn, generateIndustryProject } from './worldLogic';
+import { absoluteWeek, clashFactorFor, gameCalendarYear, migrateBoxOfficeHistory, publishBoxOfficeWeekend } from './boxOfficeSim'; 
 import { generateFamousMovieOpportunity, generateCameoOffer } from './famousMovieLogic'; 
 import { calculateYoutubeCreatorScore, generateYoutubeBrandDeal, generateYoutubeCollabOffer, getYoutubePublicImageLabel, processYoutubeChannel } from './youtubeLogic';
 import { applyYoutubeReleaseBoost, migrateYoutubeSave, processYoutubeCampaignWeek } from './youtubeMarketing';
@@ -794,6 +795,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     if (!Array.isArray(nextPlayer.world.famousMoviesReleased)) nextPlayer.world.famousMoviesReleased = [];
     if (!Array.isArray(nextPlayer.world.awardHistory)) nextPlayer.world.awardHistory = [];
     if (!Array.isArray(nextPlayer.world.upcomingRivals)) nextPlayer.world.upcomingRivals = [];
+    nextPlayer = migrateBoxOfficeHistory(nextPlayer);
     if (!nextPlayer.studio) {
         nextPlayer.studio = {
             isUnlocked: false,
@@ -2980,7 +2982,26 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 : boxOfficeCaps.total;
             const safeTotalGross = ensureFiniteNumber(rel.totalGross);
             const remainingHeadroom = Math.max(0, ensureFiniteNumber(effectiveTotalCap) - safeTotalGross);
-            const revenue = Math.min(uncappedRevenue, remainingHeadroom);
+            const openingAbs = absoluteWeek(nextPlayer.age, nextPlayer.currentWeek) - Math.max(0, rel.weekNum - 1);
+            const clashFactor = rel.type === 'SERIES' || rel.budget <= 0
+                ? 1
+                : clashFactorFor(nextPlayer, {
+                    id: rel.id,
+                    title: rel.name,
+                    genre: rel.projectDetails.genre,
+                    audience: rel.projectDetails.targetAudience,
+                    starPower: rel.projectDetails.hiddenStats?.castingStrength || 55,
+                    hype: rel.promotionalBuzz || rel.projectDetails.hiddenStats?.rawHype || 50,
+                    releaseAbs: openingAbs,
+                    budget: rel.budget,
+                });
+            const weekClash = rel.weekNum === 1 ? clashFactor : (0.82 + clashFactor * 0.18);
+            const revenue = Math.floor(Math.min(uncappedRevenue, remainingHeadroom) * weekClash);
+            rel.clashFactor = clashFactor;
+            rel.releaseCalendarYear = rel.releaseCalendarYear || gameCalendarYear(nextPlayer.age);
+            if (!rel.releaseWeek) rel.releaseWeek = ((openingAbs - 1) % 52) + 1;
+            if (rel.weekNum === 1) rel.openingGross = revenue;
+            rel.grossIsEstimate = false;
             const newTotal = safeTotalGross + revenue;
             const newWeeklyGross = [...rel.weeklyGross, revenue];
             const maxWeeks = rel.maxTheatricalWeeks || 12; 
@@ -3364,6 +3385,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     });
 
     nextPlayer.activeReleases = processedReleases;
+    const weekendDesk = publishBoxOfficeWeekend(nextPlayer);
+    newNews = [...weekendDesk.news, ...newNews];
+    if (weekendDesk.post && !(nextPlayer.x.feed || []).some(post => post.id === weekendDesk.post!.id)) {
+        nextPlayer.x.feed = [weekendDesk.post, ...(nextPlayer.x.feed || [])].slice(0, 80);
+    }
     nextPlayer.news = newNews;
     nextPlayer.inbox = newInbox;
 

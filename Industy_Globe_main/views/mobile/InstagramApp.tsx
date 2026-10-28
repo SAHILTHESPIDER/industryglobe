@@ -153,11 +153,19 @@ interface InstagramAppProps {
   onRespondDM: (npc: NPCActor, actionId: string, accepted: boolean) => void;
   onFollow: (npc: NPCActor) => void;
   onInteract: (npc: NPCActor, type: InteractionType) => void;
+  onUpdatePlayer?: (player: Player) => void;
 }
 
-export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPost, onReactPost, onRespondDM, onFollow, onInteract }) => {
+export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPost, onReactPost, onRespondDM, onFollow, onInteract, onUpdatePlayer }) => {
   const [tab, setTab] = useState<'FEED' | 'SEARCH' | 'PROFILE'>('FEED');
   const [view, setView] = useState<'MAIN' | 'NPC_PROFILE' | 'DM_LIST' | 'DM' | 'POST_DETAIL'>('MAIN');
+  const [sheet, setSheet] = useState<null | 'MENU' | 'NOTIFS' | 'EDIT' | 'POST_MORE' | 'NPC_MORE' | 'NEW_DM'>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [npcGridTab, setNpcGridTab] = useState<'GRID' | 'REELS' | 'TAGGED'>('GRID');
+  const [feedKind, setFeedKind] = useState<'ALL' | 'REELS'>('ALL');
+  const [morePost, setMorePost] = useState<InstaPost | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editBio, setEditBio] = useState('');
   const [dmReturnView, setDmReturnView] = useState<'DM_LIST' | 'NPC_PROFILE'>('DM_LIST');
   const [selectedNPC, setSelectedNPC] = useState<NPCActor | null>(null);
   const [selectedPost, setSelectedPost] = useState<InstaPost | null>(null);
@@ -184,6 +192,10 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
   const feed = player.instagram?.feed || [];
   const posts = player.instagram?.posts || [];
   const npcStates = (player.instagram?.npcStates || {}) as Record<string, NPCState>;
+  const igProfile = {
+      displayName: (player.flags as { igProfile?: { displayName?: string; bio?: string } })?.igProfile?.displayName || player.name,
+      bio: (player.flags as { igProfile?: { displayName?: string; bio?: string } })?.igProfile?.bio || 'Actor 🎭 | Dreamer ✨',
+  };
   const creatorProfiles = getEnabledGlobalCreatorSocialProfiles(player);
   const npcPool = [...NPC_DATABASE, ...(Array.isArray(player.flags?.extraNPCs) ? player.flags.extraNPCs : []), ...creatorProfiles]
     .filter((npc, idx, arr) => arr.findIndex(entry => entry.id === npc.id) === idx);
@@ -305,6 +317,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
 
   const handleNPCClick = (npc: NPCActor) => {
       setSelectedNPC(npc);
+      setNpcGridTab('GRID');
       setView('NPC_PROFILE');
   };
 
@@ -338,6 +351,43 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
       } else {
           onBack();
       }
+  };
+
+  const showToast = (message: string) => {
+      setToast(message);
+      window.setTimeout(() => setToast(null), 1800);
+  };
+
+  const copyText = async (text: string, ok: string) => {
+      try {
+          await navigator.clipboard.writeText(text);
+      } catch {
+          /* clipboard can be blocked; the toast still confirms the action */
+      }
+      showToast(ok);
+  };
+
+  const openEditProfile = () => {
+      setEditName(igProfile.displayName);
+      setEditBio(igProfile.bio);
+      setSheet('EDIT');
+  };
+
+  const saveIgProfile = () => {
+      const displayName = editName.trim() || player.name;
+      const bio = editBio.trim() || igProfile.bio;
+      onUpdatePlayer?.({
+          ...player,
+          flags: { ...(player.flags || {}), igProfile: { displayName, bio } },
+      });
+      setSheet(null);
+      showToast('Profile updated');
+  };
+
+  const shareHandle = (handle: string) => {
+      const clean = (handle || player.name).replace(/^@/, '');
+      copyText(`https://instagram.com/${clean}`, 'Profile link copied');
+      setSheet(null);
   };
 
   const formatFollowers = (num: number) => {
@@ -506,7 +556,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                       </div>
                       {!post.isPlayer && <div className={`text-[11px] ${IG.muted}`}>Suggested for you</div>}
                   </div>
-                  <button className="p-1"><MoreHorizontal size={20} /></button>
+                  <button className="p-1" aria-label="More options" onClick={() => { setMorePost(post); setSheet('POST_MORE'); }}><MoreHorizontal size={20} /></button>
               </div>
 
               {/* Media */}
@@ -581,8 +631,38 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
       </div>
   );
 
+  const igNotes = [
+      ...posts.filter(post => post.isPlayer && post.likes > 0).slice(0, 6).map(post => ({
+          id: `like_${post.id}`,
+          text: `${formatFollowers(post.likes)} likes on your post`,
+          open: () => { setSelectedPost(post); setView('POST_DETAIL'); setTab('FEED'); setSheet(null); },
+      })),
+      ...posts.filter(post => post.isPlayer && (post.commentList || []).length > 0).slice(0, 6).map(post => ({
+          id: `comment_${post.id}`,
+          text: (post.commentList || [])[0],
+          open: () => { setSelectedPost(post); setView('POST_DETAIL'); setTab('FEED'); setSheet(null); },
+      })),
+      ...Object.entries(npcStates).filter(([, state]) => state.isFollowedBy).slice(0, 8).flatMap(([id]) => {
+          const npc = npcPool.find(entry => entry.id === id);
+          return npc ? [{ id: `follow_${id}`, text: `${npc.name} started following you`, open: () => { handleNPCClick(npc); setSheet(null); } }] : [];
+      }),
+  ];
+
   return (
-    <div className="absolute inset-0 bg-black flex flex-col z-40 text-white animate-in slide-in-from-right duration-300 overflow-hidden font-sans">
+    <div className="absolute inset-0 z-40 flex flex-col overflow-hidden bg-black font-sans text-white animate-in slide-in-from-right duration-300 lg:flex-row">
+        <aside className="hidden w-[244px] shrink-0 flex-col border-r border-[#262626] px-3 py-8 lg:flex">
+            <div className="px-3 text-[28px] leading-none" style={{ fontFamily: "'Billabong', 'Grand Hotel', 'Brush Script MT', 'Segoe Script', cursive" }}>Instagram</div>
+            <nav className="mt-8 space-y-1">
+                <button onClick={() => { setFeedKind('ALL'); setTab('FEED'); setView('MAIN'); }} className={`flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[15px] ${tab === 'FEED' && feedKind === 'ALL' ? 'font-bold' : ''}`}><Home size={24} /> Home</button>
+                <button onClick={() => { setTab('SEARCH'); setView('MAIN'); }} className={`flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[15px] ${tab === 'SEARCH' ? 'font-bold' : ''}`}><Search size={24} /> Search</button>
+                <button onClick={() => { setTab('FEED'); setFeedKind('REELS'); setView('MAIN'); }} className={`flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[15px] ${feedKind === 'REELS' ? 'font-bold' : ''}`}><Clapperboard size={24} /> Reels</button>
+                <button onClick={() => setSheet('NOTIFS')} className="flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[15px]"><Heart size={24} /> Notifications</button>
+                <button onClick={() => setIsCreatingPost(true)} className="flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[15px]"><PlusSquare size={24} /> Create</button>
+                <button onClick={() => { setTab('PROFILE'); setView('MAIN'); }} className={`flex w-full items-center gap-4 rounded-xl px-3 py-3 text-left text-[15px] ${tab === 'PROFILE' ? 'font-bold' : ''}`}><img src={player.avatar} className="h-6 w-6 rounded-full object-cover" /> Profile</button>
+            </nav>
+            <button onClick={onBack} className="mt-auto flex items-center gap-3 px-3 py-3 text-sm text-[#a8a8a8]"><ArrowLeft size={16} /> Exit</button>
+        </aside>
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col lg:max-w-[630px] lg:border-r lg:border-[#262626]">
 
         {/* ================= HEADER ================= */}
         <div className={`pt-12 pb-2 px-4 flex items-center justify-between shrink-0 bg-black z-10 ${view === 'MAIN' && tab === 'FEED' ? '' : `border-b ${IG.divider}`}`}>
@@ -599,7 +679,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                         <ChevronDown size={14} className="mt-1" />
                     </div>
                     <div className="flex items-center gap-5">
-                        <button className="relative"><Heart size={25} strokeWidth={1.75} /></button>
+                        <button className="relative" aria-label="Notifications" onClick={() => setSheet('NOTIFS')}><Heart size={25} strokeWidth={1.75} /></button>
                         <button onClick={handleOpenDMInbox} className="relative">
                             <Send size={24} strokeWidth={1.75} className="-rotate-12 translate-y-[1px]" />
                             {hasPendingDM && (
@@ -633,7 +713,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                     </div>
                     <div className="flex items-center gap-5">
                         <button onClick={() => setIsCreatingPost(true)}><PlusSquare size={25} strokeWidth={1.75} /></button>
-                        <button><Menu size={26} strokeWidth={1.75} /></button>
+                        <button aria-label="Menu" onClick={() => setSheet('MENU')}><Menu size={26} strokeWidth={1.75} /></button>
                     </div>
                 </>
             )}
@@ -663,8 +743,8 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                             <Video size={24} strokeWidth={1.75} />
                         </div>
                     )}
-                    {view === 'DM_LIST' && <button><PlusSquare size={24} strokeWidth={1.75} /></button>}
-                    {view === 'NPC_PROFILE' && <button><MoreHorizontal size={22} /></button>}
+                    {view === 'DM_LIST' && <button aria-label="New message" onClick={() => setSheet('NEW_DM')}><PlusSquare size={24} strokeWidth={1.75} /></button>}
+                    {view === 'NPC_PROFILE' && <button aria-label="More options" onClick={() => setSheet('NPC_MORE')}><MoreHorizontal size={22} /></button>}
                 </>
             )}
         </div>
@@ -701,7 +781,7 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                                     <div className="font-bold text-xl">Welcome to Instagram</div>
                                     <div className={`text-sm ${IG.muted} max-w-[260px]`}>Follow people to start seeing the photos and videos they share.</div>
                                 </div>
-                            ) : feed.map(renderPostCard)}
+                            ) : (feedKind === 'REELS' ? feed.filter(post => post.type === 'REEL') : feed).map(renderPostCard)}
                         </div>
                     </div>
                 )}
@@ -767,14 +847,14 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                                 </div>
                             </div>
                             <div className="mt-3 text-[14px] leading-snug">
-                                <div className="font-semibold">{player.name}</div>
+                                <div className="font-semibold">{igProfile.displayName}</div>
                                 <div className={IG.muted}>Actor</div>
-                                <div>Actor 🎭 | Dreamer ✨</div>
+                                <div>{igProfile.bio}</div>
                                 <div className="text-[#e0f1ff]">Week {player.currentWeek} • {player.instagram.weeklyPostCount}/3 posts this week</div>
                             </div>
                             <div className="flex gap-2 mt-3">
-                                <button className="flex-1 py-[7px] rounded-lg bg-[#363636] text-[14px] font-semibold">Edit profile</button>
-                                <button className="flex-1 py-[7px] rounded-lg bg-[#363636] text-[14px] font-semibold">Share profile</button>
+                                <button onClick={openEditProfile} className="flex-1 py-[7px] rounded-lg bg-[#363636] text-[14px] font-semibold">Edit profile</button>
+                                <button onClick={() => shareHandle(player.instagram.handle)} className="flex-1 py-[7px] rounded-lg bg-[#363636] text-[14px] font-semibold">Share profile</button>
                                 <button onClick={handleOpenDMInbox} className="w-10 rounded-lg bg-[#363636] flex items-center justify-center"><Send size={16} className="-rotate-12" /></button>
                             </div>
 
@@ -812,16 +892,23 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
 
                         {profileGridTab === 'GRID' && renderProfileGrid(posts, 'Share photos')}
                         {profileGridTab === 'REELS' && renderProfileGrid(posts.filter(p => p.type === 'REEL'), 'Share reels')}
-                        {profileGridTab === 'TAGGED' && renderProfileGrid([], 'Photos of you')}
+                        {profileGridTab === 'TAGGED' && renderProfileGrid(
+                            [...posts, ...feed].filter((post, index, list) => {
+                                if (list.findIndex(entry => entry.id === post.id) !== index) return false;
+                                const mention = (player.instagram?.handle || player.name || '').replace('@', '').toLowerCase();
+                                return !post.isPlayer && mention.length > 1 && `${post.caption} ${post.authorHandle}`.toLowerCase().includes(mention);
+                            }),
+                            'Photos of you'
+                        )}
                     </div>
                 )}
 
                 {/* Bottom Nav */}
-                <div className={`flex items-center border-t ${IG.divider} bg-black pb-5 pt-1 shrink-0`}>
-                    <button onClick={() => setTab('FEED')} className="flex-1 py-2 flex justify-center"><Home size={26} strokeWidth={tab === 'FEED' ? 2.5 : 1.75} fill={tab === 'FEED' ? 'white' : 'none'} /></button>
+                <div className={`flex items-center border-t ${IG.divider} bg-black pb-5 pt-1 shrink-0 lg:hidden`}>
+                    <button onClick={() => { setFeedKind('ALL'); setTab('FEED'); }} className="flex-1 py-2 flex justify-center"><Home size={26} strokeWidth={tab === 'FEED' && feedKind === 'ALL' ? 2.5 : 1.75} fill={tab === 'FEED' && feedKind === 'ALL' ? 'white' : 'none'} /></button>
                     <button onClick={() => setTab('SEARCH')} className="flex-1 py-2 flex justify-center"><Search size={26} strokeWidth={tab === 'SEARCH' ? 2.75 : 1.75} /></button>
                     <button onClick={() => setIsCreatingPost(true)} className="flex-1 py-2 flex justify-center"><PlusSquare size={26} strokeWidth={1.75} /></button>
-                    <button onClick={() => setTab('FEED')} className="flex-1 py-2 flex justify-center"><Clapperboard size={26} strokeWidth={1.75} /></button>
+                    <button onClick={() => { setTab('FEED'); setFeedKind('REELS'); }} className="flex-1 py-2 flex justify-center"><Clapperboard size={26} strokeWidth={feedKind === 'REELS' ? 2.5 : 1.75} /></button>
                     <button onClick={() => setTab('PROFILE')} className="flex-1 py-2 flex justify-center">
                         <div className={`w-7 h-7 rounded-full p-[1.5px] ${tab === 'PROFILE' ? 'bg-white' : 'bg-transparent'}`}>
                             <img src={player.avatar} className="w-full h-full rounded-full object-cover" />
@@ -1021,17 +1108,30 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                             {npcStates[selectedNPC.id]?.isFollowing ? <>Following <ChevronDown size={14} /></> : 'Follow'}
                         </button>
                         <button onClick={handleOpenDM} className="flex-1 py-[7px] bg-[#363636] text-white rounded-lg text-[14px] font-semibold">Message</button>
-                        <button className="w-10 rounded-lg bg-[#363636] flex items-center justify-center"><ChevronDown size={16} /></button>
+                        <button aria-label="More options" onClick={() => setSheet('NPC_MORE')} className="w-10 rounded-lg bg-[#363636] flex items-center justify-center"><ChevronDown size={16} /></button>
                     </div>
                 </div>
 
                 <div className={`flex mt-4 border-b ${IG.divider}`}>
-                    <button className="flex-1 py-2.5 flex justify-center border-b-[1.5px] -mb-px border-white"><Grid size={24} strokeWidth={1.75} /></button>
-                    <button className="flex-1 py-2.5 flex justify-center text-[#a8a8a8]"><Clapperboard size={24} strokeWidth={1.75} /></button>
-                    <button className="flex-1 py-2.5 flex justify-center text-[#a8a8a8]"><UserSquare size={24} strokeWidth={1.75} /></button>
+                    {([['GRID', <Grid size={24} strokeWidth={1.75} />], ['REELS', <Clapperboard size={24} strokeWidth={1.75} />], ['TAGGED', <UserSquare size={24} strokeWidth={1.75} />]] as const).map(([key, icon]) => (
+                        <button
+                            key={key}
+                            onClick={() => setNpcGridTab(key)}
+                            className={`flex-1 py-2.5 flex justify-center border-b-[1.5px] -mb-px ${npcGridTab === key ? 'border-white text-white' : 'border-transparent text-[#a8a8a8]'}`}
+                        >
+                            {icon}
+                        </button>
+                    ))}
                 </div>
 
-                {renderProfileGrid(selectedNpcProfilePosts, 'No posts yet')}
+                {renderProfileGrid(
+                    npcGridTab === 'REELS'
+                        ? selectedNpcProfilePosts.filter(post => post.type === 'REEL')
+                        : npcGridTab === 'TAGGED'
+                            ? feed.filter(post => post.authorId !== selectedNPC.id && `${post.caption} ${post.authorHandle}`.toLowerCase().includes(selectedNPC.name.split(' ')[0].toLowerCase()))
+                            : selectedNpcProfilePosts,
+                    npcGridTab === 'TAGGED' ? 'Photos of you' : npcGridTab === 'REELS' ? 'No reels yet' : 'No posts yet'
+                )}
             </div>
         )}
 
@@ -1280,6 +1380,84 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
                         <span className={`font-semibold ${selectedConfig.accentClass}`}>{selectedConfig.label}: </span>
                         {selectedConfig.description}
                     </div>
+                </div>
+            </div>
+        )}
+        </div>
+        <aside className="hidden min-w-0 flex-1 px-6 py-8 lg:block">
+            <div className="text-[15px] font-semibold">Suggested for you</div>
+            <div className="mt-4 space-y-3">
+                {npcPool.slice(0, 6).map(npc => (
+                    <button key={npc.id} onClick={() => handleNPCClick(npc)} className="flex w-full items-center gap-3 text-left">
+                        <img src={npc.avatar} className="h-10 w-10 rounded-full object-cover" />
+                        <div className="min-w-0 flex-1">
+                            <div className="truncate text-[14px] font-semibold">{npc.handle}</div>
+                            <div className={`truncate text-[12px] ${IG.muted}`}>{npc.name}</div>
+                        </div>
+                        <span className="text-[13px] font-semibold text-[#0095f6]">{npcStates[npc.id]?.isFollowing ? 'Following' : 'Follow'}</span>
+                    </button>
+                ))}
+            </div>
+        </aside>
+        {toast && <div className="absolute bottom-24 left-1/2 z-[90] -translate-x-1/2 rounded-full bg-[#262626] px-4 py-2 text-xs font-semibold">{toast}</div>}
+        {sheet && (
+            <div className="absolute inset-0 z-[80] flex items-end bg-black/60 lg:items-center lg:justify-center" onClick={() => setSheet(null)}>
+                <div className="max-h-[80%] w-full overflow-y-auto rounded-t-3xl bg-[#1c1c1c] p-4 pb-8 lg:max-w-md lg:rounded-3xl" onClick={event => event.stopPropagation()}>
+                    <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#363636] lg:hidden" />
+                    {sheet === 'EDIT' && (
+                        <div className="space-y-3">
+                            <div className="text-lg font-semibold">Edit profile</div>
+                            <input value={editName} onChange={event => setEditName(event.target.value)} placeholder="Name" className="w-full rounded-xl bg-[#262626] px-3 py-2 text-sm outline-none" />
+                            <textarea value={editBio} onChange={event => setEditBio(event.target.value)} placeholder="Bio" className="min-h-[90px] w-full rounded-xl bg-[#262626] px-3 py-2 text-sm outline-none" />
+                            <button onClick={saveIgProfile} className="w-full rounded-xl bg-[#0095f6] py-2.5 text-sm font-semibold">Save</button>
+                        </div>
+                    )}
+                    {sheet === 'MENU' && (
+                        <div className="space-y-1">
+                            <button onClick={openEditProfile} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Edit profile</button>
+                            <button onClick={() => setSheet('NOTIFS')} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Notifications</button>
+                            <button onClick={() => shareHandle(player.instagram.handle)} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Share profile</button>
+                            <button onClick={onBack} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold text-[#ff3040] hover:bg-white/5">Close Instagram</button>
+                        </div>
+                    )}
+                    {sheet === 'NOTIFS' && (
+                        <div>
+                            <div className="mb-2 text-lg font-semibold">Notifications</div>
+                            {igNotes.length === 0 ? <div className={`py-8 text-center text-sm ${IG.muted}`}>No activity yet. Likes, comments, and follows show up here.</div> : igNotes.map(note => (
+                                <button key={note.id} onClick={note.open} className="w-full border-b border-[#262626] px-1 py-3 text-left text-sm">{note.text}</button>
+                            ))}
+                        </div>
+                    )}
+                    {sheet === 'POST_MORE' && morePost && (
+                        <div className="space-y-1">
+                            <button onClick={() => { const npc = npcPool.find(entry => entry.id === morePost.authorId); if (npc) handleNPCClick(npc); else { setTab('PROFILE'); setView('MAIN'); } setSheet(null); }} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">View profile</button>
+                            <button onClick={() => { onReactPost(morePost.id, 'SAVE'); setSheet(null); showToast(morePost.hasSaved ? 'Removed from saved' : 'Saved'); }} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">{morePost.hasSaved ? 'Unsave' : 'Save'}</button>
+                            <button onClick={() => { copyText(morePost.caption, 'Caption copied'); setSheet(null); }} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Share</button>
+                            <button onClick={() => { setSheet(null); showToast('We will show less like this'); }} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Not interested</button>
+                        </div>
+                    )}
+                    {sheet === 'NPC_MORE' && selectedNPC && (
+                        <div className="space-y-1">
+                            <button onClick={() => { handleOpenDM(); setSheet(null); }} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Message</button>
+                            <button onClick={() => { onFollow(selectedNPC); setSheet(null); }} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">{npcStates[selectedNPC.id]?.isFollowing ? 'Unfollow' : 'Follow'}</button>
+                            <button onClick={() => shareHandle(selectedNPC.handle)} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Share profile</button>
+                            <button onClick={() => { setSheet(null); showToast(`Muted ${selectedNPC.handle}`); }} className="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold hover:bg-white/5">Mute</button>
+                        </div>
+                    )}
+                    {sheet === 'NEW_DM' && (
+                        <div>
+                            <div className="mb-2 text-lg font-semibold">New message</div>
+                            {npcPool.slice(0, 20).map(npc => (
+                                <button key={npc.id} onClick={() => { handleOpenDMThread(npc); setSheet(null); }} className="flex w-full items-center gap-3 border-b border-[#262626] py-2 text-left">
+                                    <img src={npc.avatar} className="h-10 w-10 rounded-full object-cover" />
+                                    <div>
+                                        <div className="text-sm font-semibold">{npc.name}</div>
+                                        <div className={`text-xs ${IG.muted}`}>{npc.handle}</div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         )}

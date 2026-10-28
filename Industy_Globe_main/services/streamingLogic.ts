@@ -508,7 +508,7 @@ export interface StreamingFeedItem {
     text: string;
     week: number;
     year: number;
-    tone: 'positive' | 'negative' | 'neutral';
+    tone: 'positive' | 'negative' | 'neutral' | string;
 }
 
 const isStreamingText = (text: string) =>

@@ -150,7 +150,8 @@ const ProductionHouseInner: React.FC<{
             phase: 'DEVELOPMENT', 
             risk: 'LOW',
             budget: 0, // Not yet budgeted
-            customPoster: s.customPoster
+            customPoster: s.customPoster,
+            concept: undefined as undefined
         })) || []),
         ...developmentProjects.map(p => ({ ...p, phase: 'PLANNING', risk: 'LOW' })),
         ...preProdProjects.map(p => ({ ...p, phase: 'PRE-PRODUCTION', risk: 'LOW' })),
@@ -229,7 +230,7 @@ const ProductionHouseInner: React.FC<{
             const newActiveRelease: ActiveRelease = {
                 id: pastProject.id,
                 name: pastProject.name,
-                type: pastProject.type || 'MOVIE',
+                type: pastProject.projectType || 'MOVIE',
                 roleType: pastProject.roleType || 'LEAD',
                 weekNum: 0,
                 weeklyGross: [],
@@ -242,7 +243,7 @@ const ProductionHouseInner: React.FC<{
                 imdbRating: pastProject.imdbRating || 50,
                 projectDetails: (pastProject as any).projectDetails || {
                     title: pastProject.name,
-                    type: pastProject.type || 'MOVIE',
+                    type: pastProject.projectType || 'MOVIE',
                     description: pastProject.description || '',
                     studioId: studio.id,
                     subtype: pastProject.subtype || 'STANDALONE',
@@ -604,7 +605,7 @@ const ProductionHouseInner: React.FC<{
                 <ProjectDashboardModal 
                     project={currentProject}
                     player={player}
-                    studio={studio}
+                    studio={studio as any}
                     onClose={() => setSelectedProjectDashboard(null)}
                     onUpdatePlayer={onUpdatePlayer}
                     onMakeSequel={handleMakeSequel}
@@ -778,7 +779,7 @@ const ProductionHouseInner: React.FC<{
 
                         {/* Active Projects */}
                         <CommissionSlateCards player={player} onOpen={openCommissionProject} />
-                        {activeSlate.map((p, idx) => (
+                        {(activeSlate as any[]).map((p, idx) => (
                             <ActiveProjectCard 
                                 key={p.id || idx} 
                                 project={p} 

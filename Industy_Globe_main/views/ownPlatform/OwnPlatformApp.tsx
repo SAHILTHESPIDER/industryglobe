@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { OwnPlatformState, Player } from '../../types';
 import { ensureOwnPlatform } from '../../services/ownPlatform/migrate';
@@ -34,6 +34,20 @@ export const EMPIRE_UNLOCK_PRICE = 75_000_000;
 const UNLOCK_FLAG = 'ownPlatformUnlocked';
 
 const isEmpireUnlocked = (player: Player) => Boolean((player.flags as any)?.[UNLOCK_FLAG]);
+
+/** A platform the player already started is not a new purchase. DEFINE step 0 with nothing commissioned is the blank slate. */
+const platformBeyondInitial = (player: Player) => {
+    const state = player.ownPlatform;
+    if (!state) return false;
+    if (state.stage === 'BUILD' || state.stage === 'CONSTRUCTING' || state.stage === 'LIVE') return true;
+    if (state.commissioned) return true;
+    if ((state.defineStep || 0) > 0) return true;
+    if ((state.buildStep || 0) > 0) return true;
+    if ((state.closedDeals || []).length > 0) return true;
+    if ((state.weeksLive || 0) > 0) return true;
+    if ((state.subscribers || 0) > 0) return true;
+    return false;
+};
 
 /* Fixed X that always returns to the home screen */
 const CloseButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
@@ -158,12 +172,24 @@ const EmpirePaywall: React.FC<{ player: Player; onBack: () => void; onUnlock: ()
 export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer, initialPane }) => {
     const [pane, setPane] = useState<EmpirePane>(initialPane || (player.ownPlatform?.stage === 'BUILD' || player.ownPlatform?.stage === 'CONSTRUCTING' || player.ownPlatform?.stage === 'LIVE' ? 'build' : 'launch'));
     const [replay, setReplay] = useState(false);
+    const migratedUnlock = useRef(false);
 
     useEffect(() => {
         if (!player.ownPlatform) onUpdatePlayer(ensureOwnPlatform(player));
     }, [player, onUpdatePlayer]);
 
-    const unlocked = isEmpireUnlocked(player);
+    const beyondInitial = platformBeyondInitial(player);
+    const unlocked = isEmpireUnlocked(player) || beyondInitial;
+    const rightsOpen = pane === 'rights' || initialPane === 'rights';
+
+    useEffect(() => {
+        if (migratedUnlock.current || !beyondInitial || isEmpireUnlocked(player)) return;
+        migratedUnlock.current = true;
+        onUpdatePlayer({
+            ...player,
+            flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+        });
+    }, [beyondInitial, player, onUpdatePlayer]);
 
     const handleUnlock = () => {
         if (player.money < EMPIRE_UNLOCK_PRICE) return;
@@ -174,8 +200,8 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
         });
     };
 
-    /* ---- Gate: one-time $75M purchase ---- */
-    if (!unlocked) {
+    /* Paywall only gates starting a brand-new platform. Rights and an existing build stay open. */
+    if (!unlocked && !rightsOpen) {
         return createPortal(
             <EmpirePaywall player={player} onBack={onBack} onUnlock={handleUnlock} />,
             document.body,
@@ -212,7 +238,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                     ? 'Run the company'
                     : 'Forty desks, one audience';
 
-    if (!state.introSeen || replay) {
+    if ((!state.introSeen || replay) && pane !== 'rights') {
         return (
             <>
                 {createPortal(<CloseButton onClick={onBack} />, document.body)}

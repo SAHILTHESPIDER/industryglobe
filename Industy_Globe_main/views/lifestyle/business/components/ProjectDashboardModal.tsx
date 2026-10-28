@@ -48,6 +48,7 @@ interface ProjectDashboardModalProps {
     onMakeSequel?: (project: any) => void;
     onMakeSpinoff?: (project: any) => void;
     onStartStreamingBidding?: (project: any) => void;
+    onConfigureRelease?: (project: any) => void;
 }
 
 export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ project, player, studio, onClose, onUpdatePlayer, onMakeSequel, onMakeSpinoff, onStartStreamingBidding }) => {
@@ -389,7 +390,7 @@ export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ pr
         }
 
         if (updated) {
-            updatedPlayer.businesses = updatedPlayer.businesses.map(b => b.id === studio.id ? updatedStudio : b);
+            updatedPlayer.businesses = updatedPlayer.businesses.map(b => b.id === studio.id ? (updatedStudio as unknown as typeof b) : b);
             onUpdatePlayer(updatedPlayer);
         }
 
