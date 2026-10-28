@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { AudienceMode, LaunchRegionId, OwnPlatformState, Player } from '../../types';
+import { AudienceMode, InfraPresetId, LaunchRegionId, OwnPlatformState, Player } from '../../types';
 import { CLOUD_PROVIDERS, LAUNCH_REGIONS, SERVER_CLASSES } from '../../services/ownPlatform/catalog';
 import {
+    INFRA_PRESETS,
+    applyInfraPreset,
+    applyRegionCoverage,
     commissionPlatform,
     formatCompact,
     formatPeople,
@@ -50,6 +53,11 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
         });
     };
 
+    const runPreset = (id: InfraPresetId) => {
+        if (locked) return;
+        onChange(applyInfraPreset(state, id));
+    };
+
     const sign = () => {
         const result = commissionPlatform(player);
         if (result.error) {
@@ -65,6 +73,18 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
             <div className="px-4 lg:px-10 pt-4 text-[11px] font-bold uppercase tracking-[0.22em] text-[#8B7BFF]">Build · stage {step + 1} of 4</div>
             <div className="p-4 lg:p-10 flex-1">
                 {step === 0 && (
+                    <div className="space-y-4">
+                    <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <button type="button" data-testid="infra-auto-build" disabled={locked} onClick={() => runPreset(state.infraPreset || 'BALANCED')} className="px-4 py-2 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider disabled:opacity-40">Auto-build</button>
+                            {INFRA_PRESETS.map(item => (
+                                <button key={item.id} type="button" data-testid={`infra-preset-${item.id}`} disabled={locked} onClick={() => runPreset(item.id)} className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider disabled:opacity-40 ${state.infraPreset === item.id ? 'bg-[#4F3BFF] text-white' : 'bg-white/10 text-zinc-200'}`}>
+                                    {item.name}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-sm text-zinc-400 mt-3">{(INFRA_PRESETS.find(item => item.id === state.infraPreset) || INFRA_PRESETS[1]).blurb} The slider on each region sets that target again without touching the others.</p>
+                    </div>
                     <div className="grid lg:grid-cols-[minmax(0,1.1fr)_320px_minmax(0,0.9fr)] gap-4">
                         <Card>
                             <div className="flex items-center justify-between mb-3">
@@ -138,10 +158,27 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                                     <div className="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
                                         <div className="h-full bg-emerald-400" style={{ width: `${row.servedPct * 100}%` }} />
                                     </div>
-                                    <div className="mt-2 text-[11px] text-zinc-400">{row.scouts} Scouts · {row.workhorses} Workhorses · {row.titans} Titans · {Math.round(row.servedPct * 100)}% served</div>
+                                    <div className="mt-2 text-[11px] text-zinc-400">{countLabel(row.scouts, 'Scout')} · {countLabel(row.workhorses, 'Workhorse')} · {countLabel(row.titans, 'Titan')} · {Math.round(row.servedPct * 100)}% served</div>
+                                    <label className="block mt-3" onClick={(event) => event.stopPropagation()}>
+                                        <div className="flex justify-between text-[11px] text-zinc-400">
+                                            <span>Coverage target</span>
+                                            <span>{state.regionCoverage?.[row.regionId] ?? Math.round(row.servedPct * 100)}%</span>
+                                        </div>
+                                        <input
+                                            data-testid={`region-coverage-${row.regionId}`}
+                                            type="range"
+                                            min={0}
+                                            max={100}
+                                            disabled={locked}
+                                            value={state.regionCoverage?.[row.regionId] ?? Math.round(row.servedPct * 100)}
+                                            onChange={(event) => { if (!locked) onChange(applyRegionCoverage(state, row.regionId, Number(event.target.value))); }}
+                                            className="w-full accent-[#8B7BFF]"
+                                        />
+                                    </label>
                                 </Card>
                             ))}
                         </div>
+                    </div>
                     </div>
                 )}
 
@@ -272,6 +309,8 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
         </div>
     );
 };
+
+const countLabel = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 const Row: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     <div className="flex justify-between gap-3"><span className="text-zinc-400">{label}</span><span>{value}</span></div>

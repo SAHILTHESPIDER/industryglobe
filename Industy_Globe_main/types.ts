@@ -655,6 +655,7 @@ export enum Page {
   }
 
   export type LaunchRegionId = 'NORTH_AMERICA' | 'SOUTH_AMERICA' | 'EUROPE' | 'AFRICA' | 'ASIA' | 'OCEANIA';
+  export type InfraPresetId = 'LEAN' | 'BALANCED' | 'OWN';
   export type OwnPlatformStage = 'DEFINE' | 'BUILD' | 'CONSTRUCTING' | 'LIVE';
   export type ClearanceStatus = 'FILED' | 'APPROVED' | 'DELAYED' | 'CONDITIONS' | 'REJECTED';
   export type AudienceMode = 'QUIET' | 'LIKELY' | 'SURGE';
@@ -913,6 +914,10 @@ export enum Page {
       plans: PricingPlan[];
       revenueLanes: RevenueLane[];
       regions: RegionBuild[];
+      /** Last infrastructure preset. Missing on saves from before auto-build. */
+      infraPreset?: InfraPresetId;
+      /** Coverage target, in percent, for each open region. Missing means the placed servers stand as they are. */
+      regionCoverage?: Partial<Record<LaunchRegionId, number>>;
       cloud: CloudOrder[];
       commissioned: boolean;
       constructionWeeksLeft: number;
