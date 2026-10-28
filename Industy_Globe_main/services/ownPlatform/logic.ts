@@ -2,6 +2,7 @@ import {
     AudienceMode,
     CataloguePick,
     CloudOrder,
+    InfraPresetId,
     LaunchRegionId,
     OwnPlatformState,
     Player,
@@ -29,6 +30,7 @@ import {
     hashString,
 } from './catalog';
 import { planUsdInCountry } from './fx';
+import { identityEffects } from './identEffects';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { releaseWeekLabel, releaseWeekParts, titleIsLive, clampReleaseOffset } from './weeks';
 
@@ -102,7 +104,10 @@ export const syncRegions = (state: OwnPlatformState): OwnPlatformState => {
         const existing = state.regions.find(row => row.regionId === regionId);
         return existing || { regionId, scout: 0, workhorse: 0, titan: 0 };
     });
-    return { ...state, regions };
+    const regionCoverage = state.regionCoverage
+        ? Object.fromEntries(Object.entries(state.regionCoverage).filter(([regionId]) => needed.includes(regionId as LaunchRegionId)))
+        : undefined;
+    return { ...state, regions, regionCoverage };
 };
 
 const cloudCapacity = (cloud: CloudOrder[]) => cloud.reduce((sum, order) => {
@@ -190,6 +195,37 @@ export const formatAveragePlanPrice = (state: OwnPlatformState): string => {
     const price = averagePlanPrice(state);
     return Number.isFinite(price) ? `$${price.toFixed(0)}` : `$${STANDARD_PLAN_USD}`;
 };
+
+/** Equal mix unless a premium lift (Linen) pushes weight onto the expensive plan. Household count stays put. */
+export const blendedPlanUsd = (state: OwnPlatformState, countryId: string, lift: number): number => {
+    const plain = averageUsdInCountry(state, countryId);
+    if (!(lift > 1) || state.plans.length < 2) return plain;
+    const prices = state.plans.map(plan => {
+        const usd = planUsdInCountry(plan, countryId, state.fxRates);
+        return Number.isFinite(usd) ? Math.max(0, usd) : 0;
+    });
+    const max = Math.max(...prices);
+    const baseWeights = state.plans.map((plan, index) => {
+        const top = prices[index] >= max - 0.05 && prices.some(price => price < max - 0.5);
+        const shaped = plan.quality === '4K' || (plan.screens >= 4 && !plan.ads);
+        return top || shaped ? lift : 1;
+    });
+    const topIndex = prices.indexOf(max);
+    const weights = baseWeights.every(weight => weight === 1) && topIndex >= 0
+        ? baseWeights.map((weight, index) => (index === topIndex ? lift : weight))
+        : baseWeights;
+    const weightSum = weights.reduce((sum, weight) => sum + weight, 0);
+    const blended = prices.reduce((sum, price, index) => sum + price * weights[index], 0) / weightSum;
+    return Number.isFinite(blended) ? blended : plain;
+};
+
+export const signedPct = (multiplier: number): string => {
+    const pct = Math.round((multiplier - 1) * 100);
+    return `${pct > 0 ? '+' : ''}${pct}%`;
+};
+
+export const storefrontEffectLine = (layout: { discovery: number; retention: number }): string =>
+    `${signedPct(layout.discovery)} new viewers, ${signedPct(layout.retention)} retention`;
 
 const liveCatalogue = (state: OwnPlatformState) => state.catalogue.filter(title => titleIsLive(title.releaseWeekOffset));
 
@@ -303,8 +339,9 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const reputation = clamp(Math.round(48 + sustainability * 0.25 + localHit + Math.min(20, liveCatalogue(state).length)), 1, 99);
 
     const storefront = STOREFRONTS.find(row => row.id === state.storefrontId);
-    const discovery = storefront?.discovery ?? 1;
-    const retention = storefront?.retention ?? 1;
+    const ident = identityEffects(state.identityId);
+    const discovery = (storefront?.discovery ?? 1) * ident.youthGrowth;
+    const retention = (storefront?.retention ?? 1) * ident.familyRetention;
     let reached = 0;
     let paid = 0;
     let piracyWeight = 0;
@@ -334,8 +371,9 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         const paying = viewers * (1 - piracy);
         const usd = averageUsdInCountry(state, country.id);
         const conversion = conversionFor(usd);
+        const paidUsd = blendedPlanUsd(state, country.id, ident.premiumLift);
         households += paying * conversion;
-        monthly += paying * conversion * usd * adBoost;
+        monthly += paying * conversion * paidUsd * adBoost;
     });
     households = Number.isFinite(households) ? Math.round(households) : 0;
     const forecastWeeklyRevenue = Number.isFinite(monthly) ? Math.round(monthly / 4.3) : 0;
@@ -791,5 +829,107 @@ export const campaignChannelName = (id: string): string =>
 export const identityById = (id: string) => IDENTITY_PRESETS.find(row => row.id === id) || IDENTITY_PRESETS[0];
 
 export const storefrontById = (id: string) => STOREFRONTS.find(row => row.id === id) || STOREFRONTS[0];
+
+/** Rival premieres follow audience, so a generated microstate does not host as many openings as India. */
+export const pickAudienceCountry = (seed: string): MarketCountry => {
+    const total = MARKET_COUNTRIES.reduce((sum, country) => sum + Math.max(0.05, country.audienceM), 0);
+    let roll = ((hashString(seed) % 100000) / 100000) * total;
+    for (const country of MARKET_COUNTRIES) {
+        roll -= Math.max(0.05, country.audienceM);
+        if (roll <= 0) return country;
+    }
+    return MARKET_COUNTRIES[0];
+};
+
+type ServerBox = 'scout' | 'workhorse' | 'titan';
+
+const boxClass = (box: ServerBox): ServerClass['id'] => (box === 'scout' ? 'SCOUT' : box === 'workhorse' ? 'WORKHORSE' : 'TITAN');
+
+const PREFERENCE: Record<InfraPresetId, ServerBox[]> = {
+    LEAN: ['workhorse', 'scout'],
+    BALANCED: ['workhorse', 'scout'],
+    OWN: ['titan', 'workhorse'],
+};
+
+export const INFRA_PRESET_TARGET: Record<InfraPresetId, number> = {
+    LEAN: 55,
+    BALANCED: 90,
+    OWN: 100,
+};
+
+export const INFRA_PRESETS: { id: InfraPresetId; name: string; blurb: string }[] = [
+    { id: 'LEAN', name: 'Lean', blurb: 'Cover about 55% of opening night with the smaller rooms. Rented racks only appear if metal still comes up short.' },
+    { id: 'BALANCED', name: 'Balanced', blurb: 'About 90% of the night, mostly workhorses. The usual way to open.' },
+    { id: 'OWN', name: 'Own it all', blurb: 'Titans until the night fits in rooms you own. Rented racks go back to zero.' },
+];
+
+/**
+ * Pick the smallest box that covers most of the remaining gap, without buying a titan to finish a scout-sized hole.
+ * Any positive demand gets at least one room. Tuvalu's opening night is under one stream, and `cap + 1 < need` used to skip it.
+ */
+const fitServers = (need: number, kinds: ServerBox[]) => {
+    const counts = { scout: 0, workhorse: 0, titan: 0 };
+    let cap = 0;
+    let guard = 0;
+    while (cap < need && guard < 80) {
+        guard += 1;
+        const gap = need - cap;
+        const choices = kinds
+            .filter(kind => counts[kind] < 40)
+            .map(kind => ({ kind, size: serverById(boxClass(kind)).capacity }))
+            .sort((a, b) => a.size - b.size);
+        if (!choices.length) break;
+        const covering = choices.find(item => item.size >= gap * 0.8);
+        let pick = covering || choices[choices.length - 1];
+        if (pick.size > gap * 2.2) {
+            const lesser = [...choices].reverse().find(item => item.size < pick.size);
+            if (lesser) pick = lesser;
+        }
+        counts[pick.kind] += 1;
+        cap += pick.size;
+    }
+    return counts;
+};
+
+const nightOfRegion = (state: OwnPlatformState, regionId: LaunchRegionId) => selectedCountries(state)
+    .filter(country => country.regionId === regionId)
+    .reduce((sum, country) => sum + nightDemand(country.audienceM), 0);
+
+export const applyRegionCoverage = (state: OwnPlatformState, regionId: LaunchRegionId, coveragePct: number): OwnPlatformState => {
+    const preset: InfraPresetId = state.infraPreset || 'BALANCED';
+    const coverage = clamp(Math.round(coveragePct), 0, 100);
+    const need = nightOfRegion(state, regionId) * (coverage / 100);
+    const counts = coverage <= 0 ? { scout: 0, workhorse: 0, titan: 0 } : fitServers(need, PREFERENCE[preset]);
+    return {
+        ...state,
+        infraPreset: preset,
+        regionCoverage: { ...(state.regionCoverage || {}), [regionId]: coverage },
+        regions: state.regions.map(region => region.regionId === regionId ? { ...region, ...counts } : region),
+    };
+};
+
+/** Auto-build. Replaces server counts in every open region, and resets rented racks to whatever the preset still needs. */
+export const applyInfraPreset = (state: OwnPlatformState, preset: InfraPresetId): OwnPlatformState => {
+    const target = INFRA_PRESET_TARGET[preset];
+    let next = syncRegions({ ...state, infraPreset: preset });
+    next.regions.forEach(region => {
+        next = applyRegionCoverage(next, region.regionId, target);
+    });
+    const shortfall = next.regions.reduce((sum, region) => {
+        const need = nightOfRegion(next, region.regionId) * (target / 100);
+        return sum + Math.max(0, need - regionCapacity(region));
+    }, 0);
+    if (preset === 'OWN' || shortfall < 1500) {
+        return { ...next, infraPreset: preset, cloud: next.cloud.map(order => ({ ...order, racks: 0 })) };
+    }
+    const providerId = preset === 'LEAN' ? 'NORTHWIND' : 'ATLAS';
+    const provider = CLOUD_PROVIDERS.find(row => row.id === providerId) || CLOUD_PROVIDERS[0];
+    const racks = Math.min(provider.maxRacks, Math.ceil(shortfall / provider.capacityPerRack));
+    return {
+        ...next,
+        infraPreset: preset,
+        cloud: next.cloud.map(order => ({ ...order, racks: order.providerId === provider.id ? racks : 0 })),
+    };
+};
 
 export { MARKET_COUNTRIES, LAUNCH_REGIONS, SERVER_CLASSES, CLOUD_PROVIDERS, STOREFRONTS, IDENTITY_PRESETS, FESTIVALS, CAMPAIGN_CHANNELS, REGION_CITIES };

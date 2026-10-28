@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Player } from '../../types';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { CataloguePick, Player } from '../../types';
 import { displayTitle, loadCatalogue, preferredFormat } from '../../services/rights/catalogue';
 import { allRecords, rightsOf } from '../../services/rights/logic';
 import { sendEmpireBrief } from '../../services/commissions/logic';
@@ -23,6 +24,8 @@ import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
 import { ValuationSheet } from './ValuationSheet';
 import { headingFont } from './ui';
+import { IdentBumper } from './IdentStage';
+import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
 
 type Desk = 'content' | 'network' | 'audience' | 'board';
 
@@ -83,6 +86,22 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
     const state = player.ownPlatform!;
     const [libraryOpen, setLibraryOpen] = useState(false);
     const [catalogueReady, setCatalogueReady] = useState(false);
+    const [detail, setDetail] = useState<CataloguePick | null>(null);
+    const [bumper, setBumper] = useState<CataloguePick | null>(null);
+    const [watchToken, setWatchToken] = useState(0);
+    const bumperRef = useRef<CataloguePick | null>(null);
+    bumperRef.current = bumper;
+    const openTitle = (row: CataloguePick) => {
+        if (state.identSound === false) {
+            setBumper(null);
+            setDetail(row);
+            return;
+        }
+        setDetail(null);
+        setWatchToken(token => token + 1);
+        armPlatformIdent(player);
+        setBumper(row);
+    };
     useEffect(() => {
         let cancelled = false;
         loadCatalogue().then(() => { if (!cancelled) setCatalogueReady(true); });
@@ -119,7 +138,7 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {state.catalogue.length === 0 && <p className="text-sm text-zinc-500">No titles yet. Accept a commission or add one in the launch catalogue.</p>}
                     {state.catalogue.map(row => (
-                        <div key={row.id} className="rounded-2xl border border-white/10 px-3 py-2">
+                        <button key={row.id} type="button" data-testid={`shelf-title-${row.id}`} onClick={() => openTitle(row)} className="rounded-2xl border border-white/10 px-3 py-2 text-left hover:border-white/30">
                             <div className="font-bold">{row.title}</div>
                             <div className="text-[11px] text-zinc-500">{row.genre} · {row.language} · {row.source}</div>
                             <div className="text-[11px] text-zinc-400 mt-1">
@@ -127,12 +146,41 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                                     ? `On the calendar · ${releaseWeekLabel(player.currentWeek, row.releaseWeekOffset)}`
                                     : 'Already on the service'}
                             </div>
-                        </div>
+                        </button>
                     ))}
                 </div>
             </div>
             {libraryOpen && (
                 <RightsLibrary player={player} studio={house} onBack={() => setLibraryOpen(false)} onUpdatePlayer={next => onApply({ player: next })} />
+            )}
+            {bumper && (
+                <IdentBumper
+                    key={watchToken}
+                    name={state.name}
+                    identityId={state.identityId}
+                    purpose="title"
+                    onDone={() => {
+                        const row = bumperRef.current;
+                        setBumper(null);
+                        if (row) setDetail(row);
+                    }}
+                />
+            )}
+            {detail && createPortal(
+                <div className="fixed inset-0 z-[250] bg-black/70 flex items-end sm:items-center justify-center p-4" onClick={() => setDetail(null)}>
+                    <div data-testid="title-detail" className="w-full max-w-md rounded-3xl border border-white/10 bg-[#12151c] p-6" onClick={event => event.stopPropagation()}>
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-[#8B7BFF]">Now playing · {state.name}</div>
+                        <div className="text-4xl font-black uppercase leading-none mt-2" style={{ fontFamily: headingFont }}>{detail.title}</div>
+                        <p className="text-sm text-zinc-400 mt-3">{detail.genre} · {detail.language} · {detail.source === 'OWNED' ? 'Yours' : 'Licensed'}</p>
+                        <p className="text-sm text-zinc-500 mt-2">
+                            {typeof detail.releaseWeekOffset === 'number'
+                                ? `Opens ${releaseWeekLabel(player.currentWeek, detail.releaseWeekOffset)}`
+                                : 'On the service now.'}
+                        </p>
+                        <button type="button" onClick={() => setDetail(null)} className="mt-5 w-full rounded-full bg-white text-black py-3 text-xs font-black uppercase tracking-wider">Close</button>
+                    </div>
+                </div>,
+                document.body,
             )}
         </div>
     );

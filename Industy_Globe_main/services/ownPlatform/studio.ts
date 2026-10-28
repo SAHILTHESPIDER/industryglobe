@@ -14,7 +14,7 @@ import {
 import { getAbsoluteWeek } from '../legacyLogic';
 import { calculateWeeklyLoanPayment, issueLoan } from '../loanLogic';
 import { MARKET_COUNTRIES, hashString } from './catalog';
-import { formatCompact, quoteLaunch } from './logic';
+import { formatCompact, pickAudienceCountry, quoteLaunch } from './logic';
 import { BuyFinancing, equityChequeAvailable, quoteAcquisition, quoteListedCompany, quotePrivateService } from './valuation';
 import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON } from './weeks';
 
@@ -442,7 +442,7 @@ export const calendarEntries = (player: Player): ReleaseCalendarEntry[] => {
             .map(row => slotEntry(slot, row.id, row.title, row.language || slot.language, Number(row.releaseWeekOffset))),
     ];
     const rivals: ReleaseCalendarEntry[] = RIVAL_TITLES.map((title, index) => {
-        const country = MARKET_COUNTRIES[(hashString(`${player.id}:cal:${index}`) + index) % MARKET_COUNTRIES.length];
+        const country = pickAudienceCountry(`${player.id}:cal:${index}:${title}`);
         const weekOffset = index < 8
             ? hashString(`${player.id}:week:${title}`) % 8
             : hashString(`${player.id}:year:${title}`) % 52;

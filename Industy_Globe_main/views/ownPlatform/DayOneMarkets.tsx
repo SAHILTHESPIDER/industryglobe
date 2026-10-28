@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { LaunchRegionId, OwnPlatformState } from '../../types';
-import { LAUNCH_REGIONS, MARKET_COUNTRIES } from '../../services/ownPlatform/catalog';
+import { LAUNCH_REGIONS, MARKET_COUNTRIES, getCountry } from '../../services/ownPlatform/catalog';
 import { formatCompact, formatPeople } from '../../services/ownPlatform/logic';
 import { headingFont } from './ui';
+import { WorldMarketMap } from './WorldMarketMap';
 
 interface Props {
     state: OwnPlatformState;
@@ -14,6 +15,7 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
     const [regionId, setRegionId] = useState<LaunchRegionId>('NORTH_AMERICA');
     const [index, setIndex] = useState(0);
     const [dossierOpen, setDossierOpen] = useState(false);
+    const [query, setQuery] = useState('');
     const countries = MARKET_COUNTRIES.filter(country => country.regionId === regionId);
     const country = countries[Math.min(index, Math.max(0, countries.length - 1))];
     const selected = country ? state.selectedCountryIds.includes(country.id) : false;
@@ -22,18 +24,29 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
     const viewers = chosen.reduce((sum, row) => sum + row.audienceM, 0);
     const regionCountries = countries.length;
 
-    const toggle = () => {
-        if (!country || locked) return;
+    const toggleId = (id: string) => {
+        if (locked) return;
         onPatch(current => {
-            const has = current.selectedCountryIds.includes(country.id);
+            const has = current.selectedCountryIds.includes(id);
             return {
                 ...current,
                 selectedCountryIds: has
-                    ? current.selectedCountryIds.filter(id => id !== country.id)
-                    : [...current.selectedCountryIds, country.id],
+                    ? current.selectedCountryIds.filter(item => item !== id)
+                    : [...current.selectedCountryIds, id],
             };
         });
     };
+    const reveal = (id: string) => {
+        const found = getCountry(id);
+        if (!found) return;
+        setRegionId(found.regionId);
+        const list = MARKET_COUNTRIES.filter(row => row.regionId === found.regionId);
+        setIndex(Math.max(0, list.findIndex(row => row.id === id)));
+        setDossierOpen(false);
+    };
+    const toggle = () => { if (country) toggleId(country.id); };
+    const queryText = query.trim().toLowerCase();
+    const matches = queryText.length < 1 ? [] : MARKET_COUNTRIES.filter(row => row.name.toLowerCase().includes(queryText) || row.id.toLowerCase() === queryText).slice(0, 8);
 
     const compliance = country ? Math.round(country.accessCost * 0.1) : 0;
 
@@ -45,6 +58,26 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                     <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Day-One Markets</h2>
                     <p className="text-sm text-zinc-400 mt-2 max-w-xl">Choose where viewers can subscribe first. Every market has its own risk, language, tax, and rivals.</p>
                 </div>
+            </div>
+
+            <WorldMarketMap selectedIds={state.selectedCountryIds} focusId={country?.id} regionId={regionId} onPick={(id) => { reveal(id); toggleId(id); }} />
+            <div className="relative">
+                <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search Pakistan, Ghana, Singapore…"
+                    className="w-full bg-black/30 border border-white/10 rounded-2xl px-4 py-3 text-sm outline-none"
+                    aria-label="Search markets"
+                />
+                {matches.length > 0 && (
+                    <div className="absolute z-20 mt-1 w-full rounded-2xl border border-white/10 bg-[#12151c] shadow-xl overflow-hidden">
+                        {matches.map(row => (
+                            <button key={row.id} type="button" onClick={() => { setQuery(''); reveal(row.id); if (!state.selectedCountryIds.includes(row.id)) toggleId(row.id); }} className="w-full text-left px-4 py-2 text-sm hover:bg-white/5">
+                                {row.flag} {row.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
@@ -132,7 +165,17 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                             </div>
                         </div>
                     )}
-                    <div className="text-[11px] text-zinc-500">{index + 1} / {regionCountries} in this region · swipe the arrows</div>
+                    <div className="max-h-28 overflow-y-auto flex flex-wrap gap-1">
+                        {countries.map((row, rowIndex) => {
+                            const on = state.selectedCountryIds.includes(row.id);
+                            return (
+                                <button key={row.id} type="button" onClick={() => setIndex(rowIndex)} className={`px-2 py-1 rounded-full text-[11px] ${rowIndex === index ? 'bg-white text-black' : on ? 'bg-[#6d5efc]/40 text-white' : 'bg-white/5 text-zinc-300'}`}>
+                                    {row.flag} {row.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="text-[11px] text-zinc-500">{index + 1} / {regionCountries} in this region</div>
                 </div>
 
                 <aside className="rounded-3xl border border-white/10 bg-[#12151c] p-4 h-fit lg:sticky lg:top-4">
@@ -146,7 +189,7 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                         <Stat label="Opening rights" value={formatCompact(chosen.reduce((sum, row) => sum + row.accessCost, 0))} />
                     </div>
                     <div className="mt-4 text-[11px] uppercase tracking-wider text-zinc-500">Your day-one footprint</div>
-                    <div className="flex flex-wrap gap-2 mt-2">
+                    <div className="flex flex-wrap gap-2 mt-2 max-h-48 overflow-y-auto">
                         {chosen.length === 0 && <span className="text-sm text-zinc-500">No country is on the opening slate yet.</span>}
                         {chosen.map(row => (
                             <button key={row.id} onClick={() => { setRegionId(row.regionId); setIndex(Math.max(0, MARKET_COUNTRIES.filter(item => item.regionId === row.regionId).findIndex(item => item.id === row.id))); }} className="px-2 py-1 rounded-full bg-white/5 text-xs">

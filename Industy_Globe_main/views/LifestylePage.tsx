@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Player, Property, Vehicle, ClothingItem, SettableClothingStyle } from '../types';
 import { CreditCard, Store, Briefcase, ChevronRight, Clapperboard, Tv, Star } from 'lucide-react';
 import { OwnPlatformApp } from './ownPlatform/OwnPlatformApp';
+import { armPlatformIdent } from '../services/ownPlatform/identAudio';
 import { LifestyleAssets } from './lifestyle/LifestyleAssets';
 import { LifestyleBusiness } from './lifestyle/LifestyleBusiness';
 import { ProductionWizard } from './lifestyle/business/ProductionWizard';
@@ -228,7 +229,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
             </button>
 
             {/* Locked Content */}
-            <button onClick={() => setView('STREAMING')} className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative border border-[#ff3b30]/30">
+            <button onClick={() => { armPlatformIdent(player); setView('STREAMING'); }} className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative border border-[#ff3b30]/30">
                 <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-[#ff3b30] text-white"><Tv size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.streamingPlatform')}</div><div className="text-sm text-zinc-400">{player.ownPlatform ? `${player.ownPlatform.name} · ${player.ownPlatform.stage}. Same company as the phone.` : tr('lifestyle.streamingSub')}</div></div></div>
                 <ChevronRight className="absolute top-1/2 -translate-y-1/2 right-6 text-zinc-700 group-hover:text-zinc-400 transition-colors"/>
             </button>

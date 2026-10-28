@@ -14,6 +14,7 @@ import { ALL_GENRES, formatGenreLabel } from '../services/genreCatalog';
 import { getPlayerLanguage, t } from '../services/i18n';
 import { Heart, Smile, Star, Zap, DollarSign, Brain, Calendar, Activity, TrendingUp, Trophy, X, Sliders, Users, Film, Tv, PlayCircle, Lock, FastForward, Key, AlertTriangle, Mic2, Mail, FileText, Dumbbell, Sparkles, Settings, ShoppingCart, Clapperboard, ZapOff, Crown, Skull, Camera, UploadCloud, Check, MessageSquareQuote, Globe, Landmark, Newspaper, Radio } from 'lucide-react';
 import { useGameNav } from '../components/GameNav';
+import { armPlatformIdent } from '../services/ownPlatform/identAudio';
 import { addBreadcrumb, recordNonFatal, setCrashContext, startPerformanceTrace, stopPerformanceTrace, trackGameEvent } from '../services/firebaseService';
 
 interface HomePageProps {
@@ -3725,7 +3726,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
           {[
               { label: 'Casting', icon: Film, run: () => nav?.openPhone({ app: 'CASTLINK' }) },
               { label: 'Studio', icon: Clapperboard, run: () => nav?.openLifestyle(player.businesses.some(b => b.type === 'PRODUCTION_HOUSE') ? 'PRODUCTION_GAME' : 'PRODUCTION_WIZARD') },
-              { label: 'Empire+', icon: Radio, run: () => nav?.openPhone({ app: 'OWN_PLATFORM', pane: 'launch' }) },
+              { label: 'Empire+', icon: Radio, run: () => { armPlatformIdent(player); nav?.openPhone({ app: 'OWN_PLATFORM', pane: 'launch' }); } },
               { label: 'News', icon: Newspaper, run: () => nav?.openPhone({ app: 'NEWS' }) },
               { label: 'Bank', icon: Landmark, run: () => nav?.openPhone({ app: 'BANK' }) },
               { label: 'Stocks', icon: TrendingUp, run: () => nav?.openPhone({ app: 'STOCKS' }) },

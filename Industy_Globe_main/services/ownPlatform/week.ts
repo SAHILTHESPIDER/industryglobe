@@ -1,6 +1,7 @@
 import { Player, RivalPlatformState } from '../../types';
 import { MARKET_COUNTRIES, hashString } from './catalog';
 import { decorateRival, driftFxRates, formatLocalAmount } from './fx';
+import { identityEffects } from './identEffects';
 import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
 import { normalizeOwnPlatform } from './migrate';
 import { settleBooks } from './studio';
@@ -194,7 +195,9 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         const pressure = clamp(state.enforcement * 0.45 + piracy * 80, 0, 100);
         state.customerPressure = pressure;
         const target = quote.households * (1 - pulse.recession * 0.15) * (pressure > 75 ? 0.9 : 1);
-        const step = target > state.subscribers ? 0.18 : 0.08;
+        const ident = identityEffects(state.identityId);
+        const growing = target > state.subscribers;
+        const step = growing ? 0.18 : clamp(0.08 / ident.familyRetention, 0.04, 0.14);
         state.subscribers = Math.max(0, Math.round(state.subscribers + (target - state.subscribers) * step));
         const revenueRaw = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0));
         const burnRaw = Math.round(quote.weeklyBurn);
