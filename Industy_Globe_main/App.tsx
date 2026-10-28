@@ -2359,44 +2359,30 @@ export const App: React.FC = () => {
                           <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 mb-3">What&apos;s New</div>
                           <h3 className="text-2xl font-black text-white mb-2">Version {APP_DISPLAY_VERSION}</h3>
                           <p className="text-sm text-zinc-400 leading-relaxed">
-                              This update focuses on the latest player-reported fixes: streaming growth, relationship pregnancy logic, returning talent blockers, and long-career stability.
+                              This update fixes two playtest bugs and makes your X profile follow the city you actually live in.
                           </p>
                       </div>
 
                       <div className="space-y-4 text-sm text-zinc-300">
                           <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Studio & Streaming</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Streaming</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Fixed runaway streaming viewership so weekly streams rise, peak, and taper in a more realistic way.</li>
-                                  <li>• Improved streaming bid wars so platforms compete with clearer offers and better sequel/season handling.</li>
-                                  <li>• Greenlight now shows exactly which returning talent deals are pending, with quick negotiate actions.</li>
+                                  <li>• Fixed the streaming blueprint average plan price so it no longer shows $NaN. With no countries picked, or if a price is not a real number, it falls back to $11.</li>
                               </ul>
                           </div>
 
                           <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Career & Family</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Box Office</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Fixed pregnancy logic so the correct person is treated as pregnant based on player and partner gender.</li>
-                                  <li>• Same-sex and non-binary intimacy now stays romance/drama focused without triggering impossible pregnancy outcomes.</li>
-                                  <li>• Improved relationship and baby feedback so family story moments happen in the right order.</li>
+                                  <li>• Rival studios now release 3 to 6 films every week, so the weekend Top 10 stays filled. Films still in theaters keep their place on the chart.</li>
+                                  <li>• A film on the release clash radar joins the Top 10 the weekend it opens.</li>
                               </ul>
                           </div>
 
                           <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">Mobile Stability</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">Social</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Optimized save storage for long careers so old timelines do not overload mobile WebViews.</li>
-                                  <li>• Reduced heavy visual effects on mobile devices to help Android screens stay responsive.</li>
-                                  <li>• Improved recovery protection around events, weekly processing, and large social/news histories.</li>
-                              </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-violet-500/15 bg-violet-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300 mb-2">UI & Save Fixes</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• Cleaned decimal/overflow UI issues in festival, Forbes, IMDb, and career surfaces.</li>
-                                  <li>• Added more old-save safety across universe, franchise, roster, and generated content paths.</li>
-                                  <li>• Tightened weekly processing and recovery handling to reduce stuck-event loops.</li>
+                                  <li>• Your X location now comes from your own city, such as Mumbai · 2026.</li>
                               </ul>
                           </div>
 
@@ -2418,9 +2404,9 @@ export const App: React.FC = () => {
                               <div className="rounded-2xl border border-white/10 bg-zinc-950/80 px-4 py-3">
                                   <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 mb-2">Previous Highlights</div>
                                   <ul className="space-y-2 leading-relaxed text-zinc-400">
+                                      <li>• 1.1.25 fixed streaming viewership curves, bid wars, pregnancy logic, and long-career save stability.</li>
+                                      <li>• Greenlight shows which returning talent deals are pending, with quick negotiate actions.</li>
                                       <li>• Expanded Development Lab, franchise, universe, creator, social, and global talent systems.</li>
-                                      <li>• Added deeper script support for musical, biopic, sports, animation, fantasy, crime, and documentary projects.</li>
-                                      <li>• Improved teams, bank actions, lifestyle assets, award records, and older save compatibility.</li>
                                   </ul>
                               </div>
                           )}

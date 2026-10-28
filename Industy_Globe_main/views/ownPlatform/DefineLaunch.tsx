@@ -6,7 +6,7 @@ import { saveMediaBlob } from '../../services/mediaStorage';
 import {
     IDENTITY_PRESETS,
     STOREFRONTS,
-    averagePlanPrice,
+    formatAveragePlanPrice,
     formatCompact,
     formatPeople,
     identityById,
@@ -224,8 +224,9 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                             <input disabled={locked} value={plan.name} onChange={(event) => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, name: event.target.value } : row) }))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
                                         </label>
                                         <label className="text-xs text-zinc-500">US anchor (USD)
-                                            <input disabled={locked} type="number" min={0} value={plan.monthlyUsd} onChange={(event) => {
-                                                const monthlyUsd = Number(event.target.value);
+                                            <input disabled={locked} type="number" min={0} value={Number.isFinite(plan.monthlyUsd) ? plan.monthlyUsd : 11} onChange={(event) => {
+                                                const parsed = Number(event.target.value);
+                                                const monthlyUsd = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
                                                 patch(current => ({
                                                     ...current,
                                                     plans: current.plans.map(row => row.id === plan.id ? {
@@ -267,12 +268,13 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                                             min={0}
                                                             value={local}
                                                             onChange={(event) => {
-                                                                const nextLocal = Number(event.target.value);
+                                                                const parsed = Number(event.target.value);
+                                                                const nextLocal = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
                                                                 patch(current => ({
                                                                     ...current,
                                                                     plans: current.plans.map(row => row.id === plan.id ? {
                                                                         ...row,
-                                                                        monthlyUsd: countryId === 'US' ? nextLocal : row.monthlyUsd,
+                                                                        monthlyUsd: countryId === 'US' ? nextLocal : (Number.isFinite(row.monthlyUsd) ? row.monthlyUsd : 11),
                                                                         countryPrices: { ...(row.countryPrices || {}), [countryId]: nextLocal },
                                                                     } : row),
                                                                 }));
@@ -304,7 +306,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                             <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Commercial setup</div>
                             <div className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>{state.plans.length} plans</div>
                             <div className="mt-4 text-sm text-zinc-400">Average price</div>
-                            <div className="text-4xl font-black">${averagePlanPrice(state).toFixed(0)}</div>
+                            <div className="text-4xl font-black">{formatAveragePlanPrice(state)}</div>
                             <div className="mt-4 text-sm text-zinc-400">Forecast households</div>
                             <div className="text-2xl font-black text-emerald-300">{formatPeople(quote.households)}</div>
                             <p className="text-xs text-zinc-500 mt-3">A higher price and a thin catalogue push people toward piracy. Pirated plays pay nothing.</p>
@@ -323,7 +325,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                 <Line label="Identity" value={identityById(state.identityId).name} />
                                 <Line label="Storefront" value={storefrontById(state.storefrontId).name} />
                                 <Line label="Catalogue" value={`${state.catalogue.length} titles`} />
-                                <Line label="Plans" value={`${state.plans.length} · $${averagePlanPrice(state).toFixed(0)}`} />
+                                <Line label="Plans" value={`${state.plans.length} · ${formatAveragePlanPrice(state)}`} />
                                 <Line label="Due at commission" value={formatCompact(quote.dueNow)} />
                                 <Line label="Weekly burn" value={formatCompact(quote.weeklyBurn)} />
                                 <Line label="Forecast revenue / wk" value={formatCompact(quote.forecastWeeklyRevenue)} />
