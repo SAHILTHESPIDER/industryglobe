@@ -52,7 +52,7 @@ interface ProjectDashboardModalProps {
     onConfigureRelease?: (project: any) => void;
 }
 
-export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ project, player, studio, onClose, onUpdatePlayer, onMakeSequel, onMakeSpinoff, onStartStreamingBidding }) => {
+export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ project, player, studio, onClose, onUpdatePlayer, onMakeSequel, onMakeSpinoff, onStartStreamingBidding, onConfigureRelease }) => {
     const [view, setView] = useState<'DETAILS'>('DETAILS');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -835,7 +835,7 @@ export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ pr
                                 </div>
 
 
-                                <ReleaseGauntletPanels player={player} project={project} onUpdatePlayer={onUpdatePlayer} />
+                                <ReleaseGauntletPanels player={player} project={project} onUpdatePlayer={onUpdatePlayer} onPlanRelease={onConfigureRelease} />
 
                                  {/* Actions */}
                                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-4 mt-8">

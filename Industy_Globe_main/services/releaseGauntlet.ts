@@ -316,7 +316,8 @@ const cloneBusinesses = (player: Player): Business[] => (player.businesses || []
     } : business.studioState,
 }));
 
-const payFromHouse = (player: Player, studioId: string | undefined, amount: number, label: string): { player: Player; error?: string } => {
+/** Operating cash first, then the production fund, then personal cash. The fund stays available for greenlights. */
+export const chargeProductionHouse = (player: Player, studioId: string | undefined, amount: number, label: string): { player: Player; error?: string } => {
     if (amount <= 0) return { player };
     const businesses = cloneBusinesses(player);
     const studio = businesses.find(business => business.id === studioId && business.type === 'PRODUCTION_HOUSE');
@@ -324,11 +325,11 @@ const payFromHouse = (player: Player, studioId: string | undefined, amount: numb
     let fromFund = 0;
     let fromBalance = 0;
     if (studio) {
+        fromBalance = Math.min(Math.max(0, studio.balance || 0), remaining);
+        remaining -= fromBalance;
         const fund = studio.studioState?.productionFund || 0;
         fromFund = Math.min(fund, remaining);
         remaining -= fromFund;
-        fromBalance = Math.min(Math.max(0, studio.balance || 0), remaining);
-        remaining -= fromBalance;
     }
     const fromPlayer = Math.min(Math.max(0, player.money || 0), remaining);
     remaining -= fromPlayer;
@@ -370,6 +371,17 @@ const payFromHouse = (player: Player, studioId: string | undefined, amount: numb
         }
     };
 };
+
+export const canAffordHouseCharge = (player: Player, studioId: string | undefined, amount: number): boolean => {
+    if (amount <= 0) return true;
+    const studio = (player.businesses || []).find(business => business.id === studioId && business.type === 'PRODUCTION_HOUSE');
+    const balance = Math.max(0, studio?.balance || 0);
+    const fund = Math.max(0, studio?.studioState?.productionFund || 0);
+    const personal = Math.max(0, player.money || 0);
+    return balance + fund + personal + 1 >= amount;
+};
+
+const payFromHouse = chargeProductionHouse;
 
 const creditHouse = (player: Player, studioId: string | undefined, amount: number, label: string, projectId: string): Player => {
     if (amount <= 0) return player;
@@ -724,6 +736,25 @@ const patchRun = (player: Player, projectId: string, recipe: (details: ProjectDe
     const commitment = liveCommitment(player, projectId);
     if (!commitment?.projectDetails) return player;
     return replaceCommitment(player, { ...commitment, projectDetails: recipe(commitment.projectDetails) });
+};
+
+export const persistFestivalBidding = (player: Player, projectId: string, bidding: FestivalBiddingState): Player => {
+    const next = patchRun(player, projectId, details => ({
+        ...details,
+        festivalRun: details.festivalRun ? { ...details.festivalRun, bidding } : details.festivalRun,
+    }));
+    const stamp = (event: PendingEvent | null | undefined): PendingEvent | null | undefined => {
+        if (!event || event.type !== 'FESTIVAL_PREMIERE') return event;
+        if (String(event.data?.projectId || '') !== projectId) return event;
+        return { ...event, data: { ...(event.data || {}), bidding } };
+    };
+    return {
+        ...next,
+        pendingEvent: stamp(next.pendingEvent) ?? null,
+        pendingEventQueue: Array.isArray(next.pendingEventQueue)
+            ? next.pendingEventQueue.map(event => stamp(event) || event)
+            : next.pendingEventQueue,
+    };
 };
 
 export const counterFestivalBids = (bidding: FestivalBiddingState): FestivalBiddingState => {

@@ -6,7 +6,7 @@ import { FESTIVALS, CALENDAR_EVENTS } from '../../../services/worldLogic';
 import { mergeUniverseRosterWithProject, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
-import { applyFestivalTurn, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
+import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -274,6 +274,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
     const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
     const [festivalPremiere, setFestivalPremiere] = useState<string | null>(null);
+    const [lockError, setLockError] = useState('');
     const [releaseWeek, setReleaseWeek] = useState<number>(player.currentWeek + 4); 
     const projectHiddenStats = project.projectDetails?.hiddenStats || {};
     const lockedPremierePlatformId = projectHiddenStats.nextSeasonFundingUsedByProjectId === project.id
@@ -700,14 +701,27 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
     };
 
     const handleComplete = () => {
-        const updatedPlayer = { ...player };
-        let totalCost = totalCampaignCost;
-
         const existingFestivalRun = project.projectDetails?.festivalRun;
-        if (festivalPremiere && !existingFestivalRun) {
-            const fest = FESTIVALS.find(f => f.id === festivalPremiere);
-            if (fest) totalCost += fest.cost;
+        const newFestival = !existingFestivalRun && festivalPremiere
+            ? FESTIVALS.find(fest => fest.id === festivalPremiere)
+            : undefined;
+        const studioId = project.projectDetails?.studioId || studio?.id;
+        const commitmentIndex = player.commitments.findIndex(item => item.id === project.id);
+        if (newFestival && commitmentIndex === -1) {
+            setLockError('That film is no longer on the lot.');
+            return;
         }
+        let updatedPlayer = { ...player };
+        if (newFestival) {
+            const paid = chargeProductionHouse(updatedPlayer, studioId, newFestival.cost, `${newFestival.name} submission`);
+            if (paid.error) {
+                setLockError(paid.error);
+                return;
+            }
+            updatedPlayer = paid.player;
+        }
+        setLockError('');
+        const totalCost = totalCampaignCost;
 
         updatedPlayer.money -= totalCost;
         if (selectedCampaigns.includes('tv_spots')) {
@@ -743,7 +757,6 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
             updatedPlayer.pendingEvent = premiereEvent;
         }
 
-        const commitmentIndex = updatedPlayer.commitments.findIndex(c => c.id === project.id);
         if (commitmentIndex !== -1) {
             const commitment = updatedPlayer.commitments[commitmentIndex];
             updatedPlayer.commitments[commitmentIndex] = {
@@ -1175,7 +1188,8 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                         const weekOfYear = getWeekOfYear(player.currentWeek);
                                         const timingMeta = getFestivalTimingMeta(fest.weeks, weekOfYear);
                                         const alreadySubmitted = Boolean(project.projectDetails?.festivalRun);
-                                        const canAfford = player.money >= fest.cost || alreadySubmitted;
+                                        const studioId = project.projectDetails?.studioId || studio?.id;
+                                        const canAfford = alreadySubmitted || canAffordHouseCharge(player, studioId, fest.cost);
                                         const projectQualityScore = project.projectDetails?.hiddenStats?.qualityScore || 0;
                                         const displayQualityScore = Math.round(projectQualityScore);
                                         const chance = Math.round(selectionChance(projectQualityScore, fest.prestigeReq) * 100);
@@ -1351,7 +1365,12 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                         {festivalPremiere && (
                                             <div className="flex justify-between items-end pb-6 border-b border-white/10">
                                                 <div className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-1">Festival</div>
-                                                <div className="font-serif text-2xl text-white/90">{FESTIVALS.find(f => f.id === festivalPremiere)?.name}</div>
+                                                <div className="text-right">
+                                                    <div className="font-serif text-2xl text-white/90">{FESTIVALS.find(f => f.id === festivalPremiere)?.name}</div>
+                                                    {!project.projectDetails?.festivalRun && (
+                                                        <div className="text-[10px] text-amber-200/70">Fee comes from the studio, not this marketing total.</div>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                         
@@ -1367,6 +1386,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     </div>
                                 </div>
 
+                                {lockError && <p className="text-sm text-rose-300 text-center">{lockError}</p>}
                                 <div className="flex justify-between items-center pt-8">
                                     <button onClick={prevStep} className="px-8 py-4 text-white/50 hover:text-white transition-colors text-xs font-bold tracking-widest uppercase">Back</button>
                                     <button onClick={handleComplete} className="px-12 py-4 bg-amber-500 text-black rounded-full font-bold tracking-widest uppercase text-xs hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]">

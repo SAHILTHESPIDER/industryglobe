@@ -2749,6 +2749,14 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 nextCommitments.push({ ...updatedC, projectDetails: details, projectPhase: 'AWAITING_RELEASE', phaseWeeksLeft: 0, totalPhaseDuration: 0 });
             } else { nextCommitments.push({ ...updatedC, phaseWeeksLeft: weeksLeft }); }
         } else if (updatedC.projectPhase === 'AWAITING_RELEASE') {
+            if (updatedC.projectDetails?.testScreening?.status === 'WORKING') {
+                const worked = advanceScreeningWork(updatedC);
+                updatedC = worked.commitment;
+                if (worked.log) logsToAdd.push({ msg: `✂️ ${worked.log}`, type: worked.tone || 'neutral' });
+            }
+            if (updatedC.projectDetails?.testScreening?.status === 'WORKING') {
+                nextCommitments.push(updatedC);
+            } else {
             const isStudioProject = updatedC.projectDetails?.studioId !== undefined;
             
             if (updatedC.projectDetails?.releaseStrategy) {
@@ -2912,6 +2920,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             // Waiting for player to set strategy
             nextCommitments.push({ ...updatedC, phaseWeeksLeft: 0 });
         }
+            }
     }
 });
 

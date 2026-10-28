@@ -7,6 +7,7 @@ interface ReleaseGauntletPanelsProps {
     player: Player;
     project: any;
     onUpdatePlayer: (player: Player) => void;
+    onPlanRelease?: (project: any) => void;
 }
 
 const money = (value: number) => {
@@ -15,7 +16,7 @@ const money = (value: number) => {
     return `$${Math.round(value).toLocaleString()}`;
 };
 
-export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ player, project, onUpdatePlayer }) => {
+export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ player, project, onUpdatePlayer, onPlanRelease }) => {
     const live = player.commitments.find(item => item.id === project.id);
     const details = live?.projectDetails || project.projectDetails;
     const [error, setError] = useState('');
@@ -24,7 +25,14 @@ export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ pl
     const screening = details.testScreening;
     const run = details.festivalRun;
     const phase = live.projectPhase;
-    const showScreening = Boolean(screening) && (phase === 'POST_PRODUCTION' || screening?.status === 'RESULTS' || screening?.status === 'WORKING');
+    const releaseLocked = Boolean(details.releaseStrategy);
+    const offerStillOpen = screening?.status === 'OFFERED' && !releaseLocked && (phase === 'POST_PRODUCTION' || phase === 'AWAITING_RELEASE');
+    const showScreening = Boolean(screening) && (
+        offerStillOpen
+        || screening?.status === 'RESULTS'
+        || screening?.status === 'WORKING'
+        || (screening?.status === 'RESOLVED' && phase === 'POST_PRODUCTION')
+    );
     const showFestival = phase === 'POST_PRODUCTION' || phase === 'AWAITING_RELEASE';
     if (!showScreening && !showFestival) return null;
 
@@ -90,6 +98,11 @@ export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ pl
                             {screening.choice === 'RECUT' && 'The recut is locked.'}
                             {screening.choice === 'RESHOOT' && 'The reshoot is locked.'}
                         </p>
+                    )}
+                    {phase === 'AWAITING_RELEASE' && !releaseLocked && onPlanRelease && (
+                        <button onClick={() => onPlanRelease(live)} className="mt-4 rounded-full border border-white/15 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white">
+                            Plan the release
+                        </button>
                     )}
                 </div>
             )}

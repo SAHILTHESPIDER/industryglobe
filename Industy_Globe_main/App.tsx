@@ -2213,7 +2213,7 @@ export const App: React.FC = () => {
 
       {player.pendingEvent && (player.pendingEvent.type === 'AWARD_CEREMONY' || player.pendingEvent.type === 'PREMIERE') && (<RedCarpetEvent key={player.pendingEvent.id} player={player} event={player.pendingEvent} onComplete={handleEventComplete} />)}
       {player.pendingEvent && player.pendingEvent.type === 'FESTIVAL_PREMIERE' && (
-          <FestivalNightModal key={player.pendingEvent.id} player={player} event={player.pendingEvent} onComplete={handleEventComplete} />
+          <FestivalNightModal key={player.pendingEvent.id} player={player} event={player.pendingEvent} onComplete={handleEventComplete} onUpdate={(updater) => setPlayer(current => updater(current))} />
       )}
       {player.pendingEvents && player.pendingEvents.length > 0 && (player.pendingEvents[0].type === 'PRODUCTION_CRISIS' || player.pendingEvents[0].type === 'DIRECTOR_DECISION') && (
           <ProductionCrisisModal 

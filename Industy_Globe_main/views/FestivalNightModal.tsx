@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { PendingEvent, Player, FestivalBiddingState, FestivalBidOffer } from '../types';
-import { acceptFestivalBid, counterFestivalBids, walkFestivalBid } from '../services/releaseGauntlet';
+import { acceptFestivalBid, counterFestivalBids, persistFestivalBidding, walkFestivalBid } from '../services/releaseGauntlet';
 
 interface FestivalNightModalProps {
     player: Player;
     event: PendingEvent;
     onComplete: (player: Player) => void;
+    onUpdate: (updater: (player: Player) => Player) => void;
 }
 
 const money = (value: number) => {
@@ -15,7 +16,7 @@ const money = (value: number) => {
     return `$${Math.round(value).toLocaleString()}`;
 };
 
-export const FestivalNightModal: React.FC<FestivalNightModalProps> = ({ player, event, onComplete }) => {
+export const FestivalNightModal: React.FC<FestivalNightModalProps> = ({ player, event, onComplete, onUpdate }) => {
     const data = event.data || {};
     const projectId = String(data.projectId || '');
     const projectName = String(data.projectName || 'The film');
@@ -41,6 +42,7 @@ export const FestivalNightModal: React.FC<FestivalNightModalProps> = ({ player, 
         if (!bidding) return;
         const next = counterFestivalBids(bidding);
         setBidding(next);
+        onUpdate(current => persistFestivalBidding(current, projectId, next));
         if (next.status === 'WALKED') setError(next.note || 'The buyers left.');
     };
 
