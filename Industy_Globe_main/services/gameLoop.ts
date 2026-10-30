@@ -3941,6 +3941,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         try {
             const platformWeek = tickOwnPlatform(nextPlayer, getAbsoluteWeek(nextPlayer.age, nextPlayer.currentWeek));
             platformWeek.notes.forEach(note => logsToAdd.push(note));
+            // Company receipts and costs already sit in company cash. This list stays empty
+            // unless a future explicit personal transfer is returned on purpose.
             platformWeek.transactions.forEach(entry => addTransaction(entry.amount, 'BUSINESS', entry.description));
         } catch (error) {
             console.error('Own platform week failed:', error);

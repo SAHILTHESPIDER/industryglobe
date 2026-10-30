@@ -18,6 +18,7 @@ import { formatCompact, pickAudienceCountry, quoteLaunch } from './logic';
 import { BuyFinancing, equityChequeAvailable, quoteAcquisition, quoteListedCompany, quotePrivateService } from './valuation';
 import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON } from './weeks';
 import { publicBrandName } from '../rights/alterName';
+import { addCompanyCash, readCompanyCash } from './companyCash';
 
 const FACILITY_USD = 4_000_000;
 const FACILITY_RATE = 0.09;
@@ -94,6 +95,7 @@ export const emptyBooks = (): StudioBooks => ({
     pePartner: PE_NAME,
     history: [],
     lines: [],
+    cash: 0,
 });
 
 export const emptyIpo = (name: string): IpoState => ({
@@ -133,23 +135,6 @@ export const defaultReleaseSlot = (player: Player): ReleaseSlot => {
 const tickerFrom = (name: string) => {
     const letters = name.replace(/[^a-z]/gi, '').toUpperCase();
     return (letters.slice(0, 3) || 'EMP').padEnd(3, 'P');
-};
-
-const pushMoney = (player: Player, amount: number, description: string) => {
-    const safe = Math.trunc(amount);
-    if (!safe) return;
-    player.money = (Number.isFinite(player.money) ? player.money : 0) + safe;
-    if (!player.finance) return;
-    if (!Array.isArray(player.finance.history)) player.finance.history = [];
-    player.finance.history.unshift({
-        id: `tx_books_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        week: player.currentWeek,
-        year: player.age,
-        amount: safe,
-        category: 'BUSINESS',
-        description,
-    });
-    if (player.finance.history.length > 200) player.finance.history.pop();
 };
 
 const pushLine = (books: StudioBooks, player: Player, amount: number, label: string, source: PlatformLedgerLine['source']) => {
@@ -238,7 +223,7 @@ export const purchasePlatform = (player: Player, dealId: string, financing?: Buy
     const loanAmount = Math.max(0, Math.floor(Number(financing.loan) || 0));
     const equityCash = financing.equity ? equityChequeAvailable(player) : 0;
     if (financing.equity && equityCash <= 0) return { player, error: 'Outside owners are already on the cap table.' };
-    if (cash > player.money) return { player, error: 'That cash is not in the treasury.' };
+    if (cash > readCompanyCash(player)) return { player, error: 'That cash is not in the company. Personal money stays separate until you invest it.' };
     const covered = cash + loanAmount + equityCash;
     if (covered < quote.equityCheque) {
         return { player, error: `The cheque is ${formatCompact(quote.equityCheque)}. Cash, the loan, and any equity cover ${formatCompact(covered)}.` };
@@ -254,7 +239,7 @@ export const purchasePlatform = (player: Player, dealId: string, financing?: Buy
         if (lent.error) return { player, error: lent.error };
         funded = lent.player;
     }
-    if (funded.money < quote.equityCheque) return { player, error: `You are short ${formatCompact(quote.equityCheque - funded.money)} after financing.` };
+    if (readCompanyCash(funded) < quote.equityCheque) return { player, error: `The company is short ${formatCompact(quote.equityCheque - readCompanyCash(funded))} after financing.` };
     const deal = listPlatformDeals(funded).find(row => row.id === dealId) || {
         id: dealId,
         name: quote.name,
@@ -302,8 +287,7 @@ export const purchasePlatform = (player: Player, dealId: string, financing?: Buy
     if (state.stage === 'LIVE') {
         state.subscribers += Math.round(Math.min(deal.householdsM, 20) * 1_000_000 * 0.02);
     }
-    pushMoney(next, -price, `Acquired ${deal.name}`);
-    pushLine(state.books!, next, -price, `Bought ${deal.name}`, 'ACQUISITION');
+    addCompanyCash(next, -price, `Bought ${deal.name} with company cash`, 'ACQUISITION');
     if (quote.assumedDebt > 0 && next.finance) {
         const termWeeks = 260;
         const rate = 0.07;
@@ -349,25 +333,23 @@ export const chooseFunding = (player: Player, choice: FundingChoice): { player: 
     const nextBooks = next.ownPlatform!.books!;
     if (choice === 'OWN') {
         nextBooks.funding = 'OWN';
-        log(next, `${state.name} will be built from the treasury. No new lender, no new partner.`);
+        log(next, `${state.name} will be built from company cash. Your personal money stays yours unless you invest it.`);
         return { player: next };
     }
     if (choice === 'BANK') {
         nextBooks.funding = 'BANK';
         nextBooks.debt += FACILITY_USD;
         nextBooks.facilityRate = FACILITY_RATE;
-        pushMoney(next, FACILITY_USD, `${state.name} bank facility`);
-        pushLine(nextBooks, next, FACILITY_USD, 'Bank facility drawn', 'DEBT');
-        log(next, `Drew ${formatCompact(FACILITY_USD)} against ${state.name}. It has to be paid down every week.`);
+        addCompanyCash(next, FACILITY_USD, 'Bank facility drawn into the company', 'DEBT');
+        log(next, `Drew ${formatCompact(FACILITY_USD)} into ${state.name}. The money is company cash, not yours. It has to be paid down every week.`);
         return { player: next };
     }
     const cash = Math.round(quoteValuation(player) * PE_STAKE * 0.85);
     nextBooks.funding = 'EQUITY';
     nextBooks.equitySoldPct = PE_STAKE;
     nextBooks.pePartner = PE_NAME;
-    pushMoney(next, cash, `${PE_NAME} equity cheque`);
-    pushLine(nextBooks, next, cash, `${PE_NAME} bought ${Math.round(PE_STAKE * 100)}%`, 'EQUITY');
-    log(next, `${PE_NAME} bought ${Math.round(PE_STAKE * 100)}% of ${state.name} for ${formatCompact(cash)}. They take that share of weekly profit.`);
+    addCompanyCash(next, cash, `${PE_NAME} bought ${Math.round(PE_STAKE * 100)}%`, 'EQUITY');
+    log(next, `${PE_NAME} bought ${Math.round(PE_STAKE * 100)}% of ${state.name} for ${formatCompact(cash)}. The cheque is company cash. They take that share of weekly profit.`);
     return { player: next };
 };
 
@@ -393,7 +375,9 @@ export const resolveCommission = (player: Player, id: string, accept: boolean): 
         finance: player.finance,
         ownPlatform: {
             ...player.ownPlatform,
-            books: player.ownPlatform.books || emptyBooks(),
+            books: player.ownPlatform.books
+                ? { ...player.ownPlatform.books, lines: [...player.ownPlatform.books.lines], history: [...(player.ownPlatform.books.history || [])] }
+                : emptyBooks(),
             catalogue: [...player.ownPlatform.catalogue],
             resolvedCommissions: [...(player.ownPlatform.resolvedCommissions || []), { id, accepted: accept }],
         },
@@ -412,9 +396,8 @@ export const resolveCommission = (player: Player, id: string, accept: boolean): 
         cost: 0,
         releaseWeekOffset: Math.min(RELEASE_HORIZON, Math.max(0, Math.round(order.weeks))),
     });
-    pushMoney(next, greenlight, `${order.studio} greenlight on ${order.title}`);
-    pushLine(next.ownPlatform!.books!, next, greenlight, `${order.studio} paid 25% to start ${order.title}`, 'COMMISSION');
-    log(next, `Accepted ${order.studio}'s commission. ${formatCompact(greenlight)} arrived now. The rest is due if you deliver.`);
+    addCompanyCash(next, greenlight, `${publicBrandName(order.studio)} paid 25% into the company to start ${order.title}`, 'COMMISSION');
+    log(next, `Accepted ${publicBrandName(order.studio)}'s commission. ${formatCompact(greenlight)} landed in company cash. The rest is due if you deliver.`);
     return { player: next };
 };
 
@@ -710,10 +693,9 @@ export const closeBook = (player: Player): { player: Player; error?: string } =>
         finance: next.finance,
         stocks: [...(next.stocks || [])],
     };
-    pushMoney(next, raise, `${next.ownPlatform!.name} listing proceeds`);
     const books = next.ownPlatform!.books || emptyBooks();
-    next.ownPlatform = { ...next.ownPlatform!, books: { ...books, lines: [...books.lines] } };
-    pushLine(next.ownPlatform.books!, next, raise, `Listing proceeds at $${openPrice.toFixed(2)}`, 'IPO');
+    next.ownPlatform = { ...next.ownPlatform!, books: { ...books, lines: [...books.lines], cash: books.cash } };
+    addCompanyCash(next, raise, `Listing proceeds at $${openPrice.toFixed(2)} stayed in the company`, 'IPO');
     const ticker = next.ownPlatform.ipo!.ticker;
     const existing = next.stocks.findIndex(stock => stock.id === 'stk_emp' || stock.playerCompany);
     const listed: Stock = {
@@ -738,8 +720,8 @@ export const closeBook = (player: Player): { player: Player; error?: string } =>
         ? portfolio.map(row => row.stockId === 'stk_emp' ? { ...row, shares: row.shares + founderShares } : row)
         : [...portfolio, { stockId: 'stk_emp', shares: founderShares }];
     log(next, covered
-        ? `${next.ownPlatform.name} listed. The book was covered ${ipo.bookMultiple.toFixed(2)}× and ${formatCompact(raise)} reached the treasury. ${founderShares} founder shares are in Stocks.`
-        : `${next.ownPlatform.name} listed under the floor. The book was not covered. ${formatCompact(raise)} still arrived. ${founderShares} founder shares are in Stocks.`);
+        ? `${next.ownPlatform.name} listed. The book was covered ${ipo.bookMultiple.toFixed(2)}× and ${formatCompact(raise)} stayed in the company. ${founderShares} founder shares are in your personal portfolio.`
+        : `${next.ownPlatform.name} listed under the floor. The book was not covered. ${formatCompact(raise)} still arrived in the company. ${founderShares} founder shares are in your personal portfolio.`);
     return { player: next };
 };
 
@@ -801,22 +783,99 @@ export const titleRows = (player: Player): { title: string; weekly: number; sour
 export const revenueSplit = (player: Player): { lane: string; amount: number }[] => {
     const state = player.ownPlatform;
     if (!state) return [];
-    const lanes = state.revenueLanes.length ? state.revenueLanes : ['SUBSCRIPTION'];
     const total = state.lastWeeklyRevenue;
+    const parts = quoteLaunch(player).revenueParts;
+    const extra = parts.ads + parts.passes + parts.rentals + parts.purchases;
+    if (extra > 0 && total > 0) {
+        const rows = ([
+            ['SUBSCRIPTION', parts.subscriptions],
+            ['ADVERTISING', parts.ads],
+            ['DAY_PASS', parts.passes],
+            ['RENTAL', parts.rentals],
+            ['PURCHASE', parts.purchases],
+        ] as [string, number][]).filter(row => row[1] > 0);
+        const weight = rows.reduce((sum, row) => sum + row[1], 0) || 1;
+        return rows.map(([lane, amount]) => ({ lane, amount: Math.round(total * (amount / weight)) }));
+    }
+    const lanes = state.revenueLanes.length ? state.revenueLanes : ['SUBSCRIPTION'];
     return lanes.map((lane, index) => ({
         lane,
         amount: Math.round(total * ((lanes.length - index) / lanes.reduce((sum, _, i) => sum + (lanes.length - i), 0))),
     }));
 };
 
-/** Weekly debt service and private-equity share. Money is returned for the ledger. */
+const notePersonal = (player: Player, amount: number, description: string) => {
+    if (!player.finance) return;
+    if (!Array.isArray(player.finance.history)) player.finance.history = [];
+    player.finance.history.unshift({
+        id: `tx_transfer_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        week: player.currentWeek,
+        year: player.age,
+        amount: Math.trunc(amount),
+        category: 'BUSINESS',
+        description,
+    });
+    if (player.finance.history.length > 200) player.finance.history.pop();
+};
+
+/** Moves personal cash into the company. This is the only way your money becomes company cash. */
+export const investInCompany = (player: Player, amount: number): { player: Player; error?: string } => {
+    if (!player.ownPlatform) return { player, error: 'Open the company first.' };
+    const safe = Math.floor(amount);
+    if (safe <= 0) return { player, error: 'Enter how much of your own money to invest.' };
+    if (player.money < safe) return { player, error: 'You do not have that much personal cash.' };
+    const next: Player = {
+        ...player,
+        money: player.money - safe,
+        logs: [...(player.logs || [])],
+        finance: player.finance ? { ...player.finance, history: [...(player.finance.history || [])] } : player.finance,
+        ownPlatform: {
+            ...player.ownPlatform,
+            books: player.ownPlatform.books
+                ? { ...player.ownPlatform.books, lines: [...player.ownPlatform.books.lines], history: [...player.ownPlatform.books.history] }
+                : emptyBooks(),
+        },
+    };
+    const name = next.ownPlatform!.name;
+    notePersonal(next, -safe, `You invested your own money into ${name}`);
+    addCompanyCash(next, safe, 'You invested your own money into the company', 'TRANSFER');
+    log(next, `You invested ${formatCompact(safe)} of your own money into ${name}. It is company cash now.`);
+    return { player: next };
+};
+
+/** Moves company cash to you. Salary and dividend are labelled so the two wallets stay distinct. */
+export const drawFromCompany = (player: Player, amount: number, kind: 'SALARY' | 'DIVIDEND'): { player: Player; error?: string } => {
+    if (!player.ownPlatform) return { player, error: 'Open the company first.' };
+    const safe = Math.floor(amount);
+    if (safe <= 0) return { player, error: 'Enter how much company cash to take.' };
+    if (readCompanyCash(player) < safe) return { player, error: 'The company does not have that cash. Your personal money is untouched.' };
+    const next: Player = {
+        ...player,
+        money: player.money + safe,
+        logs: [...(player.logs || [])],
+        finance: player.finance ? { ...player.finance, history: [...(player.finance.history || [])] } : player.finance,
+        ownPlatform: {
+            ...player.ownPlatform,
+            books: player.ownPlatform.books
+                ? { ...player.ownPlatform.books, lines: [...player.ownPlatform.books.lines], history: [...player.ownPlatform.books.history] }
+                : emptyBooks(),
+        },
+    };
+    const name = next.ownPlatform!.name;
+    const label = kind === 'SALARY' ? `Salary you took from ${name}` : `Dividend you took from ${name}`;
+    notePersonal(next, safe, label);
+    addCompanyCash(next, -safe, label, 'TRANSFER');
+    log(next, `${label}. ${formatCompact(safe)} left the company and is personal cash now.`);
+    return { player: next };
+};
+
+/** Weekly debt service and private-equity share. Both leave company cash, never personal cash. */
 export const settleBooks = (player: Player): { notes: { msg: string; type: 'positive' | 'negative' | 'neutral' }[]; transactions: { amount: number; description: string }[] } => {
     const state = player.ownPlatform;
     if (!state) return { notes: [], transactions: [] };
     const books = state.books || emptyBooks();
     state.books = books;
     const notes: { msg: string; type: 'positive' | 'negative' | 'neutral' }[] = [];
-    const transactions: { amount: number; description: string }[] = [];
     const revenue = state.lastWeeklyRevenue || 0;
     const burn = state.lastWeeklyBurn || 0;
     let profit = revenue - burn;
@@ -825,16 +884,14 @@ export const settleBooks = (player: Player): { notes: { msg: string; type: 'posi
         const principal = Math.min(books.debt, Math.max(25_000, Math.round(books.debt * 0.02)));
         books.debt = Math.max(0, books.debt - principal);
         const due = interest + principal;
-        transactions.push({ amount: -due, description: `${state.name} facility payment` });
-        pushLine(books, player, -due, 'Facility interest and paydown', 'DEBT');
+        addCompanyCash(player, -due, `${state.name} facility payment from company cash`, 'DEBT');
         profit -= due;
         if (books.debt === 0) notes.push({ msg: `${state.name} cleared its bank facility.`, type: 'positive' });
     }
     if (books.equitySoldPct > 0 && revenue > burn) {
         const cut = Math.round((revenue - burn) * books.equitySoldPct);
         if (cut > 0) {
-            transactions.push({ amount: -cut, description: `${books.pePartner} profit share` });
-            pushLine(books, player, -cut, `${books.pePartner} took its share`, 'EQUITY');
+            addCompanyCash(player, -cut, `${books.pePartner} profit share from company cash`, 'EQUITY');
             profit -= cut;
         }
     }
@@ -843,7 +900,7 @@ export const settleBooks = (player: Player): { notes: { msg: string; type: 'posi
         const stock = (player.stocks || []).find(row => row.playerCompany || row.id === 'stk_emp');
         if (stock && Number.isFinite(stock.price)) state.ipo.lastPrice = stock.price;
     }
-    return { notes, transactions };
+    return { notes, transactions: [] };
 };
 
 export { FACILITY_USD, PE_STAKE, PE_NAME };

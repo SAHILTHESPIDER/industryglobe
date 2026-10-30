@@ -15,6 +15,7 @@ import { CLOUD_PROVIDERS, IDENTITY_PRESETS, LAUNCH_REGIONS, STOREFRONTS, createR
 import { brandFrom, legacyBrand } from './brand';
 import { IDENTS, LEGACY_IDENT } from './identEffects';
 import { anchorRates, decorateRival } from './fx';
+import { sanitizeLocalisations, sanitizePasses, sanitizePlan, sanitizeTitleStore } from './commercial';
 import { REVENUE_LANES, STANDARD_PLAN_USD, finiteSticker, syncRegions } from './logic';
 import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
 import { clampReleaseOffset } from './weeks';
@@ -134,13 +135,16 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
                     return sticker === undefined ? [] : [[key, sticker] as const];
                 })
                 : [];
-            return {
+            return sanitizePlan({
                 ...plan,
                 monthlyUsd: finiteSticker(plan.monthlyUsd) ?? STANDARD_PLAN_USD,
                 screens: Math.max(1, Math.min(6, Math.round(Number(plan.screens) || 1))),
                 countryPrices: countryEntries.length ? Object.fromEntries(countryEntries) : undefined,
-            };
+            });
         }) : created.plans,
+        localisations: sanitizeLocalisations(raw.localisations),
+        passes: sanitizePasses(raw.passes),
+        titleStore: sanitizeTitleStore(raw.titleStore),
         revenueLanes: asLanes(raw.revenueLanes),
         regions: Array.isArray(raw.regions) ? raw.regions.filter(row => row && row.regionId) : [],
         infraPreset: sanitizePreset(raw.infraPreset),
@@ -184,6 +188,7 @@ const normalizeBooks = (raw: StudioBooks | undefined): StudioBooks => {
         equitySoldPct: Math.max(0, Math.min(0.8, Number(raw.equitySoldPct) || 0)),
         history: Array.isArray(raw.history) ? raw.history.slice(-16) : [],
         lines: Array.isArray(raw.lines) ? raw.lines.slice(0, 40) : [],
+        cash: Number.isFinite(Number(raw.cash)) ? Number(raw.cash) : 0,
     };
 };
 

@@ -5,6 +5,7 @@ import { defaultLocalPrice } from '../services/ownPlatform/fx';
 import { identityEffects } from '../services/ownPlatform/identEffects';
 import { applyInfraPreset, quoteLaunch, storefrontById, storefrontEffectLine } from '../services/ownPlatform/logic';
 import { createOwnPlatform, normalizeOwnPlatform } from '../services/ownPlatform/migrate';
+import { tickOwnPlatform } from '../services/ownPlatform/week';
 import { Player } from '../types';
 
 const tuned = ['US', 'CA', 'MX', 'BR', 'AR', 'CO', 'GB', 'FR', 'DE', 'ES', 'IT', 'SE', 'NG', 'ZA', 'EG', 'KE', 'IN', 'JP', 'KR', 'ID', 'PH', 'CN', 'AU', 'NZ'];
@@ -139,6 +140,88 @@ if (!lesothoInside) fail('could not find a point inside Lesotho');
 else if (!pointInPath(lesothoInside[0], lesothoInside[1], lesotho?.d || '')) fail('Lesotho path missed its own interior');
 else if (pointInPath(lesothoInside[0], lesothoInside[1], southAfrica.d)) fail('Lesotho interior is still filled by South Africa');
 if (WORLD_PATHS.SM || WORLD_PATHS.VA) fail('San Marino and Vatican should stay dots, painted after the coastlines');
+
+if (MARKET_COUNTRIES.length !== 197) fail(`expected 197 countries, got ${MARKET_COUNTRIES.length}`);
+MARKET_COUNTRIES.forEach(country => {
+    if (!country.subRegion) fail(`${country.id} missing sub-region`);
+    if (!country.currency) fail(`${country.id} missing currency`);
+    if (!(country.populationM && country.populationM > 0)) fail(`${country.id} missing population`);
+    if (!country.languages.length) fail(`${country.id} missing languages`);
+});
+if (getCountry('US')?.subRegion !== 'United States') fail('US sub-region changed');
+if (getCountry('US')?.populationM !== 328) fail('US population was overwritten');
+if (getCountry('PK')?.subRegion !== 'South Asia') fail(`Pakistan sub-region ${getCountry('PK')?.subRegion}`);
+if (getCountry('FR')?.audienceM !== 32) fail('France audience was overwritten');
+
+const pricey = normalizeOwnPlatform({
+    plans: [{ id: 'p', name: 'Huge', monthlyUsd: 250, ads: false, downloads: true, quality: 'HD', screens: 2 }],
+} as never, player);
+if (pricey.plans[0]?.monthlyUsd !== 100) fail(`price cap became ${pricey.plans[0]?.monthlyUsd}`);
+const cheap = normalizeOwnPlatform({
+    plans: [{ id: 'p', name: 'Tiny', monthlyUsd: 0.4, ads: false, downloads: true, quality: 'HD', screens: 2 }],
+} as never, player);
+if (cheap.plans[0]?.monthlyUsd !== 0.99) fail(`price floor became ${cheap.plans[0]?.monthlyUsd}`);
+const explicitZero = normalizeOwnPlatform({
+    plans: [{ id: 'p', name: 'Zero', monthlyUsd: 0, ads: false, downloads: true, quality: 'HD', screens: 2 }],
+} as never, player);
+if (explicitZero.plans[0]?.monthlyUsd !== 0) fail('explicit zero was rewritten');
+const kept = normalizeOwnPlatform({
+    plans: [{ id: 'plan-standard', name: 'Standard', monthlyUsd: 11, ads: false, downloads: true, quality: 'HD', screens: 2 }],
+    name: 'Old Stream',
+} as never, player);
+if (kept.plans[0]?.monthlyUsd !== 11) fail('standard price moved');
+if (kept.localisations) fail('old save grew a localisation list');
+
+const france = applyInfraPreset({ ...fresh, selectedCountryIds: ['FR'] }, 'BALANCED');
+const bareQuote = quoteLaunch({ ...player, ownPlatform: france });
+const dubbedQuote = quoteLaunch({
+    ...player,
+    ownPlatform: { ...france, localisations: [{ countryId: 'FR', subtitles: 'OFF', dub: 'FULL' }] },
+});
+if (!(dubbedQuote.households > bareQuote.households)) fail(`dub did not grow France (${bareQuote.households} -> ${dubbedQuote.households})`);
+if (!(dubbedQuote.weeklyBurn > bareQuote.weeklyBurn)) fail('dub did not add a weekly bill');
+const introQuote = quoteLaunch({
+    ...player,
+    ownPlatform: { ...france, plans: [{ ...france.plans[0], introDiscountPct: 50, introWeeks: 4 }] },
+});
+if (!(introQuote.forecastWeeklyRevenue < bareQuote.forecastWeeklyRevenue)) fail('intro offer did not lower revenue');
+const freeQuote = quoteLaunch({
+    ...player,
+    ownPlatform: {
+        ...france,
+        revenueLanes: ['SUBSCRIPTION', 'ADVERTISING'],
+        plans: [
+            ...france.plans,
+            { id: 'free', name: 'Free', monthlyUsd: 0, ads: true, freeWithAds: true, adIntervalMin: 5 as const, downloads: false, quality: 'SD' as const, screens: 1 },
+        ],
+    },
+});
+if (!(freeQuote.revenueParts.ads > 0)) fail('free with ads earned no ad revenue');
+const oldAds = quoteLaunch({ ...player, ownPlatform: { ...france, revenueLanes: ['SUBSCRIPTION', 'ADVERTISING'] } });
+if (!(oldAds.forecastWeeklyRevenue > bareQuote.forecastWeeklyRevenue)) fail('older ad lane stopped paying');
+
+const liveState = {
+    ...applyInfraPreset({
+        ...fresh,
+        selectedCountryIds: ['FR'],
+        catalogue: [{ id: 'night', source: 'OWNED' as const, title: 'Night Train', genre: 'Drama', language: 'French', cost: 0 }],
+    }, 'BALANCED'),
+    stage: 'LIVE' as const,
+    applications: [{ countryId: 'FR', status: 'APPROVED' as const, weeksLeft: 0, filedWeekAbsolute: 1, note: 'Cleared.', acceptedConditions: false }],
+    localisations: [{ countryId: 'FR', subtitles: 'MAIN' as const, dub: 'MAIN' as const }],
+    plans: [{ ...fresh.plans[0], introDiscountPct: 20, introWeeks: 4, ads: true, adIntervalMin: 10 as const }],
+    revenueLanes: ['SUBSCRIPTION' as const, 'ADVERTISING' as const, 'RENTAL' as const, 'PURCHASE' as const, 'DAY_PASS' as const],
+    passes: { hourUsd: 1.99, dayUsd: 4.99 },
+    titleStore: { rentUsd: 3.99, buyUsd: 14.99 },
+};
+const livePlayer = { ...player, ownPlatform: liveState, age: 30, currentWeek: 2 };
+const personalBefore = livePlayer.money;
+const week = tickOwnPlatform(livePlayer, 100);
+if (week.transactions.length) fail(`platform week wrote ${week.transactions.length} personal transactions`);
+if (livePlayer.money !== personalBefore) fail('personal cash changed during a platform week');
+const expectedCash = (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) - (livePlayer.ownPlatform?.lastWeeklyBurn || 0);
+if ((livePlayer.ownPlatform?.books?.cash || 0) !== expectedCash) fail(`company cash ${livePlayer.ownPlatform?.books?.cash} expected ${expectedCash}`);
+if (!(expectedCash !== 0 || (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) > 0)) fail('company books did not record the week');
 
 if (process.exitCode) {
     console.error('market checks failed');

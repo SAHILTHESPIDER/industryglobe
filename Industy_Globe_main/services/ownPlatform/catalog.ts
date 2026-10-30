@@ -43,6 +43,12 @@ export interface MarketCountry {
     affordability: number;
     x: number;
     y: number;
+    /** Population in millions, from the seed. Tuned audience numbers are left alone. */
+    populationM?: number;
+    /** ISO currency code. The sticker itself still comes from the FX table. */
+    currency?: string;
+    /** Slice of the launch region, hand-set for the original markets and derived for the rest. */
+    subRegion?: string;
 }
 
 export interface ServerClass {

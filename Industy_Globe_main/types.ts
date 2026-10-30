@@ -779,6 +779,29 @@ export enum Page {
       lockupId: string;
   }
 
+  export type AdIntervalMin = 5 | 10 | 15 | 20 | 30;
+  export type PlanBenefit = 'PREMIUM' | 'EARLY_ACCESS';
+  export type LocalLevel = 'OFF' | 'MAIN' | 'FULL';
+
+  /** Subtitles and dubs for one open country. Missing means both are off. */
+  export interface CountryLocalisation {
+      countryId: string;
+      subtitles: LocalLevel;
+      dub: LocalLevel;
+  }
+
+  /** One-off skips for ad-supported viewing. 0 means that pass is not sold. */
+  export interface AdFreePasses {
+      hourUsd: number;
+      dayUsd: number;
+  }
+
+  /** Extra title sales. 0 means that till is closed. */
+  export interface TitleStoreOffers {
+      rentUsd: number;
+      buyUsd: number;
+  }
+
   export interface PricingPlan {
       id: string;
       name: string;
@@ -790,6 +813,18 @@ export enum Page {
       screens: number;
       /** Monthly price in each market's own currency. Missing countries use a purchasing-power default. */
       countryPrices?: Record<string, number>;
+      /** The only $0 plan. Forces ads on. Missing means a paid plan. */
+      freeWithAds?: boolean;
+      /** Minutes between ad breaks. Missing keeps the older flat ad boost. */
+      adIntervalMin?: AdIntervalMin;
+      /** 0–50. Share of subscribers who pay yearly. Missing means monthly only. */
+      annualDiscountPct?: number;
+      /** 0–90. Opening discount. Missing means full price. */
+      introDiscountPct?: number;
+      /** How many weeks the intro price lasts, up to 13. */
+      introWeeks?: number;
+      /** Premium badge or early access. Missing means neither. */
+      benefits?: PlanBenefit[];
   }
 
   export interface RegionBuild {
@@ -835,7 +870,7 @@ export enum Page {
       year: number;
       amount: number;
       label: string;
-      source: 'RECEIPTS' | 'BURN' | 'TITLE' | 'DEBT' | 'EQUITY' | 'ACQUISITION' | 'IPO' | 'COMMISSION';
+      source: 'RECEIPTS' | 'BURN' | 'TITLE' | 'DEBT' | 'EQUITY' | 'ACQUISITION' | 'IPO' | 'COMMISSION' | 'TRANSFER';
   }
 
   export interface StudioBooks {
@@ -846,6 +881,8 @@ export enum Page {
       pePartner: string;
       history: { week: number; revenue: number; burn: number; profit: number }[];
       lines: PlatformLedgerLine[];
+      /** Company cash. Missing on older saves, which start at 0. This is not the player's personal money. */
+      cash?: number;
   }
 
   export interface ReleaseSlot {
@@ -1014,6 +1051,12 @@ export enum Page {
       storefrontId: string;
       catalogue: CataloguePick[];
       plans: PricingPlan[];
+      /** Per-country subtitles and dubs. Missing on older saves. */
+      localisations?: CountryLocalisation[];
+      /** Ad-free hour and day passes. Missing means they are not sold. */
+      passes?: AdFreePasses;
+      /** Rent and buy prices. Missing means the store is closed. */
+      titleStore?: TitleStoreOffers;
       revenueLanes: RevenueLane[];
       regions: RegionBuild[];
       /** Last infrastructure preset. Missing on saves from before auto-build. */

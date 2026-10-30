@@ -172,8 +172,73 @@ export const deriveCountry = (seed: CountrySeed): MarketCountry => {
     };
 };
 
+const HAND_SUB: Record<string, string> = {
+    US: 'United States', CA: 'Canada', MX: 'Mexico & Central America',
+    BR: 'Brazil', AR: 'Southern Cone', CO: 'Andes',
+    GB: 'British Isles', FR: 'Western Europe', DE: 'Western Europe',
+    ES: 'Southern Europe', IT: 'Southern Europe', SE: 'Northern Europe',
+    NG: 'West Africa', ZA: 'Southern Africa', EG: 'North Africa', KE: 'East Africa',
+    IN: 'South Asia', JP: 'East Asia', KR: 'East Asia', ID: 'Southeast Asia',
+    PH: 'Southeast Asia', CN: 'East Asia', AU: 'Australia & New Zealand', NZ: 'Australia & New Zealand',
+};
+
+const CENTRAL_AMERICA = new Set(['MX', 'GT', 'BZ', 'HN', 'SV', 'NI', 'CR', 'PA']);
+const SOUTH_ASIA = new Set(['AF', 'PK', 'IN', 'BD', 'BT', 'NP', 'LK', 'MV']);
+const SOUTHEAST_ASIA = new Set(['BN', 'KH', 'LA', 'MY', 'MM', 'SG', 'TH', 'TL', 'VN', 'ID', 'PH']);
+const EAST_ASIA = new Set(['HK', 'JP', 'KR', 'CN', 'TW', 'MN', 'KP']);
+const CENTRAL_ASIA = new Set(['KZ', 'KG', 'TJ', 'TM', 'UZ']);
+
+/** Hand labels for the original 24. Everyone else is placed from the region and the map. */
+export const subRegionFor = (seed: CountrySeed): string => {
+    const [id, , letter, , , , , , lat, lon] = seed;
+    if (HAND_SUB[id]) return HAND_SUB[id];
+    if (letter === 'N') {
+        if (CENTRAL_AMERICA.has(id)) return 'Mexico & Central America';
+        if (lat < 28) return 'Caribbean';
+        return 'Northern America';
+    }
+    if (letter === 'S') {
+        if (id === 'BR') return 'Brazil';
+        if (lat <= -28 || (lon > -65 && lat < -15)) return 'Southern Cone';
+        if (lat > 2) return 'Northern South America';
+        return 'Andes';
+    }
+    if (letter === 'E') {
+        if (id === 'GB' || id === 'IE') return 'British Isles';
+        if (id === 'RU') return 'Eastern Europe';
+        if (lat >= 55) return 'Northern Europe';
+        if (lon >= 15) return 'Eastern Europe';
+        if (lat < 46) return 'Southern Europe';
+        return 'Western Europe';
+    }
+    if (letter === 'F') {
+        if (lat > 18) return 'North Africa';
+        if (lat < -8) return 'Southern Africa';
+        if (lon < 18) return 'West Africa';
+        if (lon > 28) return 'East Africa';
+        return 'Central Africa';
+    }
+    if (letter === 'A') {
+        if (SOUTH_ASIA.has(id)) return 'South Asia';
+        if (SOUTHEAST_ASIA.has(id)) return 'Southeast Asia';
+        if (EAST_ASIA.has(id)) return 'East Asia';
+        if (CENTRAL_ASIA.has(id)) return 'Central Asia';
+        return 'West Asia';
+    }
+    if (id === 'AU' || id === 'NZ') return 'Australia & New Zealand';
+    return 'Pacific';
+};
+
 /** Tuned markets keep every hand-set number. Everyone else is derived from the seed row. */
 export const buildMarketCountries = (): MarketCountry[] => {
     const tuned = new Map(TUNED_COUNTRIES.map((country) => [country.id, country]));
-    return COUNTRY_SEEDS.map((seed) => tuned.get(seed[0]) || deriveCountry(seed));
+    return COUNTRY_SEEDS.map((seed) => {
+        const base = tuned.get(seed[0]) || deriveCountry(seed);
+        return {
+            ...base,
+            populationM: seed[3],
+            currency: seed[6],
+            subRegion: subRegionFor(seed),
+        };
+    });
 };

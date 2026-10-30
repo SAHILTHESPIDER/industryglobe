@@ -123,9 +123,9 @@ export const Shell: React.FC<ShellProps> = ({
                         </ul>
                     </div>
                     <div className="treas">
-                        <div className="l">Treasury</div>
+                        <div className="l">Company cash</div>
                         <div className="v">{formatCompact(money)}</div>
-                        <div className="s">Career money · USD books</div>
+                        <div className="s">Not your personal cash</div>
                     </div>
                 </aside>
                 <div className="main">
@@ -185,7 +185,7 @@ export const FooterBar: React.FC<{
     <footer className="foot">
         <div className="kv"><div className="l">{leftLabel}</div><div className="v">{leftValue}</div></div>
         <div className="sep" />
-        <div className="kv"><div className="l">Treasury</div><div className="v">{money}</div></div>
+        <div className="kv"><div className="l">Company cash</div><div className="v">{money}</div></div>
         <div className="sp" />
         {onBack && <button type="button" onClick={onBack} className="btn gho">← Back</button>}
         {onNext && <button type="button" onClick={onNext} disabled={disabled} className={`btn pri ${disabled ? 'dis' : ''}`}>{nextLabel}</button>}
