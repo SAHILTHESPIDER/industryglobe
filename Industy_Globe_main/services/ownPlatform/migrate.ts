@@ -114,6 +114,7 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         applications: Array.isArray(raw.applications) ? raw.applications.filter(row => row && getCountry(row.countryId)) : [],
         identityId: IDENTITY_PRESETS.some(row => row.id === raw.identityId) ? raw.identityId! : created.identityId,
         identId: IDENTS.some(row => row.id === raw.identId) ? raw.identId : (LEGACY_IDENT[raw.identityId || ''] || created.identId),
+        identSound: raw.identSound === false ? false : undefined,
         brand: normalizeBrand(raw.brand, raw.identityId),
         storefrontId: STOREFRONTS.some(row => row.id === raw.storefrontId) ? raw.storefrontId! : created.storefrontId,
         catalogue: Array.isArray(raw.catalogue)

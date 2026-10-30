@@ -788,8 +788,10 @@ const ProductionHouseInner: React.FC<{
                                         setSelectedConcept(p.concept);
                                         setView('GREENLIGHT');
                                     } else if (p.phase === 'AWAITING RELEASE') {
+                                        const screeningStatus = p.projectDetails?.testScreening?.status;
+                                        const screeningOpen = screeningStatus === 'OFFERED' || screeningStatus === 'RESULTS' || screeningStatus === 'WORKING';
                                         setSelectedProjectDashboard(p);
-                                        setView('RELEASE');
+                                        if (!screeningOpen) setView('RELEASE');
                                     } else {
                                         setSelectedProjectDashboard(p);
                                     }

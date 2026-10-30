@@ -915,6 +915,8 @@ export enum Page {
       identityId: string;
       /** Synthesised bumper. Missing saves are filled from identityId. */
       identId?: string;
+      /** When false, opening and title idents stay silent. Missing means on. */
+      identSound?: boolean;
       /** Mark, typeface, and lockup. Missing saves are filled from identityId. */
       brand?: PlatformBrand;
       customAudioName?: string;

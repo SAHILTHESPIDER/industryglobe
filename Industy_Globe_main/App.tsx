@@ -13,6 +13,7 @@ import { CareerPage } from './views/CareerPage';
 import { ImprovePage } from './views/ImprovePage';
 import { SocialPage } from './views/SocialPage';
 import { LifestylePage } from './views/LifestylePage';
+import { armPlatformIdent } from './services/ownPlatform/identAudio';
 import { SettingsPage } from './views/SettingsPage';
 import { StorePage } from './views/StorePage';
 import { StartMenu } from './views/StartMenu';
@@ -40,6 +41,8 @@ import { sanitizeAwardRecords } from './services/awardLogic';
 import { RoleType } from './types';
 import { applyParenthoodAbandonment, getPregnancyFeedbackCopy } from './services/familyLogic';
 import { APP_DISPLAY_VERSION } from './services/appVersion';
+import { applyLegacyFilmScores, hydrateReleaseWorld } from './services/releaseGauntlet';
+import { FestivalNightModal } from './views/FestivalNightModal';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
 import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
@@ -203,7 +206,7 @@ const normalizeActiveRelease = (release: Partial<ActiveRelease>, playerAge: numb
     const projectDetails = normalizeProjectDetails(release.projectDetails);
     const distributionPhase = release.distributionPhase || 'THEATRICAL';
 
-    return {
+    return applyLegacyFilmScores({
         id: release.id || `release_${Date.now()}`,
         name: release.name || projectDetails.title,
         type: release.type || projectDetails.type,
@@ -236,11 +239,14 @@ const normalizeActiveRelease = (release: Partial<ActiveRelease>, playerAge: numb
         ...(release.franchiseId !== undefined ? { franchiseId: release.franchiseId } : {}),
         ...(release.sourceMaterial !== undefined ? { sourceMaterial: release.sourceMaterial } : {}),
         ...(release.installmentNumber !== undefined ? { installmentNumber: release.installmentNumber } : {}),
+        ...(typeof release.criticScore === 'number' ? { criticScore: release.criticScore } : {}),
+        ...(typeof release.audienceScore === 'number' ? { audienceScore: release.audienceScore } : {}),
+        ...(release.reviewBomb ? { reviewBomb: release.reviewBomb } : {}),
         ...(distributionPhase === 'STREAMING' ? { streaming: normalizeStreamingState(release.streaming, projectDetails, playerAge, currentWeek) } : {}),
-    };
+    });
 };
 
-const normalizePastProject = (project: Partial<PastProject>): PastProject => ({
+const normalizePastProject = (project: Partial<PastProject>): PastProject => applyLegacyFilmScores({
     id: project.id || `past_${Date.now()}`,
     name: project.name || 'Untitled Project',
     type: 'ACTING_GIG',
@@ -941,6 +947,7 @@ export const App: React.FC = () => {
           if (!Array.isArray(safePlayer.applications)) safePlayer.applications = [];
           if (!safePlayer.studioMemory) safePlayer.studioMemory = {} as any;
           if (!safePlayer.world) safePlayer.world = { ...INITIAL_PLAYER.world };
+          safePlayer.world = hydrateReleaseWorld(safePlayer).world;
           if (!safePlayer.world.npcVentures || typeof safePlayer.world.npcVentures !== 'object') safePlayer.world.npcVentures = {};
           if (!safePlayer.world.studios || typeof safePlayer.world.studios !== 'object') safePlayer.world.studios = { ...INITIAL_PLAYER.world.studios };
           (['MARVEL_STUDIOS', 'DC_STUDIOS', 'LUCASFILM'] as const).forEach(studioId => {
@@ -2207,6 +2214,9 @@ export const App: React.FC = () => {
       )}
 
       {player.pendingEvent && (player.pendingEvent.type === 'AWARD_CEREMONY' || player.pendingEvent.type === 'PREMIERE') && (<RedCarpetEvent key={player.pendingEvent.id} player={player} event={player.pendingEvent} onComplete={handleEventComplete} />)}
+      {player.pendingEvent && player.pendingEvent.type === 'FESTIVAL_PREMIERE' && (
+          <FestivalNightModal key={player.pendingEvent.id} player={player} event={player.pendingEvent} onComplete={handleEventComplete} onUpdate={(updater) => setPlayer(current => updater(current))} />
+      )}
       {player.pendingEvents && player.pendingEvents.length > 0 && (player.pendingEvents[0].type === 'PRODUCTION_CRISIS' || player.pendingEvents[0].type === 'DIRECTOR_DECISION') && (
           <ProductionCrisisModal 
               key={player.pendingEvents[0].id}
@@ -2360,44 +2370,34 @@ export const App: React.FC = () => {
                           <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 mb-3">What&apos;s New</div>
                           <h3 className="text-2xl font-black text-white mb-2">Version {APP_DISPLAY_VERSION}</h3>
                           <p className="text-sm text-zinc-400 leading-relaxed">
-                              This update focuses on the latest player-reported fixes: streaming growth, relationship pregnancy logic, returning talent blockers, and long-career stability.
+                              Films now leave the editing room with scores, a test screening, and a festival circuit that can turn into a bidding war.
                           </p>
                       </div>
 
                       <div className="space-y-4 text-sm text-zinc-300">
                           <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Studio & Streaming</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Critics</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Fixed runaway streaming viewership so weekly streams rise, peak, and taper in a more realistic way.</li>
-                                  <li>• Improved streaming bid wars so platforms compete with clearer offers and better sequel/season handling.</li>
-                                  <li>• Greenlight now shows exactly which returning talent deals are pending, with quick negotiate actions.</li>
+                                  <li>• Every film gets a critics percent and an audience percent, listed beside the IMDb rating. Named critics show up with a short quote. Some are on your side. Some are not.</li>
+                                  <li>• Praise on a talk-show tour, or a feud on X, changes how that roster treats the next film.</li>
+                                  <li>• High heat or a messy YouTube channel can trigger a review bomb. Ignore it, call it out, or ask the platform to clean it up over two weeks.</li>
                               </ul>
                           </div>
 
                           <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Career & Family</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Test screenings</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Fixed pregnancy logic so the correct person is treated as pregnant based on player and partner gender.</li>
-                                  <li>• Same-sex and non-binary intimacy now stays romance/drama focused without triggering impossible pregnancy outcomes.</li>
-                                  <li>• Improved relationship and baby feedback so family story moments happen in the right order.</li>
+                                  <li>• After a production-house film wraps, you can buy a test screening. The score is a hint, within 8 points of the real audience number.</li>
+                                  <li>• Release the cut you tested, pay for a recut, reshoot the ending, or bury the film on streaming and keep the marketing money.</li>
                               </ul>
                           </div>
 
                           <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">Mobile Stability</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">Festivals</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Optimized save storage for long careers so old timelines do not overload mobile WebViews.</li>
-                                  <li>• Reduced heavy visual effects on mobile devices to help Android screens stay responsive.</li>
-                                  <li>• Improved recovery protection around events, weekly processing, and large social/news histories.</li>
-                              </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-violet-500/15 bg-violet-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300 mb-2">UI & Save Fixes</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• Cleaned decimal/overflow UI issues in festival, Forbes, IMDb, and career surfaces.</li>
-                                  <li>• Added more old-save safety across universe, franchise, roster, and generated content paths.</li>
-                                  <li>• Tightened weekly processing and recovery handling to reduce stuck-event loops.</li>
+                                  <li>• Submit to Sundance, Berlin, Cannes, Venice, or TIFF. Quality above the festival&apos;s bar raises the odds. It does not guarantee a slot.</li>
+                                  <li>• A selected film gets a premiere reaction and can win a prize. A breakout opens a bidding room: accept, counter, or walk, up to three rounds.</li>
+                                  <li>• A prize is worth an extra 5 points when the Oscars and BAFTA score that season.</li>
                               </ul>
                           </div>
 
@@ -2419,9 +2419,10 @@ export const App: React.FC = () => {
                               <div className="rounded-2xl border border-white/10 bg-zinc-950/80 px-4 py-3">
                                   <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 mb-2">Previous Highlights</div>
                                   <ul className="space-y-2 leading-relaxed text-zinc-400">
+                                      <li>• 1.1.27 fixed the streaming plan price, filled the weekend Top 10, and tied your X location to the city you live in.</li>
+                                      <li>• 1.1.25 fixed streaming viewership curves, bid wars, pregnancy logic, and long-career save stability.</li>
+                                      <li>• Greenlight shows which returning talent deals are pending, with quick negotiate actions.</li>
                                       <li>• Expanded Development Lab, franchise, universe, creator, social, and global talent systems.</li>
-                                      <li>• Added deeper script support for musical, biopic, sports, animation, fantasy, crime, and documentary projects.</li>
-                                      <li>• Improved teams, bank actions, lifestyle assets, award records, and older save compatibility.</li>
                                   </ul>
                               </div>
                           )}
@@ -2462,7 +2463,7 @@ export const App: React.FC = () => {
                 </div>
                 <div className="hidden lg:flex items-center gap-2">
                     <button onClick={() => openPhone({ app: 'BANK' })} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-black text-emerald-300">{formatMoney(player.money)}</button>
-                    <button onClick={() => openPhone({ app: 'OWN_PLATFORM', pane: player.ownPlatform?.stage === 'LIVE' ? 'ops' : 'launch' })} className="rounded-full border border-[#ff3b30]/40 bg-[#ff3b30]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#ffb4b0]">{player.ownPlatform?.name || 'Empire+'}</button>
+                    <button onClick={() => { armPlatformIdent(player); openPhone({ app: 'OWN_PLATFORM', pane: player.ownPlatform?.stage === 'LIVE' ? 'ops' : 'launch' }); }} className="rounded-full border border-[#ff3b30]/40 bg-[#ff3b30]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#ffb4b0]">{player.ownPlatform?.name || 'Empire+'}</button>
                     <button onClick={() => openPage(Page.STORE)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">Store</button>
                     <button onClick={() => openPage(Page.SETTINGS)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">Settings</button>
                 </div>

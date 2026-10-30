@@ -28,6 +28,7 @@ import { normalizeUniverseMap } from '../../services/universeLogic';
 import { getPlayerLanguage, t } from '../../services/i18n';
 import { StreamingPage } from './StreamingPage';
 import { OwnPlatformApp } from '../ownPlatform/OwnPlatformApp';
+import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
 
 // Helper Component for App Icon
 const AppIcon = ({ icon, color, label, onClick, badge, customContent, customBg }: any) => (
@@ -513,7 +514,7 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                                 icon={<Radio size={26} />}
                                 color="bg-[#ff3b30]"
                                 label="Empire+"
-                                onClick={() => { setPlatformPane('launch'); setAppMode('OWN_PLATFORM'); }}
+                                onClick={() => { armPlatformIdent(props.player); setPlatformPane('launch'); setAppMode('OWN_PLATFORM'); }}
                             />
                             <AppIcon 
                                 icon={<Users size={26} />} 
@@ -600,7 +601,7 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <BoxOfficeHub player={props.player} onBack={() => setAppMode('HOME')} />
                 )}
                 {appMode === 'STREAMING' && (
-                    <StreamingPage player={props.player} onBack={() => setAppMode('HOME')} onOpenRights={() => { setPlatformPane('rights'); setAppMode('OWN_PLATFORM'); }} />
+                    <StreamingPage player={props.player} onBack={() => setAppMode('HOME')} onOpenRights={() => { armPlatformIdent(props.player); setPlatformPane('rights'); setAppMode('OWN_PLATFORM'); }} />
                 )}
                 {appMode === 'OWN_PLATFORM' && (
                     <OwnPlatformApp
@@ -646,13 +647,13 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <NewsApp player={props.player} onBack={() => setAppMode('HOME')} />
                 )}
                 {appMode === 'IMDB' && (
-                    <ImdbApp player={props.player} onBack={() => setAppMode('HOME')} />
+                    <ImdbApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />
                 )}
                 {appMode === 'FORBES' && (
                     <ForbesApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />
                 )}
                 {appMode === 'STOCKS' && (
-                    <StocksApp player={props.player} onBack={() => setAppMode('HOME')} onTrade={props.onTradeStock!} onFoundCompany={props.onFoundCompany} onOpenCompany={() => { setPlatformPane('launch'); setAppMode('OWN_PLATFORM'); }} onAcquirePlatform={props.onAcquirePlatform} />
+                    <StocksApp player={props.player} onBack={() => setAppMode('HOME')} onTrade={props.onTradeStock!} onFoundCompany={props.onFoundCompany} onOpenCompany={() => { armPlatformIdent(props.player); setPlatformPane('launch'); setAppMode('OWN_PLATFORM'); }} onAcquirePlatform={props.onAcquirePlatform} />
                 )}
                 {appMode === 'BANK' && (
                     <BankApp player={props.player} onBack={() => setAppMode('HOME')} onUpdatePlayer={handleUpdatePlayer} />

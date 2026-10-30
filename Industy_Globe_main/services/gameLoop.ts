@@ -54,6 +54,7 @@ import { generateAgentOffers, generateManagerOffer, generateDirectOffer, getRand
 import { processStockMarket, calculatePortfolioValue, getDividendPayout, initializeStocks, normalizeListedStocks, empireFundamentals } from './stockLogic';
 import { serviceWeeklyLoans } from './loanLogic';
 import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonWinners, generateFullBallot, getAwardCeremonyYear } from './awardLogic';
+import { advanceReviewBomb, advanceScreeningWork, applyReleaseCampaignHype, hydrateReleaseWorld, lockReleaseScores, offerTestScreeningOnWrap, resolveDueFestivals, withdrawUnfinishedFestival } from './releaseGauntlet';
 import { processWorldTurn, generateIndustryProject } from './worldLogic';
 import { absoluteWeek, clashFactorFor, gameCalendarYear, migrateBoxOfficeHistory, publishBoxOfficeWeekend } from './boxOfficeSim'; 
 import { generateFamousMovieOpportunity, generateCameoOffer } from './famousMovieLogic'; 
@@ -725,7 +726,13 @@ export const assignScheduledEvents = (
         if (eventToday.type === 'AWARD_CEREMONY') {
             const nominations = eventToday.data?.nominations || [];
             if (nominations.length > 0) {
-                pushSlotEvent(eventToday);
+                // An award show keeps the slot. A festival premiere waits in the queue.
+                if (nextPending?.type === 'FESTIVAL_PREMIERE') {
+                    queue.unshift(nextPending);
+                    nextPending = eventToday;
+                } else {
+                    pushSlotEvent(eventToday);
+                }
                 logs.push(`📅 Today is the day: ${eventToday.title}. Good luck!`);
             } else {
                 logs.push(`📺 ${eventToday.title} is airing tonight. You are watching from home.`);
@@ -795,6 +802,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     if (!Array.isArray(nextPlayer.world.famousMoviesReleased)) nextPlayer.world.famousMoviesReleased = [];
     if (!Array.isArray(nextPlayer.world.awardHistory)) nextPlayer.world.awardHistory = [];
     if (!Array.isArray(nextPlayer.world.upcomingRivals)) nextPlayer.world.upcomingRivals = [];
+    nextPlayer = hydrateReleaseWorld(nextPlayer);
     nextPlayer = migrateBoxOfficeHistory(nextPlayer);
     if (!nextPlayer.studio) {
         nextPlayer.studio = {
@@ -1130,6 +1138,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     try {
         const worldResult = processWorldTurn(nextPlayer);
         nextPlayer.world = worldResult.world;
+        nextPlayer = hydrateReleaseWorld(nextPlayer);
         nextPlayer.news = [...worldResult.news, ...nextPlayer.news].slice(0, 50);
         if (worldResult.logs?.length) {
             worldResult.logs.forEach(message => logsToAdd.push({ msg: `🏢 ${message}`, type: 'neutral' }));
@@ -2599,6 +2608,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
 
     const nextCommitments: Commitment[] = [];
     const newReleases: ActiveRelease[] = [];
+
+    const festivalTurn = resolveDueFestivals(nextPlayer);
+    nextPlayer = festivalTurn.player;
+    festivalTurn.logs.forEach(message => logsToAdd.push({ msg: message, type: /passed on/i.test(message) ? 'negative' : 'positive' }));
+    if (festivalTurn.news.length) nextPlayer.news = [...festivalTurn.news, ...nextPlayer.news].slice(0, 50);
     
     nextPlayer.commitments.forEach(c => {
         let updatedC = { ...c };
@@ -2712,14 +2726,37 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             if (weeksLeft <= 0) {
                 const duration = getPhaseDuration('POST_PRODUCTION');
                 logsToAdd.push({ msg: `🎬 That's a wrap on "${updatedC.name}"! Moving to post-production.`, type: 'positive' });
-                nextCommitments.push({ ...updatedC, projectPhase: 'POST_PRODUCTION', phaseWeeksLeft: duration, totalPhaseDuration: duration, promotionalBuzz: 0 });
+                const wrapped = offerTestScreeningOnWrap(nextPlayer, { ...updatedC, projectPhase: 'POST_PRODUCTION', phaseWeeksLeft: duration, totalPhaseDuration: duration, promotionalBuzz: 0 });
+                if (wrapped.projectDetails?.testScreening?.status === 'OFFERED') {
+                    logsToAdd.push({ msg: `🧪 "${updatedC.name}" can hold a test screening before you lock a release.`, type: 'neutral' });
+                }
+                nextCommitments.push(wrapped);
             } else { nextCommitments.push({ ...updatedC, phaseWeeksLeft: weeksLeft }); }
         } else if (updatedC.projectPhase === 'POST_PRODUCTION') {
-            if (weeksLeft <= 0) {
+            const worked = advanceScreeningWork(updatedC);
+            updatedC = worked.commitment;
+            if (worked.log) logsToAdd.push({ msg: `✂️ ${worked.log}`, type: worked.tone || 'neutral' });
+            const screening = updatedC.projectDetails?.testScreening;
+            if (weeksLeft <= 0 && screening?.status === 'WORKING') {
+                nextCommitments.push({ ...updatedC, phaseWeeksLeft: Math.max(1, screening.workWeeksLeft || 1) });
+            } else if (weeksLeft <= 0) {
+                let details = updatedC.projectDetails;
+                if (details?.testScreening?.status === 'RESULTS') {
+                    details = { ...details, testScreening: { ...details.testScreening, status: 'RESOLVED', choice: 'RELEASE' } };
+                    logsToAdd.push({ msg: `🧪 "${updatedC.name}" left the screening in the cut you tested.`, type: 'neutral' });
+                }
                 logsToAdd.push({ msg: `🎬 Post-production complete for "${updatedC.name}"! Ready for release strategy.`, type: 'positive' });
-                nextCommitments.push({ ...updatedC, projectPhase: 'AWAITING_RELEASE', phaseWeeksLeft: 0, totalPhaseDuration: 0 });
+                nextCommitments.push({ ...updatedC, projectDetails: details, projectPhase: 'AWAITING_RELEASE', phaseWeeksLeft: 0, totalPhaseDuration: 0 });
             } else { nextCommitments.push({ ...updatedC, phaseWeeksLeft: weeksLeft }); }
         } else if (updatedC.projectPhase === 'AWAITING_RELEASE') {
+            if (updatedC.projectDetails?.testScreening?.status === 'WORKING') {
+                const worked = advanceScreeningWork(updatedC);
+                updatedC = worked.commitment;
+                if (worked.log) logsToAdd.push({ msg: `✂️ ${worked.log}`, type: worked.tone || 'neutral' });
+            }
+            if (updatedC.projectDetails?.testScreening?.status === 'WORKING') {
+                nextCommitments.push({ ...updatedC, phaseWeeksLeft: Math.max(1, weeksLeft) });
+            } else {
             const isStudioProject = updatedC.projectDetails?.studioId !== undefined;
             
             if (updatedC.projectDetails?.releaseStrategy) {
@@ -2759,18 +2796,6 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     updatedC.projectDetails.hiddenStats.castDepthScore = updatedC.projectDetails.hiddenStats.castDepthScore ?? castDepth.score;
                     updatedC.projectDetails.hiddenStats.castDepthNote = updatedC.projectDetails.hiddenStats.castDepthNote ?? castDepth.note;
 
-                    const quality = updatedC.projectDetails.hiddenStats.qualityScore;
-                    const isRecast = updatedC.projectDetails.hiddenStats.isRecast;
-                    updatedC.projectDetails.reviews = generateReviews(
-                        quality,
-                        updatedC.projectDetails.genre,
-                        nextPlayer.name,
-	                        isRecast,
-	                        updatedC.projectDetails.hiddenStats.castDepthScore,
-	                        updatedC.projectDetails.budgetTier,
-	                        updatedC.projectDetails.format || 'LIVE_ACTION',
-	                        updatedC.projectDetails.subjectName
-	                    );
                 }
 
                 let streamingState: StreamingState | undefined = undefined;
@@ -2823,6 +2848,24 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         updatedC.projectDetails.hiddenStats.ytCampaignHype = ytBoost.campaignHype;
                         updatedC.projectDetails.hiddenStats.ytOpeningMultiplier = ytBoost.openingMultiplier;
                     }
+                    if (updatedC.projectDetails) {
+                        updatedC.projectDetails = applyReleaseCampaignHype(updatedC.projectDetails);
+                        const lockedScores = lockReleaseScores(updatedC.projectDetails, nextPlayer.world.critics || [], nextPlayer.name);
+                        updatedC.projectDetails.hiddenStats.criticScore = lockedScores.criticScore;
+                        updatedC.projectDetails.hiddenStats.audienceScore = lockedScores.audienceScore;
+                        updatedC.projectDetails.reviews = lockedScores.reviews.length
+                            ? lockedScores.reviews
+                            : generateReviews(
+                                updatedC.projectDetails.hiddenStats.qualityScore,
+                                updatedC.projectDetails.genre,
+                                nextPlayer.name,
+                                updatedC.projectDetails.hiddenStats.isRecast,
+                                updatedC.projectDetails.hiddenStats.castDepthScore,
+                                updatedC.projectDetails.budgetTier,
+                                updatedC.projectDetails.format || 'LIVE_ACTION',
+                                updatedC.projectDetails.subjectName
+                            );
+                    }
                     let accumulatedBuzz = updatedC.promotionalBuzz || 0;
                     
                     // Add Red Carpet Hype
@@ -2830,6 +2873,10 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         accumulatedBuzz += updatedC.projectDetails.hiddenStats.redCarpetHype;
                     }
                     
+                    const withdrawn = withdrawUnfinishedFestival(nextPlayer, updatedC.projectDetails, updatedC.name);
+                    nextPlayer = withdrawn.player;
+                    if (withdrawn.log) logsToAdd.push({ msg: withdrawn.log, type: 'neutral' });
+
                     // Add Festival Hype
                     if (updatedC.projectDetails.hiddenStats.festivalPremiere) {
                         accumulatedBuzz += 25; // Significant boost for festival premiere
@@ -2859,6 +2906,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         studioRoyaltyPercentage: updatedC.projectDetails.hiddenStats.backendPct,
                         sequelDecisionWeek: 4 + Math.floor(Math.random() * 7),
                         promotionalBuzz: accumulatedBuzz,
+                        criticScore: updatedC.projectDetails.hiddenStats.criticScore,
+                        audienceScore: updatedC.projectDetails.hiddenStats.audienceScore,
                         maxTheatricalWeeks
 	                    };
 	                    newReleases.push(newRelease);
@@ -2871,6 +2920,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             // Waiting for player to set strategy
             nextCommitments.push({ ...updatedC, phaseWeeksLeft: 0 });
         }
+            }
     }
 });
 
@@ -2883,6 +2933,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     let newInbox = [...nextPlayer.inbox];
 
     allRunning.forEach(rel => {
+        const bombTick = advanceReviewBomb(nextPlayer, rel);
+        if (bombTick.reviewBomb) rel.reviewBomb = bombTick.reviewBomb;
+        if (bombTick.log) logsToAdd.push({ msg: bombTick.log, type: 'negative' });
+        if (bombTick.news) newNews.unshift(bombTick.news);
+
         if (rel.imdbRating) {
             const change = (Math.random() * 0.1) - 0.05; 
             rel.imdbRating = Math.max(1.1, Math.min(9.9, rel.imdbRating + change));
@@ -3354,6 +3409,10 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     earnings: 0, rating: rel.imdbRating || 0, reception: rel.status, projectQuality: rel.projectDetails.hiddenStats.qualityScore, imdbRating: rel.imdbRating, boxOfficeResult: `$${(rel.totalGross/1000000).toFixed(1)}M`, outcomeTier: calculateRunOutcome(rel.totalGross + newStreamingRevenue, rel.budget, rel.imdbRating || 5).tier, subtype: rel.projectDetails.subtype, futurePotential: rel.futurePotential || { sequelChance: 0, franchiseChance: 0, rebootChance: 0, renewalChance: 0, isFranchiseStarter: false, isSequelGreenlit: false, isRenewed: false, seriesStatus: 'N/A', playerReturnStatus: undefined, returnStatusNote: undefined }, studioId: rel.projectDetails.studioId, streamingPlatform: rel.streaming.platformId, totalViews, streamingRevenue: newStreamingRevenue, castList: rel.projectDetails.castList, reviews: rel.projectDetails.reviews, budget: rel.budget, gross: rel.totalGross, genre: rel.projectDetails.genre, format: rel.projectDetails.format, subjectName: rel.projectDetails.subjectName, subjectType: rel.projectDetails.subjectType, description: rel.projectDetails.description, projectType: rel.type, royaltyPercentage: rel.royaltyPercentage, franchiseId: rel.projectDetails.franchiseId, universeId: rel.projectDetails.universeId, universeSagaName: rel.projectDetails.universeSagaName, universePhaseName: rel.projectDetails.universePhaseName, installmentNumber: rel.projectDetails.installmentNumber, directorId: rel.projectDetails.directorId,
                     rightsIpId: rel.projectDetails.hiddenStats?.rightsIpId,
                     adaptationAwardBonus: rel.projectDetails.hiddenStats?.adaptationAwardBonus,
+                    criticScore: rel.criticScore,
+                    audienceScore: rel.audienceScore,
+                    reviewBomb: rel.reviewBomb,
+                    festivalPrizeBonus: rel.projectDetails.hiddenStats?.festivalPrizeBonus,
                 });
                 registerAdaptationResult(nextPlayer, rel);
             } else {

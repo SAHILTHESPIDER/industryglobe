@@ -6,6 +6,7 @@ import { FESTIVALS, CALENDAR_EVENTS } from '../../../services/worldLogic';
 import { mergeUniverseRosterWithProject, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
+import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, releaseBeforeFestival, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -273,6 +274,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
     const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
     const [festivalPremiere, setFestivalPremiere] = useState<string | null>(null);
+    const [lockError, setLockError] = useState('');
     const [releaseWeek, setReleaseWeek] = useState<number>(player.currentWeek + 4); 
     const projectHiddenStats = project.projectDetails?.hiddenStats || {};
     const lockedPremierePlatformId = projectHiddenStats.nextSeasonFundingUsedByProjectId === project.id
@@ -699,15 +701,49 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
     };
 
     const handleComplete = () => {
-        const updatedPlayer = { ...player };
-        let totalCost = totalCampaignCost;
-
-        if (festivalPremiere) {
-            const fest = FESTIVALS.find(f => f.id === festivalPremiere);
-            if (fest) totalCost += fest.cost;
+        const existingFestivalRun = project.projectDetails?.festivalRun;
+        const newFestival = !existingFestivalRun && festivalPremiere
+            ? FESTIVALS.find(fest => fest.id === festivalPremiere)
+            : undefined;
+        const studioId = project.projectDetails?.studioId || studio?.id;
+        const festivalOnSubmission = newFestival
+            || (existingFestivalRun?.status === 'SUBMITTED'
+                ? FESTIVALS.find(fest => fest.id === existingFestivalRun.festivalId)
+                : undefined);
+        if (festivalOnSubmission && releaseBeforeFestival(player.currentWeek, releaseWeek, festivalOnSubmission.weeks)) {
+            setLockError(`Open on or after ${festivalOnSubmission.name}, or skip the festival. An earlier date drops the submission and the fee.`);
+            return;
         }
+        const commitmentIndex = player.commitments.findIndex(item => item.id === project.id);
+        if (newFestival && commitmentIndex === -1) {
+            setLockError('That film is no longer on the lot.');
+            return;
+        }
+        let updatedPlayer = { ...player };
+        if (newFestival) {
+            const paid = chargeProductionHouse(updatedPlayer, studioId, newFestival.cost, `${newFestival.name} submission`);
+            if (paid.error) {
+                setLockError(paid.error);
+                return;
+            }
+            updatedPlayer = paid.player;
+        }
+        setLockError('');
+        const totalCost = totalCampaignCost;
 
         updatedPlayer.money -= totalCost;
+        if (selectedCampaigns.includes('tv_spots')) {
+            updatedPlayer.world = {
+                ...updatedPlayer.world,
+                critics: shiftCriticsFromTalkShow(updatedPlayer.world?.critics, updatedPlayer),
+            };
+            updatedPlayer.logs = [{
+                week: updatedPlayer.currentWeek,
+                year: updatedPlayer.age,
+                message: `The talk-show tour for "${project.name}" moved the critic corps.`,
+                type: 'neutral'
+            }, ...(updatedPlayer.logs || [])].slice(0, 50);
+        }
         updatedPlayer.finance.history.unshift({
             id: Math.random().toString(),
             week: updatedPlayer.currentWeek,
@@ -729,7 +765,6 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
             updatedPlayer.pendingEvent = premiereEvent;
         }
 
-        const commitmentIndex = updatedPlayer.commitments.findIndex(c => c.id === project.id);
         if (commitmentIndex !== -1) {
             const commitment = updatedPlayer.commitments[commitmentIndex];
             updatedPlayer.commitments[commitmentIndex] = {
@@ -744,10 +779,18 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                     campaignItems: selectedCampaigns,
                     totalCampaignSpend: totalCampaignCost,
                     releaseDate: releaseWeek,
+                    festivalRun: existingFestivalRun || (festivalPremiere ? {
+                        festivalId: festivalPremiere,
+                        status: 'SUBMITTED' as const,
+                        submittedWeek: player.currentWeek,
+                        submittedYear: player.age,
+                    } : commitment.projectDetails.festivalRun),
                     hiddenStats: {
                         ...commitment.projectDetails.hiddenStats,
                         redCarpetHype: selectedCampaigns.includes('red_carpet') ? 20 : 0,
-                        festivalPremiere: festivalPremiere || undefined
+                        festivalPremiere: existingFestivalRun && (existingFestivalRun.status === 'SELECTED' || existingFestivalRun.status === 'PREMIERED')
+                            ? existingFestivalRun.festivalId
+                            : commitment.projectDetails.hiddenStats.festivalPremiere
                     }
                 } : undefined
             };
@@ -774,7 +817,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
             }
         }
 
-        onUpdatePlayer(updatedPlayer);
+        onUpdatePlayer(applyFestivalTurn(updatedPlayer));
         onComplete();
     };
 
@@ -1137,7 +1180,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                             <motion.div key="step4" initial={{ opacity: 0, scale: 0.95, filter: 'blur(10px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }} transition={{ duration: 0.4 }} className="space-y-12">
                                 <div className="text-center space-y-4">
                                     <h2 className="text-5xl md:text-7xl font-serif font-light tracking-tight text-white/90">Festivals</h2>
-                                    <p className="text-lg text-white/50 font-light tracking-wide">Prestigious debuts for critical acclaim.</p>
+                                    <p className="text-lg text-white/50 font-light tracking-wide">Submit. The festival can still say no. A prize later helps at the Oscars and BAFTA.</p>
                                 </div>
 
                                 <div className="space-y-4">
@@ -1150,14 +1193,15 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     </button>
 
                                     {FESTIVALS.map(fest => {
-                                        const weekOfYear = getWeekOfYear(releaseWeek);
+                                        const weekOfYear = getWeekOfYear(player.currentWeek);
                                         const timingMeta = getFestivalTimingMeta(fest.weeks, weekOfYear);
-                                        const isTimingRight = timingMeta.isTimingRight;
-                                        const canAfford = player.money >= fest.cost;
+                                        const alreadySubmitted = Boolean(project.projectDetails?.festivalRun);
+                                        const studioId = project.projectDetails?.studioId || studio?.id;
+                                        const canAfford = alreadySubmitted || canAffordHouseCharge(player, studioId, fest.cost);
                                         const projectQualityScore = project.projectDetails?.hiddenStats?.qualityScore || 0;
                                         const displayQualityScore = Math.round(projectQualityScore);
-                                        const hasPrestige = projectQualityScore >= fest.prestigeReq;
-                                        const isEligible = canAfford && hasPrestige && isTimingRight;
+                                        const chance = Math.round(selectionChance(projectQualityScore, fest.prestigeReq) * 100);
+                                        const isEligible = !alreadySubmitted && canAfford;
 
                                         return (
                                             <button
@@ -1180,8 +1224,8 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                                 </div>
                                                 <div className="flex gap-6">
                                                     <div className="flex flex-col gap-1">
-                                                        <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Quality Req</span>
-                                                        <span className={`text-xs font-bold ${hasPrestige ? 'text-emerald-400' : 'text-rose-400'}`}>{fest.prestigeReq} (Yours: {displayQualityScore})</span>
+                                                        <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Selection chance</span>
+                                                        <span className="text-xs font-bold text-emerald-300">{chance}% · bar {fest.prestigeReq} · yours {displayQualityScore}</span>
                                                     </div>
                                                     <div className="flex flex-col gap-1">
                                                         <span className="text-[9px] text-white/40 uppercase tracking-widest font-bold">Timing</span>
@@ -1233,12 +1277,20 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                         const weekOfYear = getWeekOfYear(week);
                                         const season = weekOfYear <= 13 ? 'Spring' : weekOfYear <= 26 ? 'Summer' : weekOfYear <= 39 ? 'Fall' : 'Winter';
                                         const calendarEvent = CALENDAR_EVENTS.find(e => e.week === weekOfYear);
+                                        const submittedRun = project.projectDetails?.festivalRun?.status === 'SUBMITTED'
+                                            ? project.projectDetails.festivalRun
+                                            : undefined;
+                                        const festivalForDate = submittedRun
+                                            ? FESTIVALS.find(fest => fest.id === submittedRun.festivalId)
+                                            : (festivalPremiere ? FESTIVALS.find(fest => fest.id === festivalPremiere) : undefined);
+                                        const beforeFestival = festivalForDate ? releaseBeforeFestival(player.currentWeek, week, festivalForDate.weeks) : false;
                                         
                                         return (
                                             <button
                                                 key={week}
+                                                disabled={beforeFestival}
                                                 onClick={() => setReleaseWeek(week)}
-                                                className={`group relative w-full p-6 rounded-3xl border transition-all duration-300 text-left overflow-hidden ${isSelected ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                                                className={`group relative w-full p-6 rounded-3xl border transition-all duration-300 text-left overflow-hidden ${beforeFestival ? 'opacity-40 cursor-not-allowed' : isSelected ? 'bg-amber-500/10 border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.1)]' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
                                             >
                                                 {isSelected && (
                                                     <div className="absolute top-6 right-6">
@@ -1258,6 +1310,9 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                                     </div>
                                                 </div>
                                                 
+                                                {beforeFestival && (
+                                                    <div className="mb-4 text-xs text-amber-200/80">Before {festivalForDate?.name}. This date would drop the submission.</div>
+                                                )}
                                                 <div className="space-y-3">
                                                     <div className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Box Office Competition</div>
                                                     {rivals.length > 0 ? (
@@ -1329,7 +1384,12 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                         {festivalPremiere && (
                                             <div className="flex justify-between items-end pb-6 border-b border-white/10">
                                                 <div className="text-[10px] text-white/40 uppercase tracking-widest font-bold mb-1">Festival</div>
-                                                <div className="font-serif text-2xl text-white/90">{FESTIVALS.find(f => f.id === festivalPremiere)?.name}</div>
+                                                <div className="text-right">
+                                                    <div className="font-serif text-2xl text-white/90">{FESTIVALS.find(f => f.id === festivalPremiere)?.name}</div>
+                                                    {!project.projectDetails?.festivalRun && (
+                                                        <div className="text-[10px] text-amber-200/70">Fee comes from the studio, not this marketing total.</div>
+                                                    )}
+                                                </div>
                                             </div>
                                         )}
                                         
@@ -1345,6 +1405,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     </div>
                                 </div>
 
+                                {lockError && <p className="text-sm text-rose-300 text-center">{lockError}</p>}
                                 <div className="flex justify-between items-center pt-8">
                                     <button onClick={prevStep} className="px-8 py-4 text-white/50 hover:text-white transition-colors text-xs font-bold tracking-widest uppercase">Back</button>
                                     <button onClick={handleComplete} className="px-12 py-4 bg-amber-500 text-black rounded-full font-bold tracking-widest uppercase text-xs hover:scale-105 transition-all shadow-[0_0_20px_rgba(245,158,11,0.3)]">

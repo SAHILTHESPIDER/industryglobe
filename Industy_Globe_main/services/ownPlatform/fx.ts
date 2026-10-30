@@ -1,5 +1,6 @@
 import { OwnPlatformState, PricingPlan, RivalPlatformState } from '../../types';
 import { MARKET_COUNTRIES, MarketCountry, hashString } from './catalog';
+import { CURRENCIES, ZERO_DECIMAL_CURRENCIES, currencyCodeFor } from './countrySeeds';
 
 export interface CurrencyQuote {
     countryId: string;
@@ -11,35 +12,7 @@ export interface CurrencyQuote {
     ppp: number;
 }
 
-/** Anchor rates. Weekly drift stays inside 8% of these. */
-const CURRENCIES: Record<string, Omit<CurrencyQuote, 'countryId' | 'ppp'>> = {
-    US: { code: 'USD', name: 'US dollar', unitsPerUsd: 1 },
-    CA: { code: 'CAD', name: 'Canadian dollar', unitsPerUsd: 1.36 },
-    MX: { code: 'MXN', name: 'Mexican peso', unitsPerUsd: 18.2 },
-    BR: { code: 'BRL', name: 'Brazilian real', unitsPerUsd: 5.05 },
-    AR: { code: 'ARS', name: 'Argentine peso', unitsPerUsd: 980 },
-    CO: { code: 'COP', name: 'Colombian peso', unitsPerUsd: 4100 },
-    GB: { code: 'GBP', name: 'Pound sterling', unitsPerUsd: 0.78 },
-    FR: { code: 'EUR', name: 'Euro', unitsPerUsd: 0.92 },
-    DE: { code: 'EUR', name: 'Euro', unitsPerUsd: 0.92 },
-    ES: { code: 'EUR', name: 'Euro', unitsPerUsd: 0.92 },
-    IT: { code: 'EUR', name: 'Euro', unitsPerUsd: 0.92 },
-    SE: { code: 'SEK', name: 'Swedish krona', unitsPerUsd: 10.6 },
-    NG: { code: 'NGN', name: 'Nigerian naira', unitsPerUsd: 1550 },
-    ZA: { code: 'ZAR', name: 'South African rand', unitsPerUsd: 18.1 },
-    EG: { code: 'EGP', name: 'Egyptian pound', unitsPerUsd: 48.5 },
-    KE: { code: 'KES', name: 'Kenyan shilling', unitsPerUsd: 129 },
-    IN: { code: 'INR', name: 'Indian rupee', unitsPerUsd: 83.5 },
-    JP: { code: 'JPY', name: 'Yen', unitsPerUsd: 151 },
-    KR: { code: 'KRW', name: 'Won', unitsPerUsd: 1350 },
-    ID: { code: 'IDR', name: 'Rupiah', unitsPerUsd: 15800 },
-    PH: { code: 'PHP', name: 'Philippine peso', unitsPerUsd: 57 },
-    CN: { code: 'CNY', name: 'Yuan', unitsPerUsd: 7.24 },
-    AU: { code: 'AUD', name: 'Australian dollar', unitsPerUsd: 1.52 },
-    NZ: { code: 'NZD', name: 'New Zealand dollar', unitsPerUsd: 1.66 },
-};
-
-const ZERO_DECIMAL = new Set(['JPY', 'KRW', 'IDR', 'COP', 'NGN', 'VND']);
+const ZERO_DECIMAL = ZERO_DECIMAL_CURRENCIES;
 
 const RIVAL_HOME: Record<string, string> = {
     netflix: 'US', prime: 'US', disney: 'US', max: 'US', paramount: 'US', peacock: 'US', apple: 'US',
@@ -64,11 +37,11 @@ const mulberry32 = (seed: number) => {
 
 export const currencyFor = (countryId: string, rates?: Record<string, number>): CurrencyQuote => {
     const country = MARKET_COUNTRIES.find(row => row.id === countryId);
-    const anchor = CURRENCIES[countryId] || { code: 'USD', name: 'US dollar', unitsPerUsd: 1 };
+    const anchor = CURRENCIES[currencyCodeFor(countryId)] || CURRENCIES.USD;
     const ppp = country ? Math.max(0.15, Math.min(1.15, country.affordability / 15)) : 1;
     const quoted = rates?.[anchor.code];
     const units = Number.isFinite(quoted) && (quoted as number) > 0 ? (quoted as number) : anchor.unitsPerUsd;
-    return { countryId, ...anchor, unitsPerUsd: units, ppp };
+    return { countryId, code: anchor.code, name: anchor.name, unitsPerUsd: units, ppp };
 };
 
 export const anchorRates = (): Record<string, number> => {
