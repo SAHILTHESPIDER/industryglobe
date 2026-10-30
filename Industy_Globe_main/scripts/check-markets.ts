@@ -100,11 +100,13 @@ if (hearth.familyRetention <= 1 || voltage.youthGrowth <= 1 || linen.premiumLift
 if (signal.familyRetention !== 1 || signal.youthGrowth !== 1) fail('signal should stay neutral');
 
 const built = applyInfraPreset(withMarkets, 'BALANCED');
-const quoteBase = quoteLaunch({ ...player, ownPlatform: { ...built, identityId: 'signal', storefrontId: 'editorial' } });
-const quoteVoltage = quoteLaunch({ ...player, ownPlatform: { ...built, identityId: 'voltage', storefrontId: 'editorial' } });
-const quoteLinen = quoteLaunch({ ...player, ownPlatform: { ...built, identityId: 'linen', storefrontId: 'editorial' } });
-if (!(quoteVoltage.households > quoteBase.households)) fail('voltage did not grow the audience');
-if (!(quoteLinen.forecastWeeklyRevenue > quoteBase.forecastWeeklyRevenue)) fail('linen did not lift premium revenue');
+const quoteMachine = quoteLaunch({ ...player, ownPlatform: { ...built, identId: 'machine', storefrontId: 'editorial' } });
+const quoteAscent = quoteLaunch({ ...player, ownPlatform: { ...built, identId: 'ascent', storefrontId: 'editorial' } });
+const quotePulse = quoteLaunch({ ...player, ownPlatform: { ...built, identId: 'pulse', storefrontId: 'editorial' } });
+const quoteAnalog = quoteLaunch({ ...player, ownPlatform: { ...built, identId: 'analog', storefrontId: 'editorial' } });
+if (!(quoteAscent.households > quoteMachine.households)) fail('ascent did not grow the audience');
+if (!(quoteAnalog.households < quotePulse.households)) fail('analog should not out-grow a stay-rate ident');
+if (!(quoteAnalog.forecastWeeklyRevenue > quotePulse.forecastWeeklyRevenue)) fail('analog did not lift premium revenue');
 
 const painted = paintedWorldPaths();
 const indexOf = (id: string) => painted.findIndex(row => row.id === id);

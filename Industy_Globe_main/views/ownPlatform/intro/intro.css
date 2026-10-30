@@ -4,7 +4,7 @@
 --h:'Barlow Condensed','Arial Narrow',Impact,sans-serif;--b:Inter,system-ui,sans-serif;--m:'JetBrains Mono',ui-monospace,monospace;--s:'Instrument Serif',Georgia,serif}
 #empire-intro{box-sizing:border-box;margin:0;padding:0}
 #empire-intro{height:100%;background:var(--void);color:var(--text);font-family:var(--b);overflow:hidden;-webkit-font-smoothing:antialiased}
-#empire-intro #stage{position:fixed;inset:0;overflow:hidden;background:radial-gradient(120% 80% at 50% 0%,#0B0B1F 0%,var(--void) 60%)}
+#empire-intro #stage{position:fixed;inset:0;z-index:200;overflow:hidden;background:radial-gradient(120% 80% at 50% 0%,#0B0B1F 0%,var(--void) 60%)}
 #empire-intro .layer{position:absolute;inset:0;opacity:0;pointer-events:none}
 #empire-intro .on{pointer-events:auto}
 #empire-intro .mono{font-family:var(--m);letter-spacing:.08em;text-transform:uppercase}

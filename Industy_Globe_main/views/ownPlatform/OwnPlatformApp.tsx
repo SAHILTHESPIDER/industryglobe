@@ -238,6 +238,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const quote = quoteLaunch(player);
     const setPlatform = (next: OwnPlatformState) => onUpdatePlayer({ ...player, ownPlatform: next });
     const serviceName = state.name.trim() || 'Empire+';
+    const stingId = state.identId || state.identityId;
     const pastDefine = state.stage !== 'DEFINE' || state.commissioned;
     const kicker = pane === 'launch'
         ? 'Define the launch'
@@ -262,7 +263,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                         const fromReplay = replay;
                         setReplay(false);
                         onUpdatePlayer({ ...player, ownPlatform: { ...state, introSeen: true } });
-                        if (!fromReplay) armPlatformIdent({ ownPlatform: { ...state, introSeen: true } });
+                        if (!fromReplay) armPlatformIdent({ ownPlatform: { ...state, introSeen: true, identId: state.identId || state.identityId } });
                     }}
                 />
             </>
@@ -273,7 +274,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
         <>
             <CloseButton onClick={onBack} />
             {showOpenIdent && (
-                <IdentBumper name={serviceName} identityId={state.identityId} onDone={() => setShowOpenIdent(false)} />
+                <IdentBumper name={serviceName} identityId={stingId} onDone={() => setShowOpenIdent(false)} />
             )}
             <Shell
                 onBack={onBack}

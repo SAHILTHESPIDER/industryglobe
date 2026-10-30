@@ -1,6 +1,8 @@
 import {
     CloudOrder,
+    InfraPresetId,
     IpoState,
+    LaunchRegionId,
     OwnPlatformState,
     PlatformBrand,
     Player,
@@ -9,7 +11,7 @@ import {
     RevenueLane,
     StudioBooks,
 } from '../../types';
-import { CLOUD_PROVIDERS, IDENTITY_PRESETS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
+import { CLOUD_PROVIDERS, IDENTITY_PRESETS, LAUNCH_REGIONS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
 import { brandFrom, legacyBrand } from './brand';
 import { IDENTS, LEGACY_IDENT } from './identEffects';
 import { anchorRates, decorateRival } from './fx';
@@ -141,6 +143,8 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         }) : created.plans,
         revenueLanes: asLanes(raw.revenueLanes),
         regions: Array.isArray(raw.regions) ? raw.regions.filter(row => row && row.regionId) : [],
+        infraPreset: sanitizePreset(raw.infraPreset),
+        regionCoverage: sanitizeCoverage(raw.regionCoverage),
         cloud,
         commissioned: Boolean(raw.commissioned),
         constructionWeeksLeft: Math.max(0, Math.round(Number(raw.constructionWeeksLeft) || 0)),
@@ -213,6 +217,21 @@ const normalizeIpo = (raw: IpoState | undefined, name: string): IpoState => {
         dayMove: Array.isArray(raw.dayMove) ? raw.dayMove : [],
         ticker: typeof raw.ticker === 'string' && raw.ticker.trim() ? raw.ticker.slice(0, 5).toUpperCase() : fresh.ticker,
     };
+};
+
+const sanitizePreset = (value: unknown): InfraPresetId | undefined =>
+    value === 'LEAN' || value === 'BALANCED' || value === 'OWN' ? value : undefined;
+
+const sanitizeCoverage = (value: OwnPlatformState['regionCoverage']): OwnPlatformState['regionCoverage'] => {
+    if (!value || typeof value !== 'object') return undefined;
+    const next: NonNullable<OwnPlatformState['regionCoverage']> = {};
+    (Object.keys(value) as LaunchRegionId[]).forEach(regionId => {
+        if (!LAUNCH_REGIONS.some(region => region.id === regionId)) return;
+        const pct = Number(value[regionId]);
+        if (!Number.isFinite(pct)) return;
+        next[regionId] = Math.max(0, Math.min(100, Math.round(pct)));
+    });
+    return Object.keys(next).length ? next : undefined;
 };
 
 const normalizeBrand = (raw: PlatformBrand | undefined, identityId?: string): PlatformBrand => {
