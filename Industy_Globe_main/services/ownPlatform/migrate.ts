@@ -1,16 +1,17 @@
 import {
     CloudOrder,
-    InfraPresetId,
     IpoState,
-    LaunchRegionId,
     OwnPlatformState,
+    PlatformBrand,
     Player,
     PricingPlan,
     ReleaseSlot,
     RevenueLane,
     StudioBooks,
 } from '../../types';
-import { CLOUD_PROVIDERS, IDENTITY_PRESETS, LAUNCH_REGIONS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
+import { CLOUD_PROVIDERS, IDENTITY_PRESETS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
+import { brandFrom, legacyBrand } from './brand';
+import { IDENTS, LEGACY_IDENT } from './identEffects';
 import { anchorRates, decorateRival } from './fx';
 import { REVENUE_LANES, STANDARD_PLAN_USD, finiteSticker, syncRegions } from './logic';
 import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
@@ -46,6 +47,8 @@ export const createOwnPlatform = (player: Player): OwnPlatformState => {
         selectedCountryIds: [],
         applications: [],
         identityId: IDENTITY_PRESETS[0].id,
+        identId: 'pulse',
+        brand: { markId: 'globe', typefaceId: 'condensed', lockupId: 'beside' },
         storefrontId: STOREFRONTS[0].id,
         catalogue: [],
         plans: [{ ...DEFAULT_PLAN }],
@@ -110,7 +113,9 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         selectedCountryIds,
         applications: Array.isArray(raw.applications) ? raw.applications.filter(row => row && getCountry(row.countryId)) : [],
         identityId: IDENTITY_PRESETS.some(row => row.id === raw.identityId) ? raw.identityId! : created.identityId,
+        identId: IDENTS.some(row => row.id === raw.identId) ? raw.identId : (LEGACY_IDENT[raw.identityId || ''] || created.identId),
         identSound: raw.identSound === false ? false : undefined,
+        brand: normalizeBrand(raw.brand, raw.identityId),
         storefrontId: STOREFRONTS.some(row => row.id === raw.storefrontId) ? raw.storefrontId! : created.storefrontId,
         catalogue: Array.isArray(raw.catalogue)
             ? raw.catalogue.filter(row => row && row.title).map(row => ({
@@ -130,13 +135,12 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
             return {
                 ...plan,
                 monthlyUsd: finiteSticker(plan.monthlyUsd) ?? STANDARD_PLAN_USD,
+                screens: Math.max(1, Math.min(6, Math.round(Number(plan.screens) || 1))),
                 countryPrices: countryEntries.length ? Object.fromEntries(countryEntries) : undefined,
             };
         }) : created.plans,
         revenueLanes: asLanes(raw.revenueLanes),
         regions: Array.isArray(raw.regions) ? raw.regions.filter(row => row && row.regionId) : [],
-        infraPreset: sanitizePreset(raw.infraPreset),
-        regionCoverage: sanitizeCoverage(raw.regionCoverage),
         cloud,
         commissioned: Boolean(raw.commissioned),
         constructionWeeksLeft: Math.max(0, Math.round(Number(raw.constructionWeeksLeft) || 0)),
@@ -211,19 +215,10 @@ const normalizeIpo = (raw: IpoState | undefined, name: string): IpoState => {
     };
 };
 
-const sanitizePreset = (value: unknown): InfraPresetId | undefined =>
-    value === 'LEAN' || value === 'BALANCED' || value === 'OWN' ? value : undefined;
-
-const sanitizeCoverage = (value: OwnPlatformState['regionCoverage']): OwnPlatformState['regionCoverage'] => {
-    if (!value || typeof value !== 'object') return undefined;
-    const next: NonNullable<OwnPlatformState['regionCoverage']> = {};
-    (Object.keys(value) as LaunchRegionId[]).forEach(regionId => {
-        if (!LAUNCH_REGIONS.some(region => region.id === regionId)) return;
-        const pct = Number(value[regionId]);
-        if (!Number.isFinite(pct)) return;
-        next[regionId] = Math.max(0, Math.min(100, Math.round(pct)));
-    });
-    return Object.keys(next).length ? next : undefined;
+const normalizeBrand = (raw: PlatformBrand | undefined, identityId?: string): PlatformBrand => {
+    if (raw && typeof raw === 'object' && raw.markId) return brandFrom(raw);
+    if (identityId) return legacyBrand(identityId);
+    return brandFrom(undefined);
 };
 
 const clampStep = (value: unknown, max: number) => {

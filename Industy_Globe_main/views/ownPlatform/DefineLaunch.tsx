@@ -1,29 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { OwnPlatformState, Player, RevenueLane } from '../../types';
 import { getCountry } from '../../services/ownPlatform/catalog';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
-import { saveMediaBlob } from '../../services/mediaStorage';
 import {
-    IDENTITY_PRESETS,
-    STOREFRONTS,
     formatAveragePlanPrice,
     formatCompact,
     formatPeople,
-    identityById,
     licenceShelf,
     listOwnedTitles,
     quoteLaunch,
     storefrontById,
-    storefrontEffectLine,
     syncRegions,
 } from '../../services/ownPlatform/logic';
+import { sceneForDefineStep, sceneStyle } from '../../services/ownPlatform/scenes';
+import { markById } from '../../services/ownPlatform/brand';
+import { identById } from '../../services/ownPlatform/identEffects';
+import { IdentPicker } from './IdentPicker';
+import { StorefrontDesigner } from './StorefrontDesigner';
 import { currencyFor, formatLocalAmount, localMonthly, usdFromLocal } from '../../services/ownPlatform/fx';
-import { identityEffects } from '../../services/ownPlatform/identEffects';
-import { playIdentSting } from '../../services/ownPlatform/identAudio';
-import { IdentStage } from './IdentStage';
 import { DayOneMarkets } from './DayOneMarkets';
 import { NameIt } from './NameIt';
-import { StorefrontPreview, type PreviewDevice } from './StorefrontPreview';
 import { BillStrip, Card, FooterBar, Pill, PreviewPanel, Segmented, Toggle, headingFont } from './ui';
 
 const STEPS = ['Name it', 'Markets', 'Clearance', 'Ident', 'Storefront', 'Catalogue', 'Pricing', 'Blueprint'];
@@ -31,8 +27,8 @@ const HINTS = [
     '',
     '',
     'Filing is free. Access fees sit on the launch bill and leave the treasury only when you commission.',
-    'Each sting is synthesized in the browser. Hearth, Voltage, and Linen change who stays.',
-    'The percentages under each layout are what opening night actually uses.',
+    'Each sting says what it sounds like and what it does to viewers. A clip you upload only replaces the sound.',
+    'The green line is the discovery and stay rate the weekly forecast uses.',
     'A licence fee joins the launch bill. Nothing leaves the treasury today.',
     'Price and a thin shelf are what push a household toward piracy.',
     'This sheet is the whole company. Money still does not move until you sign the build.',
@@ -49,26 +45,10 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
     const step = state.defineStep;
     const quote = quoteLaunch(player);
     const locked = state.commissioned;
-    const [device, setDevice] = useState<PreviewDevice>('desktop');
-    const [stingId, setStingId] = useState<string | null>(null);
     const patch = (recipe: (current: OwnPlatformState) => OwnPlatformState) => {
         if (locked && step < 7) return;
         onChange(recipe(state));
     };
-    const playSting = (styleId: string) => {
-        setStingId(styleId);
-        playIdentSting(styleId);
-        window.setTimeout(() => setStingId(current => current === styleId ? null : current), 1500);
-    };
-    const localLanguage = (() => {
-        if (state.selectedCountryIds.includes('IN')) return 'Hindi';
-        for (const id of state.selectedCountryIds) {
-            const country = getCountry(id);
-            const language = country?.languages.find(row => row.name !== 'English')?.name || country?.languages[0]?.name;
-            if (language) return language;
-        }
-        return 'Local films';
-    })();
     const go = (next: number) => onChange({ ...state, defineStep: Math.max(0, Math.min(7, next)) });
 
     const fileAll = () => {
@@ -116,14 +96,26 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
 
     return (
         <>
-            <div className="body">
+            <div className="body" style={sceneStyle(sceneForDefineStep(step))}>
                 {step === 0 && (
-                    <NameIt state={state} locked={locked} quote={quote} onName={name => patch(current => ({ ...current, name }))} />
+                    <NameIt
+                        state={state}
+                        locked={locked}
+                        quote={quote}
+                        onName={name => patch(current => ({ ...current, name }))}
+                        onBrand={brand => patch(current => ({ ...current, brand }))}
+                    />
                 )}
                 {step === 1 && (
                     <DayOneMarkets state={state} locked={locked} onPatch={(recipe) => patch(current => syncRegions(recipe(current)))} />
                 )}
-                {step > 1 && (
+                {step === 3 && (
+                    <IdentPicker player={player} state={state} locked={locked} onChange={onChange} />
+                )}
+                {step === 4 && (
+                    <StorefrontDesigner player={player} state={state} locked={locked} onChange={onChange} />
+                )}
+                {step > 1 && step !== 3 && step !== 4 && (
                 <div className="grid g-side">
                 <div className="stack">
 
@@ -177,96 +169,6 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                     </div>
                 )}
 
-                {step === 3 && (
-                    <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
-                        <div>
-                            <label className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Service name</label>
-                            <input value={state.name} disabled={locked} onChange={(event) => patch(current => ({ ...current, name: event.target.value.slice(0, 32) }))} className="mt-1 w-full bg-transparent border-b border-white/20 text-4xl font-black uppercase outline-none py-2" style={{ fontFamily: headingFont }} />
-                            <IdentStage className="mt-4" name={state.name} accent={identityById(state.identityId).accent} playing={stingId === state.identityId} />
-                            <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-6">
-                                {IDENTITY_PRESETS.map(preset => {
-                                    const effect = identityEffects(preset.id);
-                                    return (
-                                        <Card key={preset.id} active={state.identityId === preset.id} onClick={() => { patch(current => ({ ...current, identityId: preset.id })); playSting(preset.id); }}>
-                                            <div className="h-2 rounded-full mb-3" style={{ background: preset.accent }} />
-                                            <div className="font-black text-2xl uppercase" style={{ fontFamily: headingFont }}>{preset.name}</div>
-                                            <p className="text-sm text-zinc-400 mt-1">{preset.tagline}</p>
-                                            <p className="text-xs text-zinc-300 mt-2">{effect.summary}</p>
-                                            <button type="button" onClick={(event) => { event.stopPropagation(); playSting(preset.id); }} className="mt-3 text-[11px] uppercase tracking-wider text-zinc-300">Play the sting</button>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                        <Card>
-                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Sound</div>
-                            <div className="text-2xl font-black mt-1" style={{ fontFamily: headingFont }}>{identityById(state.identityId).name}</div>
-                            <p className="text-sm text-zinc-300 mt-2">{identityEffects(state.identityId).summary}</p>
-                            <p className="text-sm text-zinc-400 mt-2">Or replace the bumper with your own audio. The file stays in the media library. The save only keeps its name. The sting above is what plays if you do not.</p>
-                            <input
-                                type="file"
-                                accept="audio/*"
-                                disabled={locked}
-                                className="mt-4 text-sm"
-                                onChange={async (event) => {
-                                    const file = event.target.files?.[0];
-                                    if (!file) return;
-                                    if (file.size > 2_000_000) {
-                                        patch(current => ({ ...current, customAudioName: 'Too large — keep it under 2MB' }));
-                                        return;
-                                    }
-                                    const meta = await saveMediaBlob(`own-platform-audio-${player.id}`, file, { kind: 'other' });
-                                    onChange({ ...state, customAudioName: file.name, customAudioMediaId: meta.id });
-                                }}
-                            />
-                            {state.customAudioName && <div className="mt-3 text-sm text-emerald-300">{state.customAudioName}</div>}
-                            <button
-                                type="button"
-                                data-testid="ident-sound-toggle"
-                                disabled={locked}
-                                onClick={() => patch(current => ({ ...current, identSound: current.identSound === false ? undefined : false }))}
-                                className="mt-4 w-full rounded-full border border-white/15 px-4 py-2 text-[11px] font-bold uppercase tracking-wider"
-                            >
-                                Ident sound {state.identSound === false ? 'Off' : 'On'}
-                            </button>
-                        </Card>
-                    </div>
-                )}
-
-                {step === 4 && (
-                    <div className="space-y-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-[11px] uppercase tracking-wider text-zinc-500">Preview</span>
-                            {(['desktop', 'tv', 'phone'] as PreviewDevice[]).map(item => (
-                                <button key={item} type="button" onClick={() => setDevice(item)} className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase ${device === item ? 'bg-white text-black' : 'bg-white/10 text-zinc-300'}`}>
-                                    {item === 'desktop' ? 'Desktop' : item === 'tv' ? 'TV' : 'Phone'}
-                                </button>
-                            ))}
-                        </div>
-                        <Card>
-                            <div className="text-[11px] uppercase tracking-wider text-zinc-500 mb-3">{storefrontById(state.storefrontId).name} · {device}</div>
-                            <StorefrontPreview layout={storefrontById(state.storefrontId)} device={device} name={state.name || 'Empire+'} localLanguage={localLanguage} />
-                            <div className="mt-3 text-sm font-bold text-emerald-200" data-testid="storefront-effect">{storefrontEffectLine(storefrontById(state.storefrontId))}</div>
-                        </Card>
-                        <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                            {STOREFRONTS.map(layout => (
-                                <Card key={layout.id} active={state.storefrontId === layout.id} onClick={() => patch(current => ({ ...current, storefrontId: layout.id }))}>
-                                    <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Layout</div>
-                                    <div className="text-2xl font-black uppercase" style={{ fontFamily: headingFont }}>{layout.name}</div>
-                                    <p className="text-sm text-zinc-400 mt-2">{layout.blurb}</p>
-                                    <div className="mt-3 overflow-hidden rounded-xl border border-white/10 max-h-40">
-                                        <div className="origin-top scale-[0.72] -mb-10">
-                                            <StorefrontPreview layout={layout} device={device} name={state.name || 'Empire+'} localLanguage={localLanguage} />
-                                        </div>
-                                    </div>
-                                    <div className="mt-3 text-xs font-bold text-emerald-200" data-testid={`storefront-effect-${layout.id}`}>{storefrontEffectLine(layout)}</div>
-                                    {layout.localBoost >= 0.05 && <div className="mt-1 text-[11px] text-amber-200">Local films land harder on the home row.</div>}
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
                 {step === 5 && (
                     <CatalogueStep player={player} state={state} locked={locked} onChange={onChange} />
                 )}
@@ -282,8 +184,8 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                         </label>
                                         <label className="text-xs text-zinc-500">US anchor (USD)
                                             <input disabled={locked} type="number" min={0} value={Number.isFinite(plan.monthlyUsd) ? plan.monthlyUsd : 11} onChange={(event) => {
-                                                const parsed = Number(event.target.value);
-                                                const monthlyUsd = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+                                                const monthlyUsd = Number(event.target.value);
+                                                if (!Number.isFinite(monthlyUsd) || monthlyUsd < 0) return;
                                                 patch(current => ({
                                                     ...current,
                                                     plans: current.plans.map(row => row.id === plan.id ? {
@@ -310,7 +212,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                         <div className="text-[11px] uppercase tracking-wider text-zinc-500">Local price in each country</div>
                                         <p className="text-xs text-zinc-500 mt-1">Each market keeps its own currency. The number next to it is the USD the ledger will book. Rates can drift a little each week. USD stays the books.</p>
                                         {state.selectedCountryIds.length === 0 && <p className="text-sm text-amber-200 mt-2">Pick countries on the Markets step. India and the UK are the ones to set first.</p>}
-                                        <div className="grid sm:grid-cols-2 gap-2 mt-2 max-h-80 overflow-y-auto">
+                                        <div className="grid sm:grid-cols-2 gap-2 mt-2">
                                             {state.selectedCountryIds.map(countryId => {
                                                 const country = getCountry(countryId);
                                                 const quote = currencyFor(countryId, state.fxRates);
@@ -325,13 +227,13 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                                             min={0}
                                                             value={local}
                                                             onChange={(event) => {
-                                                                const parsed = Number(event.target.value);
-                                                                const nextLocal = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+                                                                const nextLocal = Number(event.target.value);
+                                                                if (!Number.isFinite(nextLocal) || nextLocal < 0) return;
                                                                 patch(current => ({
                                                                     ...current,
                                                                     plans: current.plans.map(row => row.id === plan.id ? {
                                                                         ...row,
-                                                                        monthlyUsd: countryId === 'US' ? nextLocal : (Number.isFinite(row.monthlyUsd) ? row.monthlyUsd : 11),
+                                                                        monthlyUsd: countryId === 'US' ? nextLocal : row.monthlyUsd,
                                                                         countryPrices: { ...(row.countryPrices || {}), [countryId]: nextLocal },
                                                                     } : row),
                                                                 }));
@@ -379,7 +281,8 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                             <div className="grid sm:grid-cols-2 gap-3 mt-4 text-sm">
                                 <Line label="Markets" value={`${state.selectedCountryIds.length} chosen`} />
                                 <Line label="Cleared" value={`${state.applications.filter(row => row.status === 'APPROVED' || row.acceptedConditions).length}`} />
-                                <Line label="Identity" value={identityById(state.identityId).name} />
+                                <Line label="Mark" value={markById(state.brand?.markId).name} />
+                                <Line label="Ident" value={identById(state.identId).name} />
                                 <Line label="Storefront" value={storefrontById(state.storefrontId).name} />
                                 <Line label="Catalogue" value={`${state.catalogue.length} titles`} />
                                 <Line label="Plans" value={`${state.plans.length} · ${formatAveragePlanPrice(state)}`} />
@@ -469,3 +372,4 @@ const Line: React.FC<{ label: string; value: string }> = ({ label, value }) => (
         <span className="font-semibold text-right">{value}</span>
     </div>
 );
+

@@ -17,6 +17,7 @@ import { updateReleaseSlot } from '../../services/ownPlatform/studio';
 import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { ReleaseCalendar } from './ReleaseCalendar';
 import { Card, headingFont } from './ui';
+import { publicBrandName } from '../../services/rights/alterName';
 
 interface Props {
     player: Player;
@@ -148,7 +149,7 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
                                     <div key={offer.bidderId} className="rounded-2xl border border-white/10 bg-[#141820] p-3 flex flex-col sm:flex-row sm:items-center gap-3">
                                         <div className="w-8 font-black text-zinc-500">{index + 1}</div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-bold" style={{ color: offer.color }}>{offer.bidderName}</div>
+                                            <div className="font-bold" style={{ color: offer.color }}>{publicBrandName(offer.bidderName)}</div>
                                             <div className="text-[11px] text-zinc-400">{formatCompact(offer.guarantee)} certain · {offer.backendPct}% net {offer.recoupment ? 'after recoupment' : 'from first dollar'} · {offer.years} years · {offer.windowLabel}</div>
                                             <div className="text-[11px] text-zinc-500">{offer.localization ? 'Localisation included' : 'No localisation'} · {offer.renewal ? 'Renewal option' : 'No renewal'} · cap {offer.cap ? formatCompact(offer.cap) : 'none'} · funding {formatCompact(offer.funding)}</div>
                                             <div className="text-[11px] text-zinc-300 mt-1">{offer.note} Real value {formatCompact(offer.value)}.</div>
@@ -208,7 +209,7 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
     return (
         <div className="p-4 lg:p-10 space-y-4" data-screen="release-plan">
             <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">After the handshake</div>
-            <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>{deal.title} · {deal.offer.bidderName}</h2>
+            <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>{deal.title} · {publicBrandName(deal.offer.bidderName)}</h2>
             {deal.simulated && <p className="text-amber-200 text-sm">Practice lot. You can walk the plan. Locking will not pay anyone.</p>}
             <div className="flex gap-2 text-xs uppercase tracking-wider">
                 {['Campaign', 'Festival', 'Weekend', 'Review'].map((label, index) => (

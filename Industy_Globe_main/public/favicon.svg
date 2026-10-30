@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Industry Globe">
+  <rect width="64" height="64" rx="14" fill="#070B16"/>
+  <g fill="none" stroke="#F5C16C" stroke-width="2.2">
+    <circle cx="32" cy="28" r="15"/>
+    <ellipse cx="32" cy="28" rx="6.5" ry="15"/>
+    <path d="M17 28h30" stroke-width="1.6"/>
+  </g>
+  <path d="M19 22.2c8 2 18 2 26 0" fill="none" stroke="#8B7BFF" stroke-width="1.4"/>
+  <path d="M19 33.8c8-2 18-2 26 0" fill="none" stroke="#8B7BFF" stroke-width="1.4"/>
+  <rect x="7" y="42" width="50" height="14" rx="3" fill="#14100A" stroke="#F5C16C" stroke-width="1.4"/>
+  <g fill="#F5C16C">
+    <rect x="11" y="45" width="5" height="8" rx="1"/>
+    <rect x="20" y="45" width="5" height="8" rx="1"/>
+    <rect x="29" y="45" width="5" height="8" rx="1"/>
+    <rect x="38" y="45" width="5" height="8" rx="1"/>
+    <rect x="47" y="45" width="5" height="8" rx="1"/>
+  </g>
+</svg>

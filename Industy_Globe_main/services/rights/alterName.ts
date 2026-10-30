@@ -152,3 +152,9 @@ export const publicPersonName = (name: string, living = true): string => {
     if (!living || REAL_NAMES_MODE) return name;
     return alterName(name);
 };
+
+/** Living brands on screen. One or two letters move, same rule as a person's name. */
+export const publicBrandName = (name: string): string => {
+    if (REAL_NAMES_MODE) return name;
+    return alterName(name);
+};

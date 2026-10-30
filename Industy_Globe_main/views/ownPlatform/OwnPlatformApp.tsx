@@ -4,6 +4,7 @@ import { OwnPlatformState, Player } from '../../types';
 import { ensureOwnPlatform } from '../../services/ownPlatform/migrate';
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
 import { formatLocalAmount } from '../../services/ownPlatform/fx';
+import { publicBrandName } from '../../services/rights/alterName';
 import { EmpirePane, Shell } from './ui';
 import { EmpireIntro } from './intro/EmpireIntro';
 import { DefineLaunch } from './DefineLaunch';
@@ -286,6 +287,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 defineStep={state.defineStep}
                 buildStep={state.buildStep}
                 pastDefine={pastDefine}
+                markId={state.brand?.markId}
                 onWatchIntro={() => setReplay(true)}
                 onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
                 onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}
@@ -321,7 +323,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                                                 <span className="lab">{rival.tier}</span>
                                                 <span className="tiny">{LAUNCH_REGIONS.find(region => region.id === rival.homeRegion)?.short}</span>
                                             </div>
-                                            <div className="h3" style={{ marginTop: 8 }}>{rival.name}</div>
+                                            <div className="h3" style={{ marginTop: 8 }}>{publicBrandName(rival.name)}</div>
                                             <div className="small" style={{ marginTop: 6 }}>{rival.householdsM.toFixed(1)}M homes · {formatLocalAmount(rival.localMonthlyPrice || 0, rival.currency || 'USD')}</div>
                                             <div className="tiny">About ${rival.monthlyPrice.toFixed(2)} USD · debt {formatCompact(rival.debtUsd || 0)}</div>
                                             <div className="tiny" style={{ marginTop: 6 }}>{rival.note}</div>

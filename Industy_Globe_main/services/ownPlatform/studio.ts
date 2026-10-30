@@ -17,6 +17,7 @@ import { MARKET_COUNTRIES, hashString } from './catalog';
 import { formatCompact, pickAudienceCountry, quoteLaunch } from './logic';
 import { BuyFinancing, equityChequeAvailable, quoteAcquisition, quoteListedCompany, quotePrivateService } from './valuation';
 import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON } from './weeks';
+import { publicBrandName } from '../rights/alterName';
 
 const FACILITY_USD = 4_000_000;
 const FACILITY_RATE = 0.09;
@@ -774,7 +775,7 @@ export const titleRows = (player: Player): { title: string; weekly: number; sour
             const label = typeof row.opensWeek === 'number' ? `Week ${row.opensWeek}${yearNote}` : 'later';
             return {
                 title: row.title,
-                source: row.bidderName,
+                source: publicBrandName(row.bidderName),
                 waiting,
                 note: waiting ? `Views begin ${label}` : '',
             };

@@ -1,6 +1,6 @@
 /**
- * Original stings synthesized in the browser. No samples, no copyrighted ta-dum.
- * Each style gets its own rhythm so the bumper is recognizable with the picture off.
+ * Original stings synthesized in the browser, plus a short mono WAV from an upload.
+ * No samples and no copyrighted ta-dum. Each ident has its own rhythm.
  */
 
 type OscKind = OscillatorType;
@@ -9,10 +9,6 @@ let shared: AudioContext | null = null;
 let generation = 0;
 let liveOscillators: OscillatorNode[] = [];
 let liveSources: AudioBufferSourceNode[] = [];
-let liveMaster: GainNode | null = null;
-let liveTimer = 0;
-let armedStyle: string | null = null;
-let armedToken: number | null = null;
 
 const context = (): AudioContext | null => {
     try {
@@ -27,27 +23,15 @@ const context = (): AudioContext | null => {
 };
 
 const silence = () => {
-    window.clearTimeout(liveTimer);
-    liveTimer = 0;
     liveOscillators.forEach(node => { try { node.stop(); } catch { /* already stopped */ } });
     liveSources.forEach(node => { try { node.stop(); } catch { /* already stopped */ } });
     liveOscillators = [];
     liveSources = [];
-    if (liveMaster) {
-        try { liveMaster.disconnect(); } catch { /* already disconnected */ }
-        liveMaster = null;
-    }
 };
 
-/** Stop the current bumper. Pass the token from playIdentSting to ignore a newer sting. */
-export const stopIdentSting = (token?: number): void => {
-    try {
-        if (token !== undefined && token !== generation) return;
-        generation += 1;
-        silence();
-    } catch {
-        /* Audio can fail closed. The bumper still dismisses. */
-    }
+export const stopIdent = (): void => {
+    generation += 1;
+    silence();
 };
 
 const tone = (
@@ -63,12 +47,12 @@ const tone = (
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
-    osc.frequency.setValueAtTime(Math.max(1, freq), start);
-    if (freqTo && freqTo > 0) osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqTo), start + dur);
-    const attack = Math.min(0.08, Math.max(0.012, dur * 0.18));
+    osc.frequency.setValueAtTime(Math.max(40, freq), start);
+    if (freqTo && freqTo > 0) osc.frequency.exponentialRampToValueAtTime(Math.max(40, freqTo), start + dur);
+    const attack = Math.min(0.06, Math.max(0.01, dur * 0.16));
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), start + attack);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + Math.max(dur, attack + 0.02));
     osc.connect(gain);
     gain.connect(dest);
     osc.start(start);
@@ -100,96 +84,154 @@ const noise = (ctx: AudioContext, dest: AudioNode, start: number, dur: number, p
     liveSources.push(source);
 };
 
-const schedule = (styleId: string, ctx: AudioContext, dest: AudioNode, t: number) => {
-    switch (styleId) {
-        case 'signal':
-            noise(ctx, dest, t, 0.16, 0.55, 180);
-            tone(ctx, dest, t, 0.42, 146, 'sine', 0.22, 78);
-            tone(ctx, dest, t + 0.14, 0.7, 196, 'triangle', 0.14);
-            tone(ctx, dest, t + 0.2, 0.55, 294, 'sine', 0.07);
-            return;
-        case 'marquee':
-            [262, 330, 392, 523].forEach((freq, index) => {
-                tone(ctx, dest, t + index * 0.16, 0.38, freq, 'sawtooth', 0.07);
-                tone(ctx, dest, t + index * 0.16, 0.38, freq / 2, 'triangle', 0.05);
-            });
-            return;
-        case 'noir':
-            tone(ctx, dest, t, 1.15, 98, 'triangle', 0.12, 87);
-            tone(ctx, dest, t + 0.35, 0.9, 116, 'sine', 0.06);
-            noise(ctx, dest, t, 0.9, 0.08, 400);
-            return;
+const schedule = (id: string, ctx: AudioContext, dest: AudioNode, t: number) => {
+    switch (id) {
         case 'pulse':
-            [0, 0.28, 0.56].forEach((offset) => noise(ctx, dest, t + offset, 0.12, 0.4, 120));
-            tone(ctx, dest, t, 0.7, 180, 'square', 0.05, 720);
-            tone(ctx, dest, t + 0.56, 0.28, 440, 'square', 0.06);
+            tone(ctx, dest, t, 0.18, 82, 'sine', 0.2);
+            tone(ctx, dest, t + 0.34, 0.22, 82, 'sine', 0.16);
+            tone(ctx, dest, t, 0.7, 164, 'triangle', 0.05);
             return;
-        case 'atlas':
-            tone(ctx, dest, t, 1.25, 196, 'sine', 0.08);
-            tone(ctx, dest, t + 0.05, 1.2, 198, 'sine', 0.05);
-            tone(ctx, dest, t + 0.12, 1.15, 294, 'triangle', 0.05);
+        case 'ascent':
+            [196, 247, 294, 392].forEach((freq, index) => tone(ctx, dest, t + index * 0.16, 0.34, freq, 'triangle', 0.1));
             return;
-        case 'hearth':
-            [174, 220, 261].forEach((freq, index) => tone(ctx, dest, t + index * 0.06, 1.15, freq, 'sine', 0.07));
-            tone(ctx, dest, t + 0.2, 0.8, 349, 'triangle', 0.035);
+        case 'premiere':
+            noise(ctx, dest, t, 0.12, 0.35, 240);
+            [262, 330, 392, 523].forEach((freq, index) => tone(ctx, dest, t + 0.08 + index * 0.11, 0.4, freq, 'sawtooth', 0.05));
+            tone(ctx, dest, t + 0.5, 0.55, 130, 'triangle', 0.12);
             return;
-        case 'voltage':
-            [659, 784, 988, 1318, 988, 784].forEach((freq, index) => tone(ctx, dest, t + index * 0.07, 0.12, freq, 'square', 0.045));
-            noise(ctx, dest, t + 0.42, 0.08, 0.25, 2400);
+        case 'choir':
+            [196, 247, 294, 392].forEach(freq => tone(ctx, dest, t + 0.05, 1.05, freq, 'sine', 0.06));
+            tone(ctx, dest, t, 1.1, 98, 'triangle', 0.08);
             return;
-        case 'linen':
-            [523, 784, 1046].forEach((freq, index) => tone(ctx, dest, t + index * 0.22, 1.05, freq, 'sine', 0.045));
-            tone(ctx, dest, t + 0.15, 1.1, 1568, 'triangle', 0.02);
+        case 'machine':
+            for (let index = 0; index < 8; index += 1) {
+                tone(ctx, dest, t + index * 0.11, 0.06, index % 2 ? 880 : 440, 'square', 0.04);
+            }
+            tone(ctx, dest, t, 0.9, 110, 'sine', 0.08);
+            return;
+        case 'spark':
+            noise(ctx, dest, t, 0.08, 0.4, 2400);
+            tone(ctx, dest, t, 0.22, 880, 'square', 0.06, 1760);
+            tone(ctx, dest, t + 0.16, 0.35, 1320, 'sine', 0.05);
+            return;
+        case 'impact':
+            noise(ctx, dest, t, 0.2, 0.5, 180);
+            tone(ctx, dest, t, 0.7, 55, 'sine', 0.22, 40);
+            tone(ctx, dest, t + 0.05, 0.4, 110, 'triangle', 0.08);
+            return;
+        case 'orbit':
+            tone(ctx, dest, t, 1.1, 220, 'sine', 0.07, 330);
+            tone(ctx, dest, t + 0.15, 0.95, 330, 'sine', 0.05, 220);
+            tone(ctx, dest, t, 1.1, 110, 'triangle', 0.06);
+            return;
+        case 'bloom':
+            tone(ctx, dest, t, 1.2, 174, 'sine', 0.04, 349);
+            tone(ctx, dest, t + 0.25, 1, 220, 'triangle', 0.06);
+            tone(ctx, dest, t + 0.5, 0.8, 277, 'sine', 0.05);
+            return;
+        case 'prism':
+            [523, 659, 784, 988].forEach((freq, index) => tone(ctx, dest, t + index * 0.07, 0.55, freq, 'sine', 0.045));
+            tone(ctx, dest, t, 0.7, 131, 'triangle', 0.06);
+            return;
+        case 'ember':
+            noise(ctx, dest, t, 0.5, 0.08, 900);
+            tone(ctx, dest, t, 0.9, 146, 'triangle', 0.1, 110);
+            tone(ctx, dest, t + 0.2, 0.7, 220, 'sine', 0.05);
+            return;
+        case 'signal':
+            tone(ctx, dest, t, 0.16, 880, 'sine', 0.08);
+            tone(ctx, dest, t + 0.2, 0.7, 440, 'triangle', 0.1);
+            tone(ctx, dest, t + 0.2, 0.7, 220, 'sine', 0.06);
+            return;
+        case 'horizon':
+            tone(ctx, dest, t, 1.15, 98, 'sine', 0.1);
+            tone(ctx, dest, t + 0.1, 1.05, 147, 'triangle', 0.05);
+            tone(ctx, dest, t + 0.3, 0.8, 196, 'sine', 0.04);
+            return;
+        case 'analog':
+            noise(ctx, dest, t, 0.9, 0.06, 1200);
+            tone(ctx, dest, t, 0.85, 174, 'triangle', 0.1, 156);
+            tone(ctx, dest, t + 0.12, 0.5, 349, 'sine', 0.04);
             return;
         default:
-            tone(ctx, dest, t, 0.45, 440, 'sine', 0.08);
+            tone(ctx, dest, t, 0.4, 440, 'sine', 0.1);
     }
 };
 
-/** Start the sting inside the tap that opened the platform, before React paints. */
-export const armPlatformIdent = (player: { ownPlatform?: { identityId?: string; identSound?: boolean; introSeen?: boolean } | null }): void => {
-    try {
-        const platform = player.ownPlatform;
-        if (!platform?.identityId || platform.identSound === false || !platform.introSeen) return;
-        armedStyle = platform.identityId;
-        armedToken = playIdentSting(platform.identityId);
-    } catch {
-        armedStyle = null;
-        armedToken = null;
-    }
+/** Play one of the fourteen idents. A click is the user gesture. */
+export const playIdent = (id: string): void => {
+    const ctx = context();
+    if (!ctx) return;
+    stopIdent();
+    const master = ctx.createGain();
+    master.gain.value = 0.9;
+    master.connect(ctx.destination);
+    schedule(id, ctx, master, ctx.currentTime + 0.02);
 };
 
-/** If this open already started the sting, reuse that token instead of playing it again. */
-export const takeArmedIdent = (styleId: string): number | null => {
-    if (armedStyle !== styleId || armedToken === null) return null;
-    const token = armedToken;
-    armedStyle = null;
-    armedToken = null;
-    return token;
+const writeString = (view: DataView, offset: number, text: string) => {
+    for (let index = 0; index < text.length; index += 1) view.setUint8(offset + index, text.charCodeAt(index));
 };
 
-/** Plays the style's sting. Returns a token so an older bumper can stop only itself. Never throws. */
-export const playIdentSting = (styleId: string): number => {
-    try {
-        silence();
-        const token = ++generation;
-        const ctx = context();
-        if (!ctx) return token;
-        const master = ctx.createGain();
-        liveMaster = master;
-        master.gain.setValueAtTime(0.85, ctx.currentTime);
-        master.connect(ctx.destination);
-        const start = ctx.currentTime + 0.02;
-        schedule(styleId, ctx, master, start);
-        master.gain.setValueAtTime(0.85, start + 0.9);
-        master.gain.exponentialRampToValueAtTime(0.0001, start + 1.35);
-        liveTimer = window.setTimeout(() => {
-            if (token !== generation) return;
-            try { master.disconnect(); } catch { /* already disconnected */ }
-            if (liveMaster === master) liveMaster = null;
-        }, 1500);
-        return token;
-    } catch {
-        return generation;
+const encodeWav = (samples: Float32Array, sampleRate: number): Blob => {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(view, 8, 'WAVE');
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(view, 36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+    let offset = 44;
+    for (let index = 0; index < samples.length; index += 1) {
+        const clamped = Math.max(-1, Math.min(1, samples[index]));
+        view.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+        offset += 2;
     }
+    return new Blob([buffer], { type: 'audio/wav' });
+};
+
+const CLIP_SECONDS = 2.8;
+const CLIP_RATE = 22050;
+
+/** Trim an upload to a short mono WAV the bumper can play back. */
+export const clipToMonoWav = async (file: File): Promise<Blob> => {
+    const ctx = context();
+    if (!ctx) throw new Error('This browser cannot play the bumper.');
+    const decoded = await ctx.decodeAudioData(await file.arrayBuffer());
+    const frames = Math.max(1, Math.min(decoded.length, Math.floor(decoded.sampleRate * CLIP_SECONDS)));
+    const outFrames = Math.max(1, Math.ceil(frames * CLIP_RATE / decoded.sampleRate));
+    const offline = new OfflineAudioContext(1, outFrames, CLIP_RATE);
+    const clip = offline.createBuffer(decoded.numberOfChannels, frames, decoded.sampleRate);
+    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+        clip.getChannelData(channel).set(decoded.getChannelData(channel).subarray(0, frames));
+    }
+    const source = offline.createBufferSource();
+    source.buffer = clip;
+    source.connect(offline.destination);
+    source.start();
+    const rendered = await offline.startRendering();
+    return encodeWav(rendered.getChannelData(0), CLIP_RATE);
+};
+
+export const playWavBlob = async (blob: Blob): Promise<void> => {
+    const ctx = context();
+    if (!ctx) return;
+    stopIdent();
+    const audio = await ctx.decodeAudioData(await blob.arrayBuffer());
+    const source = ctx.createBufferSource();
+    source.buffer = audio;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.9;
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    liveSources.push(source);
+    source.start();
 };

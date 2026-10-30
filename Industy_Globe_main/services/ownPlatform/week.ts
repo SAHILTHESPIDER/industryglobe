@@ -1,7 +1,7 @@
 import { Player, RivalPlatformState } from '../../types';
 import { MARKET_COUNTRIES, hashString } from './catalog';
 import { decorateRival, driftFxRates, formatLocalAmount } from './fx';
-import { identityEffects } from './identEffects';
+import { publicBrandName } from '../rights/alterName';
 import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
 import { normalizeOwnPlatform } from './migrate';
 import { settleBooks } from './studio';
@@ -50,7 +50,9 @@ const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: {
     const focus = active[hashString(`${weekKey}:focus`) % active.length];
     const eventRoll = hashString(`${weekKey}:event`) % 100;
     const focusLocal = formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD');
-    let headline = `${focus.name} held its price at ${focusLocal} (${focus.monthlyPrice.toFixed(2)} USD).`;
+    const focusName = publicBrandName(focus.name);
+    const focusUsd = Number.isFinite(focus.monthlyPrice) ? focus.monthlyPrice.toFixed(2) : '0.00';
+    let headline = `${focusName} held its price at ${focusLocal} (${focusUsd} USD).`;
 
     active.forEach(rival => {
         const drift = ((hashString(`${weekKey}:${rival.id}`) % 7) - 3) / 100;
@@ -71,12 +73,12 @@ const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: {
         focus.monthlyPrice = refreshed.monthlyPrice;
         focus.householdsM *= 1.04;
         focus.note = 'Cut the local price. Neighbours feel it.';
-        headline = `Price war: ${focus.name} dropped to ${formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD')} a month.`;
+        headline = `Price war: ${focusName} dropped to ${formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD')} a month.`;
     } else if (eventRoll < 24) {
         focus.householdsM *= 1.08;
         focus.reputation = clamp(focus.reputation + 3, 1, 99);
         focus.note = 'A hit landed.';
-        headline = `${focus.name} has a hit. Households moved.`;
+        headline = `${focusName} has a hit. Households moved.`;
     } else if (eventRoll < 34 && active.length > 8) {
         const preyPool = active.filter(rival => rival.tier === 'EMERGING' && rival.id !== focus.id);
         const prey = preyPool[hashString(`${weekKey}:prey`) % Math.max(1, preyPool.length)];
@@ -84,13 +86,13 @@ const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: {
             focus.householdsM += prey.householdsM * 0.7;
             prey.householdsM = 0;
             prey.status = 'ACQUIRED';
-            prey.note = `Folded into ${focus.name}.`;
-            headline = `${focus.name} acquired ${prey.name}.`;
+            prey.note = `Folded into ${focusName}.`;
+            headline = `${focusName} acquired ${publicBrandName(prey.name)}.`;
         }
     } else if (eventRoll < 46) {
         focus.reputation = clamp(focus.reputation - 4, 1, 99);
         focus.note = 'A flagship licence expired.';
-        headline = `${focus.name} lost a flagship licence.`;
+        headline = `${focusName} lost a flagship licence.`;
     } else if (eventRoll < 58) {
         pulseShift.fatigue = clamp(pulseShift.fatigue + 0.04, 0, 0.8);
         headline = 'Subscription fatigue is in the papers again.';
@@ -187,22 +189,17 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             const application = state.applications.find(row => row.countryId === country.id);
             return application && (application.status === 'APPROVED' || (application.status === 'CONDITIONS' && application.acceptedConditions));
         });
-        const piracyRaw = countries.length
+        const piracy = countries.length
             ? countries.reduce((sum, country) => sum + countryPiracy(state, country), 0) / countries.length
             : quote.piracyShare;
-        const piracy = Number.isFinite(piracyRaw) ? piracyRaw : 0;
         state.piracyShare = piracy;
         const pressure = clamp(state.enforcement * 0.45 + piracy * 80, 0, 100);
         state.customerPressure = pressure;
         const target = quote.households * (1 - pulse.recession * 0.15) * (pressure > 75 ? 0.9 : 1);
-        const ident = identityEffects(state.identityId);
-        const growing = target > state.subscribers;
-        const step = growing ? 0.18 : clamp(0.08 / ident.familyRetention, 0.04, 0.14);
+        const step = target > state.subscribers ? 0.18 : 0.08;
         state.subscribers = Math.max(0, Math.round(state.subscribers + (target - state.subscribers) * step));
-        const revenueRaw = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0));
-        const burnRaw = Math.round(quote.weeklyBurn);
-        const revenue = Number.isFinite(revenueRaw) ? revenueRaw : 0;
-        const burn = Number.isFinite(burnRaw) ? burnRaw : 0;
+        const revenue = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0));
+        const burn = Math.round(quote.weeklyBurn);
         state.lastWeeklyRevenue = revenue;
         state.lastWeeklyBurn = burn;
         if (revenue > 0) transactions.push({ amount: revenue, description: `${state.name} subscriber and ad receipts` });

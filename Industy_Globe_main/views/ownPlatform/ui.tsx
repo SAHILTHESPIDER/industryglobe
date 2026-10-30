@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { LaunchQuote, formatCompact, formatPeople } from '../../services/ownPlatform/logic';
+import { markById } from '../../services/ownPlatform/brand';
+import { BrandMark } from './BrandMark';
 import { LaunchRegionId } from '../../types';
 import { MARKET_COUNTRIES, REGION_CITIES } from '../../services/ownPlatform/catalog';
 import './fonts';
@@ -48,11 +50,12 @@ interface ShellProps {
     onDefineStep: (step: number) => void;
     onBuildStep: (step: number) => void;
     onWatchIntro?: () => void;
+    markId?: string;
 }
 
 export const Shell: React.FC<ShellProps> = ({
     children, onBack, kicker, title, pane, onPane, name, stage, money,
-    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro,
+    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId,
 }) => {
     const live = stage === 'LIVE';
     const stepNo = pane === 'launch'
@@ -69,7 +72,9 @@ export const Shell: React.FC<ShellProps> = ({
             <div className="app">
                 <aside className="rail">
                     <div className="brand">
-                        <div className="bolt"><BoltMark /></div>
+                        <div className="bolt" style={{ background: markById(markId).ink }}>
+                            <BrandMark id={markById(markId).id} color={markById(markId).accent} size={22} letter={name} />
+                        </div>
                         <div>
                             <div className="nm">{(name || 'EMPIRE+').toUpperCase()}</div>
                             <div className="st" style={{ color: live ? 'var(--go)' : undefined }}>{live ? 'On air' : 'Paper company'}</div>
