@@ -66,7 +66,7 @@ export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
         const more = rivals.filter(rival => !top.some(row => row.id === rival.id));
         return { top, more };
     }, [rivals]);
-    const money = Math.max(0, player.money || 0);
+    const money = Math.max(0, player.ownPlatform?.books?.cash || 0);
     const rivalCount = rivals.length || 40;
 
     const finish = () => {

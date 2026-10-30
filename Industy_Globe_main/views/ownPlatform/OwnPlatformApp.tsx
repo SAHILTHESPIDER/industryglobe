@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { OwnPlatformState, Player } from '../../types';
+import { addCompanyCash } from '../../services/ownPlatform/companyCash';
 import { ensureOwnPlatform } from '../../services/ownPlatform/migrate';
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
 import { formatLocalAmount } from '../../services/ownPlatform/fx';
@@ -118,7 +119,7 @@ const EmpirePaywall: React.FC<{ player: Player; onBack: () => void; onUnlock: ()
                 <div style={{ fontSize: 34, fontWeight: 800, marginTop: 10, letterSpacing: '-0.02em' }}>Own your own platform</div>
                 <p style={{ opacity: 0.75, lineHeight: 1.55, marginTop: 14, fontSize: 15 }}>
                     Build a streaming service, clear markets, sign distribution deals, and run the company week to week.
-                    One-time entry fee. Unlocks permanently for this career.
+                    This fee leaves your personal cash and becomes the company's opening money. After that, subscribers, ads, and costs stay in the company.
                 </p>
 
                 <div
@@ -134,7 +135,7 @@ const EmpirePaywall: React.FC<{ player: Player; onBack: () => void; onUnlock: ()
                 >
                     <span style={{ fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase', opacity: 0.55 }}>Entry fee</span>
                     <span style={{ fontSize: 40, fontWeight: 900, marginTop: 4 }}>{formatCompact(EMPIRE_UNLOCK_PRICE)}</span>
-                    <span style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>You have {formatCompact(player.money)}</span>
+                    <span style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>Your personal cash {formatCompact(player.money)}</span>
                 </div>
 
                 <button
@@ -158,7 +159,7 @@ const EmpirePaywall: React.FC<{ player: Player; onBack: () => void; onUnlock: ()
                         boxShadow: canAfford ? '0 14px 40px rgba(124,92,255,0.45)' : 'none',
                     }}
                 >
-                    {canAfford ? `Purchase for ${formatCompact(EMPIRE_UNLOCK_PRICE)}` : `Need ${formatCompact(shortBy)} more`}
+                    {canAfford ? `Invest ${formatCompact(EMPIRE_UNLOCK_PRICE)} of your cash` : `Need ${formatCompact(shortBy)} more of your cash`}
                 </button>
 
                 <button
@@ -207,11 +208,24 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
 
     const handleUnlock = () => {
         if (player.money < EMPIRE_UNLOCK_PRICE) return;
-        onUpdatePlayer({
+        const seeded = ensureOwnPlatform({
             ...player,
             money: player.money - EMPIRE_UNLOCK_PRICE,
             flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+            finance: player.finance ? {
+                ...player.finance,
+                history: [{
+                    id: `tx_found_${Date.now()}`,
+                    week: player.currentWeek,
+                    year: player.age,
+                    amount: -EMPIRE_UNLOCK_PRICE,
+                    category: 'BUSINESS' as const,
+                    description: 'You invested your own money to found Empire+',
+                }, ...(player.finance.history || [])].slice(0, 200),
+            } : player.finance,
         });
+        addCompanyCash(seeded, EMPIRE_UNLOCK_PRICE, 'You invested your own money to found the company', 'TRANSFER');
+        onUpdatePlayer(seeded);
     };
 
     /* Paywall only gates starting a brand-new platform. Rights and an existing build stay open. */
@@ -226,7 +240,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
         return createPortal(
             <>
                 <CloseButton onClick={onBack} />
-                <Shell onBack={onBack} kicker="Empire+" title="Opening the books" pane="launch" onPane={setPane} name="Empire+" stage="DEFINE" money={player.money} defineStep={0} buildStep={0} pastDefine={false} onDefineStep={() => undefined} onBuildStep={() => undefined}>
+                <Shell onBack={onBack} kicker="Empire+" title="Opening the books" pane="launch" onPane={setPane} name="Empire+" stage="DEFINE" money={0} defineStep={0} buildStep={0} pastDefine={false} onDefineStep={() => undefined} onBuildStep={() => undefined}>
                     <p className="p" style={{ padding: 32 }}>Preparing the launch…</p>
                 </Shell>
             </>,
@@ -284,7 +298,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 onPane={setPane}
                 name={serviceName}
                 stage={state.stage}
-                money={player.money}
+                money={state.books?.cash || 0}
                 defineStep={state.defineStep}
                 buildStep={state.buildStep}
                 pastDefine={pastDefine}

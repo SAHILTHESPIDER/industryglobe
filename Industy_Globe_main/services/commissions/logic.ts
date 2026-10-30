@@ -6,6 +6,7 @@ import {
 import { createBusiness } from '../businessLogic';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { createRivalRoster, hashString } from '../ownPlatform/catalog';
+import { addCompanyCash, readCompanyCash } from '../ownPlatform/companyCash';
 import { ensureOwnPlatform } from '../ownPlatform/migrate';
 import { displayTitle, IpRecord } from '../rights/catalogue';
 import { rightsOf } from '../rights/logic';
@@ -1161,19 +1162,8 @@ const finalizeEmpire = (player: Player, desk: CommissionDeskState, brief: Commis
     if (brief.status === 'SIGNED') return null;
     const terms = brief.platformReply || brief.baseTerms;
     const advance = trancheOf(terms, brief.seasons);
-    if ((player.money || 0) < advance) return 'Empire+ cannot cover the advance.';
-    player.money -= advance;
-    pushUsd(player, -advance, `${player.ownPlatform?.name || 'Empire+'} advance to ${brief.targetHouseName} for ${brief.title}`);
-    if (player.ownPlatform?.books) {
-        player.ownPlatform.books.lines = [{
-            id: `empire_commission_${brief.id}`,
-            week: player.currentWeek,
-            year: player.age,
-            amount: -advance,
-            label: `Advance to ${brief.targetHouseName} for ${brief.title}`,
-            source: 'COMMISSION' as const,
-        }, ...(player.ownPlatform.books.lines || [])].slice(0, 40);
-    }
+    if (readCompanyCash(player) < advance) return 'Company cash cannot cover the advance. Invest your own money if you want the company to pay it. Personal cash is not used.';
+    addCompanyCash(player, -advance, `${player.ownPlatform?.name || 'Empire+'} advance to ${brief.targetHouseName} for ${brief.title}`, 'COMMISSION');
     brief.status = 'SIGNED';
     brief.finalTerms = terms;
     const project = startProject(player, desk, brief, brief.targetHouseId || 'aurora', brief.targetHouseName || 'Aurora Pictures', terms, false);

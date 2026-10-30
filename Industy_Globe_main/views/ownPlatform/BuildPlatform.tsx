@@ -187,9 +187,9 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                         <Card>
                             <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Launch allocation</div>
                             <div className="text-4xl font-black" style={{ fontFamily: headingFont }}>{formatCompact(quote.dueNow)}</div>
-                            <div className="text-sm text-zinc-400">Leaves now · {formatCompact(quote.leftAfter)} left after</div>
+                            <div className="text-sm text-zinc-400">Leaves company cash · {formatCompact(quote.leftAfter)} left in the company</div>
                             <div className="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
-                                <div className="h-full bg-[#4F3BFF]" style={{ width: `${Math.min(100, player.money > 0 ? (quote.dueNow / player.money) * 100 : 100)}%` }} />
+                                <div className="h-full bg-[#4F3BFF]" style={{ width: `${Math.min(100, (player.ownPlatform?.books?.cash || 0) > 0 ? (quote.dueNow / (player.ownPlatform?.books?.cash || 1)) * 100 : 100)}%` }} />
                             </div>
                             <p className="text-xs text-zinc-500 mt-3">Charged when you commission, in USD, against the same treasury as the rest of the career.</p>
                             <div className="mt-4 space-y-2 text-sm">
@@ -281,7 +281,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                         <div className="paper" style={{ padding: '36px 40px' }}>
                             <div className="lab" style={{ color: '#6B5E44' }}>Agreement</div>
                             <h2 className="h2" style={{ fontFamily: 'var(--s)', textTransform: 'none', letterSpacing: 0, marginTop: 8 }}>Commission the build</h2>
-                            <p className="p" style={{ marginTop: 8, color: '#4A3F2B' }}>Signing spends {formatCompact(quote.dueNow)} from the treasury. The six-week reserve covers burn while the rooms are built. Weekly costs start when the service goes live.</p>
+                            <p className="p" style={{ marginTop: 8, color: '#4A3F2B' }}>Signing spends {formatCompact(quote.dueNow)} from company cash. Your personal money stays put. The six-week reserve covers burn while the rooms are built. Weekly costs start when the service goes live.</p>
                             <ul className="mt-4 space-y-2 text-sm">
                                 {(quote.blockers.filter(line => line !== 'Construction has already been signed.').length ? quote.blockers.filter(line => line !== 'Construction has already been signed.') : ['Every requirement on the blueprint is clear.']).map(line => (
                                     <li key={line} className="border-b border-white/5 py-2">{line}</li>
@@ -301,7 +301,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
             <FooterBar
                 leftLabel="Network"
                 leftValue={`${quote.regionRows.length} regions`}
-                money={formatCompact(player.money)}
+                money={formatCompact(player.ownPlatform?.books?.cash || 0)}
                 onBack={step === 0 ? onLaunch : () => go(step - 1)}
                 onNext={step < 3 ? () => go(step + 1) : undefined}
                 nextLabel={step === 0 ? 'Next · Money' : step === 1 ? 'Next · Test' : 'Next · Sign'}

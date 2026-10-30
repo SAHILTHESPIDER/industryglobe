@@ -3,6 +3,8 @@ import { MARKET_COUNTRIES, hashString } from './catalog';
 import { decorateRival, driftFxRates, formatLocalAmount } from './fx';
 import { publicBrandName } from '../rights/alterName';
 import { identById } from './identEffects';
+import { addCompanyCash } from './companyCash';
+import { introSpan, localisationWeekly } from './commercial';
 import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
 import { normalizeOwnPlatform } from './migrate';
 import { settleBooks } from './studio';
@@ -114,9 +116,8 @@ const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: {
 
 /**
  * Advances the shared streaming economy and the player's service.
- * Money is not touched here. The caller posts the returned transactions
- * through the existing USD ledger.
- * Rehearsals never call this.
+ * Operating receipts and costs land in company cash. They are not returned
+ * as personal transactions. Rehearsals never call this.
  */
 export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformWeekResult => {
     if (!player.ownPlatform) return { notes: [], transactions: [] };
@@ -208,10 +209,15 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         const burn = Number.isFinite(burnRaw) ? burnRaw : 0;
         state.lastWeeklyRevenue = revenue;
         state.lastWeeklyBurn = burn;
-        if (revenue > 0) transactions.push({ amount: revenue, description: `${state.name} subscriber and ad receipts` });
-        if (burn > 0) transactions.push({ amount: -burn, description: `${state.name} network burn` });
+        if (revenue > 0) addCompanyCash(player, revenue, `${state.name} subscriber, ad, pass, and store receipts`, 'RECEIPTS');
+        if (burn > 0) addCompanyCash(player, -burn, `${state.name} network, localisation, and running costs`, 'BURN');
         if (state.weeksLive === 1) {
             notes.push({ msg: `${state.name} took its first week of real money. Piracy kept ${Math.round(piracy * 100)}% of viewing off the ledger.`, type: revenue >= burn ? 'positive' : 'neutral' });
+            const span = introSpan(state);
+            if (span > 0) notes.push({ msg: `${state.name} is on an intro price. Full price returns after ${span} weeks.`, type: 'neutral' });
+            if (localisationWeekly(state) > 0) notes.push({ msg: 'Subtitles and dubs are on the weekly bill.', type: 'neutral' });
+        } else if (introSpan(state) > 0 && state.weeksLive === introSpan(state) + 1) {
+            notes.push({ msg: `${state.name} intro prices ended. New weeks bill the full plan.`, type: 'neutral' });
         } else if (pressure > 80) {
             notes.push({ msg: `Viewers are angry about enforcement on ${state.name}. Growth slowed.`, type: 'negative' });
         }

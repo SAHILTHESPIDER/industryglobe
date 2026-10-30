@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Player } from '../../types';
+import { readCompanyCash } from '../../services/ownPlatform/companyCash';
 import { borrowerDesk } from '../../services/loanLogic';
 import { formatCompact } from '../../services/ownPlatform/logic';
 import { AcquisitionQuote, BuyFinancing, equityChequeAvailable, quoteAcquisition } from '../../services/ownPlatform/valuation';
@@ -32,15 +33,16 @@ export const ValuationSheet: React.FC<Props> = ({ player, dealId, onClose, onCon
     const cash = Math.max(0, Math.floor(Number(cashInput.replace(/[^0-9]/g, '')) || 0));
     const loan = Math.max(0, Math.floor(Number(loanInput.replace(/[^0-9]/g, '')) || 0));
     const equity = sellEquity ? equityCash : 0;
-    const covered = Math.min(cash, player.money) + Math.min(loan, desk.capacity) + equity;
+    const company = readCompanyCash(player);
+    const covered = Math.min(cash, company) + Math.min(loan, desk.capacity) + equity;
     const short = Math.max(0, quote.equityCheque - covered);
-    const blocked = !quote.regulator.ok || !quote.board.ok || short > 0 || cash > player.money || loan > desk.capacity;
+    const blocked = !quote.regulator.ok || !quote.board.ok || short > 0 || cash > company || loan > desk.capacity;
     const reason = !quote.regulator.ok
         ? quote.regulator.reason
         : !quote.board.ok
             ? 'The board voted against a change of control at this size.'
-            : cash > player.money
-                ? 'The cash line is larger than the treasury.'
+            : cash > company
+                ? 'The cash line is larger than company cash. Invest your own money first if you want to add more.'
                 : loan > desk.capacity
                     ? `Empire+ can borrow ${money(desk.capacity)}.`
                     : short > 0
@@ -84,9 +86,9 @@ export const ValuationSheet: React.FC<Props> = ({ player, dealId, onClose, onCon
                 ))}
             </div>
             <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <label className="text-[10px] uppercase tracking-wider text-zinc-500">Treasury cash
+                <label className="text-[10px] uppercase tracking-wider text-zinc-500">Company cash
                     <input value={cashInput} inputMode="numeric" onChange={(event) => setCashInput(event.target.value)} className="mt-1 w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-base" />
-                    <span className="block text-zinc-600 normal-case tracking-normal mt-1">You have {money(player.money)}</span>
+                    <span className="block text-zinc-600 normal-case tracking-normal mt-1">Company has {money(company)}. Your personal cash is separate.</span>
                 </label>
                 <label className="text-[10px] uppercase tracking-wider text-zinc-500">Empire+ loan
                     <input value={loanInput} inputMode="numeric" onChange={(event) => setLoanInput(event.target.value)} className="mt-1 w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-base" />

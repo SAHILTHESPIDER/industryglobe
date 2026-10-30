@@ -29,6 +29,8 @@ import {
     STOREFRONTS,
     hashString,
 } from './catalog';
+import { addCompanyCash, readCompanyCash } from './companyCash';
+import { adBoostFor, fundingPressure, lanesForBoost, localisationAudience, localisationWeekly, RevenueParts, rollCommercial } from './commercial';
 import { planUsdInCountry } from './fx';
 import { identById } from './identEffects';
 import { publicBrandName } from '../rights/alterName';
@@ -74,6 +76,11 @@ export interface LaunchQuote {
     servedPct: number;
     households: number;
     forecastWeeklyRevenue: number;
+    revenueParts: RevenueParts;
+    fundingPressure: number;
+    fundingLabel: string;
+    fundingLine: string;
+    localisationWeekly: number;
     piracyShare: number;
     marketingCeiling: number;
     marketingReady: boolean;
@@ -257,6 +264,9 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         weeklyOwn: 0, weeklyRent: 0, weeklyBurn: 0, breakEvenWeek: null, runwayWeeks: 0,
         leftAfter: player.money, energyMwh: 0, sustainability: 70, reputation: 50,
         capacity: 0, nightDemand: 0, servedPct: 0, households: 0, forecastWeeklyRevenue: 0,
+        revenueParts: { subscriptions: 0, ads: 0, passes: 0, rentals: 0, purchases: 0 },
+        fundingPressure: 0, fundingLabel: 'Calm', fundingLine: 'Receipts cover the week. Company cash is not under pressure.',
+        localisationWeekly: 0,
         piracyShare: 0, marketingCeiling: 0, marketingReady: false, regionRows: [],
         blockers: ['Open the launch first.'], ownSeries: [], rentSeries: [],
     };
@@ -306,7 +316,8 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const dueNow = construction + deposits + access + licences + reserve;
     const savings = weeklyRent - weeklyOwn;
     const breakEvenWeek = construction <= 0 || savings <= 0 ? null : Math.ceil(construction / savings);
-    const leftAfter = player.money - dueNow;
+    const companyCash = readCompanyCash(player);
+    const leftAfter = companyCash - dueNow;
     const runwayWeeks = weeklyOwn <= 0 ? (leftAfter > 0 ? 999 : 0) : Math.max(0, Math.floor(leftAfter / weeklyOwn));
 
     const energyMwh = Math.round(
@@ -326,13 +337,20 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const ident = identById(state.identId);
     const discovery = (storefront?.discovery ?? 1) * ident.discovery;
     const retention = (storefront?.retention ?? 1) * ident.retention;
+    const countedLanes = lanesForBoost(state);
+    const laneBoost = 1 + Math.max(0, countedLanes.length - 1) * 0.04;
+    const adBoost = adBoostFor(state);
+    const localScale = (country: MarketCountry) => localisationAudience(
+        state.localisations?.find(row => row.countryId === country.id),
+        country.languages[0]?.name === 'English',
+    );
     let reached = 0;
     let paid = 0;
     let piracyWeight = 0;
     footprint.forEach(country => {
         const row = regionRows.find(region => region.regionId === country.regionId);
         const served = row?.servedPct ?? 0;
-        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery;
+        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country);
         const piracy = countryPiracy(state, country);
         reached += viewers;
         paid += viewers * (1 - piracy);
@@ -340,8 +358,6 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     });
     const piracyShareRaw = reached > 0 ? piracyWeight / reached : 0;
     const piracyShare = Number.isFinite(piracyShareRaw) ? piracyShareRaw : 0;
-    const laneBoost = 1 + Math.max(0, state.revenueLanes.length - 1) * 0.04;
-    const adBoost = state.revenueLanes.includes('ADVERTISING') ? 1.08 : 1;
     const fatigue = 1 - (state.pulse?.fatigue || 0) * 0.25;
     const recession = 1 - (state.pulse?.recession || 0) * 0.2;
     const conversionFor = (usd: number) => clamp(0.035 * retention * laneBoost * fatigue * recession * (usd > 18 ? 0.72 : 1), 0.01, 0.22);
@@ -350,7 +366,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     footprint.forEach(country => {
         const row = regionRows.find(region => region.regionId === country.regionId);
         const served = row?.servedPct ?? 0;
-        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery;
+        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country);
         const piracy = countryPiracy(state, country);
         const paying = viewers * (1 - piracy);
         const usd = averageUsdInCountry(state, country.id);
@@ -360,7 +376,11 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         monthly += paying * conversion * finiteNumber(booked, 0) * adBoost;
     });
     households = Number.isFinite(households) ? Math.round(households) : 0;
-    const forecastWeeklyRevenue = Number.isFinite(monthly) ? Math.round(monthly / 4.3) : 0;
+    const rolled = rollCommercial(state, households, Number.isFinite(monthly) ? monthly : 0);
+    households = Number.isFinite(rolled.households) ? rolled.households : households;
+    const forecastWeeklyRevenue = rolled.parts.subscriptions + rolled.parts.ads + rolled.parts.passes + rolled.parts.rentals + rolled.parts.purchases;
+    const locWeekly = localisationWeekly(state);
+    const pressure = fundingPressure(forecastWeeklyRevenue, weeklyOwn + locWeekly, companyCash, state.books?.debt || 0);
 
     const marketingReady = opened.length > 0;
     const fame = player.stats?.fame || 0;
@@ -392,15 +412,20 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
             blockers.push(`${row.name} is short of capacity.`);
         }
     });
-    if (player.money < dueNow) blockers.push(`The treasury is short ${formatCompact(dueNow - player.money)}.`);
+    if (companyCash < dueNow) blockers.push(`Company cash is short ${formatCompact(dueNow - companyCash)}. Invest your own money to cover it. Personal cash is not used.`);
     if (state.commissioned) blockers.push('Construction has already been signed.');
 
     return {
         construction, deposits, access, licences, reserve, dueNow,
-        weeklyOwn, weeklyRent, weeklyBurn: weeklyOwn, breakEvenWeek, runwayWeeks, leftAfter,
+        weeklyOwn, weeklyRent, weeklyBurn: weeklyOwn + locWeekly, breakEvenWeek, runwayWeeks, leftAfter,
         energyMwh, sustainability, reputation, capacity: totalCapacity, nightDemand: totalNight,
         servedPct: totalNight <= 0 ? 0 : clamp(totalCapacity / totalNight, 0, 1),
-        households, forecastWeeklyRevenue, piracyShare, marketingCeiling, marketingReady,
+        households, forecastWeeklyRevenue, revenueParts: rolled.parts,
+        fundingPressure: pressure.score,
+        fundingLabel: pressure.label,
+        fundingLine: pressure.line,
+        localisationWeekly: locWeekly,
+        piracyShare, marketingCeiling, marketingReady,
         regionRows, blockers, ownSeries, rentSeries,
     };
 };
@@ -570,17 +595,23 @@ export const commissionPlatform = (player: Player): { player: Player; error?: st
         finance: player.finance,
         ownPlatform: {
             ...player.ownPlatform,
+            books: player.ownPlatform.books
+                ? { ...player.ownPlatform.books, lines: [...player.ownPlatform.books.lines], history: [...player.ownPlatform.books.history] }
+                : undefined,
             stage: 'CONSTRUCTING' as const,
             commissioned: true,
             constructionWeeksLeft: BUILD_WEEKS,
             weeklyBurn: quote.weeklyBurn,
         },
     };
-    pushTransaction(next, -quote.dueNow, `${next.ownPlatform.name} commissioning`);
+    if (readCompanyCash(next) < quote.dueNow) {
+        return { player, error: `${player.ownPlatform.name} is short ${formatCompact(quote.dueNow - readCompanyCash(next))} of company cash. Invest your own money first. Personal cash is not spent here.` };
+    }
+    addCompanyCash(next, -quote.dueNow, `${next.ownPlatform.name} commissioning from company cash`, 'BURN');
     next.logs = [...(player.logs || []), {
         week: player.currentWeek,
         year: player.age,
-        message: `Signed the build for ${next.ownPlatform.name}. ${formatCompact(quote.dueNow)} left the treasury. ${BUILD_WEEKS} weeks of construction.`,
+        message: `Signed the build for ${next.ownPlatform.name}. ${formatCompact(quote.dueNow)} left company cash. Your personal money did not move. ${BUILD_WEEKS} weeks of construction.`,
         type: 'neutral' as const,
     }];
     return { player: next };
@@ -766,7 +797,7 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
         logs: [...(player.logs || []), {
             week: player.currentWeek,
             year: player.age,
-            message: `Locked ${pending.title} with ${publicBrandName(pending.offer.bidderName)}. Views begin ${releaseWeekLabel(player.currentWeek, offset)}. ${formatCompact(net)} net to the treasury after the campaign.`,
+            message: `Locked ${pending.title} with ${publicBrandName(pending.offer.bidderName)}. Views begin ${releaseWeekLabel(player.currentWeek, offset)}. ${formatCompact(net)} net to your personal cash after the campaign.`,
             type: 'positive' as const,
         }],
     };

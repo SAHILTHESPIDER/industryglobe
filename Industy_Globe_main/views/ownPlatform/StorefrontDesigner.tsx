@@ -148,7 +148,7 @@ export const StorefrontDesigner: React.FC<Props> = ({ player, state, locked, onC
     const [previewId, setPreviewId] = useState(state.storefrontId);
     const progress = {
         fame: player.stats?.fame || 0,
-        cash: player.money,
+        cash: state.books?.cash || 0,
         subscribers: state.subscribers || 0,
         weeksLive: state.weeksLive || 0,
         currentId: state.storefrontId,

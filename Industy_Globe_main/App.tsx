@@ -1917,7 +1917,7 @@ export const App: React.FC = () => {
               category: 'YOU',
               impactLevel: 'MEDIUM',
           });
-          signaled = appendBuzz(signaled, `${signaled.name} is starting a streaming service. No listing yet. The treasury is still one pile of cash.`);
+          signaled = appendBuzz(signaled, `${signaled.name} is starting a streaming service. No listing yet. Company cash and personal cash stay separate.`);
           return {
               ...signaled,
               logs: [...(current.logs || []), { week: current.currentWeek, year: current.age, message: `Founded ${named}. It stays private until the board lists it.`, type: 'neutral' as const }],

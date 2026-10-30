@@ -13,6 +13,8 @@ import {
     PE_NAME,
     PE_STAKE,
     chooseFunding,
+    drawFromCompany,
+    investInCompany,
     listPlatformDeals,
     purchasePlatform,
     quoteValuation,
@@ -23,6 +25,7 @@ import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
 import { ValuationSheet } from './ValuationSheet';
+import { PricingDesk } from './PricingDesk';
 import { headingFont } from './ui';
 import { STREAMING_SCENES, sceneStyle } from '../../services/ownPlatform/scenes';
 import { IdentBumper } from './IdentStage';
@@ -74,7 +77,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
             {error && <p className="text-rose-300 text-sm">{error}</p>}
             {desk === 'content' && <ContentDesk player={player} onApply={apply} />}
             {desk === 'network' && <NetworkDesk player={player} quoteHouseholds={quote.households} burn={quote.weeklyBurn} />}
-            {desk === 'audience' && <AudienceDesk player={player} />}
+            {desk === 'audience' && <AudienceDesk player={player} onPlayer={onPlayer} />}
             {desk === 'board' && (
                 <div className="space-y-8">
                     <FinanceDesk player={player} onApply={apply} valuation={quoteValuation(player)} />
@@ -226,10 +229,12 @@ const NetworkDesk: React.FC<{ player: Player; quoteHouseholds: number; burn: num
     );
 };
 
-const AudienceDesk: React.FC<{ player: Player }> = ({ player }) => {
+const AudienceDesk: React.FC<{ player: Player; onPlayer: (next: Player) => void }> = ({ player, onPlayer }) => {
     const state = player.ownPlatform!;
+    const [pricingOpen, setPricingOpen] = useState(false);
     const countries = MARKET_COUNTRIES.filter(row => state.selectedCountryIds.includes(row.id));
     return (
+        <div className="space-y-4">
         <div className="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-4">
             <div className="grid sm:grid-cols-2 gap-3">
                 <Metric label="Subscribers" value={formatPeople(state.subscribers)} />
@@ -254,6 +259,13 @@ const AudienceDesk: React.FC<{ player: Player }> = ({ player }) => {
                 ))}
             </div>
         </div>
+        <button type="button" data-testid="open-live-pricing" onClick={() => setPricingOpen(open => !open)} className="px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">
+            {pricingOpen ? 'Hide pricing' : 'Pricing and offers'}
+        </button>
+        {pricingOpen && (
+            <PricingDesk player={player} state={state} locked={false} onChange={next => onPlayer({ ...player, ownPlatform: next })} />
+        )}
+        </div>
     );
 };
 
@@ -273,7 +285,8 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                 <p className="text-sm text-zinc-400 mt-2 max-w-2xl">Cash still lives in the treasury. This desk tracks profit, burn, debt, titles, markets, and who owns the company. Build slowly with your own capital, draw a bank facility, or sell a stake.</p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Metric label="Treasury" value={formatCompact(player.money)} />
+                <Metric label="Company cash" value={formatCompact(books?.cash || 0)} />
+                <Metric label="Your cash" value={formatCompact(player.money)} />
                 <Metric label="Last receipts" value={formatCompact(state.lastWeeklyRevenue)} />
                 <Metric label="Burn" value={formatCompact(state.lastWeeklyBurn)} />
                 <Metric label="Profit" value={formatCompact(profit)} />
@@ -282,10 +295,11 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                 <Metric label="Valuation" value={formatCompact(valuation)} />
                 <Metric label="Outside owners" value={`${Math.round((books?.equitySoldPct || 0) * 100)}%`} />
             </div>
+            <CompanyTransfer player={player} onApply={onApply} />
             <div className="grid lg:grid-cols-3 gap-3">
-                <Choice title="Own capital" body="No new money. Commissioning spends the treasury you already have." action="Build from the treasury" onClick={() => onApply(chooseFunding(player, 'OWN'))} />
-                <Choice title="Bank facility" body={books?.debt ? `${formatCompact(books.debt)} is still outstanding. A payment leaves every week.` : `Draw ${formatCompact(FACILITY_USD)}. Interest and a paydown leave every week until the balance is gone.`} action={books?.debt ? 'Facility is open' : 'Draw the facility'} onClick={() => onApply(chooseFunding(player, 'BANK'))} />
-                <Choice title="Private equity" body={books?.equitySoldPct ? `${books.pePartner} already owns ${Math.round(books.equitySoldPct * 100)}%.` : `${PE_NAME} buys ${Math.round(PE_STAKE * 100)}% at a discount to the ${formatCompact(valuation)} valuation and takes that share of weekly profit.`} action={books?.equitySoldPct ? 'Stake already sold' : 'Sell the stake'} onClick={() => onApply(chooseFunding(player, 'EQUITY'))} />
+                <Choice title="Company cash" body="No new money. Commissioning spends company cash. Your personal cash stays yours unless you invest it." action="Build from company cash" onClick={() => onApply(chooseFunding(player, 'OWN'))} />
+                <Choice title="Bank facility" body={books?.debt ? `${formatCompact(books.debt)} is still outstanding. The payment leaves company cash every week.` : `Draw ${formatCompact(FACILITY_USD)} into the company. Interest and a paydown leave company cash every week until the balance is gone.`} action={books?.debt ? 'Facility is open' : 'Draw the facility'} onClick={() => onApply(chooseFunding(player, 'BANK'))} />
+                <Choice title="Private equity" body={books?.equitySoldPct ? `${books.pePartner} already owns ${Math.round(books.equitySoldPct * 100)}%.` : `${PE_NAME} buys ${Math.round(PE_STAKE * 100)}% at a discount to the ${formatCompact(valuation)} valuation. The cheque is company cash. They take that share of weekly profit.`} action={books?.equitySoldPct ? 'Stake already sold' : 'Sell the stake'} onClick={() => onApply(chooseFunding(player, 'EQUITY'))} />
             </div>
             <div className="grid lg:grid-cols-2 gap-3">
                 <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
@@ -359,6 +373,25 @@ const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     onConfirm={file}
                 />
             )}
+        </div>
+    );
+};
+
+const CompanyTransfer: React.FC<{ player: Player; onApply: (result: { player: Player; error?: string }) => void }> = ({ player, onApply }) => {
+    const [amount, setAmount] = useState('1000000');
+    const value = Math.max(0, Math.floor(Number(amount) || 0));
+    return (
+        <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4" data-testid="company-transfer">
+            <div className="text-[11px] uppercase tracking-wider text-zinc-500">Move money between you and the company</div>
+            <p className="text-sm text-zinc-400 mt-2">Investing moves your personal cash into the company. A salary or a dividend moves company cash back to you. Subscribers, ads, rentals, and running costs never touch your personal cash.</p>
+            <label className="text-xs text-zinc-500 block mt-3">Amount (USD)
+                <input value={amount} inputMode="numeric" onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ''))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
+            </label>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-3">
+                <button type="button" onClick={() => onApply(investInCompany(player, value))} className="px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Invest your cash</button>
+                <button type="button" onClick={() => onApply(drawFromCompany(player, value, 'SALARY'))} className="px-4 py-2 rounded-full border border-white/20 text-[11px] font-black uppercase tracking-wider">Take a salary</button>
+                <button type="button" onClick={() => onApply(drawFromCompany(player, value, 'DIVIDEND'))} className="px-4 py-2 rounded-full border border-white/20 text-[11px] font-black uppercase tracking-wider">Take a dividend</button>
+            </div>
         </div>
     );
 };

@@ -1,4 +1,5 @@
 import { Business, LoanBorrower, Player, PlayerLoan, TransactionCategory } from '../types';
+import { addCompanyCash, readCompanyCash } from './ownPlatform/companyCash';
 import { getAbsoluteWeek } from './legacyLogic';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -291,7 +292,7 @@ export const borrowerDesk = (player: Player, borrower: LoanBorrower): BorrowerDe
         const ratio = assets > 0 ? debt / assets : 1;
         const score = Math.round(clamp(600 + weeklyIncome / 15000 + (state.subscribers || 0) / 200000 - ratio * 200 - (player.finance?.credit?.defaults || 0) * 90, 300, 850));
         const capacity = Math.max(0, Math.floor(Math.min(assets * 0.22, Math.max(150_000, weeklyIncome * 26)) - debt));
-        return { borrower, label: state.name || 'Empire+', available: true, reason: 'Empire+ borrows against the service. The cash lands in the treasury.', cash: Math.max(0, toFinite(player.money)), assets, weeklyIncome, debt, weeklyDebt, capacity, score };
+        return { borrower, label: state.name || 'Empire+', available: true, reason: 'Empire+ borrows against the service. The cash lands in the company, not in your pocket.', cash: Math.max(0, readCompanyCash(player)), assets, weeklyIncome, debt, weeklyDebt, capacity, score };
     }
     const debt = loansFor(player, 'PERSONAL').reduce((sum, loan) => sum + loan.principal, 0);
     const weeklyDebt = getWeeklyDebtBurden(player);
@@ -358,20 +359,6 @@ const pushHistory = (player: Player, amount: number, description: string) => {
     if (player.finance.history.length > 200) player.finance.history.pop();
 };
 
-const pushEmpireLine = (player: Player, amount: number, label: string) => {
-    const state = player.ownPlatform;
-    if (!state) return;
-    if (!state.books) return;
-    state.books.lines = [{
-        id: `line_loan_${player.currentWeek}_${state.books.lines.length}`,
-        week: player.currentWeek,
-        year: player.age,
-        amount: Math.trunc(amount),
-        label,
-        source: 'DEBT' as const,
-    }, ...state.books.lines].slice(0, 40);
-};
-
 export const issueLoan = (
     player: Player,
     amount: number,
@@ -423,12 +410,13 @@ export const issueLoan = (
     };
     if (borrower === 'HOUSE' && house) {
         next.businesses = next.businesses.map(business => business.id === house.id ? { ...business, balance: business.balance + requested } : business);
+    } else if (borrower === 'EMPIRE') {
+        addCompanyCash(next, requested, `${loan.lenderName} company loan. This is not personal cash.`, 'DEBT');
     } else {
         next.money += requested;
     }
     const where = borrower === 'HOUSE' ? house?.name || 'the production house' : borrower === 'EMPIRE' ? (next.ownPlatform?.name || 'Empire+') : 'you';
-    pushHistory(next, requested, `${loan.lenderName} funded ${where}`);
-    if (borrower === 'EMPIRE') pushEmpireLine(next, requested, `${loan.lenderName} company loan`);
+    if (borrower !== 'EMPIRE') pushHistory(next, requested, `${loan.lenderName} funded ${where}`);
     next.logs = [...next.logs, { week: next.currentWeek, year: next.age, type: 'neutral', message: `🏦 ${loan.lenderName} lent ${where} $${requested.toLocaleString()} at ${(quote.rate * 100).toFixed(1)}%. $${loan.weeklyPayment.toLocaleString()} leaves every week.` }];
     return { player: next };
 };
@@ -443,9 +431,9 @@ export const repayLoan = (player: Player, loanId: string, mode: 'SCHEDULED' | 'B
     const house = borrower === 'HOUSE'
         ? (player.businesses || []).find(business => business.id === loan.businessId) || productionHouse(player)
         : undefined;
-    const cash = borrower === 'HOUSE' ? (house?.balance || 0) : player.money;
+    const cash = borrower === 'HOUSE' ? (house?.balance || 0) : borrower === 'EMPIRE' ? readCompanyCash(player) : player.money;
     if (cash < payment) {
-        return { player, error: borrower === 'HOUSE' ? 'The production house does not have that cash.' : 'Not enough cash in the treasury.' };
+        return { player, error: borrower === 'HOUSE' ? 'The production house does not have that cash.' : borrower === 'EMPIRE' ? 'The company does not have that cash. Your personal money is untouched.' : 'Not enough personal cash.' };
     }
     const nextPrincipal = Math.max(0, balance - payment);
     const paidOff = nextPrincipal <= 0;
@@ -474,11 +462,12 @@ export const repayLoan = (player: Player, loanId: string, mode: 'SCHEDULED' | 'B
     };
     if (borrower === 'HOUSE' && house) {
         next.businesses = next.businesses.map(business => business.id === house.id ? { ...business, balance: business.balance - payment } : business);
+    } else if (borrower === 'EMPIRE') {
+        addCompanyCash(next, -payment, paidOff ? `${loan.lenderName} paid off from company cash` : `${loan.lenderName} payment from company cash`, 'DEBT');
     } else {
         next.money -= payment;
     }
-    pushHistory(next, -payment, `${loan.lenderName} ${paidOff ? 'payoff' : 'payment'} · ${borrower === 'HOUSE' ? 'production house' : borrower === 'EMPIRE' ? 'Empire+' : 'personal'}`);
-    if (borrower === 'EMPIRE') pushEmpireLine(next, -payment, paidOff ? `${loan.lenderName} paid off` : `${loan.lenderName} payment`);
+    if (borrower !== 'EMPIRE') pushHistory(next, -payment, `${loan.lenderName} ${paidOff ? 'payoff' : 'payment'} · ${borrower === 'HOUSE' ? 'production house' : 'personal'}`);
     next.logs = [...next.logs, { week: next.currentWeek, year: next.age, type: paidOff ? 'positive' as const : 'neutral' as const, message: paidOff ? `🏦 ${loan.lenderName} is paid off.` : `🏦 Paid $${payment.toLocaleString()} to ${loan.lenderName}.` }];
     return { player: next };
 };
@@ -543,14 +532,15 @@ export const serviceWeeklyLoans = (
         const house = borrower === 'HOUSE'
             ? (player.businesses || []).find(business => business.id === loan.businessId) || productionHouse(player)
             : undefined;
-        const available = borrower === 'HOUSE' ? (house?.balance || 0) : player.money;
+        const available = borrower === 'HOUSE' ? (house?.balance || 0) : borrower === 'EMPIRE' ? readCompanyCash(player) : player.money;
         if (available >= scheduled) {
             if (borrower === 'HOUSE' && house) {
                 house.balance -= scheduled;
                 pushHistory(player, -scheduled, `${loan.lenderName} weekly payment from ${house.name}`);
+            } else if (borrower === 'EMPIRE') {
+                addCompanyCash(player, -scheduled, `${loan.lenderName} weekly payment from company cash`, 'DEBT');
             } else {
                 addTransaction(-scheduled, 'LOAN', `${loan.lenderName} weekly loan payment`);
-                if (borrower === 'EMPIRE') pushEmpireLine(player, -scheduled, `${loan.lenderName} weekly payment`);
             }
             const principalPaid = Math.max(0, scheduled - interestDue);
             const newPrincipal = Math.max(0, loan.principal - principalPaid);
