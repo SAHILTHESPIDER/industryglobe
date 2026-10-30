@@ -10,6 +10,8 @@ import { LAUNCH_REGIONS, MARKET_COUNTRIES } from '../../services/ownPlatform/cat
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
 import {
     FACILITY_USD,
+    LAUNCH_INVESTORS,
+    LAUNCH_SEED_LINE,
     PE_NAME,
     PE_STAKE,
     chooseFunding,
@@ -74,7 +76,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                     <button key={id} onClick={() => { setDesk(id); setError(''); }} className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider ${desk === id ? 'bg-[#4F3BFF] text-white' : 'bg-white/5 text-zinc-400'}`}>{label}</button>
                 ))}
             </div>
-            {error && <p className="text-rose-300 text-sm">{error}</p>}
+            {error && <p className="text-rose-300 text-sm" data-testid="ops-error">{error}</p>}
             {desk === 'content' && <ContentDesk player={player} onApply={apply} />}
             {desk === 'network' && <NetworkDesk player={player} quoteHouseholds={quote.households} burn={quote.weeklyBurn} />}
             {desk === 'audience' && <AudienceDesk player={player} onPlayer={onPlayer} />}
@@ -86,7 +88,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                 </div>
             )}
             {books && desk !== 'board' && (
-                <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {Math.round(books.equitySoldPct * 100)}%</p>
+                <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {Math.round(((books.equitySoldPct || 0) + (books.seedStakePct || 0)) * 100)}%</p>
             )}
         </div>
     );
@@ -276,7 +278,11 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
     const lanes = revenueSplit(player);
     const last = books?.history[books.history.length - 1];
     const profit = (state.lastWeeklyRevenue || 0) - (state.lastWeeklyBurn || 0);
-    const founder = Math.max(0, 1 - (books?.equitySoldPct || 0) - (state.ipo?.stage === 'LISTED' ? (1 - (state.ipo?.founderKeepPct || 0.75)) : 0));
+    const seedPct = books?.seedStakePct || 0;
+    const soldPct = books?.equitySoldPct || 0;
+    const publicFloat = state.ipo?.stage === 'LISTED' ? (1 - (state.ipo?.founderKeepPct || 0.75)) : 0;
+    const founder = Math.max(0, 1 - seedPct - soldPct - publicFloat);
+    const seedName = books?.seedPartner || LAUNCH_INVESTORS;
     return (
         <div className="space-y-4" data-screen="studio-finance">
             <div>
@@ -285,15 +291,15 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                 <p className="text-sm text-zinc-400 mt-2 max-w-2xl">Cash still lives in the treasury. This desk tracks profit, burn, debt, titles, markets, and who owns the company. Build slowly with your own capital, draw a bank facility, or sell a stake.</p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <Metric label="Company cash" value={formatCompact(books?.cash || 0)} />
-                <Metric label="Your cash" value={formatCompact(player.money)} />
+                <Metric label="Company cash" value={formatCompact(books?.cash || 0)} testId="company-cash-desk" amount={books?.cash || 0} />
+                <Metric label="Your cash" value={formatCompact(player.money)} testId="personal-cash" amount={player.money} />
                 <Metric label="Last receipts" value={formatCompact(state.lastWeeklyRevenue)} />
                 <Metric label="Burn" value={formatCompact(state.lastWeeklyBurn)} />
                 <Metric label="Profit" value={formatCompact(profit)} />
                 <Metric label="Debt" value={formatCompact(books?.debt || 0)} />
                 <Metric label="Debt pressure" value={books && books.debt > 0 ? `${Math.round((books.facilityRate || 0.09) * 100)}% / year` : 'None'} />
                 <Metric label="Valuation" value={formatCompact(valuation)} />
-                <Metric label="Outside owners" value={`${Math.round((books?.equitySoldPct || 0) * 100)}%`} />
+                <Metric label="Outside owners" value={`${Math.round((seedPct + soldPct) * 100)}%`} />
             </div>
             <CompanyTransfer player={player} onApply={onApply} />
             <div className="grid lg:grid-cols-3 gap-3">
@@ -319,7 +325,13 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                         <div key={row.lane} className="flex justify-between text-sm mt-2"><span>{row.lane}</span><span>{formatCompact(row.amount)}</span></div>
                     ))}
                     <div className="text-[11px] uppercase text-zinc-500 mt-4">Ownership</div>
-                    <div className="text-sm mt-1">You {Math.round(founder * 100)}% · {books?.pePartner || 'Partners'} {Math.round((books?.equitySoldPct || 0) * 100)}% {state.ipo?.stage === 'LISTED' ? `· public float on ${state.ipo.ticker}` : ''}</div>
+                    {seedPct > 0 && <p className="text-sm text-zinc-300 mt-2">{LAUNCH_SEED_LINE}</p>}
+                    <div className="text-sm mt-1" data-testid="cap-table">
+                        You {Math.round(founder * 100)}%
+                        {seedPct > 0 ? ` · ${seedName} ${Math.round(seedPct * 100)}% (seed funding)` : ''}
+                        {soldPct > 0 ? ` · ${books?.pePartner || 'Partners'} ${Math.round(soldPct * 100)}%` : ''}
+                        {state.ipo?.stage === 'LISTED' ? ` · public float on ${state.ipo.ticker}` : ''}
+                    </div>
                     {last && <div className="text-xs text-zinc-500 mt-2">Last closed week profit {formatCompact(last.profit)}</div>}
                 </div>
             </div>
@@ -383,14 +395,22 @@ const CompanyTransfer: React.FC<{ player: Player; onApply: (result: { player: Pl
     return (
         <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4" data-testid="company-transfer">
             <div className="text-[11px] uppercase tracking-wider text-zinc-500">Move money between you and the company</div>
-            <p className="text-sm text-zinc-400 mt-2">Investing moves your personal cash into the company. A salary or a dividend moves company cash back to you. Subscribers, ads, rentals, and running costs never touch your personal cash.</p>
             <label className="text-xs text-zinc-500 block mt-3">Amount (USD)
-                <input value={amount} inputMode="numeric" onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ''))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
+                <input data-testid="transfer-amount" value={amount} inputMode="numeric" onChange={(event) => setAmount(event.target.value.replace(/[^0-9]/g, ''))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
             </label>
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2 mt-3">
-                <button type="button" onClick={() => onApply(investInCompany(player, value))} className="px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Invest your cash</button>
-                <button type="button" onClick={() => onApply(drawFromCompany(player, value, 'SALARY'))} className="px-4 py-2 rounded-full border border-white/20 text-[11px] font-black uppercase tracking-wider">Take a salary</button>
-                <button type="button" onClick={() => onApply(drawFromCompany(player, value, 'DIVIDEND'))} className="px-4 py-2 rounded-full border border-white/20 text-[11px] font-black uppercase tracking-wider">Take a dividend</button>
+            <div className="grid gap-3 mt-3">
+                <div>
+                    <p className="text-sm text-zinc-300">Puts your personal cash into the company, and stops at the cash you hold.</p>
+                    <button type="button" data-testid="invest-cash" onClick={() => onApply(investInCompany(player, value))} className="mt-2 px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Invest your cash</button>
+                </div>
+                <div>
+                    <p className="text-sm text-zinc-300">Pays you a salary from company cash, and stops at the cash the company holds.</p>
+                    <button type="button" data-testid="take-salary" onClick={() => onApply(drawFromCompany(player, value, 'SALARY'))} className="mt-2 px-4 py-2 rounded-full border border-white/20 text-[11px] font-black uppercase tracking-wider">Take a salary</button>
+                </div>
+                <div>
+                    <p className="text-sm text-zinc-300">Pays you a dividend from company cash, and stops at the cash the company holds.</p>
+                    <button type="button" data-testid="take-dividend" onClick={() => onApply(drawFromCompany(player, value, 'DIVIDEND'))} className="mt-2 px-4 py-2 rounded-full border border-white/20 text-[11px] font-black uppercase tracking-wider">Take a dividend</button>
+                </div>
             </div>
         </div>
     );
@@ -404,9 +424,9 @@ const Choice: React.FC<{ title: string; body: string; action: string; onClick: (
     </button>
 );
 
-const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+const Metric: React.FC<{ label: string; value: string; testId?: string; amount?: number }> = ({ label, value, testId, amount }) => (
     <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
         <div className="text-[10px] uppercase tracking-wider text-zinc-500">{label}</div>
-        <div className="text-xl font-black">{value}</div>
+        <div className="text-xl font-black" data-testid={testId} data-amount={amount}>{value}</div>
     </div>
 );

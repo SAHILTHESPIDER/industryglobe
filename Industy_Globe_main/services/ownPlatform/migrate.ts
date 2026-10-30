@@ -17,7 +17,8 @@ import { IDENTS, LEGACY_IDENT } from './identEffects';
 import { anchorRates, decorateRival } from './fx';
 import { sanitizeLocalisations, sanitizePasses, sanitizePlan, sanitizeTitleStore } from './commercial';
 import { REVENUE_LANES, STANDARD_PLAN_USD, finiteSticker, syncRegions } from './logic';
-import { defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
+import { addCompanyCash } from './companyCash';
+import { LAUNCH_INVESTORS, LAUNCH_SEED_LINE, LAUNCH_SEED_STAKE, LAUNCH_SEED_USD, defaultReleaseSlot, emptyBooks, emptyIpo, launchSeedBooks } from './studio';
 import { clampReleaseOffset } from './weeks';
 
 const DEFAULT_PLAN: PricingPlan = {
@@ -72,7 +73,7 @@ export const createOwnPlatform = (player: Player): OwnPlatformState => {
         closedDeals: [],
         lastWeeklyRevenue: 0,
         lastWeeklyBurn: 0,
-        books: emptyBooks(),
+        books: launchSeedBooks(player),
         releaseSlot: defaultReleaseSlot(player),
         ipo: emptyIpo('Empire+'),
         ownedStreamers: [],
@@ -186,6 +187,8 @@ const normalizeBooks = (raw: StudioBooks | undefined): StudioBooks => {
         funding: raw.funding === 'BANK' || raw.funding === 'EQUITY' || raw.funding === 'OWN' ? raw.funding : 'OWN',
         debt: Math.max(0, Number(raw.debt) || 0),
         equitySoldPct: Math.max(0, Math.min(0.8, Number(raw.equitySoldPct) || 0)),
+        seedStakePct: Math.max(0, Math.min(0.8, Number(raw.seedStakePct) || 0)),
+        seedPartner: typeof raw.seedPartner === 'string' ? raw.seedPartner.slice(0, 80) : '',
         history: Array.isArray(raw.history) ? raw.history.slice(-16) : [],
         lines: Array.isArray(raw.lines) ? raw.lines.slice(0, 40) : [],
         cash: Number.isFinite(Number(raw.cash)) ? Number(raw.cash) : 0,
@@ -255,6 +258,77 @@ export const ensureOwnPlatform = (player: Player): Player => {
     if (!player.ownPlatform) return { ...player, ownPlatform: createOwnPlatform(player) };
     const normalized = normalizeOwnPlatform(player.ownPlatform, player);
     return { ...player, ownPlatform: normalized };
+};
+
+const UNLOCK_FLAG = 'ownPlatformUnlocked';
+
+/** A company the player already started, funded, or paid for. A blank DEFINE slate is not this. */
+const companyAlreadyOpened = (state: OwnPlatformState): boolean => {
+    if (state.stage === 'BUILD' || state.stage === 'CONSTRUCTING' || state.stage === 'LIVE') return true;
+    if (state.commissioned) return true;
+    if ((state.defineStep || 0) > 0) return true;
+    if ((state.buildStep || 0) > 0) return true;
+    if ((state.closedDeals || []).length > 0) return true;
+    if ((state.weeksLive || 0) > 0) return true;
+    if ((state.subscribers || 0) > 0) return true;
+    if ((state.ownedStreamers || []).length > 0) return true;
+    if ((state.catalogue || []).length > 0) return true;
+    const books = state.books;
+    if ((books?.cash || 0) > 0) return true;
+    if ((books?.lines || []).length > 0) return true;
+    if ((books?.seedStakePct || 0) > 0) return true;
+    if ((books?.equitySoldPct || 0) > 0) return true;
+    if ((books?.debt || 0) > 0) return true;
+    return false;
+};
+
+const noteSeed = (player: Player) => {
+    player.logs = [...(player.logs || []), {
+        week: player.currentWeek,
+        year: player.age,
+        message: LAUNCH_SEED_LINE,
+        type: 'neutral',
+    }];
+};
+
+/**
+ * Opens Empire+ without touching personal cash.
+ * A new company receives the investor seed once.
+ * A save that already has a company, including one that paid the old fee, is left as it is.
+ */
+export const openEmpire = (player: Player): Player => {
+    const unlocked = Boolean(player.flags?.[UNLOCK_FLAG]);
+    if (unlocked && player.ownPlatform) return player;
+    if (!player.ownPlatform) {
+        const next = ensureOwnPlatform({
+            ...player,
+            flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+        });
+        noteSeed(next);
+        return next;
+    }
+    if (companyAlreadyOpened(player.ownPlatform)) {
+        return {
+            ...player,
+            flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+        };
+    }
+    const next = ensureOwnPlatform({
+        ...player,
+        flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+    });
+    const state = next.ownPlatform!;
+    const books = state.books || emptyBooks();
+    state.books = {
+        ...books,
+        lines: [...(books.lines || [])],
+        history: [...(books.history || [])],
+        seedStakePct: LAUNCH_SEED_STAKE,
+        seedPartner: LAUNCH_INVESTORS,
+    };
+    addCompanyCash(next, LAUNCH_SEED_USD, LAUNCH_SEED_LINE, 'EQUITY');
+    noteSeed(next);
+    return next;
 };
 
 export const migrateOwnPlatformOnLoad = (player: Player): Player => {

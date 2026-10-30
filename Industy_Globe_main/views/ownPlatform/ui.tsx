@@ -124,7 +124,7 @@ export const Shell: React.FC<ShellProps> = ({
                     </div>
                     <div className="treas">
                         <div className="l">Company cash</div>
-                        <div className="v">{formatCompact(money)}</div>
+                        <div className="v" data-testid="company-cash" data-amount={money}>{formatCompact(money)}</div>
                         <div className="s">Not your personal cash</div>
                     </div>
                 </aside>

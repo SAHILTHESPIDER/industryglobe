@@ -293,7 +293,7 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
                         ? `${player.ownPlatform.ipo.ticker} is listed. Open the company, or trade the shares below.`
                         : player.ownPlatform
                             ? 'Open Empire+. Operations runs the money, the commissions, and the listing.'
-                            : 'Found Empire+ and open it. From there you can fund it, list it, or buy another streaming service.'}
+                            : 'Investors seed Empire+ with $10M of company cash. Your personal money stays yours until you invest it.'}
                 </div>
             </button>
             {tab === 'MARKET' && stocks.map(stock => renderStockRow(stock))}

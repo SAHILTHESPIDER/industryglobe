@@ -5,6 +5,7 @@ import { defaultLocalPrice } from '../services/ownPlatform/fx';
 import { identityEffects } from '../services/ownPlatform/identEffects';
 import { applyInfraPreset, quoteLaunch, storefrontById, storefrontEffectLine } from '../services/ownPlatform/logic';
 import { createOwnPlatform, normalizeOwnPlatform } from '../services/ownPlatform/migrate';
+import { LAUNCH_SEED_USD } from '../services/ownPlatform/studio';
 import { tickOwnPlatform } from '../services/ownPlatform/week';
 import { Player } from '../types';
 
@@ -219,7 +220,7 @@ const personalBefore = livePlayer.money;
 const week = tickOwnPlatform(livePlayer, 100);
 if (week.transactions.length) fail(`platform week wrote ${week.transactions.length} personal transactions`);
 if (livePlayer.money !== personalBefore) fail('personal cash changed during a platform week');
-const expectedCash = (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) - (livePlayer.ownPlatform?.lastWeeklyBurn || 0);
+const expectedCash = LAUNCH_SEED_USD + (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) - (livePlayer.ownPlatform?.lastWeeklyBurn || 0);
 if ((livePlayer.ownPlatform?.books?.cash || 0) !== expectedCash) fail(`company cash ${livePlayer.ownPlatform?.books?.cash} expected ${expectedCash}`);
 if (!(expectedCash !== 0 || (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) > 0)) fail('company books did not record the week');
 
