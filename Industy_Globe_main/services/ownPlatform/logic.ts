@@ -1,6 +1,8 @@
 import {
     AudienceMode,
+    BuildGoalId,
     CataloguePick,
+    CityRackPlacement,
     CloudOrder,
     InfraPresetId,
     LaunchRegionId,
@@ -36,6 +38,20 @@ import { identById } from './identEffects';
 import { publicBrandName } from '../rights/alterName';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { releaseWeekLabel, releaseWeekParts, titleIsLive, clampReleaseOffset } from './weeks';
+import { cityById } from './serverCities';
+import {
+    addRack,
+    countryLift,
+    HQ_LICENCE_FACTOR,
+    officeWeekly,
+    rankedCities,
+    roomFits,
+    sitesOnce,
+    sitesSteady,
+    sitesWeekly,
+    spreadRegions,
+    uptimeFactor,
+} from './infrastructure';
 
 export const BUILD_WEEKS = 15;
 export const RESERVE_WEEKS = 6;
@@ -112,7 +128,14 @@ export const syncRegions = (state: OwnPlatformState): OwnPlatformState => {
         const existing = state.regions.find(row => row.regionId === regionId);
         return existing || { regionId, scout: 0, workhorse: 0, titan: 0 };
     });
-    return { ...state, regions };
+    const allowed = new Set(regions.map(row => row.regionId));
+    const sites = Array.isArray(state.sites)
+        ? state.sites.filter(row => {
+            const city = cityById(row.cityId);
+            return Boolean(city && allowed.has(city.regionId));
+        })
+        : undefined;
+    return { ...state, regions, sites };
 };
 
 const cloudCapacity = (cloud: CloudOrder[]) => cloud.reduce((sum, order) => {
@@ -276,7 +299,11 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const opened = approvedCountries(state);
     const footprint = opened.length ? opened : countries;
     const totalNight = footprint.reduce((sum, country) => sum + nightDemand(country.audienceM), 0);
-    const totalMachine = state.regions.reduce((sum, region) => sum + regionCapacity(region), 0);
+    const savedSites = Array.isArray(state.sites) ? state.sites : null;
+    const sitesIn = (regionId: LaunchRegionId) => (savedSites || []).filter(row => cityById(row.cityId)?.regionId === regionId);
+    const totalMachine = savedSites
+        ? sitesSteady(savedSites)
+        : state.regions.reduce((sum, region) => sum + regionCapacity(region), 0);
     const extraCloud = cloudCapacity(state.cloud);
     const totalCapacity = totalMachine + extraCloud;
 
@@ -284,7 +311,12 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         const inRegion = footprint.filter(country => country.regionId === region.regionId);
         const night = inRegion.reduce((sum, country) => sum + nightDemand(country.audienceM), 0);
         const share = totalNight > 0 ? night / totalNight : 0;
-        const capacity = regionCapacity(region) + extraCloud * share;
+        const placed = sitesIn(region.regionId);
+        const metal = savedSites ? sitesSteady(placed) : regionCapacity(region);
+        const capacity = metal + extraCloud * share;
+        const scouts = savedSites ? placed.reduce((sum, row) => sum + row.scout, 0) : region.scout;
+        const workhorses = savedSites ? placed.reduce((sum, row) => sum + row.workhorse, 0) : region.workhorse;
+        const titans = savedSites ? placed.reduce((sum, row) => sum + row.titan, 0) : region.titan;
         return {
             regionId: region.regionId,
             name: getRegion(region.regionId).name,
@@ -292,25 +324,31 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
             nightDemand: night,
             capacity,
             servedPct: night <= 0 ? 1 : clamp(capacity / night, 0, 1),
-            onceUsd: regionOnce(region),
-            weeklyUsd: regionWeekly(region) + cloudWeekly(state.cloud) * share,
-            scouts: region.scout,
-            workhorses: region.workhorse,
-            titans: region.titan,
+            onceUsd: savedSites ? sitesOnce(placed) : regionOnce(region),
+            weeklyUsd: (savedSites ? sitesWeekly(placed) : regionWeekly(region)) + cloudWeekly(state.cloud) * share,
+            scouts,
+            workhorses,
+            titans,
         };
     });
 
-    const construction = state.regions.reduce((sum, region) => sum + regionOnce(region), 0);
+    const construction = savedSites
+        ? sitesOnce(savedSites)
+        : state.regions.reduce((sum, region) => sum + regionOnce(region), 0);
     const deposits = Math.round(construction * 0.12);
     const access = opened.reduce((sum, country) => {
         const application = state.applications.find(row => row.countryId === country.id);
         const premium = application?.acceptedConditions ? 1.15 : 1;
         return sum + Math.round(country.accessCost * premium);
     }, 0);
-    const licences = state.catalogue.reduce((sum, title) => sum + (title.source === 'LICENCE' ? title.cost : 0), 0);
-    const weeklyMachines = state.regions.reduce((sum, region) => sum + regionWeekly(region), 0);
+    const licenceRaw = state.catalogue.reduce((sum, title) => sum + (title.source === 'LICENCE' ? title.cost : 0), 0);
+    const licences = Math.round(licenceRaw * (state.hqCityId ? HQ_LICENCE_FACTOR : 1));
+    const weeklyMachines = savedSites
+        ? sitesWeekly(savedSites)
+        : state.regions.reduce((sum, region) => sum + regionWeekly(region), 0);
     const weeklyCloud = cloudWeekly(state.cloud);
     const weeklyOwn = weeklyMachines + weeklyCloud;
+    const officeRentEarly = officeWeekly(state);
     const weeklyRent = totalCapacity <= 0 ? 0 : Math.round((totalCapacity / 18_000) * 140_000);
     const reserve = weeklyOwn * RESERVE_WEEKS;
     const dueNow = construction + deposits + access + licences + reserve;
@@ -318,7 +356,8 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const breakEvenWeek = construction <= 0 || savings <= 0 ? null : Math.ceil(construction / savings);
     const companyCash = readCompanyCash(player);
     const leftAfter = companyCash - dueNow;
-    const runwayWeeks = weeklyOwn <= 0 ? (leftAfter > 0 ? 999 : 0) : Math.max(0, Math.floor(leftAfter / weeklyOwn));
+    const runwayBase = weeklyOwn + officeRentEarly;
+    const runwayWeeks = runwayBase <= 0 ? (leftAfter > 0 ? 999 : 0) : Math.max(0, Math.floor(leftAfter / runwayBase));
 
     const energyMwh = Math.round(
         state.regions.reduce((sum, region) => sum + regionEnergy(region), 0)
@@ -350,7 +389,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     footprint.forEach(country => {
         const row = regionRows.find(region => region.regionId === country.regionId);
         const served = row?.servedPct ?? 0;
-        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country);
+        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country) * countryLift(state, country.id) * uptimeFactor(state);
         const piracy = countryPiracy(state, country);
         reached += viewers;
         paid += viewers * (1 - piracy);
@@ -366,7 +405,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     footprint.forEach(country => {
         const row = regionRows.find(region => region.regionId === country.regionId);
         const served = row?.servedPct ?? 0;
-        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country);
+        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country) * countryLift(state, country.id) * uptimeFactor(state);
         const piracy = countryPiracy(state, country);
         const paying = viewers * (1 - piracy);
         const usd = averageUsdInCountry(state, country.id);
@@ -380,7 +419,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     households = Number.isFinite(rolled.households) ? rolled.households : households;
     const forecastWeeklyRevenue = rolled.parts.subscriptions + rolled.parts.ads + rolled.parts.passes + rolled.parts.rentals + rolled.parts.purchases;
     const locWeekly = localisationWeekly(state);
-    const pressure = fundingPressure(forecastWeeklyRevenue, weeklyOwn + locWeekly, companyCash, state.books?.debt || 0);
+    const pressure = fundingPressure(forecastWeeklyRevenue, weeklyOwn + locWeekly + officeRentEarly, companyCash, state.books?.debt || 0);
 
     const marketingReady = opened.length > 0;
     const fame = player.stats?.fame || 0;
@@ -417,7 +456,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
 
     return {
         construction, deposits, access, licences, reserve, dueNow,
-        weeklyOwn, weeklyRent, weeklyBurn: weeklyOwn + locWeekly, breakEvenWeek, runwayWeeks, leftAfter,
+        weeklyOwn, weeklyRent, weeklyBurn: weeklyOwn + locWeekly + officeRentEarly, breakEvenWeek, runwayWeeks, leftAfter,
         energyMwh, sustainability, reputation, capacity: totalCapacity, nightDemand: totalNight,
         servedPct: totalNight <= 0 ? 0 : clamp(totalCapacity / totalNight, 0, 1),
         households, forecastWeeklyRevenue, revenueParts: rolled.parts,
@@ -875,9 +914,9 @@ export const INFRA_PRESET_TARGET: Record<InfraPresetId, number> = {
 };
 
 export const INFRA_PRESETS: { id: InfraPresetId; name: string; blurb: string }[] = [
-    { id: 'LEAN', name: 'Lean', blurb: 'Cover about 55% of opening night with the smaller rooms. Rented racks only appear if metal still comes up short.' },
-    { id: 'BALANCED', name: 'Balanced', blurb: 'About 90% of the night, mostly workhorses. The usual way to open.' },
-    { id: 'OWN', name: 'Own it all', blurb: 'Titans until the night fits in rooms you own. Rented racks go back to zero.' },
+    { id: 'LEAN', name: 'Lean', blurb: 'Cover about 55% of the night with the smaller rooms.' },
+    { id: 'BALANCED', name: 'Balanced', blurb: 'About 90% of the night, mostly Workhorses.' },
+    { id: 'OWN', name: 'Own it all', blurb: 'Titans until the night fits in rooms you own.' },
 ];
 
 /**
@@ -917,12 +956,14 @@ export const applyRegionCoverage = (state: OwnPlatformState, regionId: LaunchReg
     const coverage = clamp(Math.round(coveragePct), 0, 100);
     const need = nightOfRegion(state, regionId) * (coverage / 100);
     const counts = coverage <= 0 ? { scout: 0, workhorse: 0, titan: 0 } : fitServers(need, PREFERENCE[preset]);
-    return {
+    const regions = state.regions.map(region => region.regionId === regionId ? { ...region, ...counts } : region);
+    const next = {
         ...state,
         infraPreset: preset,
         regionCoverage: { ...(state.regionCoverage || {}), [regionId]: coverage },
-        regions: state.regions.map(region => region.regionId === regionId ? { ...region, ...counts } : region),
+        regions,
     };
+    return { ...next, sites: spreadRegions(next) };
 };
 
 /** Auto-build. Replaces server counts in every open region, and resets rented racks to whatever the preset still needs. */
@@ -937,17 +978,102 @@ export const applyInfraPreset = (state: OwnPlatformState, preset: InfraPresetId)
         return sum + Math.max(0, need - regionCapacity(region));
     }, 0);
     if (preset === 'OWN' || shortfall < 1500) {
-        return { ...next, infraPreset: preset, cloud: next.cloud.map(order => ({ ...order, racks: 0 })) };
+        const owned = { ...next, infraPreset: preset, cloud: next.cloud.map(order => ({ ...order, racks: 0 })) };
+        return { ...owned, sites: spreadRegions(owned), buildGoal: goalForPreset(preset) };
     }
     const providerId = preset === 'LEAN' ? 'NORTHWIND' : 'ATLAS';
     const provider = CLOUD_PROVIDERS.find(row => row.id === providerId) || CLOUD_PROVIDERS[0];
     const racks = Math.min(provider.maxRacks, Math.ceil(shortfall / provider.capacityPerRack));
-    return {
+    const rented = {
         ...next,
         infraPreset: preset,
         cloud: next.cloud.map(order => ({ ...order, racks: order.providerId === provider.id ? racks : 0 })),
     };
+    return { ...rented, sites: spreadRegions(rented), buildGoal: goalForPreset(preset) };
 };
+
+const goalForPreset = (preset: InfraPresetId): BuildGoalId => (preset === 'LEAN' ? 'CHEAP' : preset === 'OWN' ? 'BEST' : 'BALANCED');
+
+export interface AutoBuildPlan {
+    goal: BuildGoalId;
+    preset: InfraPresetId;
+    sites: CityRackPlacement[];
+    servers: number;
+    once: number;
+    weekly: number;
+    smooth: number;
+    steady: number;
+    demand: number;
+    note: string;
+}
+
+const GOAL_PRESET: Record<BuildGoalId, InfraPresetId> = { CHEAP: 'LEAN', BALANCED: 'BALANCED', BEST: 'OWN' };
+
+/**
+ * Assisted planner. Fills headquarters and office countries first, then live markets.
+ * Stops when the next rack would pass the company-cash budget. Nothing is saved or charged.
+ */
+export const planAutoBuild = (state: OwnPlatformState, budget: number, goal: BuildGoalId): AutoBuildPlan => {
+    const preset = GOAL_PRESET[goal] || 'BALANCED';
+    const target = INFRA_PRESET_TARGET[preset];
+    const cap = Math.max(0, Math.round(Number.isFinite(budget) ? budget : 0));
+    const preference: ServerBox[] = goal === 'CHEAP' ? ['scout', 'workhorse'] : PREFERENCE[preset];
+    let sites: CityRackPlacement[] = [];
+    let once = 0;
+    const demand = state.regions.reduce((sum, region) => sum + nightOfRegion(state, region.regionId), 0);
+    let guard = 0;
+    while (guard < 240) {
+        guard += 1;
+        const gaps = state.regions.map(region => ({
+            regionId: region.regionId,
+            gap: nightOfRegion(state, region.regionId) * (target / 100) - sitesSteady(sites.filter(row => cityById(row.cityId)?.regionId === region.regionId)),
+        })).filter(row => row.gap > 50).sort((a, b) => b.gap - a.gap);
+        if (!gaps.length) break;
+        const hqCountry = cityById(state.hqCityId)?.countryId;
+        const officeCountries = new Set((state.offices || []).map(row => row.countryId));
+        let choice: { cityId: string; box: ServerBox; once: number; score: number } | null = null;
+        gaps.forEach(gap => {
+            rankedCities(state).filter(row => row.regionId === gap.regionId).forEach(city => {
+                for (const box of preference) {
+                    const spec = serverById(boxClass(box));
+                    const price = Math.round(spec.onceUsd * city.costIndex);
+                    if (once + price > cap) continue;
+                    const existing = sites.find(row => row.cityId === city.id);
+                    if (!roomFits(existing, city, box)) continue;
+                    const weight = city.countryId === hqCountry ? 1.45 : officeCountries.has(city.countryId) ? 1.25 : 1;
+                    const placedHere = sites.find(row => row.cityId === city.id);
+                    const stacked = placedHere && placedHere.scout + placedHere.workhorse + placedHere.titan > 0 ? 0.72 : 1;
+                    const score = gap.gap * weight * stacked + city.priority;
+                    if (!choice || score > choice.score) choice = { cityId: city.id, box, once: price, score };
+                    break;
+                }
+            });
+        });
+        if (!choice) break;
+        sites = addRack(sites, choice.cityId, choice.box);
+        once += choice.once;
+    }
+    const steady = sitesSteady(sites);
+    const weekly = sitesWeekly(sites);
+    const servers = sites.reduce((sum, row) => sum + row.scout + row.workhorse + row.titan, 0);
+    const smooth = Math.round(Math.min(steady, demand || steady));
+    const note = servers === 0
+        ? (cap < serverById('SCOUT').onceUsd * 0.8
+            ? 'Budget is below one Scout. Invest company cash first. Personal cash is not spent here.'
+            : 'No room fit inside the budget.')
+        : 'Nothing is charged until you press Apply.';
+    return { goal, preset, sites, servers, once, weekly, smooth, steady, demand, note };
+};
+
+export const regionsFromSites = (state: OwnPlatformState, sites: CityRackPlacement[]): RegionBuild[] => state.regions.map(region => {
+    const rows = sites.filter(row => cityById(row.cityId)?.regionId === region.regionId);
+    return {
+        regionId: region.regionId,
+        scout: rows.reduce((sum, row) => sum + row.scout, 0),
+        workhorse: rows.reduce((sum, row) => sum + row.workhorse, 0),
+        titan: rows.reduce((sum, row) => sum + row.titan, 0),
+    };
+});
 
 export { storefrontEffectLine } from './storefronts';
 export { MARKET_COUNTRIES, LAUNCH_REGIONS, SERVER_CLASSES, CLOUD_PROVIDERS, STOREFRONTS, IDENTITY_PRESETS, FESTIVALS, CAMPAIGN_CHANNELS, REGION_CITIES };

@@ -36,7 +36,7 @@ const BOLT = (
 
 const JOBS: { no: string; title: string; copy: string; viz: 'dots' | 'racks' | 'script' | 'spines' | 'ladder' | 'spark' }[] = [
     { no: '01', title: 'Launch', copy: 'Open in 24 markets across 6 regions. Each one has its own tax, language and rivals.', viz: 'dots' },
-    { no: '02', title: 'Build', copy: 'Lay the network. Scouts, Workhorses and Titans, plus cloud racks for the surge.', viz: 'racks' },
+    { no: '02', title: 'Build', copy: 'Put Scout, Workhorse and Titan racks in real cities, or let auto-build spend company cash. A headquarters and country offices sit on the same map.', viz: 'racks' },
     { no: '03', title: 'Commission', copy: 'Greenlight originals and series. Compete with every studio on Earth for the brief.', viz: 'script' },
     { no: '04', title: 'Buy rights', copy: '2,076 books and 966 life stories, from the Mahabharata to a cricket captain.', viz: 'spines' },
     { no: '05', title: 'Compete', copy: 'Take homes from 40 rivals, one country and one Friday night at a time.', viz: 'ladder' },

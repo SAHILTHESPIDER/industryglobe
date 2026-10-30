@@ -463,7 +463,7 @@ const FAQ_SECTIONS: GuideSection[] = [
     id: "FAQ_STREAMING",
     title: "What should I consider before launching a streaming platform?",
     icon: <Globe size={18} className="text-cyan-300" />,
-    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability.</p>,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Place server racks in real cities, or use auto-build with a company-cash budget. Test the night before you sign. A headquarters makes licences cheaper at home and the name louder there. Country offices add subscribers in that country and a weekly rent, both from company cash. Your personal cash is a separate pocket. Weekly server, cloud, and office costs leave the company, and a power, cooling, or outage note shows up in the week summary when a room fails.</p>,
   },
   {
     id: "FAQ_SCRIPT",
