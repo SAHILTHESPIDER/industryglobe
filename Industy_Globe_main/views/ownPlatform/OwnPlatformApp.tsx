@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { OwnPlatformState, Player } from '../../types';
-import { addCompanyCash } from '../../services/ownPlatform/companyCash';
-import { ensureOwnPlatform } from '../../services/ownPlatform/migrate';
+import { openEmpire } from '../../services/ownPlatform/migrate';
+import { LAUNCH_SEED_LINE } from '../../services/ownPlatform/studio';
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
 import { formatLocalAmount } from '../../services/ownPlatform/fx';
 import { publicBrandName } from '../../services/rights/alterName';
@@ -35,25 +35,6 @@ const LAUNCH_TITLES = [
     'Read the blueprint',
 ];
 
-export const EMPIRE_UNLOCK_PRICE = 75_000_000;
-const UNLOCK_FLAG = 'ownPlatformUnlocked';
-
-const isEmpireUnlocked = (player: Player) => Boolean((player.flags as any)?.[UNLOCK_FLAG]);
-
-/** A platform the player already started is not a new purchase. DEFINE step 0 with nothing commissioned is the blank slate. */
-const platformBeyondInitial = (player: Player) => {
-    const state = player.ownPlatform;
-    if (!state) return false;
-    if (state.stage === 'BUILD' || state.stage === 'CONSTRUCTING' || state.stage === 'LIVE') return true;
-    if (state.commissioned) return true;
-    if ((state.defineStep || 0) > 0) return true;
-    if ((state.buildStep || 0) > 0) return true;
-    if ((state.closedDeals || []).length > 0) return true;
-    if ((state.weeksLive || 0) > 0) return true;
-    if ((state.subscribers || 0) > 0) return true;
-    return false;
-};
-
 /* Fixed X that always returns to the home screen */
 const CloseButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     <button
@@ -83,113 +64,19 @@ const CloseButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
     </button>
 );
 
-/* One-time paywall */
-const EmpirePaywall: React.FC<{ player: Player; onBack: () => void; onUnlock: () => void }> = ({ player, onBack, onUnlock }) => {
-    const canAfford = player.money >= EMPIRE_UNLOCK_PRICE;
-    const shortBy = Math.max(0, EMPIRE_UNLOCK_PRICE - player.money);
-    return (
-        <div
-            style={{
-                position: 'fixed',
-                inset: 0,
-                zIndex: 9999,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 24,
-                color: '#fff',
-                background: 'radial-gradient(circle at 20% 15%, rgba(120,70,255,0.35), transparent 45%), radial-gradient(circle at 80% 85%, rgba(0,140,255,0.28), transparent 45%), #07061a',
-                fontFamily: 'inherit',
-            }}
-        >
-            <CloseButton onClick={onBack} />
-            <div
-                style={{
-                    width: '100%',
-                    maxWidth: 520,
-                    borderRadius: 28,
-                    border: '1px solid rgba(255,255,255,0.12)',
-                    background: 'rgba(255,255,255,0.05)',
-                    backdropFilter: 'blur(16px)',
-                    padding: '36px 32px',
-                    textAlign: 'center',
-                    boxShadow: '0 30px 80px rgba(0,0,0,0.45)',
-                }}
-            >
-                <div style={{ fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', opacity: 0.6 }}>Empire+</div>
-                <div style={{ fontSize: 34, fontWeight: 800, marginTop: 10, letterSpacing: '-0.02em' }}>Own your own platform</div>
-                <p style={{ opacity: 0.75, lineHeight: 1.55, marginTop: 14, fontSize: 15 }}>
-                    Build a streaming service, clear markets, sign distribution deals, and run the company week to week.
-                    This fee leaves your personal cash and becomes the company's opening money. After that, subscribers, ads, and costs stay in the company.
-                </p>
-
-                <div
-                    style={{
-                        margin: '26px auto 0',
-                        display: 'inline-flex',
-                        flexDirection: 'column',
-                        padding: '18px 28px',
-                        borderRadius: 18,
-                        background: 'rgba(0,0,0,0.35)',
-                        border: '1px solid rgba(255,255,255,0.1)',
-                    }}
-                >
-                    <span style={{ fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase', opacity: 0.55 }}>Entry fee</span>
-                    <span style={{ fontSize: 40, fontWeight: 900, marginTop: 4 }}>{formatCompact(EMPIRE_UNLOCK_PRICE)}</span>
-                    <span style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>Your personal cash {formatCompact(player.money)}</span>
-                </div>
-
-                <button
-                    onClick={onUnlock}
-                    disabled={!canAfford}
-                    style={{
-                        marginTop: 26,
-                        width: '100%',
-                        padding: '16px 20px',
-                        borderRadius: 16,
-                        border: 0,
-                        cursor: canAfford ? 'pointer' : 'not-allowed',
-                        fontWeight: 800,
-                        fontSize: 15,
-                        letterSpacing: '0.06em',
-                        textTransform: 'uppercase',
-                        color: canAfford ? '#0b0620' : 'rgba(255,255,255,0.5)',
-                        background: canAfford
-                            ? 'linear-gradient(90deg, #a78bfa, #60a5fa)'
-                            : 'rgba(255,255,255,0.08)',
-                        boxShadow: canAfford ? '0 14px 40px rgba(124,92,255,0.45)' : 'none',
-                    }}
-                >
-                    {canAfford ? `Invest ${formatCompact(EMPIRE_UNLOCK_PRICE)} of your cash` : `Need ${formatCompact(shortBy)} more of your cash`}
-                </button>
-
-                <button
-                    onClick={onBack}
-                    style={{ marginTop: 14, background: 'transparent', border: 0, color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer' }}
-                >
-                    Not now
-                </button>
-            </div>
-        </div>
-    );
-};
-
 export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer, initialPane }) => {
     const [pane, setPane] = useState<EmpirePane>(initialPane || (player.ownPlatform?.stage === 'BUILD' || player.ownPlatform?.stage === 'CONSTRUCTING' || player.ownPlatform?.stage === 'LIVE' ? 'build' : 'launch'));
     const [replay, setReplay] = useState(false);
     const [showOpenIdent, setShowOpenIdent] = useState(false);
-    const migratedUnlock = useRef(false);
     const playedOpenIdent = useRef(false);
 
     useEffect(() => {
-        if (!player.ownPlatform) onUpdatePlayer(ensureOwnPlatform(player));
+        const next = openEmpire(player);
+        if (next !== player) onUpdatePlayer(next);
     }, [player, onUpdatePlayer]);
 
-    const beyondInitial = platformBeyondInitial(player);
-    const unlocked = isEmpireUnlocked(player) || beyondInitial;
-    const rightsOpen = pane === 'rights' || initialPane === 'rights';
     const introBlocking = Boolean(player.ownPlatform) && (!player.ownPlatform.introSeen || replay) && pane !== 'rights';
-    const shellReady = Boolean(unlocked && player.ownPlatform && !introBlocking);
+    const shellReady = Boolean(player.ownPlatform && !introBlocking);
 
     useEffect(() => {
         if (!shellReady || playedOpenIdent.current) return;
@@ -197,45 +84,6 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
         if (player.ownPlatform?.identSound === false) return;
         setShowOpenIdent(true);
     }, [shellReady, player.ownPlatform?.identSound]);
-
-    useEffect(() => {
-        if (migratedUnlock.current || !beyondInitial || isEmpireUnlocked(player)) return;
-        migratedUnlock.current = true;
-        onUpdatePlayer({
-            ...player,
-            flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
-        });
-    }, [beyondInitial, player, onUpdatePlayer]);
-
-    const handleUnlock = () => {
-        if (player.money < EMPIRE_UNLOCK_PRICE) return;
-        const seeded = ensureOwnPlatform({
-            ...player,
-            money: player.money - EMPIRE_UNLOCK_PRICE,
-            flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
-            finance: player.finance ? {
-                ...player.finance,
-                history: [{
-                    id: `tx_found_${Date.now()}`,
-                    week: player.currentWeek,
-                    year: player.age,
-                    amount: -EMPIRE_UNLOCK_PRICE,
-                    category: 'BUSINESS' as const,
-                    description: 'You invested your own money to found Empire+',
-                }, ...(player.finance.history || [])].slice(0, 200),
-            } : player.finance,
-        });
-        addCompanyCash(seeded, EMPIRE_UNLOCK_PRICE, 'You invested your own money to found the company', 'TRANSFER');
-        onUpdatePlayer(seeded);
-    };
-
-    /* Paywall only gates starting a brand-new platform. Rights and an existing build stay open. */
-    if (!unlocked && !rightsOpen) {
-        return createPortal(
-            <EmpirePaywall player={player} onBack={onBack} onUnlock={handleUnlock} />,
-            document.body,
-        );
-    }
 
     if (!player.ownPlatform) {
         return createPortal(
@@ -308,6 +156,9 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
                 onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}
             >
+                {(state.books?.seedStakePct || 0) > 0 && (
+                    <p data-testid="seed-funding-note" style={{ padding: '14px 40px 0', color: '#b7f7d4', fontSize: 14, lineHeight: 1.45 }}>{LAUNCH_SEED_LINE}</p>
+                )}
                 {state.stage === 'CONSTRUCTING' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
                 {state.stage === 'LIVE' && pane !== 'launch' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}
                 {pane === 'launch' && (
