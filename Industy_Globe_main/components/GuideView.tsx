@@ -302,6 +302,7 @@ const HANDBOOK_SECTIONS: GuideSection[] = [
         <p><strong className="text-white">Plan your catalogue:</strong> balance original productions with licensed titles, and pay attention to rights, exclusivity, territory, and contract duration.</p>
         <p><strong className="text-white">Expand market by market:</strong> local audience fit, language, pricing, payment options, and distribution all influence adoption.</p>
         <p><strong className="text-white">Track sustainability:</strong> subscriber growth matters, but so do churn, content costs, operating expenses, and cash runway.</p>
+        <p><strong className="text-white">Opening Empire+:</strong> it costs none of your personal cash. Investors seed the company with $10M. Later, the Finance desk can take your cash in, or pay a salary or dividend back out.</p>
         <GuideTagRow tags={["Content", "Rights", "Pricing", "Regions", "Operating Costs"]} />
       </div>
     ),
@@ -463,7 +464,7 @@ const FAQ_SECTIONS: GuideSection[] = [
     id: "FAQ_STREAMING",
     title: "What should I consider before launching a streaming platform?",
     icon: <Globe size={18} className="text-cyan-300" />,
-    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability.</p>,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability. Opening Empire+ costs none of your personal cash. Investors seed the company with $10M, and the Finance desk moves money either way after that.</p>,
   },
   {
     id: "FAQ_SCRIPT",

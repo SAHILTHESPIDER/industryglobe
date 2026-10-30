@@ -877,6 +877,10 @@ export enum Page {
       funding: FundingChoice;
       debt: number;
       equitySoldPct: number;
+      /** Launch-investor stake from seed funding. Missing or 0 on older saves, which are not granted again. */
+      seedStakePct?: number;
+      /** Cap-table name for seedStakePct. */
+      seedPartner?: string;
       facilityRate: number;
       pePartner: string;
       history: { week: number; revenue: number; burn: number; profit: number }[];

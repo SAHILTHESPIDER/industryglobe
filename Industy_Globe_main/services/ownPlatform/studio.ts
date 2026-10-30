@@ -25,6 +25,12 @@ const FACILITY_RATE = 0.09;
 const PE_STAKE = 0.18;
 const PE_NAME = 'Kestrel Long Fund';
 
+/** Opening Empire+ does not spend personal cash. Investors seed the company once. */
+export const LAUNCH_SEED_USD = 10_000_000;
+export const LAUNCH_SEED_STAKE = 0.1;
+export const LAUNCH_INVESTORS = 'Launch investors';
+export const LAUNCH_SEED_LINE = `Investors back your launch: ${formatCompact(LAUNCH_SEED_USD)} company cash, your personal money is untouched`;
+
 export interface CommissionOrder {
     id: string;
     studio: string;
@@ -91,11 +97,29 @@ export const emptyBooks = (): StudioBooks => ({
     funding: 'OWN',
     debt: 0,
     equitySoldPct: 0,
+    seedStakePct: 0,
+    seedPartner: '',
     facilityRate: FACILITY_RATE,
     pePartner: PE_NAME,
     history: [],
     lines: [],
     cash: 0,
+});
+
+/** Opening books for a new company. Personal cash is not moved. */
+export const launchSeedBooks = (player: Player): StudioBooks => ({
+    ...emptyBooks(),
+    cash: LAUNCH_SEED_USD,
+    seedStakePct: LAUNCH_SEED_STAKE,
+    seedPartner: LAUNCH_INVESTORS,
+    lines: [{
+        id: `line_${player.currentWeek}_seed_EQUITY`,
+        week: player.currentWeek,
+        year: player.age,
+        amount: LAUNCH_SEED_USD,
+        label: LAUNCH_SEED_LINE,
+        source: 'EQUITY',
+    }],
 });
 
 export const emptyIpo = (name: string): IpoState => ({
