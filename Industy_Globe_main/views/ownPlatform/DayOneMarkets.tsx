@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { LaunchRegionId, OwnPlatformState } from '../../types';
 import { LAUNCH_REGIONS, MARKET_COUNTRIES } from '../../services/ownPlatform/catalog';
 import { formatCompact, formatPeople } from '../../services/ownPlatform/logic';
+import { publicBrandName } from '../../services/rights/alterName';
 import { headingFont } from './ui';
 
 interface Props {
@@ -91,7 +92,7 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                                 <div className="mt-4 space-y-2">
                                     <div className="text-[11px] uppercase tracking-wider text-zinc-500">Who already owns attention</div>
                                     {country.competitors.map(rival => (
-                                        <Bar key={rival.name} label={rival.name} share={rival.share} />
+                                        <Bar key={rival.name} label={publicBrandName(rival.name)} share={rival.share} />
                                     ))}
                                     <Bar label="Nobody yet" share={country.unclaimedPct} muted />
                                 </div>

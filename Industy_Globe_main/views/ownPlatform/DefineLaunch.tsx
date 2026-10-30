@@ -2,20 +2,21 @@ import React from 'react';
 import { OwnPlatformState, Player, RevenueLane } from '../../types';
 import { getCountry } from '../../services/ownPlatform/catalog';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
-import { saveMediaBlob } from '../../services/mediaStorage';
 import {
-    IDENTITY_PRESETS,
-    STOREFRONTS,
-    averagePlanPrice,
+    formatAveragePlanPrice,
     formatCompact,
     formatPeople,
-    identityById,
     licenceShelf,
     listOwnedTitles,
     quoteLaunch,
     storefrontById,
     syncRegions,
 } from '../../services/ownPlatform/logic';
+import { sceneForDefineStep, sceneStyle } from '../../services/ownPlatform/scenes';
+import { markById } from '../../services/ownPlatform/brand';
+import { identById } from '../../services/ownPlatform/identEffects';
+import { IdentPicker } from './IdentPicker';
+import { StorefrontDesigner } from './StorefrontDesigner';
 import { currencyFor, formatLocalAmount, localMonthly, usdFromLocal } from '../../services/ownPlatform/fx';
 import { DayOneMarkets } from './DayOneMarkets';
 import { NameIt } from './NameIt';
@@ -26,8 +27,8 @@ const HINTS = [
     '',
     '',
     'Filing is free. Access fees sit on the launch bill and leave the treasury only when you commission.',
-    'The tone can be replaced with your own audio, under 2MB. The save keeps the name.',
-    'Each layout changes what people find first, and what makes them stay.',
+    'Each sting says what it sounds like and what it does to viewers. A clip you upload only replaces the sound.',
+    'The green line is the discovery and stay rate the weekly forecast uses.',
     'A licence fee joins the launch bill. Nothing leaves the treasury today.',
     'Price and a thin shelf are what push a household toward piracy.',
     'This sheet is the whole company. Money still does not move until you sign the build.',
@@ -95,14 +96,26 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
 
     return (
         <>
-            <div className="body">
+            <div className="body" style={sceneStyle(sceneForDefineStep(step))}>
                 {step === 0 && (
-                    <NameIt state={state} locked={locked} quote={quote} onName={name => patch(current => ({ ...current, name }))} />
+                    <NameIt
+                        state={state}
+                        locked={locked}
+                        quote={quote}
+                        onName={name => patch(current => ({ ...current, name }))}
+                        onBrand={brand => patch(current => ({ ...current, brand }))}
+                    />
                 )}
                 {step === 1 && (
                     <DayOneMarkets state={state} locked={locked} onPatch={(recipe) => patch(current => syncRegions(recipe(current)))} />
                 )}
-                {step > 1 && (
+                {step === 3 && (
+                    <IdentPicker player={player} state={state} locked={locked} onChange={onChange} />
+                )}
+                {step === 4 && (
+                    <StorefrontDesigner player={player} state={state} locked={locked} onChange={onChange} />
+                )}
+                {step > 1 && step !== 3 && step !== 4 && (
                 <div className="grid g-side">
                 <div className="stack">
 
@@ -156,60 +169,6 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                     </div>
                 )}
 
-                {step === 3 && (
-                    <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
-                        <div>
-                            <label className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Service name</label>
-                            <input value={state.name} disabled={locked} onChange={(event) => patch(current => ({ ...current, name: event.target.value.slice(0, 32) }))} className="mt-1 w-full bg-transparent border-b border-white/20 text-4xl font-black uppercase outline-none py-2" style={{ fontFamily: headingFont }} />
-                            <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-6">
-                                {IDENTITY_PRESETS.map(preset => (
-                                    <Card key={preset.id} active={state.identityId === preset.id} onClick={() => patch(current => ({ ...current, identityId: preset.id }))}>
-                                        <div className="h-2 rounded-full mb-3" style={{ background: preset.accent }} />
-                                        <div className="font-black text-2xl uppercase" style={{ fontFamily: headingFont }}>{preset.name}</div>
-                                        <p className="text-sm text-zinc-400 mt-1">{preset.tagline}</p>
-                                        <button onClick={(event) => { event.stopPropagation(); playTone(preset.toneHz); }} className="mt-3 text-[11px] uppercase tracking-wider text-zinc-300">Play the tone</button>
-                                    </Card>
-                                ))}
-                            </div>
-                        </div>
-                        <Card>
-                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Sound</div>
-                            <div className="text-2xl font-black mt-1" style={{ fontFamily: headingFont }}>{identityById(state.identityId).name}</div>
-                            <p className="text-sm text-zinc-400 mt-2">Or replace the bumper with your own audio. The file stays in the media library. The save only keeps its name.</p>
-                            <input
-                                type="file"
-                                accept="audio/*"
-                                disabled={locked}
-                                className="mt-4 text-sm"
-                                onChange={async (event) => {
-                                    const file = event.target.files?.[0];
-                                    if (!file) return;
-                                    if (file.size > 2_000_000) {
-                                        patch(current => ({ ...current, customAudioName: 'Too large — keep it under 2MB' }));
-                                        return;
-                                    }
-                                    const meta = await saveMediaBlob(`own-platform-audio-${player.id}`, file, { kind: 'other' });
-                                    onChange({ ...state, customAudioName: file.name, customAudioMediaId: meta.id });
-                                }}
-                            />
-                            {state.customAudioName && <div className="mt-3 text-sm text-emerald-300">{state.customAudioName}</div>}
-                        </Card>
-                    </div>
-                )}
-
-                {step === 4 && (
-                    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {STOREFRONTS.map(layout => (
-                            <Card key={layout.id} active={state.storefrontId === layout.id} onClick={() => patch(current => ({ ...current, storefrontId: layout.id }))}>
-                                <div className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Layout</div>
-                                <div className="text-2xl font-black uppercase" style={{ fontFamily: headingFont }}>{layout.name}</div>
-                                <p className="text-sm text-zinc-400 mt-2">{layout.blurb}</p>
-                                <div className="mt-3 text-xs text-zinc-500">Discovery {layout.discovery.toFixed(2)} · Staying {layout.retention.toFixed(2)}</div>
-                            </Card>
-                        ))}
-                    </div>
-                )}
-
                 {step === 5 && (
                     <CatalogueStep player={player} state={state} locked={locked} onChange={onChange} />
                 )}
@@ -224,8 +183,9 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                             <input disabled={locked} value={plan.name} onChange={(event) => patch(current => ({ ...current, plans: current.plans.map(row => row.id === plan.id ? { ...row, name: event.target.value } : row) }))} className="mt-1 w-full bg-black/30 rounded-xl px-3 py-2 text-white" />
                                         </label>
                                         <label className="text-xs text-zinc-500">US anchor (USD)
-                                            <input disabled={locked} type="number" min={0} value={plan.monthlyUsd} onChange={(event) => {
+                                            <input disabled={locked} type="number" min={0} value={Number.isFinite(plan.monthlyUsd) ? plan.monthlyUsd : 11} onChange={(event) => {
                                                 const monthlyUsd = Number(event.target.value);
+                                                if (!Number.isFinite(monthlyUsd) || monthlyUsd < 0) return;
                                                 patch(current => ({
                                                     ...current,
                                                     plans: current.plans.map(row => row.id === plan.id ? {
@@ -268,6 +228,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                                                             value={local}
                                                             onChange={(event) => {
                                                                 const nextLocal = Number(event.target.value);
+                                                                if (!Number.isFinite(nextLocal) || nextLocal < 0) return;
                                                                 patch(current => ({
                                                                     ...current,
                                                                     plans: current.plans.map(row => row.id === plan.id ? {
@@ -304,7 +265,7 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                             <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Commercial setup</div>
                             <div className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>{state.plans.length} plans</div>
                             <div className="mt-4 text-sm text-zinc-400">Average price</div>
-                            <div className="text-4xl font-black">${averagePlanPrice(state).toFixed(0)}</div>
+                            <div className="text-4xl font-black">{formatAveragePlanPrice(state)}</div>
                             <div className="mt-4 text-sm text-zinc-400">Forecast households</div>
                             <div className="text-2xl font-black text-emerald-300">{formatPeople(quote.households)}</div>
                             <p className="text-xs text-zinc-500 mt-3">A higher price and a thin catalogue push people toward piracy. Pirated plays pay nothing.</p>
@@ -320,10 +281,11 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                             <div className="grid sm:grid-cols-2 gap-3 mt-4 text-sm">
                                 <Line label="Markets" value={`${state.selectedCountryIds.length} chosen`} />
                                 <Line label="Cleared" value={`${state.applications.filter(row => row.status === 'APPROVED' || row.acceptedConditions).length}`} />
-                                <Line label="Identity" value={identityById(state.identityId).name} />
+                                <Line label="Mark" value={markById(state.brand?.markId).name} />
+                                <Line label="Ident" value={identById(state.identId).name} />
                                 <Line label="Storefront" value={storefrontById(state.storefrontId).name} />
                                 <Line label="Catalogue" value={`${state.catalogue.length} titles`} />
-                                <Line label="Plans" value={`${state.plans.length} · $${averagePlanPrice(state).toFixed(0)}`} />
+                                <Line label="Plans" value={`${state.plans.length} · ${formatAveragePlanPrice(state)}`} />
                                 <Line label="Due at commission" value={formatCompact(quote.dueNow)} />
                                 <Line label="Weekly burn" value={formatCompact(quote.weeklyBurn)} />
                                 <Line label="Forecast revenue / wk" value={formatCompact(quote.forecastWeeklyRevenue)} />
@@ -411,19 +373,3 @@ const Line: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     </div>
 );
 
-const playTone = (frequency: number) => {
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const context = new AudioCtx();
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    oscillator.frequency.value = frequency;
-    oscillator.type = 'sine';
-    gain.gain.setValueAtTime(0.0001, context.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.45);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start();
-    oscillator.stop(context.currentTime + 0.5);
-};

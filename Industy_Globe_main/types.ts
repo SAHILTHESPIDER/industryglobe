@@ -682,6 +682,13 @@ export enum Page {
       releaseWeekOffset?: number;
   }
 
+  /** Face of the player's service. Missing on saves from before the brand step. */
+  export interface PlatformBrand {
+      markId: string;
+      typefaceId: string;
+      lockupId: string;
+  }
+
   export interface PricingPlan {
       id: string;
       name: string;
@@ -906,6 +913,10 @@ export enum Page {
       selectedCountryIds: string[];
       applications: MarketApplication[];
       identityId: string;
+      /** Synthesised bumper. Missing saves are filled from identityId. */
+      identId?: string;
+      /** Mark, typeface, and lockup. Missing saves are filled from identityId. */
+      brand?: PlatformBrand;
       customAudioName?: string;
       customAudioMediaId?: string;
       storefrontId: string;

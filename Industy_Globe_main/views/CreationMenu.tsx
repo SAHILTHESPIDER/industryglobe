@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { User, Calendar, Check, ArrowRight, Camera, UploadCloud, AtSign, Sparkles, Shuffle } from 'lucide-react';
 import { Gender } from '../types';
 import { MALE_AVATAR_SEEDS, FEMALE_AVATAR_SEEDS } from '../services/npcLogic';
+import { IndustryGlobeMark } from '../components/IndustryGlobeMark';
 
 interface CreationMenuProps {
   onStartGame: (name: string, age: number, gender: Gender, avatar: string, handle: string) => void;
@@ -181,6 +182,7 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
 
           {/* Header */}
           <div className="text-center mb-6 lg:mb-10">
+            <IndustryGlobeMark size={64} className="mx-auto mb-4" />
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-amber-500/30 bg-amber-500/5 text-[10px] uppercase tracking-[0.3em] text-amber-300/80 mb-4">
               <Sparkles size={12} /> Casting Call
             </div>

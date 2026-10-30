@@ -1,6 +1,7 @@
 import { Player, RivalPlatformState } from '../../types';
 import { MARKET_COUNTRIES, hashString } from './catalog';
 import { decorateRival, driftFxRates, formatLocalAmount } from './fx';
+import { publicBrandName } from '../rights/alterName';
 import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
 import { normalizeOwnPlatform } from './migrate';
 import { settleBooks } from './studio';
@@ -49,7 +50,9 @@ const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: {
     const focus = active[hashString(`${weekKey}:focus`) % active.length];
     const eventRoll = hashString(`${weekKey}:event`) % 100;
     const focusLocal = formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD');
-    let headline = `${focus.name} held its price at ${focusLocal} (${focus.monthlyPrice.toFixed(2)} USD).`;
+    const focusName = publicBrandName(focus.name);
+    const focusUsd = Number.isFinite(focus.monthlyPrice) ? focus.monthlyPrice.toFixed(2) : '0.00';
+    let headline = `${focusName} held its price at ${focusLocal} (${focusUsd} USD).`;
 
     active.forEach(rival => {
         const drift = ((hashString(`${weekKey}:${rival.id}`) % 7) - 3) / 100;
@@ -70,12 +73,12 @@ const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: {
         focus.monthlyPrice = refreshed.monthlyPrice;
         focus.householdsM *= 1.04;
         focus.note = 'Cut the local price. Neighbours feel it.';
-        headline = `Price war: ${focus.name} dropped to ${formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD')} a month.`;
+        headline = `Price war: ${focusName} dropped to ${formatLocalAmount(focus.localMonthlyPrice || 0, focus.currency || 'USD')} a month.`;
     } else if (eventRoll < 24) {
         focus.householdsM *= 1.08;
         focus.reputation = clamp(focus.reputation + 3, 1, 99);
         focus.note = 'A hit landed.';
-        headline = `${focus.name} has a hit. Households moved.`;
+        headline = `${focusName} has a hit. Households moved.`;
     } else if (eventRoll < 34 && active.length > 8) {
         const preyPool = active.filter(rival => rival.tier === 'EMERGING' && rival.id !== focus.id);
         const prey = preyPool[hashString(`${weekKey}:prey`) % Math.max(1, preyPool.length)];
@@ -83,13 +86,13 @@ const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: {
             focus.householdsM += prey.householdsM * 0.7;
             prey.householdsM = 0;
             prey.status = 'ACQUIRED';
-            prey.note = `Folded into ${focus.name}.`;
-            headline = `${focus.name} acquired ${prey.name}.`;
+            prey.note = `Folded into ${focusName}.`;
+            headline = `${focusName} acquired ${publicBrandName(prey.name)}.`;
         }
     } else if (eventRoll < 46) {
         focus.reputation = clamp(focus.reputation - 4, 1, 99);
         focus.note = 'A flagship licence expired.';
-        headline = `${focus.name} lost a flagship licence.`;
+        headline = `${focusName} lost a flagship licence.`;
     } else if (eventRoll < 58) {
         pulseShift.fatigue = clamp(pulseShift.fatigue + 0.04, 0, 0.8);
         headline = 'Subscription fatigue is in the papers again.';

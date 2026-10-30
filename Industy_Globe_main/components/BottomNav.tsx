@@ -1,6 +1,7 @@
 import React from 'react';
 import { Home, Briefcase, Dumbbell, Users, ShoppingBag, Smartphone, ShoppingCart, Settings } from 'lucide-react';
 import { Page } from '../types';
+import { IndustryGlobeMark } from './IndustryGlobeMark';
 
 interface BottomNavProps {
   activePage: Page;
@@ -53,9 +54,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activePage, setPage }) => 
 export const SideNav: React.FC<BottomNavProps> = ({ activePage, setPage }) => {
   return (
     <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-[248px] flex-col border-r border-white/10 bg-zinc-950/95 px-3 py-5">
-      <div className="px-3 pb-5">
-        <div className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400">Industry Globe</div>
-        <div className="mt-1 text-lg font-black text-white leading-tight">Career desk</div>
+      <div className="px-3 pb-5 flex items-center gap-3">
+        <IndustryGlobeMark size={40} />
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-amber-400">Industry Globe</div>
+          <div className="mt-1 text-lg font-black text-white leading-tight">Career desk</div>
+        </div>
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {NAV_ITEMS.map((item) => {

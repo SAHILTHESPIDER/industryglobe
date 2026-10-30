@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { INITIAL_PLAYER, Player, Page, Commitment, PressInteraction, SocialEvent, ActorSkills, AdType, Relationship, ProjectDetails, ActiveRelease, PastProject, StreamingState, PregnancyCarrier } from './types';
 import { BottomNav, SideNav } from './components/BottomNav';
+import { IndustryGlobeMark } from './components/IndustryGlobeMark';
 import { GameNavProvider, LifestyleDestination } from './components/GameNav';
 import { MobilePage, PhoneLaunch } from './views/mobile/MobilePage';
 import { ProductionCrisisModal } from './components/ProductionCrisisModal';
@@ -2451,12 +2452,15 @@ export const App: React.FC = () => {
         {gameStatus === 'PLAYING' && <SideNav activePage={activePage} setPage={openPage} />}
         <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${gameStatus === 'PLAYING' ? 'lg:pl-[248px]' : ''}`}>
         {gameStatus === 'PLAYING' && (
-            <div className="hidden lg:flex items-center justify-between gap-4 border-b border-white/10 px-6 py-3">
-                <div className="min-w-0">
-                    <div className="truncate text-sm font-black text-white">{player.name}</div>
-                    <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Age {player.age} · Week {player.currentWeek}</div>
+            <div className="flex items-center justify-between gap-4 border-b border-white/10 px-4 lg:px-6 py-3">
+                <div className="flex items-center gap-3 min-w-0">
+                    <IndustryGlobeMark size={36} />
+                    <div className="min-w-0">
+                        <div className="truncate text-sm font-black text-white">{player.name}</div>
+                        <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Industry Globe · Age {player.age} · Week {player.currentWeek}</div>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-2">
                     <button onClick={() => openPhone({ app: 'BANK' })} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm font-black text-emerald-300">{formatMoney(player.money)}</button>
                     <button onClick={() => openPhone({ app: 'OWN_PLATFORM', pane: player.ownPlatform?.stage === 'LIVE' ? 'ops' : 'launch' })} className="rounded-full border border-[#ff3b30]/40 bg-[#ff3b30]/10 px-4 py-2 text-xs font-black uppercase tracking-wider text-[#ffb4b0]">{player.ownPlatform?.name || 'Empire+'}</button>
                     <button onClick={() => openPage(Page.STORE)} className="rounded-full border border-white/10 px-3 py-2 text-xs font-bold text-zinc-300">Store</button>

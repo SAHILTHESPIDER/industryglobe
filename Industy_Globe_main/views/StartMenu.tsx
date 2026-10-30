@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Plus, Trash2, Clapperboard, Star, User, Calendar, Award } from 'lucide-react';
+import { Play, Plus, Trash2, Star, User, Calendar, Award } from 'lucide-react';
 import { Player } from '../types';
 import { APP_DISPLAY_VERSION } from '../services/appVersion';
+import { IndustryGlobeMark } from '../components/IndustryGlobeMark';
 
 interface StartMenuProps {
   saveSlots: Record<number, Player | null>;
@@ -197,12 +198,11 @@ export const StartMenu: React.FC<StartMenuProps> = ({ saveSlots, onSelectSlot, o
                 <div className="relative z-10 flex flex-col items-center animate-in fade-in zoom-in duration-[2000ms]">
                     <div className="mb-6 relative">
                         <div className="absolute inset-0 blur-2xl bg-amber-500/30 rounded-full scale-150"></div>
-                        <Clapperboard size={64} className="relative text-amber-200 drop-shadow-[0_0_25px_rgba(251,191,36,0.5)]" />
-                        <Star size={24} className="text-amber-400 absolute -top-2 -right-4 animate-pulse fill-amber-400" />
+                        <IndustryGlobeMark size={112} className="relative drop-shadow-[0_0_25px_rgba(245,193,108,0.45)]" />
                     </div>
 
-                    <h1 className="text-3xl font-black gold-text tracking-[0.3em] mb-3 drop-shadow-lg">
-                        Sahil Studio
+                    <h1 className="text-3xl font-black gold-text tracking-[0.2em] mb-3 drop-shadow-lg">
+                        Industry Globe
                     </h1>
                     <div className="flex items-center gap-3">
                         <div className="h-[1px] w-10 bg-gradient-to-r from-transparent to-amber-700"></div>
@@ -247,11 +247,14 @@ export const StartMenu: React.FC<StartMenuProps> = ({ saveSlots, onSelectSlot, o
                         ))}
                     </div>
 
+                    <div className="flex flex-col items-center">
+                    <IndustryGlobeMark size={84} className="mb-4 drop-shadow-[0_10px_30px_rgba(245,193,108,0.35)]" />
                     <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black tracking-tighter gold-text leading-[0.85] text-center drop-shadow-[0_10px_40px_rgba(245,158,11,0.3)]">
                         Industry<br/>Globe  
                     </h1>
                     <div className="absolute -right-4 -top-4 text-amber-400 animate-pulse drop-shadow-[0_0_15px_rgba(251,191,36,0.8)]">
                         <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" /></svg>
+                    </div>
                     </div>
                 </div>
 

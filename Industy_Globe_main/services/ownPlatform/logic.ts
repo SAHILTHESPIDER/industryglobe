@@ -29,6 +29,8 @@ import {
     hashString,
 } from './catalog';
 import { planUsdInCountry } from './fx';
+import { identById } from './identEffects';
+import { publicBrandName } from '../rights/alterName';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { releaseWeekLabel, releaseWeekParts, titleIsLive, clampReleaseOffset } from './weeks';
 
@@ -137,26 +139,80 @@ const regionEnergy = (region: RegionBuild) =>
     + region.workhorse * serverById('WORKHORSE').energyMwh
     + region.titan * serverById('TITAN').energyMwh;
 
+/** Matches the Standard plan sticker. A missing or null save must not become $0 or $NaN. */
+export const STANDARD_PLAN_USD = 11;
+
+const finiteNumber = (value: unknown, fallback: number) => {
+    const number = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(number) ? number : fallback;
+};
+
+/**
+ * A stored sticker. JSON saves NaN as null, and Number(null) is 0, so null must not
+ * become a free plan. Explicit 0 is a real price. Negatives and non-finite values are not.
+ */
+export const finiteSticker = (value: unknown): number | undefined => {
+    if (value == null || value === '') return undefined;
+    const number = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(number) || number < 0) return undefined;
+    return number;
+};
+
+/** USD anchor for one plan. A missing, null, or negative sticker becomes the standard $11. */
+export const planAnchorUsd = (plan: { monthlyUsd?: number } | undefined): number =>
+    finiteSticker(plan?.monthlyUsd) ?? STANDARD_PLAN_USD;
+
 export const averageUsdInCountry = (state: OwnPlatformState, countryId: string): number => {
     if (!state.plans.length) return 0;
-    const total = state.plans.reduce((sum, plan) => sum + planUsdInCountry(plan, countryId, state.fxRates), 0);
-    return total / state.plans.length;
+    const total = state.plans.reduce((sum, plan) => {
+        const usd = planUsdInCountry({ ...plan, monthlyUsd: planAnchorUsd(plan) }, countryId, state.fxRates);
+        return sum + (Number.isFinite(usd) ? Math.max(0, usd) : 0);
+    }, 0);
+    const average = total / state.plans.length;
+    return Number.isFinite(average) ? average : 0;
+};
+
+/** When an ident favours the expensive plan, revenue uses that mix. Household count still uses the plain average. */
+export const mixUsdInCountry = (state: OwnPlatformState, countryId: string): number => {
+    const lift = identById(state.identId).premiumLift;
+    if (!state.plans.length) return 0;
+    if (state.plans.length < 2 || !(lift > 1)) return averageUsdInCountry(state, countryId);
+    const prices = state.plans.map(plan => {
+        const usd = planUsdInCountry({ ...plan, monthlyUsd: planAnchorUsd(plan) }, countryId, state.fxRates);
+        return Number.isFinite(usd) ? Math.max(0, usd) : 0;
+    });
+    const max = Math.max(...prices, 0);
+    const weights = prices.map(price => Math.pow(0.35 + (max > 0 ? price / max : 0), lift));
+    const weight = weights.reduce((sum, row) => sum + row, 0) || 1;
+    const mixed = prices.reduce((sum, price, index) => sum + price * weights[index], 0) / weight;
+    return Number.isFinite(mixed) ? mixed : averageUsdInCountry(state, countryId);
 };
 
 export const averagePlanPrice = (state: OwnPlatformState): number => {
     if (!state.plans.length) return 0;
+    const anchor = state.plans.reduce((sum, plan) => sum + planAnchorUsd(plan), 0) / state.plans.length;
     const countries = selectedCountries(state);
-    if (!countries.length) {
-        return state.plans.reduce((sum, plan) => sum + Math.max(0, plan.monthlyUsd), 0) / state.plans.length;
-    }
-    const weight = countries.reduce((sum, country) => sum + country.audienceM, 0) || 1;
-    return countries.reduce((sum, country) => sum + averageUsdInCountry(state, country.id) * country.audienceM, 0) / weight;
+    if (!countries.length) return finiteNumber(anchor, STANDARD_PLAN_USD);
+    const weight = countries.reduce((sum, country) => sum + Math.max(0, finiteNumber(country.audienceM, 0)), 0);
+    if (!(weight > 0)) return finiteNumber(anchor, STANDARD_PLAN_USD);
+    const weighted = countries.reduce((sum, country) => {
+        const usd = averageUsdInCountry(state, country.id);
+        const audience = Math.max(0, finiteNumber(country.audienceM, 0));
+        return sum + finiteNumber(usd, 0) * audience;
+    }, 0) / weight;
+    return finiteNumber(weighted, finiteNumber(anchor, STANDARD_PLAN_USD));
+};
+
+export const formatAveragePlanPrice = (state: OwnPlatformState): string => {
+    const price = averagePlanPrice(state);
+    return Number.isFinite(price) ? `$${Math.round(price)}` : `$${STANDARD_PLAN_USD}`;
 };
 
 const liveCatalogue = (state: OwnPlatformState) => state.catalogue.filter(title => titleIsLive(title.releaseWeekOffset));
 
 const languageCoverage = (state: OwnPlatformState, country: MarketCountry): number => {
     const storefront = STOREFRONTS.find(row => row.id === state.storefrontId);
+    const ident = identById(state.identId);
     const languages = new Set(liveCatalogue(state).map(title => title.language));
     if (languages.size === 0) return 0.2;
     const matched = country.languages.reduce((sum, language) => (
@@ -165,7 +221,7 @@ const languageCoverage = (state: OwnPlatformState, country: MarketCountry): numb
             : sum
     ), 0);
     const share = clamp(matched / 100, 0, 1);
-    const floor = 0.28 + (storefront?.localBoost || 0);
+    const floor = 0.28 + (storefront?.localBoost || 0) + ident.localBoost;
     return clamp(Math.max(share, languages.has('English') ? floor : 0.15), 0.1, 1);
 };
 
@@ -181,7 +237,9 @@ export const countryPiracy = (state: OwnPlatformState, country: MarketCountry): 
     const rightsGap = liveCatalogue(state).some(title => title.language === country.languages[0]?.name) ? 0 : 0.06;
     piracy += rightsGap;
     piracy -= (state.enforcement / 100) * 0.14;
-    return clamp(piracy, 0.02, 0.72);
+    piracy += identById(state.identId).piracy;
+    const share = clamp(piracy, 0.02, 0.72);
+    return Number.isFinite(share) ? share : 0.06;
 };
 
 const approvedCountries = (state: OwnPlatformState): MarketCountry[] => selectedCountries(state).filter(country => {
@@ -264,8 +322,9 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const reputation = clamp(Math.round(48 + sustainability * 0.25 + localHit + Math.min(20, liveCatalogue(state).length)), 1, 99);
 
     const storefront = STOREFRONTS.find(row => row.id === state.storefrontId);
-    const discovery = storefront?.discovery ?? 1;
-    const retention = storefront?.retention ?? 1;
+    const ident = identById(state.identId);
+    const discovery = (storefront?.discovery ?? 1) * ident.discovery;
+    const retention = (storefront?.retention ?? 1) * ident.retention;
     let reached = 0;
     let paid = 0;
     let piracyWeight = 0;
@@ -278,7 +337,8 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         paid += viewers * (1 - piracy);
         piracyWeight += viewers * piracy;
     });
-    const piracyShare = reached > 0 ? piracyWeight / reached : 0;
+    const piracyShareRaw = reached > 0 ? piracyWeight / reached : 0;
+    const piracyShare = Number.isFinite(piracyShareRaw) ? piracyShareRaw : 0;
     const laneBoost = 1 + Math.max(0, state.revenueLanes.length - 1) * 0.04;
     const adBoost = state.revenueLanes.includes('ADVERTISING') ? 1.08 : 1;
     const fatigue = 1 - (state.pulse?.fatigue || 0) * 0.25;
@@ -293,12 +353,13 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         const piracy = countryPiracy(state, country);
         const paying = viewers * (1 - piracy);
         const usd = averageUsdInCountry(state, country.id);
+        const booked = mixUsdInCountry(state, country.id);
         const conversion = conversionFor(usd);
         households += paying * conversion;
-        monthly += paying * conversion * usd * adBoost;
+        monthly += paying * conversion * finiteNumber(booked, 0) * adBoost;
     });
-    households = Math.round(households);
-    const forecastWeeklyRevenue = Math.round(monthly / 4.3);
+    households = Number.isFinite(households) ? Math.round(households) : 0;
+    const forecastWeeklyRevenue = Number.isFinite(monthly) ? Math.round(monthly / 4.3) : 0;
 
     const marketingReady = opened.length > 0;
     const fame = player.stats?.fame || 0;
@@ -344,6 +405,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
 };
 
 export const formatCompact = (amount: number): string => {
+    if (!Number.isFinite(amount)) return '$0';
     const sign = amount < 0 ? '-' : '';
     const abs = Math.abs(amount);
     if (abs >= 1_000_000_000_000) return `${sign}$${(abs / 1_000_000_000_000).toFixed(2)}T`;
@@ -354,6 +416,7 @@ export const formatCompact = (amount: number): string => {
 };
 
 export const formatPeople = (amount: number): string => {
+    if (!Number.isFinite(amount)) return '0';
     if (amount >= 1_000_000_000) return `${(amount / 1_000_000_000).toFixed(2)}B`;
     if (amount >= 1_000_000) return `${(amount / 1_000_000).toFixed(1)}M`;
     if (amount >= 1_000) return `${(amount / 1_000).toFixed(0)}k`;
@@ -702,12 +765,12 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
         logs: [...(player.logs || []), {
             week: player.currentWeek,
             year: player.age,
-            message: `Locked ${pending.title} with ${pending.offer.bidderName}. Views begin ${releaseWeekLabel(player.currentWeek, offset)}. ${formatCompact(net)} net to the treasury after the campaign.`,
+            message: `Locked ${pending.title} with ${publicBrandName(pending.offer.bidderName)}. Views begin ${releaseWeekLabel(player.currentWeek, offset)}. ${formatCompact(net)} net to the treasury after the campaign.`,
             type: 'positive' as const,
         }],
     };
-    pushTransaction(next, pending.offer.guarantee, `${pending.offer.bidderName} guarantee · ${pending.title}`);
-    if (pending.offer.funding > 0) pushTransaction(next, pending.offer.funding, `${pending.offer.bidderName} production funding`);
+    pushTransaction(next, pending.offer.guarantee, `${publicBrandName(pending.offer.bidderName)} guarantee · ${pending.title}`);
+    if (pending.offer.funding > 0) pushTransaction(next, pending.offer.funding, `${publicBrandName(pending.offer.bidderName)} production funding`);
     if (spend > 0) pushTransaction(next, -spend, `${pending.title} release campaign`);
     return { player: next };
 };
