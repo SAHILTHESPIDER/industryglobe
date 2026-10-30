@@ -36,7 +36,23 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
+const saveChains = new Map<string, Promise<void>>();
+let saveClock = 0;
+const latestSave = new Map<string, number>();
+
 export const saveGameData = async (key: string, data: any): Promise<void> => {
+  const generation = ++saveClock;
+  latestSave.set(key, generation);
+  const previous = saveChains.get(key) || Promise.resolve();
+  const run = previous.catch(() => undefined).then(() => {
+      if (latestSave.get(key) !== generation) return undefined;
+      return writeSaveGameData(key, data);
+  });
+  saveChains.set(key, run);
+  return run;
+};
+
+const writeSaveGameData = async (key: string, data: any): Promise<void> => {
   const traceName = 'save_game_data';
   markTraceAction('save_write_started', {
     save_key: key,

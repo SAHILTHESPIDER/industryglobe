@@ -5,7 +5,8 @@ import { publicBrandName } from '../rights/alterName';
 import { identById } from './identEffects';
 import { addCompanyCash } from './companyCash';
 import { introSpan, localisationWeekly } from './commercial';
-import { countryPiracy, quoteLaunch, selectedCountries } from './logic';
+import { countryPiracy, formatCompact, quoteLaunch, selectedCountries } from './logic';
+import { officeWeekly, rollWeeklyIncident } from './infrastructure';
 import { normalizeOwnPlatform } from './migrate';
 import { settleBooks } from './studio';
 
@@ -209,8 +210,13 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         const burn = Number.isFinite(burnRaw) ? burnRaw : 0;
         state.lastWeeklyRevenue = revenue;
         state.lastWeeklyBurn = burn;
+        const officeRent = officeWeekly(state);
+        const locBill = localisationWeekly(state);
+        const infraBill = Math.max(0, burn - locBill - officeRent);
         if (revenue > 0) addCompanyCash(player, revenue, `${state.name} subscriber, ad, pass, and store receipts`, 'RECEIPTS');
-        if (burn > 0) addCompanyCash(player, -burn, `${state.name} network, localisation, and running costs`, 'BURN');
+        if (infraBill > 0) addCompanyCash(player, -infraBill, `${state.name} server racks and cloud`, 'BURN');
+        if (locBill > 0) addCompanyCash(player, -locBill, `${state.name} subtitles and dubs`, 'BURN');
+        if (officeRent > 0) addCompanyCash(player, -officeRent, `${state.name} country office rent`, 'BURN');
         if (state.weeksLive === 1) {
             notes.push({ msg: `${state.name} took its first week of real money. Piracy kept ${Math.round(piracy * 100)}% of viewing off the ledger.`, type: revenue >= burn ? 'positive' : 'neutral' });
             const span = introSpan(state);
@@ -222,6 +228,18 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             notes.push({ msg: `Viewers are angry about enforcement on ${state.name}. Growth slowed.`, type: 'negative' });
         }
     }
+
+    if (state.stage !== 'LIVE') {
+        const officeRent = officeWeekly(state);
+        if (officeRent > 0) {
+            addCompanyCash(player, -officeRent, `${state.name} country office rent`, 'BURN');
+            notes.push({ msg: `Country offices cost ${formatCompact(officeRent)} this week, from company cash.`, type: 'neutral' });
+        }
+    }
+
+    const rolled = rollWeeklyIncident(player.ownPlatform, weekKey, player.currentWeek, player.age);
+    player.ownPlatform = rolled.state;
+    if (rolled.note) notes.push({ msg: rolled.note, type: 'negative' });
 
     const books = settleBooks(player);
     notes.push(...books.notes);

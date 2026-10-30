@@ -17,6 +17,8 @@ import { IDENTS, LEGACY_IDENT } from './identEffects';
 import { anchorRates, decorateRival } from './fx';
 import { sanitizeLocalisations, sanitizePasses, sanitizePlan, sanitizeTitleStore } from './commercial';
 import { REVENUE_LANES, STANDARD_PLAN_USD, finiteSticker, syncRegions } from './logic';
+import { cityById } from './serverCities';
+import { sanitizeGoal, sanitizeIncidents, sanitizeLoadTest, sanitizeOffices, sanitizeSites } from './infrastructure';
 import { addCompanyCash } from './companyCash';
 import { LAUNCH_INVESTORS, LAUNCH_SEED_LINE, LAUNCH_SEED_STAKE, LAUNCH_SEED_USD, defaultReleaseSlot, emptyBooks, emptyIpo, launchSeedBooks } from './studio';
 import { clampReleaseOffset } from './weeks';
@@ -150,6 +152,15 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         regions: Array.isArray(raw.regions) ? raw.regions.filter(row => row && row.regionId) : [],
         infraPreset: sanitizePreset(raw.infraPreset),
         regionCoverage: sanitizeCoverage(raw.regionCoverage),
+        sites: sanitizeSites(raw.sites),
+        buildGoal: sanitizeGoal(raw.buildGoal),
+        buildBudget: Number.isFinite(Number(raw.buildBudget)) ? Math.max(0, Math.round(Number(raw.buildBudget))) : undefined,
+        loadTest: sanitizeLoadTest(raw.loadTest),
+        incidents: sanitizeIncidents(raw.incidents),
+        uptime: Number.isFinite(Number(raw.uptime)) ? Math.max(0, Math.min(100, Math.round(Number(raw.uptime)))) : undefined,
+        hqCityId: cityById(typeof raw.hqCityId === 'string' ? raw.hqCityId : undefined) ? raw.hqCityId : undefined,
+        hqPromptSeen: raw.hqPromptSeen === true ? true : undefined,
+        offices: sanitizeOffices(raw.offices),
         cloud,
         commissioned: Boolean(raw.commissioned),
         constructionWeeksLeft: Math.max(0, Math.round(Number(raw.constructionWeeksLeft) || 0)),

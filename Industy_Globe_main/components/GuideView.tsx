@@ -464,7 +464,7 @@ const FAQ_SECTIONS: GuideSection[] = [
     id: "FAQ_STREAMING",
     title: "What should I consider before launching a streaming platform?",
     icon: <Globe size={18} className="text-cyan-300" />,
-    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability. Opening Empire+ costs none of your personal cash. Investors seed the company with $10M, and the Finance desk moves money either way after that.</p>,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability. Opening Empire+ costs none of your personal cash. Investors seed the company with $10M, and the Finance desk moves money either way after that. Place server racks in real cities, or use auto-build with a company-cash budget. Test the night before you sign. A headquarters makes licences cheaper at home and the name louder there. Country offices add subscribers in that country and a weekly rent, both from company cash. Weekly server, cloud, and office costs leave the company, and a power, cooling, or outage note shows up in the week summary when a room fails.</p>,
   },
   {
     id: "FAQ_SCRIPT",

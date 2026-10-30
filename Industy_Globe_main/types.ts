@@ -839,6 +839,55 @@ export enum Page {
       racks: number;
   }
 
+  export type BuildGoalId = 'CHEAP' | 'BALANCED' | 'BEST';
+  export type TrafficLoad = 'QUIET' | 'NORMAL' | 'X2' | 'X5';
+  export type CityVerdict = 'HELD' | 'BURST' | 'BROKE';
+  export type OfficeSize = 'SMALL' | 'MEDIUM' | 'LARGE';
+  export type IncidentKind = 'POWER' | 'COOLING' | 'OUTAGE';
+  export type IncidentResponseId = 'FAILOVER' | 'REROUTE' | 'REPAIR';
+
+  /** Racks standing in one real city. Missing on saves from before city rooms. */
+  export interface CityRackPlacement {
+      cityId: string;
+      scout: number;
+      workhorse: number;
+      titan: number;
+  }
+
+  export interface CityLoadRow {
+      cityId: string;
+      verdict: CityVerdict;
+      suggestion: string;
+      demand: number;
+      steady: number;
+  }
+
+  /** Load test. Stale when layoutKey no longer matches the rooms. */
+  export interface LoadTestSnapshot {
+      mode: TrafficLoad;
+      layoutKey: string;
+      smoothViewers: number;
+      cities: CityLoadRow[];
+  }
+
+  export interface InfraIncident {
+      id: string;
+      week: number;
+      year: number;
+      cityId: string;
+      kind: IncidentKind;
+      note: string;
+      open: boolean;
+      uptime: number;
+  }
+
+  /** A country office. localDeals is for later phases. */
+  export interface CountryOffice {
+      countryId: string;
+      size: OfficeSize;
+      localDeals: boolean;
+  }
+
   export interface RivalPlatformState {
       id: string;
       name: string;
@@ -1067,6 +1116,24 @@ export enum Page {
       infraPreset?: InfraPresetId;
       /** Coverage target, in percent, for each open region. Missing means the placed servers stand as they are. */
       regionCoverage?: Partial<Record<LaunchRegionId, number>>;
+      /** Racks in real cities. Missing means the region counts stand, and the map only previews a spread. */
+      sites?: CityRackPlacement[];
+      /** Last auto-build goal. Missing on older saves. */
+      buildGoal?: BuildGoalId;
+      /** Company-cash cap the planner was allowed to spend. Missing means no cap was saved. */
+      buildBudget?: number;
+      /** Last load test. Ignore it when layoutKey does not match the rooms. */
+      loadTest?: LoadTestSnapshot;
+      /** Recent power, cooling, and outage events. Missing on older saves. */
+      incidents?: InfraIncident[];
+      /** 0–100 after an incident. Missing means the rooms have not been scored. */
+      uptime?: number;
+      /** Headquarters city. Missing until the one-time prompt. */
+      hqCityId?: string;
+      /** True once the headquarters prompt has been answered or dismissed. */
+      hqPromptSeen?: boolean;
+      /** Country offices. Missing on older saves. */
+      offices?: CountryOffice[];
       cloud: CloudOrder[];
       commissioned: boolean;
       constructionWeeksLeft: number;

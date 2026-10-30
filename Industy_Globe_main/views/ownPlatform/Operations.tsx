@@ -6,8 +6,12 @@ import { allRecords, rightsOf } from '../../services/rights/logic';
 import { sendEmpireBrief } from '../../services/commissions/logic';
 import { ContentDeskCommissions } from '../lifestyle/business/PlatformCommissions';
 import { RightsLibrary } from '../lifestyle/business/RightsLibrary';
-import { LAUNCH_REGIONS, MARKET_COUNTRIES } from '../../services/ownPlatform/catalog';
+import { MARKET_COUNTRIES } from '../../services/ownPlatform/catalog';
+
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
+import { officeWeekly, openIncident, redundancyOf, effectiveSites } from '../../services/ownPlatform/infrastructure';
+import { cityById } from '../../services/ownPlatform/serverCities';
+import { IncidentBoard } from './PlacePanels';
 import {
     FACILITY_USD,
     LAUNCH_INVESTORS,
@@ -78,7 +82,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
             </div>
             {error && <p className="text-rose-300 text-sm" data-testid="ops-error">{error}</p>}
             {desk === 'content' && <ContentDesk player={player} onApply={apply} />}
-            {desk === 'network' && <NetworkDesk player={player} quoteHouseholds={quote.households} burn={quote.weeklyBurn} />}
+            {desk === 'network' && <NetworkDesk player={player} onPlayer={onPlayer} onError={setError} quoteHouseholds={quote.households} burn={quote.weeklyBurn} />}
             {desk === 'audience' && <AudienceDesk player={player} onPlayer={onPlayer} />}
             {desk === 'board' && (
                 <div className="space-y-8">
@@ -199,32 +203,36 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
     );
 };
 
-const NetworkDesk: React.FC<{ player: Player; quoteHouseholds: number; burn: number }> = ({ player, quoteHouseholds, burn }) => {
+const NetworkDesk: React.FC<{ player: Player; onPlayer: (next: Player) => void; onError: (message: string) => void; quoteHouseholds: number; burn: number }> = ({ player, onPlayer, onError, quoteHouseholds, burn }) => {
     const state = player.ownPlatform!;
+    const sites = effectiveSites(state);
+    const redundancy = redundancyOf(sites);
     return (
         <div className="grid lg:grid-cols-[minmax(0,1fr)_280px] gap-4">
             <div className="space-y-3">
-                <p className="text-sm text-zinc-400">Servers sit by region. Construction and the weekly burn are the same numbers the build page signs.</p>
-                {state.regions.length === 0 && <p className="text-sm text-zinc-500">Add a day-one market first. The network only has a region once a country is on the opening slate.</p>}
+                <p className="text-sm text-zinc-400">Servers sit in cities. {redundancy.label}. {redundancy.line}</p>
+                {sites.length === 0 && <p className="text-sm text-zinc-500">No city has a rack yet. Place them on the build map.</p>}
                 <div className="grid sm:grid-cols-2 gap-3">
-                    {state.regions.map(region => {
-                        const name = LAUNCH_REGIONS.find(row => row.id === region.regionId)?.name || region.regionId;
-                        const boxes = region.scout + region.workhorse + region.titan;
+                    {sites.map(site => {
+                        const city = cityById(site.cityId);
+                        const boxes = site.scout + site.workhorse + site.titan;
                         return (
-                            <div key={region.regionId} className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
-                                <div className="text-[11px] uppercase tracking-wider text-zinc-500">{name}</div>
+                            <div key={site.cityId} className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
+                                <div className="text-[11px] uppercase tracking-wider text-zinc-500">{city?.name || site.cityId}</div>
                                 <div className="text-3xl font-black" style={{ fontFamily: headingFont }}>{boxes}</div>
-                                <div className="text-xs text-zinc-400">{region.scout} scout · {region.workhorse} workhorse · {region.titan} titan</div>
+                                <div className="text-xs text-zinc-400">{site.scout} scout · {site.workhorse} workhorse · {site.titan} titan</div>
                             </div>
                         );
                     })}
                 </div>
+                <IncidentBoard player={player} onPlayer={onPlayer} onError={onError} />
             </div>
             <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4 h-fit">
                 <div className="text-[11px] uppercase text-zinc-500">Stage</div>
                 <div className="text-2xl font-black uppercase" style={{ fontFamily: headingFont }}>{state.stage}</div>
                 <div className="text-sm text-zinc-400 mt-2">Forecast homes {formatPeople(quoteHouseholds)}</div>
                 <div className="text-sm text-zinc-400">Weekly burn {formatCompact(burn)}</div>
+                <div className="text-sm text-zinc-400">Uptime {state.uptime == null ? 'Not scored' : `${state.uptime}%`}</div>
                 <div className="text-sm text-zinc-400">Cloud racks {state.cloud.reduce((sum, row) => sum + row.racks, 0)}</div>
             </div>
         </div>
@@ -254,6 +262,7 @@ const AudienceDesk: React.FC<{ player: Player; onPlayer: (next: Player) => void 
             <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
                 <div className="text-[11px] uppercase text-zinc-500">This week</div>
                 <p className="text-sm text-zinc-300 mt-2">{state.pulse.headline}</p>
+                {openIncident(state) && <p className="text-sm text-rose-200 mt-2">{openIncident(state)?.note}</p>}
                 <div className="text-xs text-zinc-500 mt-3">Owned services</div>
                 {(state.ownedStreamers || []).length === 0 && <p className="text-sm text-zinc-500">You have not bought another platform.</p>}
                 {(state.ownedStreamers || []).map(row => (
@@ -334,6 +343,12 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     </div>
                     {last && <div className="text-xs text-zinc-500 mt-2">Last closed week profit {formatCompact(last.profit)}</div>}
                 </div>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
+                <div className="text-[11px] uppercase text-zinc-500">Weekly company costs</div>
+                <div className="flex justify-between text-sm mt-2"><span>Server racks and cloud</span><span>{formatCompact(quoteLaunch(player).weeklyOwn)}</span></div>
+                <div className="flex justify-between text-sm mt-2"><span>Country office rent</span><span>{formatCompact(officeWeekly(state))}</span></div>
+                <p className="text-xs text-zinc-500 mt-2">These lines leave company cash on the week advance. Your personal cash is not touched.</p>
             </div>
             <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
                 <div className="text-[11px] uppercase text-zinc-500">Transactions</div>

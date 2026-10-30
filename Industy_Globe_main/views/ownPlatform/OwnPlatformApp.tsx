@@ -11,6 +11,7 @@ import { EmpireIntro } from './intro/EmpireIntro';
 import { DefineLaunch } from './DefineLaunch';
 import { BuildPlatform } from './BuildPlatform';
 import { DealRoom } from './DealRoom';
+import { HqPrompt } from './PlacePanels';
 import { Operations } from './Operations';
 import { IdentBumper } from './IdentStage';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
@@ -230,6 +231,9 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                     </div>
                 )}
             </Shell>
+            {state.introSeen && !state.hqCityId && !state.hqPromptSeen && pane !== 'rights' && (
+                <HqPrompt player={player} onPlayer={onUpdatePlayer} />
+            )}
         </>,
         document.body,
     );

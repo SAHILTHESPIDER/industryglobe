@@ -47,6 +47,7 @@ import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFI
 import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
 import { ensureOwnPlatform, migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
+import { syncRegions } from './services/ownPlatform/logic';
 import { purchasePlatform } from './services/ownPlatform/studio';
 import { BuyFinancing } from './services/ownPlatform/valuation';
 import {
@@ -813,6 +814,13 @@ export const App: React.FC = () => {
             autosaveTimerRef.current = null;
         }
     };
+  }, [player, gameStatus, currentSlot]);
+
+  useEffect(() => {
+      if (gameStatus !== 'PLAYING' || !currentSlot) return;
+      const flush = () => persistSlotSave(currentSlot, player);
+      window.addEventListener('pagehide', flush);
+      return () => window.removeEventListener('pagehide', flush);
   }, [player, gameStatus, currentSlot]);
 
   const handleSelectSlot = (slot: number) => {
@@ -2047,13 +2055,34 @@ export const App: React.FC = () => {
               try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
               setShowWhatsNewModal(false);
               const steps: Record<string, number> = { intro: 0, name: 0, markets: 1, clearance: 2, ident: 3, store: 4, shelf: 5, price: 6, blueprint: 7 };
+              setCurrentSlot(1);
               setPlayer(current => {
                   const seeded = ensureOwnPlatform({ ...current, money: Math.max(current.money || 0, 212_400_000) });
                   const state = seeded.ownPlatform!;
+                  if (empire === 'legacy') {
+                      const { sites: _sites, hqCityId: _hq, hqPromptSeen: _seen, offices: _offices, buildGoal: _goal, loadTest: _test, incidents: _incidents, ...rest } = state;
+                      return {
+                          ...seeded,
+                          ownPlatform: syncRegions({
+                              ...rest,
+                              introSeen: true,
+                              stage: 'BUILD',
+                              buildStep: 0,
+                              defineStep: 7,
+                              selectedCountryIds: ['US', 'IN'],
+                              regions: [
+                                  { regionId: 'NORTH_AMERICA', scout: 2, workhorse: 1, titan: 0 },
+                                  { regionId: 'ASIA', scout: 0, workhorse: 3, titan: 1 },
+                              ],
+                          }),
+                      };
+                  }
+                  const alreadyPlaying = Boolean(state.hqCityId || state.hqPromptSeen || state.sites?.length || state.offices?.length);
+                  if (alreadyPlaying) return seeded;
                   const showIntro = empire === '1' || empire === 'intro';
                   return {
                       ...seeded,
-                      ownPlatform: {
+                      ownPlatform: syncRegions({
                           ...state,
                           defineLayout: 2,
                           introSeen: !showIntro,
@@ -2061,11 +2090,11 @@ export const App: React.FC = () => {
                           buildStep: 0,
                           stage: empire === 'ops' ? 'LIVE' : empire === 'build' ? 'BUILD' : 'DEFINE',
                           selectedCountryIds: state.selectedCountryIds.length ? state.selectedCountryIds : ['US', 'IN', 'GB'],
-                      },
+                      }),
                   };
               });
               setGameStatus('PLAYING');
-              setPhoneLaunch({ app: 'OWN_PLATFORM', pane: empire === 'build' ? 'build' : empire === 'ops' ? 'ops' : 'launch' });
+              setPhoneLaunch({ app: 'OWN_PLATFORM', pane: empire === 'build' || empire === 'legacy' ? 'build' : empire === 'ops' ? 'ops' : 'launch' });
               setActivePage(Page.MOBILE);
           }
       }
