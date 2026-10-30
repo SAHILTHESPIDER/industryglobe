@@ -2,6 +2,7 @@ import {
     AudienceMode,
     CataloguePick,
     CloudOrder,
+    InfraPresetId,
     LaunchRegionId,
     OwnPlatformState,
     Player,
@@ -815,4 +816,107 @@ export const identityById = (id: string) => IDENTITY_PRESETS.find(row => row.id 
 
 export const storefrontById = (id: string) => STOREFRONTS.find(row => row.id === id) || STOREFRONTS[0];
 
+/** Rival premieres follow audience, so a generated microstate does not host as many openings as India. */
+export const pickAudienceCountry = (seed: string): MarketCountry => {
+    const total = MARKET_COUNTRIES.reduce((sum, country) => sum + Math.max(0.05, country.audienceM), 0);
+    let roll = ((hashString(seed) % 100000) / 100000) * total;
+    for (const country of MARKET_COUNTRIES) {
+        roll -= Math.max(0.05, country.audienceM);
+        if (roll <= 0) return country;
+    }
+    return MARKET_COUNTRIES[0];
+};
+
+type ServerBox = 'scout' | 'workhorse' | 'titan';
+
+const boxClass = (box: ServerBox): ServerClass['id'] => (box === 'scout' ? 'SCOUT' : box === 'workhorse' ? 'WORKHORSE' : 'TITAN');
+
+const PREFERENCE: Record<InfraPresetId, ServerBox[]> = {
+    LEAN: ['workhorse', 'scout'],
+    BALANCED: ['workhorse', 'scout'],
+    OWN: ['titan', 'workhorse'],
+};
+
+export const INFRA_PRESET_TARGET: Record<InfraPresetId, number> = {
+    LEAN: 55,
+    BALANCED: 90,
+    OWN: 100,
+};
+
+export const INFRA_PRESETS: { id: InfraPresetId; name: string; blurb: string }[] = [
+    { id: 'LEAN', name: 'Lean', blurb: 'Cover about 55% of opening night with the smaller rooms. Rented racks only appear if metal still comes up short.' },
+    { id: 'BALANCED', name: 'Balanced', blurb: 'About 90% of the night, mostly workhorses. The usual way to open.' },
+    { id: 'OWN', name: 'Own it all', blurb: 'Titans until the night fits in rooms you own. Rented racks go back to zero.' },
+];
+
+/**
+ * Pick the smallest box that covers most of the remaining gap, without buying a titan to finish a scout-sized hole.
+ * Any positive demand gets at least one room. Tuvalu's opening night is under one stream, and skipping a sub-capacity gap used to leave it dark.
+ */
+const fitServers = (need: number, kinds: ServerBox[]) => {
+    const counts = { scout: 0, workhorse: 0, titan: 0 };
+    let cap = 0;
+    let guard = 0;
+    while (cap < need && guard < 80) {
+        guard += 1;
+        const gap = need - cap;
+        const choices = kinds
+            .filter(kind => counts[kind] < 40)
+            .map(kind => ({ kind, size: serverById(boxClass(kind)).capacity }))
+            .sort((a, b) => a.size - b.size);
+        if (!choices.length) break;
+        const covering = choices.find(item => item.size >= gap * 0.8);
+        let pick = covering || choices[choices.length - 1];
+        if (pick.size > gap * 2.2) {
+            const lesser = [...choices].reverse().find(item => item.size < pick.size);
+            if (lesser) pick = lesser;
+        }
+        counts[pick.kind] += 1;
+        cap += pick.size;
+    }
+    return counts;
+};
+
+const nightOfRegion = (state: OwnPlatformState, regionId: LaunchRegionId) => selectedCountries(state)
+    .filter(country => country.regionId === regionId)
+    .reduce((sum, country) => sum + nightDemand(country.audienceM), 0);
+
+export const applyRegionCoverage = (state: OwnPlatformState, regionId: LaunchRegionId, coveragePct: number): OwnPlatformState => {
+    const preset: InfraPresetId = state.infraPreset || 'BALANCED';
+    const coverage = clamp(Math.round(coveragePct), 0, 100);
+    const need = nightOfRegion(state, regionId) * (coverage / 100);
+    const counts = coverage <= 0 ? { scout: 0, workhorse: 0, titan: 0 } : fitServers(need, PREFERENCE[preset]);
+    return {
+        ...state,
+        infraPreset: preset,
+        regionCoverage: { ...(state.regionCoverage || {}), [regionId]: coverage },
+        regions: state.regions.map(region => region.regionId === regionId ? { ...region, ...counts } : region),
+    };
+};
+
+/** Auto-build. Replaces server counts in every open region, and resets rented racks to whatever the preset still needs. */
+export const applyInfraPreset = (state: OwnPlatformState, preset: InfraPresetId): OwnPlatformState => {
+    const target = INFRA_PRESET_TARGET[preset];
+    let next = syncRegions({ ...state, infraPreset: preset });
+    next.regions.forEach(region => {
+        next = applyRegionCoverage(next, region.regionId, target);
+    });
+    const shortfall = next.regions.reduce((sum, region) => {
+        const need = nightOfRegion(next, region.regionId) * (target / 100);
+        return sum + Math.max(0, need - regionCapacity(region));
+    }, 0);
+    if (preset === 'OWN' || shortfall < 1500) {
+        return { ...next, infraPreset: preset, cloud: next.cloud.map(order => ({ ...order, racks: 0 })) };
+    }
+    const providerId = preset === 'LEAN' ? 'NORTHWIND' : 'ATLAS';
+    const provider = CLOUD_PROVIDERS.find(row => row.id === providerId) || CLOUD_PROVIDERS[0];
+    const racks = Math.min(provider.maxRacks, Math.ceil(shortfall / provider.capacityPerRack));
+    return {
+        ...next,
+        infraPreset: preset,
+        cloud: next.cloud.map(order => ({ ...order, racks: order.providerId === provider.id ? racks : 0 })),
+    };
+};
+
+export { storefrontEffectLine } from './storefronts';
 export { MARKET_COUNTRIES, LAUNCH_REGIONS, SERVER_CLASSES, CLOUD_PROVIDERS, STOREFRONTS, IDENTITY_PRESETS, FESTIVALS, CAMPAIGN_CHANNELS, REGION_CITIES };

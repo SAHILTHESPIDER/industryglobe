@@ -488,6 +488,14 @@ export enum Page {
       ytCampaignHype?: number;
       /** Theatrical opening multiplier from the YouTube campaign. 1 is unchanged. */
       ytOpeningMultiplier?: number;
+      /** Critic percent locked at release. Missing on older saves until it is derived. */
+      criticScore?: number;
+      /** Audience percent before a review-bomb cut. */
+      audienceScore?: number;
+      /** Flat bonus at the Oscars and BAFTA after a festival prize. Does not stack. */
+      festivalPrizeBonus?: number;
+      /** The test screening sent this film straight to streaming. */
+      buriedFromScreening?: boolean;
   }
   
   export interface CastMember {
@@ -519,6 +527,83 @@ export enum Page {
       sentiment: 'POSITIVE' | 'MIXED' | 'NEGATIVE';
       type: 'CRITIC' | 'AUDIENCE';
       rating: number;
+  }
+
+  /** A working critic. Feeling is how they currently treat the player, from -100 to +100. */
+  export interface CriticProfile {
+      id: string;
+      name: string;
+      publication: string;
+      tastes: Genre[];
+      feeling: number;
+  }
+
+  export interface ReviewBombState {
+      active: boolean;
+      /** Points currently cut from the audience score. Starts between 10 and 30. */
+      drop: number;
+      weeksLeft: number;
+      response?: 'IGNORE' | 'CALL_OUT' | 'CLEANUP';
+      /** Counts down after a cleanup request. The cut fades across these weeks. */
+      recoveryWeeksLeft?: number;
+  }
+
+  export interface TestScreeningState {
+      status: 'OFFERED' | 'RESULTS' | 'WORKING' | 'RESOLVED';
+      cost?: number;
+      testScore?: number;
+      /** Audience score the test was aiming at, before the ±8 hint. */
+      trueAudience?: number;
+      /** Hype when the screening was held. A later campaign can move the real audience score. */
+      anchorHype?: number;
+      /** Quality when the screening was held, so a recut can invalidate the lock. */
+      anchorQuality?: number;
+      notes?: string[];
+      choice?: 'RELEASE' | 'RECUT' | 'RESHOOT' | 'BURY';
+      workWeeksLeft?: number;
+      qualityDelta?: number;
+      spent?: number;
+  }
+
+  export interface FestivalBidOffer {
+      id: string;
+      bidderName: string;
+      kind: 'STUDIO' | 'STREAMER';
+      studioId?: string;
+      platformId?: PlatformId;
+      amount: number;
+      backendPct: number;
+  }
+
+  export interface FestivalBiddingState {
+      round: number;
+      maxRounds: 3;
+      heat: number;
+      offers: FestivalBidOffer[];
+      status: 'OPEN' | 'ACCEPTED' | 'WALKED';
+      acceptedOfferId?: string;
+      note?: string;
+  }
+
+  export interface FestivalRunState {
+      festivalId: string;
+      status: 'SUBMITTED' | 'SELECTED' | 'REJECTED' | 'PREMIERED' | 'WITHDRAWN';
+      submittedWeek: number;
+      submittedYear: number;
+      reaction?: number;
+      prize?: string | null;
+      bidding?: FestivalBiddingState | null;
+  }
+
+  export interface FestivalWinnerRecord {
+      festivalId: string;
+      festivalName: string;
+      year: number;
+      week: number;
+      projectId: string;
+      projectName: string;
+      prize: string;
+      isPlayer: boolean;
   }
   
   export interface PosterElement {
@@ -584,6 +669,10 @@ export enum Page {
       crewList?: CrewMember[]; // NEW: Crew roster
       location?: LocationDetails; // NEW: Filming location
       reviews?: Review[];
+      /** Optional. Missing on films that wrapped before test screenings existed. */
+      testScreening?: TestScreeningState;
+      /** Optional. Missing on films that never entered the festival circuit. */
+      festivalRun?: FestivalRunState;
       episodes?: number;
       tone?: number; // 0 = Practical, 100 = CGI
       rightsIpId?: string;
@@ -655,6 +744,7 @@ export enum Page {
   }
 
   export type LaunchRegionId = 'NORTH_AMERICA' | 'SOUTH_AMERICA' | 'EUROPE' | 'AFRICA' | 'ASIA' | 'OCEANIA';
+  export type InfraPresetId = 'LEAN' | 'BALANCED' | 'OWN';
   export type OwnPlatformStage = 'DEFINE' | 'BUILD' | 'CONSTRUCTING' | 'LIVE';
   export type ClearanceStatus = 'FILED' | 'APPROVED' | 'DELAYED' | 'CONDITIONS' | 'REJECTED';
   export type AudienceMode = 'QUIET' | 'LIKELY' | 'SURGE';
@@ -926,6 +1016,10 @@ export enum Page {
       plans: PricingPlan[];
       revenueLanes: RevenueLane[];
       regions: RegionBuild[];
+      /** Last infrastructure preset. Missing on saves from before auto-build. */
+      infraPreset?: InfraPresetId;
+      /** Coverage target, in percent, for each open region. Missing means the placed servers stand as they are. */
+      regionCoverage?: Partial<Record<LaunchRegionId, number>>;
       cloud: CloudOrder[];
       commissioned: boolean;
       constructionWeeksLeft: number;
@@ -1003,6 +1097,10 @@ export enum Page {
       clashFactor?: number;
       /** True when opening was backfilled from a single lifetime total. */
       grossIsEstimate?: boolean;
+      /** Optional. Derived from quality and rating when an older save has neither. */
+      criticScore?: number;
+      audienceScore?: number;
+      reviewBomb?: ReviewBombState;
   }
   
   export interface Award {
@@ -1065,6 +1163,12 @@ export enum Page {
       /** Game calendar year, not the age stored in `year`. */
       calendarYear?: number;
       grossIsEstimate?: boolean;
+      /** Optional. Derived from quality and rating when an older save has neither. */
+      criticScore?: number;
+      audienceScore?: number;
+      reviewBomb?: ReviewBombState;
+      /** Copied off the release so Oscars and BAFTA can still see a festival prize. */
+      festivalPrizeBonus?: number;
   }
   
   export interface Commitment {
@@ -1217,7 +1321,7 @@ export enum Page {
       }[];
   }
   
-  export type ScheduledEventType = 'AWARD_CEREMONY' | 'PREMIERE' | 'PARTY' | 'PRODUCTION_CRISIS' | 'DIRECTOR_DECISION' | 'LIFE_EVENT' | 'LEGAL_HEARING' | 'SCANDAL' | 'UNDERWORLD_OFFER';
+  export type ScheduledEventType = 'AWARD_CEREMONY' | 'PREMIERE' | 'FESTIVAL_PREMIERE' | 'PARTY' | 'PRODUCTION_CRISIS' | 'DIRECTOR_DECISION' | 'LIFE_EVENT' | 'LEGAL_HEARING' | 'SCANDAL' | 'UNDERWORLD_OFFER';
   
   export interface LegalCase {
       id: string;
@@ -1953,6 +2057,10 @@ export enum Page {
       /** Newest weekend last. Capped. Missing on older saves. */
       boxOfficeCharts?: BoxOfficeWeekend[];
       boxOfficeRecord?: BoxOfficeRecord;
+      /** Optional. Filled on load for saves from before the critic roster. */
+      critics?: CriticProfile[];
+      /** Optional. Festival prizes the player has taken home. */
+      festivalWinners?: FestivalWinnerRecord[];
   }
   
   export interface LogEntry {

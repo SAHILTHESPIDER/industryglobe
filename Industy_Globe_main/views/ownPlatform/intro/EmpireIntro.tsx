@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Player, RivalPlatformState } from '../../../types';
 import { formatCompact } from '../../../services/ownPlatform/logic';
 import '../fonts';
+import './intro.css';
 import { publicBrandName } from '../../../services/rights/alterName';
 import { renderIntro } from './render';
 import { useTimeline } from './useTimeline';

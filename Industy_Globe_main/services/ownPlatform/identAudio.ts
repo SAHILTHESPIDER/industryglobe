@@ -2,6 +2,7 @@
  * Original stings synthesized in the browser, plus a short mono WAV from an upload.
  * No samples and no copyrighted ta-dum. Each ident has its own rhythm.
  */
+import { LEGACY_IDENT } from './identEffects';
 
 type OscKind = OscillatorType;
 
@@ -9,6 +10,11 @@ let shared: AudioContext | null = null;
 let generation = 0;
 let liveOscillators: OscillatorNode[] = [];
 let liveSources: AudioBufferSourceNode[] = [];
+let armedStyle: string | null = null;
+let armedToken: number | null = null;
+
+/** Eight old preset ids still play; they map onto the fourteen bumpers. */
+const soundId = (id: string): string => LEGACY_IDENT[id] || id;
 
 const context = (): AudioContext | null => {
     try {
@@ -166,7 +172,51 @@ export const playIdent = (id: string): void => {
     const master = ctx.createGain();
     master.gain.value = 0.9;
     master.connect(ctx.destination);
-    schedule(id, ctx, master, ctx.currentTime + 0.02);
+    schedule(soundId(id), ctx, master, ctx.currentTime + 0.02);
+};
+
+/** Stop the current bumper. Pass the token from playIdentSting to ignore a newer sting. */
+export const stopIdentSting = (token?: number): void => {
+    try {
+        if (token !== undefined && token !== generation) return;
+        stopIdent();
+    } catch {
+        /* Audio can fail closed. The bumper still dismisses. */
+    }
+};
+
+/** Plays the style's sting. Returns a token so an older bumper can stop only itself. Never throws. */
+export const playIdentSting = (styleId: string): number => {
+    try {
+        playIdent(styleId);
+        return generation;
+    } catch {
+        return generation;
+    }
+};
+
+/** Start the sting inside the tap that opened the platform, before React paints. */
+export const armPlatformIdent = (player: { ownPlatform?: { identityId?: string; identId?: string; identSound?: boolean; introSeen?: boolean } | null }): void => {
+    try {
+        const platform = player.ownPlatform;
+        const styleId = platform?.identId || platform?.identityId;
+        if (!styleId || platform?.identSound === false || !platform?.introSeen) return;
+        armedStyle = styleId;
+        armedToken = playIdentSting(styleId);
+    } catch {
+        armedStyle = null;
+        armedToken = null;
+    }
+};
+
+/** If this open already started the sting, reuse that token instead of playing it again. */
+export const takeArmedIdent = (styleId: string): number | null => {
+    if (!armedStyle || armedToken === null) return null;
+    if (armedStyle !== styleId && soundId(armedStyle) !== soundId(styleId)) return null;
+    const token = armedToken;
+    armedStyle = null;
+    armedToken = null;
+    return token;
 };
 
 const writeString = (view: DataView, offset: number, text: string) => {
