@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Player, RivalPlatformState } from '../../../types';
 import { formatCompact } from '../../../services/ownPlatform/logic';
 import '../fonts';
-import './intro.css';
+import { publicBrandName } from '../../../services/rights/alterName';
 import { renderIntro } from './render';
 import { useTimeline } from './useTimeline';
 
@@ -154,14 +154,14 @@ export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
                             <div className="tile" data-i={index} data-homes={rival.householdsM} key={rival.id}>
                                 <div className="top"><span>#{pad(index + 1)}</span><span>{regionOf(rival)}</span></div>
                                 <span className="rank">{pad(index + 1)}</span>
-                                <div className="wm"><span className={`w ${MARK[rival.id] || 'w-plain'}`}>{rival.name}</span></div>
+                                <div className="wm"><span className={`w ${MARK[rival.id] || 'w-plain'}`}>{publicBrandName(rival.name)}</span></div>
                                 <div className="ct"><span className="c">0</span><small>homes</small></div>
                             </div>
                         ))}
                         <div className="tile more" data-i={10}>
                             <div className="top"><span>#11–{rivals.length || 40}</span><span>Everywhere</span></div>
                             <span className="rank">11+</span>
-                            <div className="wm">{wall.more.slice(0, 12).map(rival => rival.name).join(' · ') || 'The rest of the field'}</div>
+                            <div className="wm">{wall.more.slice(0, 12).map(rival => publicBrandName(rival.name)).join(' · ') || 'The rest of the field'}</div>
                             <div className="ct">+{Math.max(0, rivalCount - 10)} more</div>
                         </div>
                         <div className="tile slot" id="slot" data-i={11}>

@@ -23,6 +23,7 @@ import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
 import { ValuationSheet } from './ValuationSheet';
 import { headingFont } from './ui';
+import { STREAMING_SCENES, sceneStyle } from '../../services/ownPlatform/scenes';
 
 type Desk = 'content' | 'network' | 'audience' | 'board';
 
@@ -45,7 +46,13 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
     };
 
     return (
-        <div className="p-4 lg:p-10 space-y-4" data-screen="operations">
+        <div className="p-4 lg:p-10 space-y-4 rounded-3xl" data-screen="operations" style={sceneStyle('hills')}>
+            <div
+                className="h-36 lg:h-56 rounded-3xl border border-white/10 bg-cover bg-center"
+                style={{ backgroundImage: `linear-gradient(180deg, rgba(5,6,10,0.05), rgba(5,6,10,0.45)), url(${STREAMING_SCENES.hills})` }}
+                role="img"
+                aria-label="Dusk hills behind the operations desk"
+            />
             <div>
                 <div className="text-[11px] uppercase tracking-[0.22em] text-[#8B7BFF]">Operations</div>
                 <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Run {state.name}</h2>
