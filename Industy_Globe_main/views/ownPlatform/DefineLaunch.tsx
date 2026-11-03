@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { OwnPlatformState, Player } from '../../types';
+import { contentVeto, firstLookDiscount } from '../../services/ownPlatform/stakeSale';
 import { getCountry } from '../../services/ownPlatform/catalog';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
 import {
@@ -226,13 +227,25 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
 const CatalogueStep: React.FC<{ player: Player; state: OwnPlatformState; locked: boolean; onChange: (next: OwnPlatformState) => void }> = ({ player, state, locked, onChange }) => {
     const owned = listOwnedTitles(player);
     const shelf = licenceShelf();
+    const look = firstLookDiscount(player);
+    const [block, setBlock] = useState('');
+    const priceOf = (cost: number) => look ? Math.round(cost * (1 - look.rate)) : cost;
     const toggle = (pick: typeof shelf[number]) => {
         if (locked) return;
         const exists = state.catalogue.some(row => row.id === pick.id);
-        onChange({
-            ...state,
-            catalogue: exists ? state.catalogue.filter(row => row.id !== pick.id) : [...state.catalogue, pick],
-        });
+        if (exists) {
+            setBlock('');
+            onChange({ ...state, catalogue: state.catalogue.filter(row => row.id !== pick.id) });
+            return;
+        }
+        const veto = contentVeto(player, pick.cost);
+        if (veto) {
+            setBlock(veto);
+            return;
+        }
+        const cost = pick.source === 'LICENCE' ? priceOf(pick.cost) : pick.cost;
+        setBlock(look && pick.source === 'LICENCE' ? `${look.name}'s first-look cut this licence to ${formatCompact(cost)}.` : '');
+        onChange({ ...state, catalogue: [...state.catalogue, { ...pick, cost }] });
     };
     return (
         <div className="grid lg:grid-cols-2 gap-4">
@@ -247,11 +260,22 @@ const CatalogueStep: React.FC<{ player: Player; state: OwnPlatformState; locked:
             </div>
             <div>
                 <h3 className="text-2xl font-black uppercase mb-3" style={{ fontFamily: headingFont }}>Licences</h3>
-                <p className="text-sm text-zinc-500 mb-2">The fee is added to the launch bill. It is not taken today.</p>
+                <p className="text-sm text-zinc-500 mb-2">The fee is added to the launch bill. It is not taken today.{look ? ` ${look.name}'s first-look takes ${Math.round(look.rate * 100)}% off.` : ''}</p>
+                {block && <p className={`text-sm mb-2 ${block.includes('vetoed') ? 'text-rose-200' : 'text-emerald-200'}`} data-testid="licence-block">{block}</p>}
                 <div className="space-y-2">
-                    {shelf.map(title => (
-                        <TitleRow key={title.id} title={title.title} meta={`${title.genre} · ${title.language} · ${formatCompact(title.cost)}`} on={state.catalogue.some(row => row.id === title.id)} onClick={() => toggle(title)} />
-                    ))}
+                    {shelf.map(title => {
+                        const held = state.catalogue.find(row => row.id === title.id);
+                        const cost = held ? held.cost : priceOf(title.cost);
+                        return (
+                            <TitleRow
+                                key={title.id}
+                                title={title.title}
+                                meta={`${title.genre} · ${title.language} · ${formatCompact(cost)}${look && !held ? ' · first-look price' : ''}`}
+                                on={Boolean(held)}
+                                onClick={() => toggle(title)}
+                            />
+                        );
+                    })}
                 </div>
             </div>
         </div>

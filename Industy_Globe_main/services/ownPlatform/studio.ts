@@ -19,6 +19,7 @@ import { BuyFinancing, equityChequeAvailable, quoteAcquisition, quoteListedCompa
 import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON } from './weeks';
 import { publicBrandName } from '../rights/alterName';
 import { addCompanyCash, readCompanyCash } from './companyCash';
+import { stakeBoardSeats, stakeObligationNote, stakeProfitCuts } from './stakeSale';
 
 const FACILITY_USD = 4_000_000;
 const FACILITY_RATE = 0.09;
@@ -609,9 +610,17 @@ export const submitForVote = (player: Player): Player => {
     const next = withIpo(player, ipo => {
         const stretch = ipo.price / Math.max(1, fair);
         const omitted = ipo.disclosures.filter(row => row.choice === 'OMIT').length;
-        const votes: IpoVote[] = BOARD.map(seat => {
+        const votes: IpoVote[] = [...BOARD, ...stakeBoardSeats(player)].map(seat => {
+            if (seat.role === 'Board seat') {
+                const against = stretch > 1.08 || omitted > 0;
+                return {
+                    ...seat,
+                    vote: against ? 'AGAINST' as const : 'FOR' as const,
+                    note: against ? 'The stake they bought is not a blank cheque.' : 'The price is close enough to sign.',
+                };
+            }
             if (seat.name === 'You' || seat.role === 'Executive') {
-                return { ...seat, vote: 'FOR', note: 'The founder asked for the listing.' };
+                return { ...seat, vote: 'FOR' as const, note: 'The founder asked for the listing.' };
             }
             if (seat.role === 'Chief financial officer' && stretch > 1.2) {
                 return { ...seat, vote: 'AGAINST', note: 'The price is ahead of the numbers.' };
@@ -919,6 +928,13 @@ export const settleBooks = (player: Player): { notes: { msg: string; type: 'posi
             profit -= cut;
         }
     }
+    const stakeCuts = stakeProfitCuts(books, revenue, burn);
+    stakeCuts.forEach(row => {
+        addCompanyCash(player, -row.cut, `${row.name} profit share, from the stake sale`, 'EQUITY');
+        profit -= row.cut;
+    });
+    const obligation = stakeObligationNote(player, stakeCuts);
+    if (obligation) notes.push(obligation);
     books.history = [...books.history, { week: player.currentWeek, revenue, burn, profit }].slice(-16);
     if (state.ipo?.stage === 'LISTED' && state.ipo) {
         const stock = (player.stocks || []).find(row => row.playerCompany || row.id === 'stk_emp');

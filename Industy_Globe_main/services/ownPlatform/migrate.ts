@@ -20,6 +20,7 @@ import { REVENUE_LANES, STANDARD_PLAN_USD, finiteSticker, syncRegions } from './
 import { cityById } from './serverCities';
 import { sanitizeGoal, sanitizeIncidents, sanitizeLoadTest, sanitizeOffices, sanitizeSites } from './infrastructure';
 import { addCompanyCash } from './companyCash';
+import { sanitizeShareholders } from './stakeSale';
 import { LAUNCH_INVESTORS, LAUNCH_SEED_LINE, LAUNCH_SEED_STAKE, LAUNCH_SEED_USD, defaultReleaseSlot, emptyBooks, emptyIpo, launchSeedBooks } from './studio';
 import { clampReleaseOffset } from './weeks';
 
@@ -192,7 +193,7 @@ const IPO_STAGES: IpoState['stage'][] = ['IDLE', 'RESOLUTION', 'PRICE', 'VOTE', 
 const normalizeBooks = (raw: StudioBooks | undefined): StudioBooks => {
     const fresh = emptyBooks();
     if (!raw || typeof raw !== 'object') return fresh;
-    return {
+    const next: StudioBooks = {
         ...fresh,
         ...raw,
         funding: raw.funding === 'BANK' || raw.funding === 'EQUITY' || raw.funding === 'OWN' ? raw.funding : 'OWN',
@@ -204,6 +205,10 @@ const normalizeBooks = (raw: StudioBooks | undefined): StudioBooks => {
         lines: Array.isArray(raw.lines) ? raw.lines.slice(0, 40) : [],
         cash: Number.isFinite(Number(raw.cash)) ? Number(raw.cash) : 0,
     };
+    const shareholders = sanitizeShareholders(raw.shareholders);
+    if (shareholders) next.shareholders = shareholders;
+    else delete next.shareholders;
+    return next;
 };
 
 const normalizeSlot = (raw: ReleaseSlot | undefined, player: Player): ReleaseSlot => {
