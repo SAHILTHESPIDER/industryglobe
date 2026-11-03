@@ -922,6 +922,54 @@ export enum Page {
       source: 'RECEIPTS' | 'BURN' | 'TITLE' | 'DEBT' | 'EQUITY' | 'ACQUISITION' | 'IPO' | 'COMMISSION' | 'TRANSFER';
   }
 
+  export type StakeBuyerKind = 'PRODUCTION' | 'ACTOR' | 'RIVAL' | 'SPORT' | 'BUSINESS';
+
+  export type StakeConditionKind =
+      | 'BOARD_SEAT'
+      | 'CONTENT_VETO'
+      | 'ROLE_GUARANTEE'
+      | 'SPORTS_DEAL'
+      | 'PROFIT_SHARE'
+      | 'LOCK_IN'
+      | 'FIRST_LOOK';
+
+  /** One clause on a stake sale. Optional fields apply only to the matching kind. */
+  export interface StakeCondition {
+      kind: StakeConditionKind;
+      /** Short clause in plain words. */
+      label: string;
+      /** What this clause does in the game. */
+      effect: string;
+      /** Fraction of weekly company profit. PROFIT_SHARE only. */
+      profitShareOfProfit?: number;
+      /** Weeks the sold block cannot be sold again. LOCK_IN only. */
+      lockWeeks?: number;
+      /** A content spend at or above this is blocked. CONTENT_VETO only. */
+      vetoAboveUsd?: number;
+      /** ROLE_GUARANTEE only. */
+      roleLabel?: string;
+      /** Fraction taken off a new licence fee. FIRST_LOOK only. */
+      discountPct?: number;
+      /** The promised cameo has been cast. */
+      fulfilled?: boolean;
+  }
+
+  /** A buyer who already closed. Missing on saves that never sold a stake this way. */
+  export interface CompanyShareholder {
+      id: string;
+      buyerId: string;
+      name: string;
+      kind: StakeBuyerKind;
+      /** Fraction of the company, such as 0.1 for 10%. */
+      pct: number;
+      paid: number;
+      week: number;
+      year: number;
+      /** Absolute week the lock-in ends. Missing means this block is not locked. */
+      lockUntilAbsolute?: number;
+      conditions: StakeCondition[];
+  }
+
   export interface StudioBooks {
       funding: FundingChoice;
       debt: number;
@@ -936,6 +984,11 @@ export enum Page {
       lines: PlatformLedgerLine[];
       /** Company cash. Missing on older saves, which start at 0. This is not the player's personal money. */
       cash?: number;
+      /**
+       * Stakes sold through buyer offers. Missing on older saves.
+       * A past private-equity sale stays on equitySoldPct and pePartner and is not rewritten into this list.
+       */
+      shareholders?: CompanyShareholder[];
   }
 
   export interface ReleaseSlot {

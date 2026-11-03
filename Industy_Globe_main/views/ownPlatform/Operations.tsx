@@ -16,8 +16,6 @@ import {
     FACILITY_USD,
     LAUNCH_INVESTORS,
     LAUNCH_SEED_LINE,
-    PE_NAME,
-    PE_STAKE,
     chooseFunding,
     drawFromCompany,
     investInCompany,
@@ -27,6 +25,16 @@ import {
     revenueSplit,
     titleRows,
 } from '../../services/ownPlatform/studio';
+import {
+    STAKE_SALE_LINE,
+    buyerKindLabel,
+    capSlices,
+    castCameo,
+    lockWeeksLeft,
+    maxSellPoints,
+    obligationLines,
+} from '../../services/ownPlatform/stakeSale';
+import { StakeSale } from './StakeSale';
 import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
@@ -92,7 +100,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                 </div>
             )}
             {books && desk !== 'board' && (
-                <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {Math.round(((books.equitySoldPct || 0) + (books.seedStakePct || 0)) * 100)}%</p>
+                <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {Math.round((capSlices(player).seed + capSlices(player).legacy + capSlices(player).holders) * 100)}%</p>
             )}
         </div>
     );
@@ -287,11 +295,15 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
     const lanes = revenueSplit(player);
     const last = books?.history[books.history.length - 1];
     const profit = (state.lastWeeklyRevenue || 0) - (state.lastWeeklyBurn || 0);
-    const seedPct = books?.seedStakePct || 0;
-    const soldPct = books?.equitySoldPct || 0;
-    const publicFloat = state.ipo?.stage === 'LISTED' ? (1 - (state.ipo?.founderKeepPct || 0.75)) : 0;
-    const founder = Math.max(0, 1 - seedPct - soldPct - publicFloat);
+    const slices = capSlices(player);
+    const seedPct = slices.seed;
+    const soldPct = slices.legacy;
+    const founder = slices.founder;
+    const holders = books?.shareholders || [];
     const seedName = books?.seedPartner || LAUNCH_INVESTORS;
+    const [saleOpen, setSaleOpen] = useState(false);
+    const canSell = maxSellPoints(player) >= 1;
+    const obligations = obligationLines(player);
     return (
         <div className="space-y-4" data-screen="studio-finance">
             <div>
@@ -308,13 +320,12 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                 <Metric label="Debt" value={formatCompact(books?.debt || 0)} />
                 <Metric label="Debt pressure" value={books && books.debt > 0 ? `${Math.round((books.facilityRate || 0.09) * 100)}% / year` : 'None'} />
                 <Metric label="Valuation" value={formatCompact(valuation)} />
-                <Metric label="Outside owners" value={`${Math.round((seedPct + soldPct) * 100)}%`} />
+                <Metric label="Outside owners" value={`${Math.round((seedPct + soldPct + slices.holders) * 100)}%`} />
             </div>
             <CompanyTransfer player={player} onApply={onApply} />
-            <div className="grid lg:grid-cols-3 gap-3">
+            <div className="grid lg:grid-cols-2 gap-3">
                 <Choice title="Company cash" body="No new money. Commissioning spends company cash. Your personal cash stays yours unless you invest it." action="Build from company cash" onClick={() => onApply(chooseFunding(player, 'OWN'))} />
                 <Choice title="Bank facility" body={books?.debt ? `${formatCompact(books.debt)} is still outstanding. The payment leaves company cash every week.` : `Draw ${formatCompact(FACILITY_USD)} into the company. Interest and a paydown leave company cash every week until the balance is gone.`} action={books?.debt ? 'Facility is open' : 'Draw the facility'} onClick={() => onApply(chooseFunding(player, 'BANK'))} />
-                <Choice title="Private equity" body={books?.equitySoldPct ? `${books.pePartner} already owns ${Math.round(books.equitySoldPct * 100)}%.` : `${PE_NAME} buys ${Math.round(PE_STAKE * 100)}% at a discount to the ${formatCompact(valuation)} valuation. The cheque is company cash. They take that share of weekly profit.`} action={books?.equitySoldPct ? 'Stake already sold' : 'Sell the stake'} onClick={() => onApply(chooseFunding(player, 'EQUITY'))} />
             </div>
             <div className="grid lg:grid-cols-2 gap-3">
                 <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
@@ -335,13 +346,55 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     ))}
                     <div className="text-[11px] uppercase text-zinc-500 mt-4">Ownership</div>
                     {seedPct > 0 && <p className="text-sm text-zinc-300 mt-2">{LAUNCH_SEED_LINE}</p>}
-                    <div className="text-sm mt-1" data-testid="cap-table">
-                        You {Math.round(founder * 100)}%
-                        {seedPct > 0 ? ` · ${seedName} ${Math.round(seedPct * 100)}% (seed funding)` : ''}
-                        {soldPct > 0 ? ` · ${books?.pePartner || 'Partners'} ${Math.round(soldPct * 100)}%` : ''}
-                        {state.ipo?.stage === 'LISTED' ? ` · public float on ${state.ipo.ticker}` : ''}
+                    <div className="text-sm mt-1 space-y-2" data-testid="cap-table">
+                        <p>
+                            You {Math.round(founder * 100)}%
+                            {seedPct > 0 ? ` · ${seedName} ${Math.round(seedPct * 100)}% (seed funding)` : ''}
+                            {soldPct > 0 ? ` · ${books?.pePartner || 'Partners'} ${Math.round(soldPct * 100)}%` : ''}
+                            {state.ipo?.stage === 'LISTED' ? ` · public float on ${state.ipo.ticker}` : ''}
+                        </p>
+                        {holders.map(holder => {
+                            const locked = lockWeeksLeft(player, holder);
+                            const cameo = holder.conditions.find(row => row.kind === 'ROLE_GUARANTEE' && !row.fulfilled);
+                            return (
+                                <div key={holder.id} data-testid="cap-holder" className="rounded-2xl border border-white/10 p-3">
+                                    <div className="font-bold">{holder.name} · {buyerKindLabel(holder.kind)} · {Math.round(holder.pct * 100)}%</div>
+                                    <p className="text-xs text-zinc-500">Paid {formatCompact(holder.paid)} into company cash in week {holder.week}.</p>
+                                    {holder.conditions.map(condition => (
+                                        <div key={condition.kind} className="mt-2">
+                                            <div className="text-sm">{condition.label}{condition.fulfilled ? ' · done' : ''}</div>
+                                            <p className="text-xs text-zinc-400">{condition.effect}</p>
+                                        </div>
+                                    ))}
+                                    {locked > 0 && <p className="text-xs text-amber-200 mt-2">Locked for {locked} more weeks. That stake cannot be sold.</p>}
+                                    {cameo && (
+                                        <div className="mt-2">
+                                            <button type="button" data-testid="cast-cameo" onClick={() => onApply(castCameo(player, holder.id))} className="px-3 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Cast the cameo</button>
+                                            <p className="text-xs text-zinc-500 mt-1">Puts them in the role you promised and clears that obligation.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
+                    <div className="mt-4">
+                        {canSell ? (
+                            <>
+                                <button type="button" data-testid="stake-becho" onClick={() => setSaleOpen(true)} className="px-4 py-2 rounded-full bg-[#FFC44D] text-black text-[11px] font-black uppercase tracking-wider">Stake becho</button>
+                                <p className="text-sm text-zinc-300 mt-2">{STAKE_SALE_LINE}</p>
+                            </>
+                        ) : (
+                            <p className="text-sm text-zinc-400">You do not hold a stake you can sell.</p>
+                        )}
+                    </div>
+                    {obligations.length > 0 && (
+                        <div className="mt-3" data-testid="stake-obligations">
+                            <div className="text-[11px] uppercase text-zinc-500">Obligations</div>
+                            {obligations.map(line => <p key={line} className="text-xs text-zinc-300 mt-1">{line}.</p>)}
+                        </div>
+                    )}
                     {last && <div className="text-xs text-zinc-500 mt-2">Last closed week profit {formatCompact(last.profit)}</div>}
+                    {saleOpen && <StakeSale player={player} valuation={valuation} onClose={() => setSaleOpen(false)} onApply={onApply} />}
                 </div>
             </div>
             <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
@@ -378,7 +431,7 @@ const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player
             <div>
                 <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Buy another service</div>
                 <h3 className="text-3xl font-black uppercase" style={{ fontFamily: headingFont }}>Purchase a streaming platform</h3>
-                <p className="text-sm text-zinc-400 mt-1 max-w-2xl">The price is a valuation, not a sticker. Market cap or operating value, plus a control premium, and the debt comes with the company. Cash, an Empire+ loan, or a slice sold to Kestrel has to cover the cheque. The board and the regulator can still say no. A global service stays out of reach until your company is large enough.</p>
+                <p className="text-sm text-zinc-400 mt-1 max-w-2xl">The price is a valuation, not a sticker. Market cap or operating value, plus a control premium, and the debt comes with the company. Company cash or an Empire+ loan has to cover the cheque. Sell a stake from the cap table first if the company needs the money. The board and the regulator can still say no. A global service stays out of reach until your company is large enough.</p>
             </div>
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
                 {deals.map(deal => (

@@ -7,6 +7,7 @@ import { createBusiness } from '../businessLogic';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { createRivalRoster, hashString } from '../ownPlatform/catalog';
 import { addCompanyCash, readCompanyCash } from '../ownPlatform/companyCash';
+import { contentVeto } from '../ownPlatform/stakeSale';
 import { ensureOwnPlatform } from '../ownPlatform/migrate';
 import { displayTitle, IpRecord } from '../rights/catalogue';
 import { rightsOf } from '../rights/logic';
@@ -1161,6 +1162,11 @@ const spawnOffers = (player: Player, desk: CommissionDeskState) => {
 const finalizeEmpire = (player: Player, desk: CommissionDeskState, brief: CommissionBrief): string | null => {
     if (brief.status === 'SIGNED') return null;
     const terms = brief.platformReply || brief.baseTerms;
+    const veto = contentVeto(player, payableOf(terms));
+    if (veto) {
+        brief.rivalAlert = veto;
+        return veto;
+    }
     const advance = trancheOf(terms, brief.seasons);
     if (readCompanyCash(player) < advance) return 'Company cash cannot cover the advance. Invest your own money if you want the company to pay it. Personal cash is not used.';
     addCompanyCash(player, -advance, `${player.ownPlatform?.name || 'Empire+'} advance to ${brief.targetHouseName} for ${brief.title}`, 'COMMISSION');

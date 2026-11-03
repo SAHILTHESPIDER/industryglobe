@@ -8,6 +8,7 @@ import { introSpan, localisationWeekly } from './commercial';
 import { countryPiracy, formatCompact, quoteLaunch, selectedCountries } from './logic';
 import { officeWeekly, rollWeeklyIncident } from './infrastructure';
 import { normalizeOwnPlatform } from './migrate';
+import { sportsViewerBump } from './stakeSale';
 import { settleBooks } from './studio';
 
 export interface PlatformWeekNote {
@@ -204,6 +205,7 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         const growing = target > state.subscribers;
         const step = growing ? 0.18 : clamp(0.08 / Math.max(0.5, ident.retention), 0.04, 0.14);
         state.subscribers = Math.max(0, Math.round(state.subscribers + (target - state.subscribers) * step));
+        state.subscribers += sportsViewerBump(state);
         const revenueRaw = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0));
         const burnRaw = Math.round(quote.weeklyBurn);
         const revenue = Number.isFinite(revenueRaw) ? revenueRaw : 0;

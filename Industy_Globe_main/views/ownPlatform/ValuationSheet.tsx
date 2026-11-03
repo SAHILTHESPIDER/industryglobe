@@ -3,7 +3,7 @@ import { Player } from '../../types';
 import { readCompanyCash } from '../../services/ownPlatform/companyCash';
 import { borrowerDesk } from '../../services/loanLogic';
 import { formatCompact } from '../../services/ownPlatform/logic';
-import { AcquisitionQuote, BuyFinancing, equityChequeAvailable, quoteAcquisition } from '../../services/ownPlatform/valuation';
+import { AcquisitionQuote, BuyFinancing, quoteAcquisition } from '../../services/ownPlatform/valuation';
 import { headingFont } from './ui';
 
 interface Props {
@@ -19,10 +19,8 @@ const pct = (value: number) => `${Math.round(value * 100)}%`;
 export const ValuationSheet: React.FC<Props> = ({ player, dealId, onClose, onConfirm }) => {
     const quote = useMemo(() => quoteAcquisition(player, dealId), [player, dealId]);
     const desk = useMemo(() => borrowerDesk(player, 'EMPIRE'), [player]);
-    const equityCash = equityChequeAvailable(player);
     const [cashInput, setCashInput] = useState('0');
     const [loanInput, setLoanInput] = useState('0');
-    const [sellEquity, setSellEquity] = useState(false);
     if (!quote) {
         return (
             <Scrim onClose={onClose}>
@@ -32,9 +30,8 @@ export const ValuationSheet: React.FC<Props> = ({ player, dealId, onClose, onCon
     }
     const cash = Math.max(0, Math.floor(Number(cashInput.replace(/[^0-9]/g, '')) || 0));
     const loan = Math.max(0, Math.floor(Number(loanInput.replace(/[^0-9]/g, '')) || 0));
-    const equity = sellEquity ? equityCash : 0;
     const company = readCompanyCash(player);
-    const covered = Math.min(cash, company) + Math.min(loan, desk.capacity) + equity;
+    const covered = Math.min(cash, company) + Math.min(loan, desk.capacity);
     const short = Math.max(0, quote.equityCheque - covered);
     const blocked = !quote.regulator.ok || !quote.board.ok || short > 0 || cash > company || loan > desk.capacity;
     const reason = !quote.regulator.ok
@@ -85,7 +82,7 @@ export const ValuationSheet: React.FC<Props> = ({ player, dealId, onClose, onCon
                     </div>
                 ))}
             </div>
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <label className="text-[10px] uppercase tracking-wider text-zinc-500">Company cash
                     <input value={cashInput} inputMode="numeric" onChange={(event) => setCashInput(event.target.value)} className="mt-1 w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-base" />
                     <span className="block text-zinc-600 normal-case tracking-normal mt-1">Company has {money(company)}. Your personal cash is separate.</span>
@@ -94,17 +91,14 @@ export const ValuationSheet: React.FC<Props> = ({ player, dealId, onClose, onCon
                     <input value={loanInput} inputMode="numeric" onChange={(event) => setLoanInput(event.target.value)} className="mt-1 w-full bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-white text-base" />
                     <span className="block text-zinc-600 normal-case tracking-normal mt-1">Room {money(desk.capacity)}</span>
                 </label>
-                <button type="button" onClick={() => setSellEquity(value => !value)} className={`text-left rounded-xl border px-3 py-2 ${sellEquity ? 'border-[#e8c547] text-[#e8c547]' : 'border-white/10 text-zinc-300'}`}>
-                    <div className="text-[10px] uppercase tracking-wider">Sell 18% to Kestrel</div>
-                    <div className="font-bold mt-1">{equityCash > 0 ? money(equityCash) : 'Not available'}</div>
-                </button>
             </div>
+            <p className="text-xs text-zinc-400 mt-3">Need a bigger cheque? Sell a stake from the cap table first. That money lands in company cash. This sheet does not sell shares on its own.</p>
             <p className="text-xs text-zinc-400 mt-3">{reason} Covered {money(covered)} of {money(quote.equityCheque)}. Assumed debt is extra and starts billing the week after close.</p>
             <div className="mt-4 flex flex-col-reverse sm:flex-row gap-2">
                 <button onClick={onClose} className="px-4 py-3 rounded-full border border-white/15 text-xs font-bold uppercase tracking-wider">Close</button>
                 <button
                     disabled={blocked}
-                    onClick={() => onConfirm(dealId, { cash: Math.min(cash, quote.equityCheque), loan, equity: sellEquity })}
+                    onClick={() => onConfirm(dealId, { cash: Math.min(cash, quote.equityCheque), loan, equity: false })}
                     className="px-4 py-3 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider disabled:opacity-40"
                 >
                     {blocked ? 'Cannot close' : `File the purchase · ${money(quote.equityCheque)}`}
