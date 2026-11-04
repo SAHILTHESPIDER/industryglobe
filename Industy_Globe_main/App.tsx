@@ -2399,34 +2399,35 @@ export const App: React.FC = () => {
                           <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 mb-3">What&apos;s New</div>
                           <h3 className="text-2xl font-black text-white mb-2">Version {APP_DISPLAY_VERSION}</h3>
                           <p className="text-sm text-zinc-400 leading-relaxed">
-                              Films now leave the editing room with scores, a test screening, and a festival circuit that can turn into a bidding war.
+                              YouTube channels now start empty, earn real Creator Awards, and can wear a look you pick.
                           </p>
                       </div>
 
                       <div className="space-y-4 text-sm text-zinc-300">
                           <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Critics</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Play Buttons</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Every film gets a critics percent and an audience percent, listed beside the IMDb rating. Named critics show up with a short quote. Some are on your side. Some are not.</li>
-                                  <li>• Praise on a talk-show tour, or a feud on X, changes how that roster treats the next film.</li>
-                                  <li>• High heat or a messy YouTube channel can trigger a review bomb. Ignore it, call it out, or ask the platform to clean it up over two weeks.</li>
+                                  <li>• Silver at 100K subscribers, Gold at 1M, Diamond at 10M, Red Diamond at 100M. Each plaque is awarded once.</li>
+                                  <li>• Crossing a line opens a short ceremony and puts the button on your channel shelf. Fame and trust move a little. A brand may call.</li>
+                                  <li>• Rival houses and creator channels can earn them too. That shows up in the news, not as a second prize for you.</li>
                               </ul>
                           </div>
 
                           <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Test screenings</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Your channel</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• After a production-house film wraps, you can buy a test screening. The score is a hint, within 8 points of the real audience number.</li>
-                                  <li>• Release the cut you tested, pay for a recut, reshoot the ending, or bury the film on streaming and keep the marketing money.</li>
+                                  <li>• Change the name, avatar, banner, and thumbnail style from presets or a photo. It stays in the save.</li>
+                                  <li>• Renaming again within 8 weeks confuses search for a moment. It does not lock the name.</li>
+                                  <li>• The studio channel and Empire+ stay locked until you pay $8,000 from cash. Personal is free.</li>
                               </ul>
                           </div>
 
                           <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">Festivals</div>
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">From zero</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Submit to Sundance, Berlin, Cannes, Venice, or TIFF. Quality above the festival&apos;s bar raises the odds. It does not guarantee a slot.</li>
-                                  <li>• A selected film gets a premiere reaction and can win a prize. A breakout opens a bidding room: accept, counter, or walk, up to three rounds.</li>
-                                  <li>• A prize is worth an extra 5 points when the Oscars and BAFTA score that season.</li>
+                                  <li>• A new career, including your production house, starts with no subscribers and no views. Uploads earn them.</li>
+                                  <li>• Other houses and people start empty too, then post on their own cadence. Big brands grow faster. Old saves keep the numbers they already had.</li>
+                                  <li>• Subscribe works on people now, not only studio channels. They show up under Subscriptions.</li>
                               </ul>
                           </div>
 
@@ -2448,6 +2449,7 @@ export const App: React.FC = () => {
                               <div className="rounded-2xl border border-white/10 bg-zinc-950/80 px-4 py-3">
                                   <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 mb-2">Previous Highlights</div>
                                   <ul className="space-y-2 leading-relaxed text-zinc-400">
+                                      <li>• 1.1.28 added critic scores, test screenings, and the festival circuit.</li>
                                       <li>• 1.1.27 fixed the streaming plan price, filled the weekend Top 10, and tied your X location to the city you live in.</li>
                                       <li>• 1.1.25 fixed streaming viewership curves, bid wars, pregnancy logic, and long-career save stability.</li>
                                       <li>• Greenlight shows which returning talent deals are pending, with quick negotiate actions.</li>

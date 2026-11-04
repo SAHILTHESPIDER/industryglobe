@@ -59,6 +59,8 @@ import { processWorldTurn, generateIndustryProject } from './worldLogic';
 import { absoluteWeek, clashFactorFor, gameCalendarYear, migrateBoxOfficeHistory, publishBoxOfficeWeekend } from './boxOfficeSim'; 
 import { generateFamousMovieOpportunity, generateCameoOffer } from './famousMovieLogic'; 
 import { calculateYoutubeCreatorScore, generateYoutubeBrandDeal, generateYoutubeCollabOffer, getYoutubePublicImageLabel, processYoutubeChannel } from './youtubeLogic';
+import { settlePlayButtons } from './youtubeAwards';
+import { syncCreatorYoutube } from './youtubePeople';
 import { applyYoutubeReleaseBoost, migrateYoutubeSave, processYoutubeCampaignWeek } from './youtubeMarketing';
 import { getInstagramPostComments, pickInstagramMicroBrand } from './instagramLogic';
 import { checkForDirectorDecision, checkForProductionCrisis } from './productionService';
@@ -1258,48 +1260,6 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     nextPlayer.youtube.audienceTrust = Math.min(100, (nextPlayer.youtube.audienceTrust ?? 55) + 4);
                 }
             },
-            {
-                id: 'subs_100000',
-                reached: nextPlayer.youtube.subscribers >= 100000,
-                title: 'Silver Play Button',
-                headline: `${nextPlayer.name} earns a Silver Play Button.`,
-                reward: () => {
-                    nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + 3);
-                    nextPlayer.stats.reputation = Math.min(100, nextPlayer.stats.reputation + 3);
-                    nextPlayer.youtube.fanMood = Math.min(100, (nextPlayer.youtube.fanMood ?? 55) + 8);
-                }
-            },
-            {
-                id: 'subs_1000000',
-                reached: nextPlayer.youtube.subscribers >= 1000000,
-                title: 'Gold Play Button',
-                headline: `${nextPlayer.name} becomes a million-subscriber creator.`,
-                reward: () => {
-                    nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + 6);
-                    nextPlayer.stats.reputation = Math.min(100, nextPlayer.stats.reputation + 4);
-                    nextPlayer.youtube.audienceTrust = Math.min(100, (nextPlayer.youtube.audienceTrust ?? 55) + 8);
-                }
-            },
-            {
-                id: 'subs_10000000',
-                reached: nextPlayer.youtube.subscribers >= 10000000,
-                title: 'Diamond Play Button',
-                headline: `${nextPlayer.name} earns a Diamond Play Button.`,
-                reward: () => {
-                    nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + 8);
-                    nextPlayer.stats.reputation = Math.min(100, nextPlayer.stats.reputation + 5);
-                }
-            },
-            {
-                id: 'subs_100000000',
-                reached: nextPlayer.youtube.subscribers >= 100000000,
-                title: 'Red Diamond Play Button',
-                headline: `${nextPlayer.name} enters the creator Hall of Fame.`,
-                reward: () => {
-                    nextPlayer.stats.fame = Math.min(100, nextPlayer.stats.fame + 10);
-                    nextPlayer.flags.youtubeHallOfFame = true;
-                }
-            }
         ];
 
         youtubeMilestones.forEach(milestone => {
@@ -1327,6 +1287,13 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             });
             logsToAdd.push({ msg: `🏆 YouTube Milestone: ${milestone.title}.`, type: 'positive' });
         });
+
+        const peopleWeek = syncCreatorYoutube(nextPlayer, nextPlayer.youtube, 'week');
+        nextPlayer.youtube = peopleWeek.channel;
+        if (peopleWeek.news.length) nextPlayer.news = [...peopleWeek.news, ...(nextPlayer.news || [])].slice(0, 80);
+        const playButtons = settlePlayButtons(nextPlayer);
+        nextPlayer = playButtons.player;
+        playButtons.notes.forEach(msg => logsToAdd.push({ msg: `🏆 ${msg}`, type: 'positive' }));
 
         const creatorInviteCooldown = nextPlayer.youtube.subscribers >= 100000 ? 6 : 8;
         const lastCreatorInviteAbs = ensureFiniteNumber(nextPlayer.flags.lastYoutubeCreatorInviteAbsWeek, 0);

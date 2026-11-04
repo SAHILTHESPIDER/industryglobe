@@ -366,9 +366,12 @@ export const generateYoutubeFeed = (player: Player): YoutubeVideo[] => {
             project: react ? project : undefined,
             seed: `${player.currentWeek}:${npc.id}:${i}`,
         })[0];
-        const views = Math.floor((npc.followers || 100000) * (0.01 + ((i % 7) * 0.008)));
+        const savedAudience = (player.youtube?.creatorChannels || []).find(row => row.id === npc.id);
+        const audience = savedAudience ? savedAudience.subscribers : (player.youtube?.zeroStart ? 0 : (npc.followers || 0));
+        const views = Math.floor(Math.max(0, audience) * (0.01 + ((i % 7) * 0.008)));
         feed.push({
             id: `yt_feed_${npc.id}_${player.age}_${player.currentWeek}_${i}`,
+            creatorChannelId: npc.id,
             title,
             type: react ? 'REACTION_COLLAB' : 'VLOG',
             thumbnailColor: ['poster-hero', 'poster-song', 'poster-interview', 'poster-bts', 'poster-scifi', 'poster-series'][i % 6],

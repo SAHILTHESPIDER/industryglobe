@@ -7,6 +7,7 @@ import { PLATFORMS } from './streamingLogic';
 import { hashString } from './youtubeCreators';
 import { aiOffline } from '../src/services/aiContent';
 import { dropOutlook, fatigueMultiplier, isBigDrop, SWEET_WINDOW } from './youtubeConsequences';
+import { describeAward, newTiers, tiersReached } from './youtubeAwards';
 
 /**
  * Rival YouTube houses.
@@ -218,7 +219,8 @@ const collectSlate = (player: Player): SlateItem[] => {
     return slate;
 };
 
-const baselineSubs = (kind: RivalHouseKind, reputation: number, valuation: number, listed?: number): number => {
+/** How big this house already is in the world. Pace only. A new career still starts the channel at zero. */
+const audienceWeight = (kind: RivalHouseKind, reputation: number, valuation: number, listed?: number): number => {
     if (kind === 'LABEL' && listed) return listed;
     if (kind === 'PLATFORM') {
         const millions = Math.max(1, listed || valuation || 20);
@@ -227,6 +229,11 @@ const baselineSubs = (kind: RivalHouseKind, reputation: number, valuation: numbe
     const rep = clamp(reputation || 70, 20, 100);
     const val = Math.min(400, Math.max(1, valuation || 10));
     return Math.round(120_000 + rep * 45_000 + val * 18_000);
+};
+
+export const paceFromAudience = (audience: number): number => {
+    const safe = Math.max(1_000, audience || 1_000);
+    return Math.round((1 + Math.max(0, Math.log10(safe) - 3) * 0.55) * 100) / 100;
 };
 
 interface HouseSeed {
@@ -238,6 +245,8 @@ interface HouseSeed {
     personality: RivalPersonality;
     language: string;
     country: string;
+    /** Former public audience. Used as growth pace, not as a starting subscriber count. */
+    audience: number;
     subscribers: number;
 }
 
@@ -281,7 +290,8 @@ const housesFor = (player: Player): HouseSeed[] => {
             personality: personalityFor(String(studio.id), kind, archetype),
             language: origin.language,
             country: origin.country,
-            subscribers: baselineSubs(kind, studio.reputation || 70, studio.valuation || 10, platform?.subscribers),
+            audience: audienceWeight(kind, studio.reputation || 70, studio.valuation || 10, platform?.subscribers),
+            subscribers: 0,
         });
         seen.add(String(studio.id));
     });
@@ -298,7 +308,8 @@ const housesFor = (player: Player): HouseSeed[] => {
             personality: personalityFor(studio.id, kind, studio.archetype),
             language: 'en',
             country: 'US',
-            subscribers: baselineSubs(kind, 75, studio.valuation, PLATFORMS[studio.id as keyof typeof PLATFORMS]?.subscribers),
+            audience: audienceWeight(kind, 75, studio.valuation, PLATFORMS[studio.id as keyof typeof PLATFORMS]?.subscribers),
+            subscribers: 0,
         });
     });
 
@@ -322,7 +333,8 @@ const housesFor = (player: Player): HouseSeed[] => {
             personality: personalityFor(label.id, 'LABEL'),
             language: label.language,
             country: label.country,
-            subscribers: label.subscribers,
+            audience: label.subscribers,
+            subscribers: 0,
             handle,
         });
     });
@@ -340,7 +352,7 @@ const mergeRoster = (existing: RivalYoutubeChannel[] | undefined, seeds: HouseSe
                 kind: seed.kind,
                 name: seed.name,
                 handle: seed.handle || `@${slug(seed.name)}`,
-                subscribers: seed.subscribers,
+                subscribers: 0,
                 totalViews: 0,
                 videos: [],
                 personality: seed.personality,
@@ -348,6 +360,8 @@ const mergeRoster = (existing: RivalYoutubeChannel[] | undefined, seeds: HouseSe
                 country: seed.country,
                 fatigue: 0,
                 backlash: 0,
+                pace: paceFromAudience(seed.audience),
+                playButtons: [],
             };
         }
         return {
@@ -357,12 +371,14 @@ const mergeRoster = (existing: RivalYoutubeChannel[] | undefined, seeds: HouseSe
             personality: seed.personality,
             language: prior.language || seed.language,
             country: prior.country || seed.country,
-                handle: prior.handle || seed.handle,
-            subscribers: prior.subscribers || seed.subscribers,
+            handle: prior.handle || seed.handle,
+            subscribers: Math.max(0, prior.subscribers || 0),
             videos: prior.videos || [],
             fatigue: prior.fatigue || 0,
             backlash: prior.backlash || 0,
             totalViews: prior.totalViews || 0,
+            pace: prior.pace || paceFromAudience(seed.audience),
+            playButtons: prior.playButtons ?? tiersReached(prior.subscribers || 0),
         };
     });
 };
@@ -527,8 +543,8 @@ const ageVideos = (channel: RivalYoutubeChannel, abs: number) => {
         video.weeklyHistory = [...(video.weeklyHistory || []), gain].slice(-HISTORY_WEEKS);
         channel.totalViews += gain;
         const subGain = Math.floor(gain / 480);
-        channel.subscribers += channel.backlash > 70 ? Math.floor(subGain * 0.25) - Math.floor(channel.subscribers * 0.001) : subGain;
-        channel.subscribers = Math.max(1000, channel.subscribers);
+        const nextSubs = channel.backlash > 70 ? Math.floor(subGain * 0.25) - Math.floor(channel.subscribers * 0.001) : subGain;
+        channel.subscribers = Math.max(0, channel.subscribers + nextSubs);
     });
 };
 
@@ -591,7 +607,8 @@ const rollWeek = (channels: RivalYoutubeChannel[], player: Player, abs: number, 
                 rivalReach(channel.subscribers, reputation, post.type, post.project.quality)
                 * outlook.viewMultiplier
                 * fatigueMultiplier(channel.fatigue)
-                * variance,
+                * variance
+                * (channel.pace || 1),
             ));
             const likeRatio = clamp(0.9 - channel.backlash * 0.003 - (post.project.quality < 45 ? 0.12 : 0) + (post.project.quality - 60) * 0.002, 0.45, 0.98);
             const hype = Math.round(clamp(48 + (post.project.quality - 60) * 0.45 + (outlook.hypeMultiplier - 0.7) * 40 - channel.backlash * 0.2, 8, 96));
@@ -636,7 +653,9 @@ const rollWeek = (channels: RivalYoutubeChannel[], player: Player, abs: number, 
             };
             channel.videos = [video, ...channel.videos];
             channel.totalViews += views;
-            channel.subscribers = Math.max(1000, channel.subscribers + Math.floor(views / 420) - (outlook.backlash > 14 ? Math.floor(channel.subscribers * 0.002) : 0));
+            const gained = Math.floor(views / 420);
+            const lost = outlook.backlash > 14 ? Math.floor(channel.subscribers * 0.002) : 0;
+            channel.subscribers = Math.max(0, channel.subscribers + gained - lost);
             channel.fatigue = clamp(channel.fatigue + (priorSame > 0 ? 9 + priorSame * 4 : 2), 0, 100);
             channel.backlash = clamp(channel.backlash + outlook.backlash * 0.45, 0, 100);
             if (isBigDrop(post.type) && views >= 2_000_000 && notes.length < 2) {
@@ -650,14 +669,28 @@ const rollWeek = (channels: RivalYoutubeChannel[], player: Player, abs: number, 
 export interface RivalSyncResult {
     channel: YoutubeChannel;
     notes: string[];
+    news: { headline: string; impact: 'LOW' | 'MEDIUM' | 'HIGH' }[];
 }
 
 const emptyOf = (channel: YoutubeChannel): YoutubeChannel => ({
     ...channel,
-    schemaVersion: 3,
+    schemaVersion: 4,
     rivalChannels: channel.rivalChannels || [],
     subscriptions: channel.subscriptions || [],
 });
+
+const grantRivalButtons = (channels: RivalYoutubeChannel[], announce: boolean) => {
+    const news: RivalSyncResult['news'] = [];
+    channels.forEach(channel => {
+        const crossed = newTiers(channel.playButtons, channel.subscribers);
+        if (!crossed.length) return;
+        channel.playButtons = [...(channel.playButtons || []), ...crossed];
+        if (!announce || news.length >= 3) return;
+        const tier = crossed[crossed.length - 1];
+        news.push({ headline: describeAward(channel.name, tier), impact: tier === 'SILVER' ? 'LOW' : tier === 'GOLD' ? 'MEDIUM' : 'HIGH' });
+    });
+    return news;
+};
 
 /**
  * Builds the house roster from the current world and, on a week tick, posts that week.
@@ -669,7 +702,7 @@ export const syncRivalYoutube = (player: Player, channel: YoutubeChannel, mode: 
     const base = emptyOf(channel);
     let rivals = mergeRoster(base.rivalChannels, housesFor(player));
     const known = new Set(rivals.map(item => item.id));
-    const subscriptions = (base.subscriptions || []).filter(id => known.has(id));
+    const subscriptions = (base.subscriptions || []).filter(id => known.has(id) || (!id.startsWith('house:') && !id.startsWith('label:')));
     const notes: string[] = [];
     const cursor = base.rivalSimWeekAbs;
 
@@ -692,12 +725,14 @@ export const syncRivalYoutube = (player: Player, channel: YoutubeChannel, mode: 
     }
 
     rivals = pruneRivalChannels(rivals);
+    const news = grantRivalButtons(rivals, mode === 'week' && cursor != null);
     const rivalSimWeekAbs = cursor == null
         ? (mode === 'week' ? abs : Math.max(0, abs - 1))
         : (mode === 'week' && cursor < abs ? abs : cursor);
     return {
-        channel: { ...base, rivalChannels: rivals, subscriptions, rivalSimWeekAbs, schemaVersion: 3 },
+        channel: { ...base, rivalChannels: rivals, subscriptions, rivalSimWeekAbs, schemaVersion: 4 },
         notes,
+        news,
     };
 };
 

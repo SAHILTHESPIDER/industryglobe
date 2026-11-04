@@ -1,11 +1,16 @@
-import React, { useMemo, useState } from 'react';
-import { Bell, ChevronDown, DollarSign, Flame, Home, Layout, Menu, Mic, Music, Play, Plus, Radio, Search, User, Users, Video, X } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Bell, ChevronDown, DollarSign, Flame, Home, Layout, Lock, Menu, Mic, Music, Play, Plus, Radio, Search, User, Users, Video, X } from 'lucide-react';
 import { Player, YoutubeChannelKind, YoutubeVideoType } from '../../types';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
 import { generateYoutubeFeed } from '../../services/youtubeLogic';
 import { ensureCampaign, migrateYoutubeSave, playerProjects, syncOfficialChannels } from '../../services/youtubeMarketing';
 import { syncRivalYoutube } from '../../services/youtubeRivals';
+import { syncCreatorYoutube } from '../../services/youtubePeople';
+import { settlePlayButtons } from '../../services/youtubeAwards';
+import { EXTRA_CHANNEL_UNLOCK_PRICE, channelSwitchAllowed, lookFor } from '../../services/youtubeCustomize';
 import { setChannel } from './youtube/actions';
+import { Ceremony, UnlockSheet, dismissOpenCeremony } from './youtube/features';
+import { ScreenFade } from './youtube/motion';
 import { Av, formatCompact, Logo } from './youtube/bits';
 import { screenFor } from './youtube/screens';
 import { YtApi, YtContext, YtScreen } from './youtube/state';
@@ -45,7 +50,13 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
     const [youOpen, setYouOpen] = useState(false);
     const [mobileSearch, setMobileSearch] = useState(false);
     const [rivalId, setRivalId] = useState<string | null>(null);
-    const channel = useMemo(() => syncRivalYoutube(player, syncOfficialChannels(player, migrateYoutubeSave(player)), 'view').channel, [player]);
+    const [creatorId, setCreatorId] = useState<string | null>(null);
+    const [lockOpen, setLockOpen] = useState(false);
+    const channel = useMemo(() => {
+        const migrated = syncOfficialChannels(player, migrateYoutubeSave(player));
+        const rivals = syncRivalYoutube(player, migrated, 'view').channel;
+        return syncCreatorYoutube(player, rivals, 'view').channel;
+    }, [player]);
     const projects = useMemo(() => playerProjects({ ...player, youtube: channel }), [player, channel]);
     const videos = useMemo(() => {
         const feed = generateYoutubeFeed({ ...player, youtube: channel });
@@ -63,6 +74,22 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
         }).sort((a, b) => b.views - a.views);
     }, [player, channel]);
     const kind: YoutubeChannelKind = channel.activeChannel || 'personal';
+    useEffect(() => {
+        const migrated = { ...player, youtube: migrateYoutubeSave(player) };
+        const settled = settlePlayButtons(migrated);
+        const before = player.youtube;
+        const after = settled.player.youtube;
+        const changed = settled.notes.length > 0
+            || before.schemaVersion !== after.schemaVersion
+            || before.zeroStart !== after.zeroStart
+            || before.extraChannelsUnlocked !== after.extraChannelsUnlocked
+            || before.awardsMigrated !== after.awardsMigrated
+            || JSON.stringify(before.playButtons || null) !== JSON.stringify(after.playButtons || null)
+            || JSON.stringify(before.pendingCeremonies || null) !== JSON.stringify(after.pendingCeremonies || null);
+        if (!changed) return;
+        const notes = settled.notes.map(message => ({ week: player.currentWeek, year: player.age, message, type: 'positive' as const }));
+        onUpdatePlayer(notes.length ? { ...settled.player, logs: [...notes, ...(settled.player.logs || [])].slice(0, 50) } : settled.player);
+    }, [player, onUpdatePlayer]);
     const absWeek = getAbsoluteWeek(player.age, player.currentWeek);
     const focus = projects.find(item => item.id === (projectId || projects[0]?.id)) || projects[0];
     const releaseAbs = focus ? (focus.projectDetails?.hiddenStats?.releaseWeek && focus.projectDetails.hiddenStats.releaseWeek > 52
@@ -92,6 +119,14 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
         setError(null);
         setYouOpen(false);
         setScreen(next);
+    };
+
+    const switchKind = (next: YoutubeChannelKind) => {
+        if (!channelSwitchAllowed(channel, next)) {
+            setLockOpen(true);
+            return;
+        }
+        onUpdatePlayer(setChannel(player, next));
     };
 
     const api: YtApi = {
@@ -130,13 +165,23 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
         kind,
         rivalId,
         openRival: (id) => { setRivalId(id); go('rival'); },
+        creatorId,
+        openCreator: (id) => { setCreatorId(id); go('creator'); },
+        switchChannel: (next) => switchKind(next),
     };
 
-    const switchKind = (next: YoutubeChannelKind) => onUpdatePlayer(setChannel(player, next));
+    const ceremony = channel.pendingCeremonies?.[0];
+    const ceremonySubs = ceremony
+        ? (ceremony.channelKind === 'studio' ? channel.officialChannels?.studio?.subscribers : ceremony.channelKind === 'empirePlus' ? channel.officialChannels?.empirePlus?.subscribers : channel.subscribers) || 0
+        : 0;
+    const personalLook = lookFor(channel, 'personal');
+    const studioLook = lookFor(channel, 'studio');
+    const empireLook = lookFor(channel, 'empirePlus');
+    const locked = !channel.extraChannelsUnlocked;
 
     return (
         <YtContext.Provider value={api}>
-            <div className={`yt-root${bleed ? ' bleed' : ''}`} data-yt-screen={screen}>
+            <div className={`yt-root${bleed ? ' bleed' : ''}${(channel.controversy || 0) >= 70 ? ' yt-heat' : ''}`} data-yt-screen={screen}>
                 <div className="app">
                     <header className="top">
                         <button className="iconbtn" aria-label="Menu" onClick={() => go('home')}><Menu size={20} /></button>
@@ -152,13 +197,13 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                                 <Bell size={18} />
                                 {badge && <span className="dot">{badge}</span>}
                             </button>
-                            <button className="switcher" onClick={() => switchKind(kind === 'personal' ? 'studio' : kind === 'studio' ? 'empirePlus' : 'personal')}>
+                            <button className="switcher" onClick={() => switchKind(kind === 'personal' ? 'studio' : kind === 'studio' ? 'empirePlus' : 'personal')} data-yt-switch>
                                 <span className="stack">
-                                    <Av kind="me" label={player.name} size={30} />
+                                    <Av kind="me" label={personalLook.name || player.name} size={30} src={personalLook.avatarData} />
                                     <Av kind="studio" size={30} />
                                     <Av kind="eplus" size={30} />
                                 </span>
-                                <span><b>{kind === 'personal' ? player.name : kind === 'studio' ? studioName : 'Empire+'}</b><small>Switch channel</small></span>
+                                <span><b>{kind === 'personal' ? (personalLook.name || player.name) : kind === 'studio' ? (studioLook.name || studioName) : (empireLook.name || 'Empire+')}</b><small>{locked && kind === 'personal' ? 'Unlock more channels' : 'Switch channel'}</small></span>
                                 <ChevronDown size={14} />
                             </button>
                         </div>
@@ -176,9 +221,9 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                             </button>
                         ))}
                         <div className="rh">Your channels</div>
-                        <button className={`chan${kind === 'personal' ? ' on' : ''}`} onClick={() => switchKind('personal')}><Av kind="me" label={player.name} size={26} /><span><b>{player.name}</b><small>Personal · {formatCompact(channel.subscribers)}</small></span></button>
-                        <button className={`chan${kind === 'studio' ? ' on' : ''}`} onClick={() => switchKind('studio')}><Av kind="studio" size={26} /><span><b>{studioName}</b><small>{studio ? `Official · ${formatCompact(studio.subscribers)}` : 'Opens with a house'}</small></span></button>
-                        <button className={`chan${kind === 'empirePlus' ? ' on' : ''}`} onClick={() => switchKind('empirePlus')}><Av kind="eplus" size={26} /><span><b>Empire+</b><small>{empire ? `Official · ${formatCompact(empire.subscribers)}` : 'When Empire+ is live'}</small></span></button>
+                        <button className={`chan${kind === 'personal' ? ' on' : ''}`} onClick={() => switchKind('personal')}><Av kind="me" label={personalLook.name || player.name} size={26} src={personalLook.avatarData} /><span><b>{personalLook.name || player.name}</b><small>Personal · {formatCompact(channel.subscribers)}</small></span></button>
+                        <button className={`chan${kind === 'studio' ? ' on' : ''}${locked ? ' locked' : ''}`} onClick={() => switchKind('studio')} data-yt-channel="studio"><Av kind="studio" size={26} />{locked && <Lock size={12} />} <span><b>{studioLook.name || studioName}</b><small>{locked ? `Locked · ${formatCompact(EXTRA_CHANNEL_UNLOCK_PRICE)}` : studio ? `Official · ${formatCompact(studio.subscribers)}` : 'Opens with a house'}</small></span></button>
+                        <button className={`chan${kind === 'empirePlus' ? ' on' : ''}${locked ? ' locked' : ''}`} onClick={() => switchKind('empirePlus')} data-yt-channel="empirePlus"><Av kind="eplus" size={26} /><span><b>{empireLook.name || 'Empire+'}</b><small>{locked ? 'Locked' : empire ? `Official · ${formatCompact(empire.subscribers)}` : 'When Empire+ is live'}</small></span></button>
                         <div className="weekcard">
                             <div className="k">Week {player.currentWeek} · {1998 + player.age}</div>
                             <div className="v">{focus?.projectDetails?.title || 'No release'}{weeksLeft != null ? <> opens in <span className="red">{weeksLeft} wks</span></> : null}</div>
@@ -189,7 +234,9 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                     </nav>
                     <main>
                         {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
-                        {screenFor(screen)}
+                        <ScreenFade screen={screen}>{screenFor(screen)}</ScreenFade>
+                        {ceremony && <Ceremony ceremony={ceremony} subs={ceremonySubs} onClose={() => onUpdatePlayer(dismissOpenCeremony(player))} />}
+                        {lockOpen && <UnlockSheet onClose={() => setLockOpen(false)} />}
                     </main>
                 </div>
                 <header className="mtop">

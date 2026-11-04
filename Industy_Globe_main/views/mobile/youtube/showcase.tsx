@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Player, YoutubeVideo } from '../../../types';
+import { INITIAL_PLAYER, Player, YoutubeVideo } from '../../../types';
 import { YoutubeApp } from '../YoutubeApp';
 import { YtScreen } from './state';
 
@@ -306,9 +306,23 @@ const withRivals = (player: Player): Player => {
     };
 };
 
-export const YoutubeShowcase: React.FC<{ initial?: string | null }> = ({ initial }) => {
-    const [player, setPlayer] = useState<Player>(() => withRivals(showcasePlayer()));
-    const screen = (['home', 'watch', 'hub', 'upload', 'studio', 'channel', 'trending', 'subs', 'rival', 'music', 'shorts', 'live', 'money'].includes(initial || '') ? initial : 'home') as YtScreen;
+export const freshPlayer = (award = false): Player => {
+    const player = JSON.parse(JSON.stringify(INITIAL_PLAYER)) as Player;
+    player.name = 'Asha Rao';
+    player.money = award ? 20000 : 8000;
+    player.businesses = [{
+        id: 'house', name: 'Northlight', type: 'PRODUCTION_HOUSE', isActive: true, balance: 0,
+        stats: { brandHealth: 40 },
+    } as Player['businesses'][number]];
+    if (award) {
+        player.youtube = { ...player.youtube, subscribers: 120_000, totalChannelViews: 80_000, awardsMigrated: true, videos: [] };
+    }
+    return player;
+};
+
+export const YoutubeShowcase: React.FC<{ initial?: string | null; fresh?: boolean; award?: boolean }> = ({ initial, fresh = false, award = false }) => {
+    const [player, setPlayer] = useState<Player>(() => fresh || award ? freshPlayer(award) : withRivals(showcasePlayer()));
+    const screen = (['home', 'watch', 'hub', 'upload', 'studio', 'channel', 'trending', 'subs', 'rival', 'creator', 'music', 'shorts', 'live', 'money'].includes(initial || '') ? initial : fresh ? 'channel' : 'home') as YtScreen;
     return (
         <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#08080b' }}>
             <YoutubeApp player={player} onBack={() => undefined} onUpdatePlayer={setPlayer} initialScreen={screen} />

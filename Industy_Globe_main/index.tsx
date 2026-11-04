@@ -11,9 +11,12 @@ void bootstrapFirebase();
 installGlobalTelemetryHandlers();
 
 const root = ReactDOM.createRoot(rootElement);
-const showcase = new URLSearchParams(window.location.search).get('yt') === 'showcase';
+const params = new URLSearchParams(window.location.search);
+const yt = params.get('yt');
 root.render(
   <React.StrictMode>
-    {showcase ? <YoutubeShowcase initial={new URLSearchParams(window.location.search).get('screen')} /> : <App />}
+    {yt === 'showcase' || yt === 'fresh' || yt === 'award' ? (
+      <YoutubeShowcase initial={params.get('screen')} fresh={yt === 'fresh'} award={yt === 'award'} />
+    ) : <App />}
   </React.StrictMode>
 );
