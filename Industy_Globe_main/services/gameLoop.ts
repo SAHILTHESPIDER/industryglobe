@@ -62,6 +62,7 @@ import { calculateYoutubeCreatorScore, generateYoutubeBrandDeal, generateYoutube
 import { settlePlayButtons } from './youtubeAwards';
 import { syncCreatorYoutube } from './youtubePeople';
 import { applyYoutubeReleaseBoost, migrateYoutubeSave, processYoutubeCampaignWeek } from './youtubeMarketing';
+import { chargeYoutubeWallet, settleYoutubePartnerWeek } from './youtubePartner';
 import { getInstagramPostComments, pickInstagramMicroBrand } from './instagramLogic';
 import { checkForDirectorDecision, checkForProductionCrisis } from './productionService';
 import { processBusinessWeek } from './businessLogic';
@@ -1218,6 +1219,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         if (campaignWeek.news.length) nextPlayer.news = [...campaignWeek.news, ...nextPlayer.news].slice(0, 80);
         if (campaignWeek.posts.length) nextPlayer.x.feed = [...campaignWeek.posts, ...(nextPlayer.x.feed || [])].slice(0, 50);
         if (campaignWeek.inbox.length) nextPlayer.inbox = [...campaignWeek.inbox, ...nextPlayer.inbox].slice(0, 80);
+
+        const partnerWeek = settleYoutubePartnerWeek(nextPlayer);
+        nextPlayer = partnerWeek.player;
+        partnerWeek.logs.forEach(entry => logsToAdd.push(entry));
+        if (partnerWeek.news.length) nextPlayer.news = [...partnerWeek.news, ...nextPlayer.news].slice(0, 80);
 
         if (nextPlayer.youtube.membershipsActive) {
             const trust = ensureFiniteNumber(nextPlayer.youtube.audienceTrust, 55);
@@ -2518,7 +2524,13 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     nextPlayer.youtube.activeBrandDeals.forEach(deal => {
         const nextDeal = { ...deal, expiresInWeeks: (deal.expiresInWeeks ?? 1) - 1 };
         if (nextDeal.expiresInWeeks <= 0) {
-            addTransaction(-deal.penalty, 'EXPENSE', `Missed YouTube Deal (${deal.brandName})`);
+            const wallet = deal.wallet || 'personal';
+            if (wallet === 'personal') {
+                addTransaction(-deal.penalty, 'EXPENSE', `Missed YouTube Deal (${deal.brandName})`);
+            } else {
+                const charged = chargeYoutubeWallet(nextPlayer, wallet, deal.penalty || 0, `Missed YouTube Deal (${deal.brandName})`, { allowDebt: true });
+                nextPlayer = charged.player;
+            }
             nextPlayer.stats.reputation = Math.max(0, nextPlayer.stats.reputation - 4);
             logsToAdd.push({ msg: `📉 You missed the ${deal.brandName} YouTube integration window.`, type: 'negative' });
         } else {

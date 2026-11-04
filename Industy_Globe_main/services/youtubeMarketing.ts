@@ -6,6 +6,8 @@ import { getAbsoluteWeek } from './legacyLogic';
 import { hashString } from './youtubeCreators';
 import { dropOutlook, isBigDrop, UNDERFUNDED_REACH } from './youtubeConsequences';
 import { rivalBigDropCount, rivalBigHypes, syncRivalYoutube } from './youtubeRivals';
+import { addCompanyCash } from './ownPlatform/companyCash';
+import { adDollars, ensureYoutubePartner } from './youtubePartner';
 
 export const MARKETING_TYPES: YoutubeVideoType[] = [
     'ANNOUNCEMENT', 'MOTION_POSTER', 'CHARACTER_POSTER', 'TEASER', 'TRAILER_1', 'TRAILER_2', 'FINAL_TRAILER',
@@ -287,7 +289,7 @@ export const ensureCampaign = (channel: YoutubeChannel, projectId: string): Yout
 
 export const emptyChannelExtras = (channel: YoutubeChannel): YoutubeChannel => ({
     ...channel,
-    schemaVersion: 4,
+    schemaVersion: Math.max(4, typeof channel.schemaVersion === 'number' ? channel.schemaVersion : 0),
     officialChannels: channel.officialChannels || {},
     marketing: channel.marketing || {},
     strikes: channel.strikes || [],
@@ -341,8 +343,7 @@ export const migrateYoutubeSave = (player: Player): YoutubeChannel => {
     });
     if (channel.zeroStart === undefined) channel.zeroStart = fresh;
     if (channel.extraChannelsUnlocked === undefined) channel.extraChannelsUnlocked = !fresh;
-    channel.schemaVersion = 4;
-    return channel;
+    return ensureYoutubePartner(channel);
 };
 
 const productionHouse = (player: Player) =>
@@ -536,7 +537,7 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             video.weeklyHistory = [...(video.weeklyHistory || []), views].slice(-26);
             board.totalViews += views;
             board.subscribers += Math.floor(views / 400);
-            const earned = Math.floor((views / 1000) * (video.isShort ? SHORTS_RPM : FLAT_RPM));
+            const earned = adDollars(channel, video, views, empire ? 'empirePlus' : 'studio', abs);
             video.earnings += earned;
             board.lifetimeEarnings += earned;
             if (empire) empireRevenue += earned;
@@ -558,14 +559,9 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
     }
 
     function creditEmpire(current: Player, amount: number) {
-        if (!current.ownPlatform || current.ownPlatform.stage !== 'LIVE') return;
-        current.ownPlatform.lastWeeklyRevenue = (current.ownPlatform.lastWeeklyRevenue || 0) + Math.floor(amount);
-        if (current.ownPlatform.books) {
-            current.ownPlatform.books.lines = [
-                { id: `yt_eplus_${abs}`, week: current.currentWeek, year: current.age, amount: Math.floor(amount), label: 'YouTube – Empire+ channel', source: 'RECEIPTS' as const },
-                ...(current.ownPlatform.books.lines || []),
-            ].slice(0, 80);
-        }
+        const safe = Math.floor(amount);
+        if (!current.ownPlatform || safe <= 0) return;
+        addCompanyCash(current, safe, 'YouTube – Empire+ channel', 'RECEIPTS');
     }
 
     function releaseDrop(current: Player, yt: YoutubeChannel, project: Commitment, campaign: YoutubeCampaign, drop: MarketingDrop, bucket: CampaignWeekResult, weekAbs: number) {
@@ -659,8 +655,7 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             language: 'hi',
             country: 'IN',
         };
-        const rpm = drop.type === 'SHORT' ? SHORTS_RPM : FLAT_RPM;
-        const money = (yt.isMonetized || destination === 'official') ? Math.floor((views / 1000) * rpm) : 0;
+        const money = adDollars(yt, video, views, destination === 'official' ? (target === yt.officialChannels?.empirePlus ? 'empirePlus' : 'studio') : 'personal', weekAbs);
         video.earnings = money;
         if (destination === 'personal') {
             yt.videos = [video, ...(yt.videos || [])];
@@ -733,8 +728,8 @@ const settlePersonalShorts = (player: Player, channel: YoutubeChannel): number =
                 }
             });
         }
-        if (channel.isMonetized && !(channel.demonetizedUntilAbs && channel.demonetizedUntilAbs > getAbsoluteWeek(player.age, player.currentWeek))) {
-            const earned = Math.floor((views / 1000) * SHORTS_RPM);
+        if (!(channel.demonetizedUntilAbs && channel.demonetizedUntilAbs > getAbsoluteWeek(player.age, player.currentWeek))) {
+            const earned = adDollars(channel, video, views, 'personal', getAbsoluteWeek(player.age, player.currentWeek));
             video.earnings += earned;
             channel.lifetimeEarnings += earned;
             money += earned;
@@ -764,7 +759,8 @@ export const registerStrike = (channel: YoutubeChannel, abs: number, reason: str
         subscribers = Math.floor(subscribers * 0.7);
         isMonetized = false;
         uploadFrozenUntilAbs = abs + 4;
-        note = 'Three strikes. Monetization reset and 30% of subscribers left.';
+        demonetizedUntilAbs = Math.max(channel.demonetizedUntilAbs || 0, abs + 8);
+        note = 'Three strikes. Ads stay off for 8 weeks and 30% of subscribers left.';
     }
     return {
         channel: { ...channel, strikes, uploadFrozenUntilAbs, demonetizedUntilAbs, subscribers, isMonetized },

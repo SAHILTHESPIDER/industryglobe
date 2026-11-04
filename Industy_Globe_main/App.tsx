@@ -2399,7 +2399,7 @@ export const App: React.FC = () => {
                           <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 mb-3">What&apos;s New</div>
                           <h3 className="text-2xl font-black text-white mb-2">Version {APP_DISPLAY_VERSION}</h3>
                           <p className="text-sm text-zinc-400 leading-relaxed">
-                              YouTube channels now start empty, earn real Creator Awards, and can wear a look you pick.
+                              YouTube starts empty, pays like YouTube, and can wear a look you pick.
                           </p>
                       </div>
 
@@ -2428,6 +2428,22 @@ export const App: React.FC = () => {
                                   <li>• A new career, including your production house, starts with no subscribers and no views. Uploads earn them.</li>
                                   <li>• Other houses and people start empty too, then post on their own cadence. Big brands grow faster. Old saves keep the numbers they already had.</li>
                                   <li>• Subscribe works on people now, not only studio channels. They show up under Subscriptions.</li>
+                                  <li>• Ads still wait for 1,000 subscribers and 4,000 watch hours. Starting at zero does not skip the Partner Program.</li>
+                              </ul>
+                          </div>
+
+                          <div className="rounded-2xl border border-red-500/15 bg-red-500/10 px-4 py-3">
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2">Partner Program</div>
+                              <ul className="space-y-2 leading-relaxed">
+                                  <li>• The Partner Program turns on at 1,000 subscribers and 4,000 watch hours. Ad CPM follows the audience&apos;s countries and the video&apos;s genre.</li>
+                                  <li>• Studio-channel money goes to the house treasury. Personal-channel money goes to your cash. Empire+ goes to company cash.</li>
+                                  <li>• Shorts travel fast and pay a fraction of a long video. Long videos build the watch hours.</li>
+                                  <li>• Collabs cross both audiences. A bad fit or a hot partner causes backlash instead of a locked button.</li>
+                                  <li>• A premiere or a live launch moves campaign hype, and that hype moves opening weekend.</li>
+                                  <li>• Analytics shows CTR, retention, audience by country, the best upload window, and revenue.</li>
+                                  <li>• Brand deals scale with subscribers. Stack too many and the audience gets tired of them.</li>
+                                  <li>• Community posts show fan mood. A controversy can trend.</li>
+                                  <li>• Paid promotion takes a budget, countries, and a duration. Bigger spends return less, and pushing a weak video converts poorly.</li>
                               </ul>
                           </div>
 

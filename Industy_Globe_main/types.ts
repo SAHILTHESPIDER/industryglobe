@@ -1444,6 +1444,13 @@ export enum Page {
       bonusSubscribers: number;
       description: string;
       expiresInWeeks: number;
+      partnerKind?: 'CREATOR' | 'STUDIO';
+      partnerFollowers?: number;
+      /** 0–100. Low fit or a hot partner is backlash, not a blocked upload. */
+      fit?: number;
+      partnerControversy?: number;
+      country?: string;
+      rivalChannelId?: string;
   }
   
   export interface YoutubeBrandDeal {
@@ -1457,6 +1464,8 @@ export enum Page {
       bonusViews: number;
       penalty: number;
       expiresInWeeks: number;
+      /** Which wallet was offered the integration. Missing deals stay on personal cash. */
+      wallet?: YoutubeChannelKind;
   }
   
   export interface ProductionCrisis {
@@ -1540,6 +1549,102 @@ export enum Page {
   
   export interface PendingEvent extends ScheduledEvent {}
   
+  export type YoutubeDaypart = 'MORNING' | 'AFTERNOON' | 'EVENING' | 'LATE';
+  export type YoutubeFormat = 'SHORT' | 'LONG' | 'PREMIERE' | 'LIVE';
+  export type YoutubePostTone = 'WARM' | 'HYPE' | 'APOLOGY' | 'CALLOUT';
+
+  export interface YoutubeAudienceShare {
+      code: string;
+      share: number;
+  }
+
+  export interface YoutubeCommunityPost {
+      id: string;
+      text: string;
+      tone: YoutubePostTone;
+      week: number;
+      year: number;
+      reach: number;
+      moodDelta: number;
+      comments: string[];
+  }
+
+  export interface YoutubeTrend {
+      id: string;
+      title: string;
+      detail: string;
+      heat: number;
+      weeksLeft: number;
+      kind: 'CONTROVERSY' | 'COLLAB' | 'PREMIERE' | 'SPONSOR';
+  }
+
+  export interface YoutubePromotion {
+      id: string;
+      videoId: string;
+      budget: number;
+      countries: string[];
+      weeksLeft: number;
+      weeksTotal: number;
+      viewsDelivered: number;
+      subsDelivered: number;
+      /** Frozen at purchase so later fatigue does not rewrite a buy already paid for. */
+      viewsPlanned?: number;
+      subsPlanned?: number;
+      wallet: YoutubeChannelKind;
+      weak: boolean;
+      efficiency: number;
+  }
+
+  /** Per-video partner stats. Trackers stop a week tick from paying the same views twice. */
+  export interface YoutubeVideoSignals {
+      format?: YoutubeFormat;
+      durationMin?: number;
+      retention?: number;
+      genreKey?: string;
+      sponsored?: boolean;
+      collabWith?: string;
+      collabFit?: number;
+      partnerControversy?: number;
+      liveChatHype?: number;
+      uploadSlot?: number;
+      daypart?: YoutubeDaypart;
+      trackedViews?: number;
+      trackedEarnings?: number;
+  }
+
+  export interface YoutubeHourLedger {
+      personal: number[];
+      studio: number[];
+      empirePlus: number[];
+  }
+
+  export interface YoutubePartnerState {
+      /** Feature stamp. Independent of schemaVersion so another branch can move the number. */
+      feature: 1;
+      /** True after the first week has folded existing views into watch hours. */
+      seeded: boolean;
+      settledAbs?: number;
+      hourWeeks: YoutubeHourLedger;
+      shortsViewWeeks: YoutubeHourLedger;
+      lifetimeHours: Partial<Record<YoutubeChannelKind, number>>;
+      monetized: Partial<Record<YoutubeChannelKind, boolean>>;
+      sponsorFatigue: number;
+      adFatigue: number;
+      /** Sponsored videos per week, oldest first, at most 8. */
+      sponsorWeeks: number[];
+      sponsorThisWeek: number;
+      audience: YoutubeAudienceShare[];
+      posts: YoutubeCommunityPost[];
+      trends: YoutubeTrend[];
+      promotions: YoutubePromotion[];
+      /** Latest live-chat score, 0–100, keyed by project id. */
+      liveBoost: Record<string, number>;
+      held: Partial<Record<YoutubeChannelKind, number>>;
+      lastRevenue: Partial<Record<YoutubeChannelKind, number>>;
+      lifetimeByWallet: Partial<Record<YoutubeChannelKind, number>>;
+      preferredDaypart?: YoutubeDaypart;
+  }
+
   export interface YoutubeVideo {
       id: string;
       title: string;
@@ -1581,6 +1686,8 @@ export enum Page {
       creatorChannelId?: string;
       /** Generated thumbnail preset chosen for this upload. */
       thumbnailPreset?: string;
+      /** Partner-program stats. Missing on older videos. */
+      signals?: YoutubeVideoSignals;
   }
 
   export interface MarketingDrop {
@@ -1727,8 +1834,15 @@ export enum Page {
       lastMerchResult?: string;
       creatorIdentity: YoutubeCreatorIdentity;
       lastIdentityChangeWeek: number;
-      /** 2 = official channels and campaigns. 3 adds rival houses. 4 adds play buttons, looks, creator channels, and zero-start. */
-      schemaVersion?: 2 | 3 | 4;
+      /**
+       * 2 = official channels and campaigns. 3 adds rival houses.
+       * 4 adds play buttons, looks, creator channels, and zero-start.
+       * 5 adds the partner program. A higher value from another branch is kept.
+       * Saves written as 4 by either feature are told apart by which fields they already have.
+       */
+      schemaVersion?: number;
+      /** Monetization, collabs, ads, and analytics. Missing until the save is migrated. */
+      partner?: YoutubePartnerState;
       officialChannels?: { studio?: OfficialChannel; empirePlus?: OfficialChannel };
       marketing?: Record<string, YoutubeCampaign>;
       rivalChannels?: RivalYoutubeChannel[];

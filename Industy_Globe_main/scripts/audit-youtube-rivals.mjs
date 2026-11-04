@@ -131,9 +131,13 @@ record('saves', 'old channel survives migration', () => {
   const migrated = migrateYoutubeSave(player);
   assert(migrated.videos.some(video => video.id === 'keep_me'), 'old personal video should remain');
   assert((migrated.videos.find(video => video.id === 'keep_me').weeklyHistory || []).length <= 26, 'personal history should trim');
-  assert(migrated.schemaVersion === 4, 'migration bumps schema');
+  assert(migrated.schemaVersion === 5, 'migration bumps schema');
+  assert(migrated.partner && migrated.partner.feature === 1, 'partner fields are filled');
+  assert(migrated.zeroStart === false, 'an old channel is not treated as a fresh career');
+  assert(migrated.extraChannelsUnlocked === true, 'an old channel keeps the account switch');
   assert(migrated.handle === '@player', 'handle stays');
   const withHouses = syncRivalYoutube(player, migrated, 'view').channel;
+  assert((withHouses.schemaVersion || 0) >= 4, 'rival sync should keep the partner schema');
   assert((withHouses.rivalChannels || []).length > 10, 'opening the app adds rival channels onto the old save');
   assert(withHouses.videos.some(video => video.id === 'keep_me'), 'rival sync should keep the old video');
 });
@@ -266,7 +270,8 @@ record('zero', 'a new house channel starts empty', () => {
   const channel = syncOfficialChannels(player, migrateYoutubeSave(player));
   assert(channel.zeroStart === true, 'fresh career');
   assert(channel.extraChannelsUnlocked === false, 'switch stays locked');
-  assert(channel.schemaVersion === 4, 'schema 4');
+  assert(channel.schemaVersion === 5, 'schema 5');
+  assert(channel.partner && channel.isMonetized === false, 'a zero-start channel is not in the partner program');
   assert(channel.officialChannels.studio.subscribers === 0, 'studio subscribers');
   assert(channel.officialChannels.studio.totalViews === 0, 'studio views');
 });

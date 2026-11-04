@@ -322,7 +322,7 @@ export const freshPlayer = (award = false): Player => {
 
 export const YoutubeShowcase: React.FC<{ initial?: string | null; fresh?: boolean; award?: boolean }> = ({ initial, fresh = false, award = false }) => {
     const [player, setPlayer] = useState<Player>(() => fresh || award ? freshPlayer(award) : withRivals(showcasePlayer()));
-    const screen = (['home', 'watch', 'hub', 'upload', 'studio', 'channel', 'trending', 'subs', 'rival', 'creator', 'music', 'shorts', 'live', 'money'].includes(initial || '') ? initial : fresh ? 'channel' : 'home') as YtScreen;
+    const screen = (['home', 'watch', 'hub', 'upload', 'studio', 'channel', 'trending', 'subs', 'rival', 'creator', 'music', 'shorts', 'live', 'money', 'analytics'].includes(initial || '') ? initial : fresh ? 'channel' : 'home') as YtScreen;
     return (
         <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#08080b' }}>
             <YoutubeApp player={player} onBack={() => undefined} onUpdatePlayer={setPlayer} initialScreen={screen} />

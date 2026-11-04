@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bell, ChevronDown, DollarSign, Flame, Home, Layout, Lock, Menu, Mic, Music, Play, Plus, Radio, Search, User, Users, Video, X } from 'lucide-react';
+import { BarChart3, Bell, ChevronDown, DollarSign, Flame, Home, Layout, Lock, Menu, Mic, Music, Play, Plus, Radio, Search, User, Users, Video, X } from 'lucide-react';
 import { Player, YoutubeChannelKind, YoutubeVideoType } from '../../types';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
 import { generateYoutubeFeed } from '../../services/youtubeLogic';
 import { ensureCampaign, migrateYoutubeSave, playerProjects, syncOfficialChannels } from '../../services/youtubeMarketing';
+import { ensureYoutubePartner } from '../../services/youtubePartner';
 import { syncRivalYoutube } from '../../services/youtubeRivals';
 import { syncCreatorYoutube } from '../../services/youtubePeople';
 import { settlePlayButtons } from '../../services/youtubeAwards';
@@ -37,6 +38,7 @@ const EMPIRE: { id: YtScreen; label: string; icon: React.ReactNode }[] = [
     { id: 'studio', label: 'Creator Studio', icon: <Layout size={18} /> },
     { id: 'channel', label: 'Channel', icon: <User size={18} /> },
     { id: 'money', label: 'Earn & milestones', icon: <DollarSign size={18} /> },
+    { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={18} /> },
     { id: 'upload', label: 'Create', icon: <Plus size={18} /> },
 ];
 
@@ -55,7 +57,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
     const channel = useMemo(() => {
         const migrated = syncOfficialChannels(player, migrateYoutubeSave(player));
         const rivals = syncRivalYoutube(player, migrated, 'view').channel;
-        return syncCreatorYoutube(player, rivals, 'view').channel;
+        return ensureYoutubePartner(syncCreatorYoutube(player, rivals, 'view').channel);
     }, [player]);
     const projects = useMemo(() => playerProjects({ ...player, youtube: channel }), [player, channel]);
     const videos = useMemo(() => {
@@ -265,7 +267,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                 {youOpen && (
                     <div className="sheet" onClick={() => setYouOpen(false)}>
                         <div className="panel" onClick={event => event.stopPropagation()}>
-                            {(['studio', 'channel', 'trending', 'subs', 'music', 'live', 'money'] as YtScreen[]).map(item => (
+                            {(['studio', 'channel', 'analytics', 'trending', 'subs', 'music', 'live', 'money'] as YtScreen[]).map(item => (
                                 <button key={item} className="btn" onClick={() => go(item)} data-yt-nav={item}>{item}</button>
                             ))}
                             <button className="btn" onClick={onBack}>Close YouTube</button>

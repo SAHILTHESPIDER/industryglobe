@@ -6,6 +6,8 @@ import { hydrateGenreXP } from './genreCatalog';
 import { PUBLIC_CREATORS, PublicCreator } from './youtubeCreators';
 import { aiOffline } from '../src/services/aiContent';
 import { isMarketingType } from './youtubeMarketing';
+import { getAbsoluteWeek } from './legacyLogic';
+import { adDollars, recentSponsorCount, scaleBrandPayout } from './youtubePartner';
 
 export const YOUTUBE_MONETIZATION_SUBS = 1000;
 export const YOUTUBE_MONETIZATION_VIEWS = 4000;
@@ -458,7 +460,13 @@ export const generateYoutubeBrandDeal = (player: Player): YoutubeBrandDeal | nul
     const requiredType = pick(YOUTUBE_BRAND_TYPES);
     const imageMultiplier = creatorScore >= 80 ? 1.35 : creatorScore >= 65 ? 1.18 : creatorScore < 35 ? 0.72 : 1;
     const lifestyleMultiplier = channel.creatorIdentity === 'LIFESTYLE_ICON' ? 1.15 : channel.creatorIdentity === 'CONTROVERSY_MAGNET' ? 0.84 : 1;
-    const payout = Math.max(1500, Math.floor(channel.subscribers * (0.18 + Math.random() * 0.22) * imageMultiplier * lifestyleMultiplier));
+    const payout = Math.floor(scaleBrandPayout({
+        subs: channel.subscribers,
+        trust: channel.audienceTrust ?? creatorScore,
+        fatigue: channel.partner?.sponsorFatigue ?? 0,
+        controversy: channel.controversy ?? 0,
+        recentSponsors: recentSponsorCount(channel),
+    }) * imageMultiplier * lifestyleMultiplier);
     const energyCost = requiredType === 'TRAILER' ? 20 : 16;
     const bonusViews = Math.max(6000, Math.floor(channel.subscribers * (0.12 + Math.random() * 0.18) * Math.max(0.75, imageMultiplier)));
     const penalty = Math.floor(payout * 0.4);
@@ -473,7 +481,8 @@ export const generateYoutubeBrandDeal = (player: Player): YoutubeBrandDeal | nul
         energyCost,
         bonusViews,
         penalty,
-        expiresInWeeks: 4
+        expiresInWeeks: 4,
+        wallet: channel.activeChannel || 'personal',
     };
 };
 
@@ -514,10 +523,9 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
         if (!isFinite(newViews)) newViews = 0;
         
         // Earnings (RPM approx $2.00)
-        let earnings = 0;
-        if (channel.isMonetized) {
-            earnings = (newViews / 1000) * 2.0;
-        }
+        const absNow = getAbsoluteWeek(player.age, player.currentWeek);
+        const partnerReady = !!channel.partner?.monetized?.personal && !((channel.demonetizedUntilAbs || 0) > absNow);
+        let earnings = partnerReady ? adDollars(channel, video, newViews, 'personal', absNow) : 0;
         if (!isFinite(earnings)) earnings = 0;
         
         // FIX: Force integer earnings to prevent decimal overflow in display
@@ -564,12 +572,11 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
     const totalViews = channel.videos.reduce((sum, v) => sum + v.views, 0);
     channel.totalChannelViews = totalViews;
 
-    // 2. Monetization Check
-    if (!channel.isMonetized) {
-        if (channel.subscribers >= YOUTUBE_MONETIZATION_SUBS && totalViews >= YOUTUBE_MONETIZATION_VIEWS) {
-            channel.isMonetized = true;
-            notifications.push("🎉 You are now eligible for YouTube Monetization! Revenue enabled.");
-        }
+    // Partner status is decided from subscribers and watch hours in the weekly settle.
+    // A channel that already qualified stays on. Four thousand views is not the gate.
+    const absGate = getAbsoluteWeek(player.age, player.currentWeek);
+    if (channel.partner?.monetized?.personal && !((channel.demonetizedUntilAbs || 0) > absGate)) {
+        channel.isMonetized = true;
     }
 
     return { channel, weeklyRevenue, newSubs: newSubsTotal, notifications };
