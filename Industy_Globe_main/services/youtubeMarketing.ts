@@ -158,6 +158,10 @@ export const readPhase = (player: Player, commitment: Commitment): PhaseRead => 
 /** Every drop type can go out. Phase only changes timing consequences, it does not lock the button. */
 export const slotUnlocked = (_type: YoutubeVideoType, _phase: PhaseRead): boolean => true;
 
+/** Repeats are drops of this type that have already gone out. Later scheduled cuts do not penalize this one. */
+export const priorReleasedOfType = (drops: MarketingDrop[], drop: Pick<MarketingDrop, 'id' | 'type'>): number =>
+    drops.filter(item => item.id !== drop.id && item.status === 'RELEASED' && canonicalType(item.type) === canonicalType(drop.type)).length;
+
 export const dropCost = (type: YoutubeVideoType, budget: number): number => {
     const b = Math.max(0, budget || 0);
     switch (canonicalType(type)) {
@@ -567,7 +571,7 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
         const variance = 0.85 + ((hashString(`${drop.id}:var`) % 30) / 100);
         const phaseNow = readPhase(current, project);
         const weeksBefore = phaseNow.releaseWeekAbs == null ? null : phaseNow.releaseWeekAbs - weekAbs;
-        const priorSame = campaign.drops.filter(item => item.id !== drop.id && canonicalType(item.type) === canonicalType(drop.type) && item.status !== 'LOCKED').length;
+        const priorSame = priorReleasedOfType(campaign.drops, drop);
         const sameWeekPosts = campaign.drops.filter(item => item.id !== drop.id && item.scheduledWeekAbs === weekAbs).length + 1;
         const rivalBig = rivalBigDropCount(current, weekAbs);
         const outlook = dropOutlook({

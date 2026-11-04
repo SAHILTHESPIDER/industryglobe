@@ -263,7 +263,11 @@ const housesFor = (player: Player): HouseSeed[] => {
         }));
 
     studioRows.forEach(studio => {
-        if (!studio?.id || studio.isPlayerOwned || studio.mergedIntoBusinessId) return;
+        if (!studio?.id) return;
+        if (studio.isPlayerOwned || studio.mergedIntoBusinessId) {
+            seen.add(String(studio.id));
+            return;
+        }
         const origin = studioOrigin(String(studio.id));
         const archetype = 'archetype' in studio ? String(studio.archetype || '') : '';
         const kind: RivalHouseKind = PLATFORM_IDS.has(String(studio.id)) || archetype === 'PLATFORM' ? 'PLATFORM' : 'STUDIO';

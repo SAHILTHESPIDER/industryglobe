@@ -265,9 +265,10 @@ export const publishUpload = (player: Player, input: {
         const cost = dropCost(input.type, budget);
         const energy = dropEnergy(input.type);
         if (energy > 0 && player.energy.current < energy) return { player, error: 'Not enough energy.' };
-        const underfunded = cost > 0 && player.money < cost;
-        const paid = underfunded ? 0 : cost;
         const house = player.businesses?.find(item => item.type === 'PRODUCTION_HOUSE' && item.isActive);
+        const payerBalance = house ? (house.balance || 0) : player.money;
+        const underfunded = cost > 0 && payerBalance < cost;
+        const paid = underfunded ? 0 : cost;
         if (paid > 0 && house) {
             house.balance = Math.max(0, (house.balance || 0) - paid);
             house.studioState = house.studioState || { scripts: [], concepts: [], writers: [], ipMarket: [], lastMarketRefreshWeek: 0, lastWriterRefreshWeek: 0 };

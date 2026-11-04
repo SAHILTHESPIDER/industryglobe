@@ -65,7 +65,7 @@ const CHIPS = ['All', 'Your projects', 'Trailers', 'Music', 'Interviews', 'Short
 
 const matchesChip = (video: YoutubeVideo, chip: string) => {
     const creator = creatorFor(video.authorName);
-    if (chip === 'Your projects') return !!(video.isPlayer || video.projectId);
+    if (chip === 'Your projects') return !video.rivalChannelId && ownedVideo(video);
     if (chip === 'Trailers') return /TRAILER|TEASER|POSTER/.test(video.type);
     if (chip === 'Music') return MUSIC_TYPES.includes(video.type) || video.type === 'COVER';
     if (chip === 'Interviews') return video.type === 'CAST_INTERVIEW' || video.type === 'Q_AND_A';
@@ -108,7 +108,7 @@ export const HomeScreen: React.FC = () => {
         || pool[0];
     const rivals = pool.filter(video => video.rivalChannelId && video.id !== hero?.id && /TRAILER|TEASER|POSTER|ANNOUNCE|RELEASE_PROMO|STREAM_PREMIERE/.test(video.type)).sort((a, b) => b.views - a.views).slice(0, 2);
     const board = [hero, ...rivals].filter((video): video is YoutubeVideo => !!video).slice(0, 3);
-    const owned = pool.filter(video => (video.isPlayer || video.projectId) && !video.isShort && video.type !== 'SHORT' && video.id !== hero?.id);
+    const owned = pool.filter(video => ownedVideo(video) && !video.rivalChannelId && !video.isShort && video.type !== 'SHORT' && video.id !== hero?.id);
     const pick = (type: YoutubeVideo['type']) => owned.find(video => video.type === type);
     const fromProjects = [pick('TEASER'), pick('MUSIC_VIDEO'), pick('CAST_INTERVIEW'), pick('BTS')].filter((video): video is YoutubeVideo => !!video);
     const projectCards = fromProjects.length ? fromProjects : owned.slice(0, 4);
@@ -243,16 +243,18 @@ export const HomeScreen: React.FC = () => {
 
 export const WatchScreen: React.FC = () => {
     const api = useYt();
-    const video = api.videos.find(item => item.id === api.watchId) || api.videos.find(item => item.type === 'TRAILER_2' && item.projectId) || api.videos[0];
+    const video = api.videos.find(item => item.id === api.watchId) || api.videos.find(item => item.type === 'TRAILER_2' && ownedVideo(item)) || api.videos.find(ownedVideo) || api.videos[0];
     const [filter, setFilter] = useState('All');
     const [comments, setComments] = useState<string[]>([]);
     const [playing, setPlaying] = useState(true);
     const reaction = (api.player.flags?.youtubeVideoReactions || {})[video?.id || ''] as string | undefined;
-    const project = video?.projectId ? api.projects.find(item => item.id === video.projectId) : api.projects[0];
+    const project = video && !video.rivalChannelId
+        ? (video.projectId ? api.projects.find(item => item.id === video.projectId) : api.projects[0])
+        : undefined;
     const campaign = project ? ensureCampaign(api.channel, project.id) : null;
     const hype = video?.hype ?? campaign?.campaignHype ?? 50;
     const sentiment = video?.sentiment || [62, 24, 14];
-    const upNext = api.videos.filter(item => item.id !== video?.id && (filter === 'All' || (filter === 'Rivals' ? !item.isPlayer : item.projectId === project?.id))).slice(0, 6);
+    const upNext = api.videos.filter(item => item.id !== video?.id && (filter === 'All' || (filter === 'Rivals' ? !!item.rivalChannelId || !item.isPlayer : !item.rivalChannelId && item.projectId === project?.id))).slice(0, 6);
 
     useEffect(() => {
         if (!video) return;
@@ -994,7 +996,7 @@ export const ShortsScreen: React.FC = () => {
                 <div className="card pad">
                     <div className="h2">Sound usage</div>
                     <div>{formatCompact(remixes)} remixes</div>
-                    <button className="btn sm" style={{ marginTop: 8 }} onClick={() => api.armUpload('SHORT', video.projectId)}>Use this sound</button>
+                    <button className="btn sm" style={{ marginTop: 8 }} onClick={() => api.armUpload('SHORT', video.rivalChannelId ? undefined : video.projectId)}>Use this sound</button>
                 </div>
                 <div className="h2" style={{ marginTop: 12 }}>Up next</div>
                 {list.map((item, itemIndex) => (

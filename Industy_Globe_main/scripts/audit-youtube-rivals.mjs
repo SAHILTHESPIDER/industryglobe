@@ -15,7 +15,7 @@ import { getAbsoluteWeek } from '${root}services/legacyLogic.ts';
 import { STUDIO_CATALOG } from '${root}services/studioLogic.ts';
 import { PLATFORMS } from '${root}services/streamingLogic.ts';
 import {
-  slotUnlocked, trailerWarShare, openingMultiplier, applyYoutubeReleaseBoost, migrateYoutubeSave,
+  slotUnlocked, trailerWarShare, openingMultiplier, applyYoutubeReleaseBoost, migrateYoutubeSave, priorReleasedOfType,
 } from '${root}services/youtubeMarketing.ts';
 import { clashMultiplier, dropOutlook, repeatMultiplier, timingBand } from '${root}services/youtubeConsequences.ts';
 import {
@@ -115,6 +115,11 @@ record('consequences', 'repeats timing and clashes', () => {
   assert(second.viewMultiplier < first.viewMultiplier, 'second teaser reaches fewer people');
   assert(spam.backlash > first.backlash, 'spam and a weak cut draw backlash');
   assert(spam.note.length > 10, 'the player can read the consequence');
+  const opening = { id: 'a', type: 'TEASER', status: 'SCHEDULED', scheduledWeekAbs: 10 };
+  const followUp = { id: 'b', type: 'TEASER', status: 'SCHEDULED', scheduledWeekAbs: 14 };
+  assert(priorReleasedOfType([opening, followUp], opening) === 0, 'a teaser still on the calendar should not penalize the one releasing now');
+  opening.status = 'RELEASED';
+  assert(priorReleasedOfType([opening, followUp], followUp) === 1, 'the next teaser should see the one that already went out');
 });
 
 record('saves', 'old channel survives migration', () => {
@@ -141,6 +146,31 @@ record('uploads', 'two teasers and a broke drop still schedule', () => {
   const drops = second.player.youtube.marketing.proj.drops;
   assert(drops.length === 2, 'both teasers should be on the campaign');
   assert(drops.every(drop => drop.underfunded), 'no cash should not block the drop');
+});
+
+record('uploads', 'studio treasury covers an empty personal wallet', () => {
+  const player = clone(INITIAL_PLAYER);
+  player.money = 0;
+  player.businesses = [{ id: 'house', name: 'Empire', type: 'PRODUCTION_HOUSE', isActive: true, balance: 500000 }];
+  player.commitments = [{ id: 'proj', name: 'Moon', type: 'ACTING_GIG', energyCost: 0, income: 0, payoutType: 'LUMPSUM', projectDetails: { estimatedBudget: 1000000, hiddenStats: {} } }];
+  const result = publishUpload(player, { title: 'Moon teaser', type: 'TEASER', plan: 'SAFE', projectId: 'proj' });
+  assert(!result.error, result.error || 'house-funded teaser should schedule');
+  const drop = result.player.youtube.marketing.proj.drops[0];
+  assert(drop.underfunded !== true, 'house cash should count as paid');
+  const house = result.player.businesses.find(item => item.type === 'PRODUCTION_HOUSE');
+  assert(house.balance < 500000, 'the house should be billed');
+  assert(result.player.money === 0, 'personal cash stays empty');
+});
+
+record('roster', 'a bought studio is not a rival channel', () => {
+  const player = worldWithSlate();
+  player.world.studios.NETFLIX.isPlayerOwned = true;
+  player.world.studios.HBO.mergedIntoBusinessId = 'biz_player';
+  const synced = syncRivalYoutube(player, player.youtube, 'view').channel;
+  const ids = new Set((synced.rivalChannels || []).map(channel => channel.houseId));
+  assert(!ids.has('NETFLIX'), 'owned Netflix should leave the rival slate');
+  assert(!ids.has('HBO'), 'a merged studio should leave the rival slate');
+  assert(ids.has('MARVEL_STUDIOS'), 'studios the player does not own stay');
 });
 
 record('competition', 'release boost uses real rival hype', () => {
