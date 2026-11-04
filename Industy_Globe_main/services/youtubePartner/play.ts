@@ -10,7 +10,7 @@ import {
     SPONSOR_FATIGUE_STEP,
 } from './constants';
 import {
-    adDollars, blendedCpm, ensureYoutubePartner, quotePromotion, recentSponsorCount, scaleBrandPayout, sponsoredViewMultiplier,
+    adDollars, blendedCpm, ensureYoutubePartner, keepPromotions, quotePromotion, recentSponsorCount, scaleBrandPayout, sponsoredViewMultiplier,
 } from './economy';
 import { activeKind, chargeYoutubeWallet, creditYoutubeWallet } from './wallet';
 
@@ -145,14 +145,16 @@ const prepared = (player: Player): Player => ({ ...player, youtube: ensureYoutub
 
 export interface PlayNote { player: Player; note: string; tone: 'positive' | 'negative' | 'neutral' }
 
-export const filmCollab = (playerIn: Player, target: CollabTarget, concept: { title: string; type: YoutubeVideoType; offerId?: string }): PlayNote => {
+export const filmCollab = (playerIn: Player, target: CollabTarget, concept: { title: string; type: YoutubeVideoType; offerId?: string; promisedViews?: number }): PlayNote => {
     const player = prepared(playerIn);
     const channel = player.youtube;
     const kind = activeKind(player);
     const fit = collabFit(player, target);
     const bad = fit < COLLAB_FIT_BAD || target.heat >= COLLAB_HEAT_BAD;
     const quality = Math.round(clamp(50 + (player.stats?.skills?.charisma || 40) / 5 + (bad ? -8 : 6), 20, 96));
-    const views = crossoverViews(target.followers, fit, quality);
+    const crossed = crossoverViews(target.followers, fit, quality);
+    const promised = Math.floor(Math.max(0, concept.promisedViews || 0) * (bad ? 0.55 : 1));
+    const views = Math.max(crossed, promised);
     const abs = getAbsoluteWeek(player.age, player.currentWeek);
     const earned = adDollars(channel, { id: 'tmp', title: concept.title, type: concept.type, thumbnailColor: '', views, likes: 0, earnings: 0, weekUploaded: player.currentWeek, isPlayer: true, authorName: player.name, qualityScore: quality, weeklyHistory: [], comments: [], signals: { format: 'LONG', genreKey: concept.type === 'SKIT' ? 'SKIT' : 'VLOG' } }, views, kind, abs);
     const subsIn = Math.max(0, Math.floor(views / (fit >= 70 ? 140 : 240)) - (bad ? Math.floor(subsOfKind(channel, kind) * 0.008) : 0));
@@ -263,7 +265,12 @@ export const filmCollabFromOffer = (player: Player, offer: YoutubeCollabOffer): 
         kind: offer.partnerKind || 'CREATOR',
         rivalChannelId: offer.rivalChannelId,
     };
-    const filmed = filmCollab(player, target, { title: offer.conceptTitle, type: offer.requiredType, offerId: offer.id });
+    const filmed = filmCollab(player, target, {
+        title: offer.conceptTitle,
+        type: offer.requiredType,
+        offerId: offer.id,
+        promisedViews: offer.bonusViews,
+    });
     return filmed;
 };
 
@@ -544,7 +551,7 @@ export const buyPromotion = (
             partner: {
                 ...partner,
                 adFatigue: clamp(partner.adFatigue + quote.fatigueAdd, 0, 100),
-                promotions: [{
+                promotions: keepPromotions([{
                     id: `ad_${video.id}_${player.currentWeek}`,
                     videoId: video.id,
                     budget: safeBudget,
@@ -558,7 +565,7 @@ export const buyPromotion = (
                     wallet: kind,
                     weak: quote.weak,
                     efficiency: quote.efficiency,
-                }, ...partner.promotions].slice(0, 8),
+                }, ...partner.promotions]),
             },
         },
     };

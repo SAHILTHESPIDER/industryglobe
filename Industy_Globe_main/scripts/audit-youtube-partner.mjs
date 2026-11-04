@@ -14,7 +14,7 @@ import { INITIAL_PLAYER } from '${root}types.ts';
 import { applyYoutubeReleaseBoost, migrateYoutubeSave } from '${root}services/youtubeMarketing.ts';
 import {
   adDollars, buyPromotion, chargeYoutubeWallet, creditYoutubeWallet, ensureYoutubePartner,
-  filmCollab, quotePromotion, readAnalytics, runPremiere, scaleBrandPayout, settleYoutubePartnerWeek,
+  filmCollab, filmCollabFromOffer, quotePromotion, readAnalytics, runPremiere, scaleBrandPayout, settleYoutubePartnerWeek,
   sponsoredViewMultiplier, watchHoursFor, YPP_WATCH_HOURS,
 } from '${root}services/youtubePartner/index.ts';
 
@@ -171,7 +171,9 @@ record('ypp', 'ads need the partner flag, and a US audience pays more than India
   shortsOnly.youtube.partner.audience = [{ code: 'US', share: 1 }];
   const shortsCpm = readAnalytics(shortsOnly.youtube, 'personal', 10).blendedCpm;
   assert(shortsCpm < 1, 'shorts-only channel showed long-form CPM ' + shortsCpm);
-  assert(shortsCpm > 0.05, 'shorts-only CPM collapsed to ' + shortsCpm);
+  assert(shortsCpm > 0.29 && shortsCpm < 0.35, 'shorts CPM was cut twice: ' + shortsCpm);
+  const usShort = adDollars(shortsOnly.youtube, short, 10000, 'personal', 10);
+  assert(usShort === Math.floor(10 * shortsCpm), 'short payout ' + usShort + ' vs cpm ' + shortsCpm);
 });
 
 record('ypp', 'a channel with the hours and the subs unlocks on the week tick', () => {
@@ -202,6 +204,21 @@ record('collab', 'a bad fit still posts and causes backlash', () => {
     country: 'IN', niche: 'Vlog', heat: 16, kind: 'CREATOR',
   }, { title: 'Day on set', type: 'VLOG' });
   assert((good.player.youtube.controversy || 0) < (bad.player.youtube.controversy || 0), 'good fit was harsher than the bad fit');
+  const offered = filmCollabFromOffer(playerWith({ creatorIdentity: 'ACTOR_VLOGGER', subscribers: 4000, controversy: 5 }), {
+    id: 'inbox_offer',
+    creatorName: 'Someone Not On The Roster',
+    creatorHandle: '@someone',
+    creatorAvatar: '',
+    conceptTitle: 'Inbox collab',
+    requiredType: 'VLOG',
+    energyCost: 10,
+    qualityBonus: 4,
+    bonusViews: 250000,
+    bonusSubscribers: 400,
+    description: 'A promised crossover.',
+    expiresInWeeks: 2,
+  });
+  assert(offered.player.youtube.videos[0].views >= 250000, 'inbox collab ignored the promised views: ' + offered.player.youtube.videos[0].views);
 });
 
 record('sponsors', 'fatigue and repeat deals pay and land worse', () => {
@@ -234,6 +251,31 @@ record('ads', 'returns diminish and a weak video converts worse', () => {
   const bought = buyPromotion(player, 'push', 1000, ['IN'], 2);
   assert(!bought.error, bought.error || 'buy failed');
   assert(bought.player.money === 7000, 'not charged ' + bought.player.money);
+  const crowded = playerWith({
+    subscribers: 8000,
+    videos: [video({ id: 'push', views: 2000, qualityScore: 70 })],
+  });
+  crowded.money = 100000;
+  crowded.youtube.partner.promotions = Array.from({ length: 8 }, (_, index) => ({
+    id: 'old_' + index,
+    videoId: 'push',
+    budget: 500,
+    countries: ['US'],
+    weeksLeft: 2,
+    weeksTotal: 2,
+    viewsDelivered: 0,
+    subsDelivered: 0,
+    viewsPlanned: 1000,
+    subsPlanned: 4,
+    wallet: 'personal',
+    weak: false,
+    efficiency: 0.5,
+  }));
+  const ninth = buyPromotion(crowded, 'push', 1000, ['US'], 1);
+  assert(!ninth.error, ninth.error || 'ninth buy failed');
+  const ids = (ninth.player.youtube.partner.promotions || []).map(row => row.id);
+  assert(ids.length === 9, 'paid campaign was dropped, left ' + ids.length);
+  assert(ids.includes('old_7'), 'an older paid campaign disappeared');
   const before = bought.player.youtube.videos[0].views;
   const settled = settleYoutubePartnerWeek(bought.player);
   assert(settled.player.youtube.videos[0].views > before, 'promotion delivered no views');

@@ -1,6 +1,6 @@
 import {
     YoutubeAudienceShare, YoutubeChannel, YoutubeChannelKind, YoutubeDaypart, YoutubeHourLedger,
-    YoutubePartnerState, YoutubeVideo,
+    YoutubePartnerState, YoutubePromotion, YoutubeVideo,
 } from '../../types';
 import { hashString } from '../youtubeCreators';
 import {
@@ -96,7 +96,7 @@ export const ensureYoutubePartner = (channel: YoutubeChannel): YoutubeChannel =>
         audience: normalizeAudience(current?.audience),
         posts: Array.isArray(current?.posts) ? current.posts.slice(0, 20) : [],
         trends: Array.isArray(current?.trends) ? current.trends.slice(0, 8) : [],
-        promotions: Array.isArray(current?.promotions) ? current.promotions.slice(0, 8) : [],
+        promotions: keepPromotions(current?.promotions),
         liveBoost: { ...(current?.liveBoost || {}) },
         held: { ...base.held, ...(current?.held || {}) },
         lastRevenue: { ...base.lastRevenue, ...(current?.lastRevenue || {}) },
@@ -129,7 +129,8 @@ export const blendedCpm = (channel: YoutubeChannel, video: YoutubeVideo): number
         weight += row.share;
     });
     const country = weight > 0 ? weighted / weight : COUNTRY_CPM.OTHER;
-    const genre = GENRE_CPM[genreKeyOf(video)] ?? GENRE_CPM.DEFAULT;
+    const genreKey = genreKeyOf(video);
+    const genre = genreKey === 'SHORT' ? 1 : (GENRE_CPM[genreKey] ?? GENRE_CPM.DEFAULT);
     const format = isShortVideo(video) ? SHORTS_RPM_FACTOR : isLiveVideo(video) ? LIVE_RPM_FACTOR : isPremiereVideo(video) ? PREMIERE_RPM_FACTOR : 1;
     const heat = channel.controversy ?? 0;
     const ads = heat >= HEAT_HARD ? HEAT_HARD_MULT : heat >= HEAT_SOFT ? HEAT_SOFT_MULT : 1;
@@ -152,6 +153,14 @@ export const subsOf = (channel: YoutubeChannel, kind: YoutubeChannelKind): numbe
 };
 
 export const sumList = (list: number[] | undefined) => (list || []).reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+
+/** Active buys stay. Only finished campaigns are trimmed, and never one that was already paid for. */
+export const keepPromotions = (list: YoutubePromotion[] | undefined): YoutubePromotion[] => {
+    const rows = Array.isArray(list) ? list : [];
+    const active = rows.filter(row => (row.weeksLeft || 0) > 0);
+    const finished = rows.filter(row => (row.weeksLeft || 0) <= 0).slice(0, 8);
+    return [...active, ...finished];
+};
 
 export interface YppProgress {
     kind: YoutubeChannelKind;

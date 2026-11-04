@@ -1,7 +1,7 @@
 import { NewsItem, Player, YoutubeChannel, YoutubeChannelKind, YoutubePromotion, YoutubeVideo } from '../../types';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { AD_FATIGUE_DECAY, clamp, HEAT_HARD, HOUR_WEEKS, SHORTS_WEEKS, SPONSOR_FATIGUE_DECAY, SPONSOR_WEEKS, watchHoursFor } from './constants';
-import { ensureYoutubePartner, pushWeek, quotePromotion, sumList, yppProgress } from './economy';
+import { ensureYoutubePartner, keepPromotions, pushWeek, quotePromotion, sumList, yppProgress } from './economy';
 import { creditYoutubeWallet } from './wallet';
 
 export interface PartnerWeekResult {
@@ -157,7 +157,8 @@ export const settleYoutubePartnerWeek = (player: Player): PartnerWeekResult => {
         weeksLeft: Math.max(0, promo.weeksLeft - 1),
         viewsDelivered: promo.viewsDelivered + Math.floor((promo.viewsPlanned || 0) / Math.max(1, promo.weeksTotal)),
         subsDelivered: promo.subsDelivered + Math.floor((promo.subsPlanned || 0) / Math.max(1, promo.weeksTotal)),
-    })).filter(promo => promo.weeksLeft > 0).slice(0, 8);
+    }));
+    const keptPromotions = keepPromotions(promotions);
 
     const controversy = channel.controversy ?? 0;
     const personal = account(channel.videos || [], seeded, controversy);
@@ -233,7 +234,7 @@ export const settleYoutubePartnerWeek = (player: Player): PartnerWeekResult => {
             shortsViewWeeks,
             lifetimeHours,
             lastRevenue,
-            promotions,
+            promotions: keptPromotions,
             trends,
             sponsorWeeks: pushWeek(partner.sponsorWeeks || [], partner.sponsorThisWeek || 0, SPONSOR_WEEKS),
             sponsorThisWeek: 0,
