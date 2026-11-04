@@ -49,7 +49,8 @@ export const stillForType = (type: string, isShort?: boolean, kind?: YoutubeChan
     if (type === 'PREMIERE_LIVE') return 'premiere';
     if (type === 'REVIEW_ROUNDUP') return 'scifi';
     if (kind === 'empirePlus') return 'series';
-    if (type === 'TRAILER_1' || type === 'TRAILER_2' || type === 'FINAL_TRAILER' || type === 'TRAILER' || type === 'TEASER' || type === 'MOTION_POSTER' || type === 'CHARACTER_POSTER') return 'hero';
+    if (type === 'STREAM_PREMIERE' || type === 'RELEASE_PROMO' || type === 'PREMIERE_LIVE') return 'premiere';
+    if (type === 'ANNOUNCEMENT' || type === 'TRAILER_1' || type === 'TRAILER_2' || type === 'FINAL_TRAILER' || type === 'TRAILER' || type === 'TEASER' || type === 'MOTION_POSTER' || type === 'CHARACTER_POSTER') return 'hero';
     return 'hero';
 };
 
@@ -65,6 +66,7 @@ export const badgeFor = (video: Pick<YoutubeVideo, 'type' | 'isShort'>): TypeBad
     const type = video.type;
     if (video.isShort || type === 'SHORT') return { label: 'SHORT', color: 'red' };
     const map: Partial<Record<YoutubeVideoType, TypeBadge>> = {
+        ANNOUNCEMENT: { label: 'ANNOUNCEMENT', color: 'red' },
         TEASER: { label: 'TEASER', color: 'red' },
         TRAILER: { label: 'TEASER', color: 'red' },
         TRAILER_1: { label: 'TRAILER', color: 'red' },
@@ -82,6 +84,8 @@ export const badgeFor = (video: Pick<YoutubeVideo, 'type' | 'isShort'>): TypeBad
         BLOOPERS: { label: 'BLOOPERS', color: 'dark' },
         CLIP: { label: 'CLIP', color: 'dark' },
         DELETED_SCENE: { label: 'DELETED SCENE', color: 'dark' },
+        RELEASE_PROMO: { label: 'THIS WEEK', color: 'red' },
+        STREAM_PREMIERE: { label: 'STREAMING', color: 'ind' },
         PREMIERE_LIVE: { label: 'LIVE', color: 'red' },
         REVIEW_ROUNDUP: { label: 'REVIEWS', color: 'ind' },
         VLOG: { label: 'VLOG', color: 'dark' },
@@ -109,8 +113,8 @@ export const weeksAgoFor = (video: YoutubeVideo, age: number, week: number) =>
 
 export const creatorFor = (name: string) => findCreator(name);
 
-export const verifiedAuthor = (video: Pick<YoutubeVideo, 'authorName' | 'isPlayer' | 'channelKind'>): boolean => {
-    if (video.isPlayer || video.channelKind === 'studio' || video.channelKind === 'empirePlus') return true;
+export const verifiedAuthor = (video: Pick<YoutubeVideo, 'authorName' | 'isPlayer' | 'channelKind' | 'rivalChannelId'>): boolean => {
+    if (video.isPlayer || video.channelKind === 'studio' || video.channelKind === 'empirePlus' || video.rivalChannelId) return true;
     const creator = findCreator(video.authorName);
     return !!creator && creator.followers >= 100_000;
 };

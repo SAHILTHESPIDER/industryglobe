@@ -253,6 +253,11 @@ export const showcasePlayer = (): Player => {
 
 // Rival trailers are not on a player channel. Attach them by wrapping the player the app already reads.
 const withRivals = (player: Player): Player => {
+    const slate = (id: string, title: string, studioId: string, ahead: number, quality: number) => ({
+        id, title, genre: 'ACTION' as const, studioId, budgetTier: 'HIGH' as const, quality, boxOffice: 0,
+        year: player.age, weekReleased: player.currentWeek + ahead,
+        leadActorId: id, leadActorName: 'Lead', directorName: 'Director', reviews: 'HIT',
+    });
     const extras: YoutubeVideo[] = [
         video({
             id: 'rival_eclipse',
@@ -281,6 +286,19 @@ const withRivals = (player: Player): Player => {
     ];
     return {
         ...player,
+        world: {
+            projects: [
+                slate('rel-old', 'Already Out', 'WARNER_BROS', -1, 70),
+            ],
+            upcomingRivals: [
+                slate('rel-marvel', 'Eclipse Run', 'MARVEL_STUDIOS', 4, 82),
+                slate('rel-artisan', 'Quiet Room', 'ARTISAN_PICTURES', 9, 88),
+                slate('rel-uni', 'Harbor Song', 'UNIVERSAL', 5, 74),
+                slate('rel-netflix', 'Signal Lost', 'NETFLIX', 2, 71),
+                slate('rel-hulu', 'Late Night Cut', 'HULU', 3, 44),
+                slate('rel-hbo', 'The Long Table', 'HBO', 12, 90),
+            ],
+        } as Player['world'],
         youtube: {
             ...player.youtube,
             videos: [...player.youtube.videos, ...extras],
@@ -290,7 +308,7 @@ const withRivals = (player: Player): Player => {
 
 export const YoutubeShowcase: React.FC<{ initial?: string | null }> = ({ initial }) => {
     const [player, setPlayer] = useState<Player>(() => withRivals(showcasePlayer()));
-    const screen = (['home', 'watch', 'hub', 'upload', 'studio', 'channel', 'trending', 'music', 'shorts', 'live', 'money'].includes(initial || '') ? initial : 'home') as YtScreen;
+    const screen = (['home', 'watch', 'hub', 'upload', 'studio', 'channel', 'trending', 'subs', 'rival', 'music', 'shorts', 'live', 'money'].includes(initial || '') ? initial : 'home') as YtScreen;
     return (
         <div style={{ position: 'relative', width: '100vw', height: '100vh', background: '#08080b' }}>
             <YoutubeApp player={player} onBack={() => undefined} onUpdatePlayer={setPlayer} initialScreen={screen} />

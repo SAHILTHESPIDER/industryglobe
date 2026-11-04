@@ -4,11 +4,13 @@ import {
 } from '../types';
 import { getAbsoluteWeek } from './legacyLogic';
 import { hashString } from './youtubeCreators';
+import { dropOutlook, isBigDrop, UNDERFUNDED_REACH } from './youtubeConsequences';
+import { rivalBigDropCount, rivalBigHypes, syncRivalYoutube } from './youtubeRivals';
 
 export const MARKETING_TYPES: YoutubeVideoType[] = [
-    'TEASER', 'TRAILER_1', 'TRAILER_2', 'FINAL_TRAILER', 'MOTION_POSTER', 'CHARACTER_POSTER',
+    'ANNOUNCEMENT', 'MOTION_POSTER', 'CHARACTER_POSTER', 'TEASER', 'TRAILER_1', 'TRAILER_2', 'FINAL_TRAILER',
     'CAST_INTERVIEW', 'BTS', 'BLOOPERS', 'MUSIC_VIDEO', 'JUKEBOX', 'LYRIC_VIDEO',
-    'PREMIERE_LIVE', 'REVIEW_ROUNDUP', 'CLIP', 'DELETED_SCENE', 'SHORT', 'REACTION_COLLAB',
+    'RELEASE_PROMO', 'STREAM_PREMIERE', 'PREMIERE_LIVE', 'REVIEW_ROUNDUP', 'CLIP', 'DELETED_SCENE', 'SHORT', 'REACTION_COLLAB',
 ];
 
 export const PERSONAL_TYPES: YoutubeVideoType[] = ['VLOG', 'SKIT', 'Q_AND_A', 'TRAILER', 'COVER', 'STORYTIME'];
@@ -22,10 +24,11 @@ export const canonicalType = (type: YoutubeVideoType): YoutubeVideoType =>
 export const typeLabel = (type: YoutubeVideoType): string => {
     const labels: Partial<Record<YoutubeVideoType, string>> = {
         VLOG: 'Daily Vlog', SKIT: 'Comedy Skit', Q_AND_A: 'Q&A', TRAILER: 'Project Teaser',
-        COVER: 'Song Cover', STORYTIME: 'Storytime', TEASER: 'Teaser', TRAILER_1: 'Trailer 1',
+        COVER: 'Song Cover', STORYTIME: 'Storytime', ANNOUNCEMENT: 'Announcement', TEASER: 'Teaser', TRAILER_1: 'Trailer 1',
         TRAILER_2: 'Trailer 2', FINAL_TRAILER: 'Final trailer', MOTION_POSTER: 'Motion poster',
         CHARACTER_POSTER: 'Character poster', CAST_INTERVIEW: 'Cast interview', BTS: 'Behind the scenes',
         BLOOPERS: 'Bloopers', MUSIC_VIDEO: 'Music video', JUKEBOX: 'Jukebox', LYRIC_VIDEO: 'Lyric video',
+        RELEASE_PROMO: 'Release promo', STREAM_PREMIERE: 'Streaming premiere',
         PREMIERE_LIVE: 'Premiere live', REVIEW_ROUNDUP: 'Review roundup', CLIP: 'Clip',
         DELETED_SCENE: 'Deleted scene', SHORT: 'Short', REACTION_COLLAB: 'Reaction collab',
     };
@@ -33,6 +36,7 @@ export const typeLabel = (type: YoutubeVideoType): string => {
 };
 
 export const TYPE_WEIGHT: Record<string, { tw: number; hw: number }> = {
+    ANNOUNCEMENT: { tw: 0.35, hw: 0.7 },
     MOTION_POSTER: { tw: 0.25, hw: 0.6 },
     TEASER: { tw: 0.8, hw: 1.2 },
     TRAILER_1: { tw: 1, hw: 1.4 },
@@ -46,6 +50,8 @@ export const TYPE_WEIGHT: Record<string, { tw: number; hw: number }> = {
     MUSIC_VIDEO: { tw: 0.9, hw: 1 },
     JUKEBOX: { tw: 0.35, hw: 0.6 },
     LYRIC_VIDEO: { tw: 0.4, hw: 0.4 },
+    RELEASE_PROMO: { tw: 0.55, hw: 0.9 },
+    STREAM_PREMIERE: { tw: 0.85, hw: 1.2 },
     PREMIERE_LIVE: { tw: 0.7, hw: 0.8 },
     REVIEW_ROUNDUP: { tw: 0.2, hw: 0.6 },
     CLIP: { tw: 0.15, hw: 0.2 },
@@ -93,6 +99,7 @@ export const forecastYtLift = (campaignHype: number, songStreams = 0): number =>
 
 export type PhaseGate = 'greenlit' | 'filming30' | 'filming' | 'wrapped' | 'post' | 'picture' | 'release' | 'after' | 'any';
 
+/** Old phase locks. Kept so older notes stay readable. Uploads are no longer blocked by them. */
 export const SLOT_GATE: Record<string, PhaseGate> = {
     MOTION_POSTER: 'greenlit',
     CHARACTER_POSTER: 'greenlit',
@@ -148,15 +155,8 @@ export const readPhase = (player: Player, commitment: Commitment): PhaseRead => 
     return { gate, filmed, releaseWeekAbs, released, open: open || released };
 };
 
-export const slotUnlocked = (type: YoutubeVideoType, phase: PhaseRead): boolean => {
-    const need = SLOT_GATE[canonicalType(type)] || 'greenlit';
-    if (!phase.open && need !== 'any') return false;
-    if (need === 'any') return true;
-    if (need === 'filming30') return phase.filmed >= 0.3 || gateRank(phase.gate) >= gateRank('filming');
-    if (need === 'after') return phase.released || phase.gate === 'after';
-    if (need === 'release') return phase.gate === 'release' || phase.gate === 'after';
-    return gateRank(phase.gate) >= gateRank(need);
-};
+/** Every drop type can go out. Phase only changes timing consequences, it does not lock the button. */
+export const slotUnlocked = (_type: YoutubeVideoType, _phase: PhaseRead): boolean => true;
 
 export const dropCost = (type: YoutubeVideoType, budget: number): number => {
     const b = Math.max(0, budget || 0);
@@ -283,7 +283,7 @@ export const ensureCampaign = (channel: YoutubeChannel, projectId: string): Yout
 
 export const emptyChannelExtras = (channel: YoutubeChannel): YoutubeChannel => ({
     ...channel,
-    schemaVersion: 2,
+    schemaVersion: 3,
     officialChannels: channel.officialChannels || {},
     marketing: channel.marketing || {},
     strikes: channel.strikes || [],
@@ -294,6 +294,8 @@ export const emptyChannelExtras = (channel: YoutubeChannel): YoutubeChannel => (
     recordsHeld: channel.recordsHeld || [],
     activeChannel: channel.activeChannel || 'personal',
     savedVideoIds: channel.savedVideoIds || [],
+    rivalChannels: channel.rivalChannels || [],
+    subscriptions: channel.subscriptions || [],
     videos: (channel.videos || []).map(video => ({
         ...video,
         type: video.type,
@@ -334,22 +336,30 @@ export const syncOfficialChannels = (player: Player, channel: YoutubeChannel): Y
     if (house) {
         const rep = clamp(house.stats?.brandHealth ?? player.stats?.reputation ?? 20, 0, 100);
         const existing = next.officialChannels.studio;
-        next.officialChannels.studio = existing || {
-            handle: `@${(house.name || 'empire').toLowerCase().replace(/[^a-z0-9]+/g, '')}studios`,
-            subscribers: Math.floor(5_000 + rep * 2_000),
-            totalViews: 0,
-            lifetimeEarnings: 0,
-            videos: [],
+        next.officialChannels.studio = {
+            ...(existing || {
+                handle: `@${(house.name || 'empire').toLowerCase().replace(/[^a-z0-9]+/g, '')}studios`,
+                subscribers: Math.floor(5_000 + rep * 2_000),
+                totalViews: 0,
+                lifetimeEarnings: 0,
+                videos: [],
+            }),
+            language: existing?.language || 'hi',
+            country: existing?.country || 'IN',
         };
     }
     if (player.ownPlatform?.stage === 'LIVE') {
         const existing = next.officialChannels.empirePlus;
-        next.officialChannels.empirePlus = existing || {
-            handle: `@${(player.ownPlatform.name || 'empireplus').toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
-            subscribers: 25_000,
-            totalViews: 0,
-            lifetimeEarnings: 0,
-            videos: [],
+        next.officialChannels.empirePlus = {
+            ...(existing || {
+                handle: `@${(player.ownPlatform.name || 'empireplus').toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
+                subscribers: 25_000,
+                totalViews: 0,
+                lifetimeEarnings: 0,
+                videos: [],
+            }),
+            language: existing?.language || 'hi',
+            country: existing?.country || 'IN',
         };
     }
     return next;
@@ -399,7 +409,8 @@ export const applyYoutubeReleaseBoost = (player: Player, commitment: Commitment)
     if (!hidden) return null;
     const hype = clamp(campaign.campaignHype ?? 50, 0, 100);
     const raw = clamp((hidden.rawHype ?? 50) + (hype - 50) * 0.35, 0, 100);
-    const share = trailerWarShare(hype, [hype * 0.86, hype * 0.74]);
+    const abs = getAbsoluteWeek(player.age, player.currentWeek);
+    const share = trailerWarShare(hype, rivalBigHypes(player, abs));
     const music = musicOpeningBonus(campaign.songStreams || 0);
     const mult = openingMultiplier(hype) * (0.9 + 0.2 * share) + music;
     return { rawHype: raw, campaignHype: hype, openingMultiplier: clamp(mult, 0.8, 1.5) };
@@ -418,6 +429,10 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
     const result: CampaignWeekResult = { personal: [], news: [], posts: [], inbox: [], logs: [], fame: 0, stockShock: 0 };
     if (!player.youtube) return result;
     let channel = syncOfficialChannels(player, emptyChannelExtras(player.youtube));
+    const rivalWeek = syncRivalYoutube(player, channel, 'week');
+    channel = rivalWeek.channel;
+    player.youtube = channel;
+    rivalWeek.notes.forEach(msg => result.logs.push({ msg: `YouTube · ${msg}`, type: 'neutral' }));
     const abs = getAbsoluteWeek(player.age, player.currentWeek);
     let studioRevenue = 0;
     let empireRevenue = 0;
@@ -550,7 +565,19 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             castingStrength: hidden?.castingStrength || 60,
         });
         const variance = 0.85 + ((hashString(`${drop.id}:var`) % 30) / 100);
-        const sameWeek = campaign.drops.filter(item => item.status === 'RELEASED' && item.scheduledWeekAbs === weekAbs).length;
+        const phaseNow = readPhase(current, project);
+        const weeksBefore = phaseNow.releaseWeekAbs == null ? null : phaseNow.releaseWeekAbs - weekAbs;
+        const priorSame = campaign.drops.filter(item => item.id !== drop.id && canonicalType(item.type) === canonicalType(drop.type) && item.status !== 'LOCKED').length;
+        const sameWeekPosts = campaign.drops.filter(item => item.id !== drop.id && item.scheduledWeekAbs === weekAbs).length + 1;
+        const rivalBig = rivalBigDropCount(current, weekAbs);
+        const outlook = dropOutlook({
+            type: drop.type,
+            weeksBefore,
+            repeats: priorSame,
+            sameWeekPosts,
+            rivalBigDrops: Math.max(1, rivalBig + (isBigDrop(drop.type) ? 1 : 0)),
+            quality: hidden?.qualityScore || 60,
+        });
         const v0 = openingViews({
             officialSubs: target?.subscribers || 5_000,
             personalSubs: yt.subscribers || 0,
@@ -564,15 +591,16 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             dubCount: drop.type === 'TEASER' ? 1 : 3,
             rightsFanbaseBoost: hidden?.rightsFanbaseBoost || 0,
             rivalHigher: 0,
-            fatigue: sameWeek > 0,
+            fatigue: false,
             uploadPlanBoost: 1,
             variance,
             type: canonicalType(drop.type),
         });
+        const funded = drop.underfunded ? UNDERFUNDED_REACH : 1;
         const weekIndex = 0;
         const views = drop.type === 'SHORT'
-            ? shortViews(yt.subscribers || 0, Q, weekIndex, variance)
-            : viewsAtWeek(v0, weekIndex, false);
+            ? Math.floor(shortViews(yt.subscribers || 0, Q, weekIndex, variance) * outlook.viewMultiplier * funded)
+            : Math.floor(viewsAtWeek(v0, weekIndex, false) * outlook.viewMultiplier * funded);
         const expected = Math.max(1, Math.floor(v0 / Math.max(0.6, Q)));
         const scored = engagement({
             Q,
@@ -582,6 +610,11 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             expected24h: expected,
             weakest: weakestOf(hidden, details.genre),
         });
+        scored.H = clamp(Math.round(scored.H * outlook.hypeMultiplier), 0, 100);
+        if (outlook.backlash > 0) {
+            yt.controversy = clamp((yt.controversy || 0) + Math.min(10, outlook.backlash * 0.35), 0, 100);
+            yt.audienceTrust = clamp((yt.audienceTrust ?? 55) - Math.min(6, outlook.backlash * 0.15), 0, 100);
+        }
         const destination = target ? 'official' : 'personal';
         const video: YoutubeVideo = {
             id: drop.videoId || `ytm_${drop.id}`,
@@ -605,6 +638,8 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             sentiment: scored.sentiment,
             ctr: ctrFor(drop.thumbnailScore || 0.62, scored.H),
             isShort: drop.type === 'SHORT',
+            language: 'hi',
+            country: 'IN',
         };
         const rpm = drop.type === 'SHORT' ? SHORTS_RPM : FLAT_RPM;
         const money = (yt.isMonetized || destination === 'official') ? Math.floor((views / 1000) * rpm) : 0;
