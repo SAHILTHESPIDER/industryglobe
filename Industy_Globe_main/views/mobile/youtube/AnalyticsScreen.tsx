@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { YoutubeDaypart, YoutubePostTone } from '../../../types';
 import { DAYPARTS, PROMO_COUNTRIES, YPP_SHORTS_VIEWS, YPP_SUBS, YPP_WATCH_HOURS, collabBoard, collabFit, readAnalytics } from '../../../services/youtubePartner';
 import { formatCompact, formatMoney } from './bits';
@@ -22,7 +22,11 @@ export const AnalyticsScreen: React.FC = () => {
     const [weeks, setWeeks] = useState(2);
     const [countries, setCountries] = useState<string[]>(['US', 'IN']);
     const [videoId, setVideoId] = useState(ownVideos[0]?.id || '');
-    const selected = ownVideos.find(video => video.id === videoId) || ownVideos[0];
+    const videoKey = ownVideos.map(video => video.id).join('|');
+    useEffect(() => {
+        if (!ownVideos.some(video => video.id === videoId)) setVideoId(ownVideos[0]?.id || '');
+    }, [videoKey, videoId, ownVideos]);
+    const selected = ownVideos.find(video => video.id === videoId);
     const payKind = selected?.channelKind || api.kind;
     const wallet = payKind === 'studio' ? 'studio treasury' : payKind === 'empirePlus' ? 'Empire+ treasury' : 'personal cash';
     const project = api.projects.find(item => item.id === api.projectId) || api.projects[0];
@@ -137,7 +141,7 @@ export const AnalyticsScreen: React.FC = () => {
                     {PROMO_COUNTRIES.map(code => (
                         <button key={code} className={`btn sm${countries.includes(code) ? ' white' : ''}`} onClick={() => toggleCountry(code)}>{code}</button>
                     ))}
-                    <button className="btn sm red" onClick={() => api.apply(promoteVideo(api.player, selected?.id || videoId, budget, countries, weeks))}>Buy ads</button>
+                    <button className="btn sm red" disabled={!selected} onClick={() => selected && api.apply(promoteVideo(api.player, selected.id, budget, countries, weeks))}>Buy ads</button>
                 </div>
                 {(api.channel.partner?.promotions || []).map(promo => (
                     <div key={promo.id} className="dim" style={{ marginTop: 8 }}>{formatMoney(promo.budget)} across {promo.countries.join(', ')} · {promo.weeksLeft}w left · {Math.round(promo.efficiency * 100)}% efficiency{promo.weak ? ' · weak video, poor conversion' : ''}</div>

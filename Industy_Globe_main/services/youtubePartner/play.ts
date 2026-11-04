@@ -236,6 +236,13 @@ export const filmCollab = (playerIn: Player, target: CollabTarget, concept: { ti
     return { player: next, note, tone: bad ? 'negative' : 'positive' };
 };
 
+/** Same order as the weekly delivery: a video on the personal list is billed there. */
+const homeOf = (channel: YoutubeChannel, id: string): YoutubeChannelKind => {
+    if ((channel.videos || []).some(video => video.id === id)) return 'personal';
+    if ((channel.officialChannels?.studio?.videos || []).some(video => video.id === id)) return 'studio';
+    return 'empirePlus';
+};
+
 const subsOfKind = (channel: YoutubeChannel, kind: YoutubeChannelKind) => {
     if (kind === 'studio') return channel.officialChannels?.studio?.subscribers || 0;
     if (kind === 'empirePlus') return channel.officialChannels?.empirePlus?.subscribers || 0;
@@ -517,7 +524,7 @@ export const buyPromotion = (
     ];
     const video = lists.find(item => item.id === videoId);
     if (!video) return { player: ready, note: '', tone: 'neutral', error: 'That video is not on the channel.' };
-    const kind = video.channelKind || activeKind(ready);
+    const kind = homeOf(ready.youtube, video.id);
     const quote = quotePromotion({
         budget: safeBudget,
         countries: targets,

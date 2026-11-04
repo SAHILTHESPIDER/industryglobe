@@ -68,6 +68,22 @@ const deliverPromo = (channel: YoutubeChannel, promo: YoutubePromotion): { chann
     return { channel: next, views: hitKind ? viewSlice : 0, subs: hitKind ? subSlice : 0 };
 };
 
+const weeklyOrganic = (videos: YoutubeVideo[] | undefined): number =>
+    (videos || []).reduce((sum, video) => {
+        const tracked = typeof video.signals?.trackedViews === 'number' ? video.signals.trackedViews : (video.views || 0);
+        return sum + Math.max(0, (video.views || 0) - tracked);
+    }, 0);
+
+const promoBase = (channel: YoutubeChannel, videoId: string): { organic: number } => {
+    const personal = (channel.videos || []).find(video => video.id === videoId);
+    const studio = channel.officialChannels?.studio?.videos || [];
+    const empire = channel.officialChannels?.empirePlus?.videos || [];
+    const video = personal || studio.find(item => item.id === videoId) || empire.find(item => item.id === videoId);
+    const list = personal ? (channel.videos || []) : studio.some(item => item.id === videoId) ? studio : empire;
+    const organic = weeklyOrganic(list);
+    return { organic: organic > 0 ? organic : Math.max(video?.views || 0, 1) };
+};
+
 const shiftAudience = (channel: YoutubeChannel, countries: string[], promoViews: number, organic: number): YoutubeChannel => {
     const partner = channel.partner;
     if (!partner || promoViews <= 0 || !countries.length) return channel;
@@ -130,10 +146,11 @@ export const settleYoutubePartnerWeek = (player: Player): PartnerWeekResult => {
     let promoViews = 0;
     (partner.promotions || []).forEach(promo => {
         if (promo.weeksLeft <= 0) return;
+        const base = promoBase(channel, promo.videoId);
         const delivered = deliverPromo(channel, promo);
         channel = delivered.channel;
         promoViews += delivered.views;
-        channel = shiftAudience(channel, promo.countries, delivered.views, channel.totalChannelViews || 0);
+        channel = shiftAudience(channel, promo.countries, delivered.views, base.organic);
     });
     const promotions = (channel.partner?.promotions || partner.promotions).map(promo => ({
         ...promo,

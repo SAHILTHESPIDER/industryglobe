@@ -268,9 +268,11 @@ export const readAnalytics = (channel: YoutubeChannel, kind: YoutubeChannelKind,
         share: row.share,
         cpm: COUNTRY_CPM[row.code] ?? COUNTRY_CPM.OTHER,
     }));
-    const probe: YoutubeVideo = sample[0] || {
+    const longForm = sample.find(video => !isShortVideo(video) && !isLiveVideo(video) && !isPremiereVideo(video));
+    const probe: YoutubeVideo = longForm || {
         id: 'probe', title: '', type: 'VLOG', thumbnailColor: '', views: 0, likes: 0, earnings: 0,
         weekUploaded: 1, isPlayer: true, authorName: '', qualityScore: 60, weeklyHistory: [], comments: [],
+        signals: { format: 'LONG', genreKey: 'VLOG' },
     };
     const buckets = new Map<string, { views: number; count: number; day: string; daypart: YoutubeDaypart }>();
     sample.forEach(video => {

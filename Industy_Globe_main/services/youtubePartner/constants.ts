@@ -89,6 +89,14 @@ export const DURATION_MIN: Record<string, number> = {
     TRAILER_2: 2.3,
     FINAL_TRAILER: 2.6,
     ANNOUNCEMENT: 1.1,
+    MOTION_POSTER: 0.7,
+    CHARACTER_POSTER: 0.47,
+    CLIP: 1.03,
+    BLOOPERS: 8,
+    REVIEW_ROUNDUP: 6.7,
+    DELETED_SCENE: 2.5,
+    LYRIC_VIDEO: 3.6,
+    JUKEBOX: 4.2,
     BTS: 11,
     CAST_INTERVIEW: 14,
     PREMIERE_LIVE: 48,
@@ -96,6 +104,18 @@ export const DURATION_MIN: Record<string, number> = {
     RELEASE_PROMO: 0.7,
     MUSIC_VIDEO: 3.8,
     REACTION_COLLAB: 16,
+};
+
+/** Unknown cuts stay near a trailer. A 10 minute fallback let a poster clear the partner gate. */
+const UNKNOWN_DURATION_MIN = 2;
+
+const minutesFromLabel = (label?: string): number | null => {
+    if (!label || !/^\d/.test(label)) return null;
+    const parts = label.split(':').map(part => Number(part));
+    if (parts.some(part => !Number.isFinite(part))) return null;
+    if (parts.length === 2) return parts[0] + parts[1] / 60;
+    if (parts.length === 3) return parts[0] * 60 + parts[1] + parts[2] / 60;
+    return null;
 };
 
 export const COLLAB_FIT_BAD = 42;
@@ -141,10 +161,12 @@ export const isLiveVideo = (video: Pick<YoutubeVideo, 'type' | 'signals'>): bool
 export const isPremiereVideo = (video: Pick<YoutubeVideo, 'type' | 'signals'>): boolean =>
     video.signals?.format === 'PREMIERE' || video.type === 'STREAM_PREMIERE';
 
-export const durationMinOf = (video: Pick<YoutubeVideo, 'type' | 'isShort' | 'signals'>): number => {
+export const durationMinOf = (video: Pick<YoutubeVideo, 'type' | 'isShort' | 'signals' | 'durationLabel'>): number => {
     if (typeof video.signals?.durationMin === 'number' && video.signals.durationMin > 0) return video.signals.durationMin;
+    const labeled = minutesFromLabel(video.durationLabel);
+    if (labeled && labeled > 0) return labeled;
     if (isShortVideo(video)) return DURATION_MIN.SHORT;
-    return DURATION_MIN[video.type] || 10;
+    return DURATION_MIN[video.type] || UNKNOWN_DURATION_MIN;
 };
 
 export const retentionOf = (video: Pick<YoutubeVideo, 'type' | 'isShort' | 'qualityScore' | 'signals'>, controversy = 0): number => {

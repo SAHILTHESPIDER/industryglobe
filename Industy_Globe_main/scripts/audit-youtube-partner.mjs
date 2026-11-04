@@ -14,7 +14,7 @@ import { INITIAL_PLAYER } from '${root}types.ts';
 import { applyYoutubeReleaseBoost } from '${root}services/youtubeMarketing.ts';
 import {
   adDollars, buyPromotion, chargeYoutubeWallet, creditYoutubeWallet, ensureYoutubePartner,
-  filmCollab, quotePromotion, runPremiere, scaleBrandPayout, settleYoutubePartnerWeek,
+  filmCollab, quotePromotion, readAnalytics, runPremiere, scaleBrandPayout, settleYoutubePartnerWeek,
   sponsoredViewMultiplier, watchHoursFor, YPP_WATCH_HOURS,
 } from '${root}services/youtubePartner/index.ts';
 
@@ -101,6 +101,19 @@ record('ypp', 'ads need the partner flag, and a US audience pays more than India
   const shortHours = watchHoursFor(100000, short, 0);
   assert(longHours > YPP_WATCH_HOURS, 'long hours ' + longHours);
   assert(shortHours < longHours * 0.2, 'short hours ' + shortHours + ' vs ' + longHours);
+  const poster = video({ id: 'poster', type: 'MOTION_POSTER', views: 50000, qualityScore: 70 });
+  const posterHours = watchHoursFor(50000, poster, 0);
+  const vlogHours = watchHoursFor(50000, long, 0);
+  assert(posterHours < 1000, 'poster counted as a long video: ' + posterHours);
+  assert(vlogHours > posterHours * 8, 'vlog hours ' + vlogHours + ' vs poster ' + posterHours);
+  const shortFirst = playerWith({
+    isMonetized: true,
+    subscribers: 20000,
+    videos: [short, long],
+  });
+  shortFirst.youtube.partner.audience = [{ code: 'US', share: 1 }];
+  const analytics = readAnalytics(shortFirst.youtube, 'personal', 10);
+  assert(analytics.blendedCpm > 5, 'CPM followed the short: ' + analytics.blendedCpm);
 });
 
 record('ypp', 'a channel with the hours and the subs unlocks on the week tick', () => {
@@ -184,6 +197,68 @@ record('wallet', 'studio money stays in the house', () => {
   assert(broke.player.businesses[0].balance === 1000, 'balance moved on a declined charge');
   const personal = creditYoutubeWallet(player, 'personal', 400, 'YouTube personal ads');
   assert(personal.player.money === 50400, 'personal wallet missed the credit');
+  const buyer = playerWith({
+    subscribers: 4000,
+    activeChannel: 'studio',
+    videos: [video({ id: 'personal_cut', views: 3000, qualityScore: 70 })],
+  });
+  buyer.money = 9000;
+  buyer.businesses = [{
+    id: 'house2', name: 'Lot', type: 'PRODUCTION_HOUSE', isActive: true, balance: 8000,
+    stats: { weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, lifetimeRevenue: 0, valuation: 1, brandHealth: 40, customerSatisfaction: 40, riskLevel: 1, hype: 1 },
+  }];
+  const boughtPersonal = buyPromotion(buyer, 'personal_cut', 1000, ['US'], 1);
+  assert(!boughtPersonal.error, boughtPersonal.error || 'personal video buy failed');
+  assert(boughtPersonal.player.money === 8000, 'studio switch billed the house instead of personal cash');
+  assert(boughtPersonal.player.businesses[0].balance === 8000, 'house treasury moved for a personal video');
+});
+
+record('ads', 'a studio buy moves that audience, not an empty personal channel', () => {
+  const player = playerWith({
+    subscribers: 0,
+    totalChannelViews: 0,
+    videos: [],
+    partner: undefined,
+  });
+  player.youtube.officialChannels = {
+    studio: {
+      handle: '@lot',
+      subscribers: 20000,
+      totalViews: 5000000,
+      lifetimeEarnings: 0,
+      videos: [video({
+        id: 'studio_trailer',
+        type: 'TRAILER_1',
+        views: 5000000,
+        qualityScore: 80,
+        channelKind: 'studio',
+        signals: { trackedViews: 5000000, trackedEarnings: 0, format: 'LONG' },
+      })],
+    },
+  };
+  player.youtube = ensureYoutubePartner(player.youtube);
+  player.youtube.partner.audience = [{ code: 'IN', share: 1 }];
+  player.youtube.partner.promotions = [{
+    id: 'ad_studio',
+    videoId: 'studio_trailer',
+    budget: 1000,
+    countries: ['US'],
+    weeksLeft: 1,
+    weeksTotal: 1,
+    viewsDelivered: 0,
+    subsDelivered: 0,
+    viewsPlanned: 20000,
+    subsPlanned: 40,
+    wallet: 'studio',
+    weak: false,
+    efficiency: 0.5,
+  }];
+  player.youtube.partner.seeded = true;
+  player.youtube.partner.settledAbs = undefined;
+  const settled = settleYoutubePartnerWeek(player);
+  const us = (settled.player.youtube.partner.audience || []).find(row => row.code === 'US');
+  assert(us && us.share < 0.05, 'empty personal channel swung the mix to ' + (us && us.share));
+  assert(us.share > 0, 'studio promo did not move the mix');
 });
 
 record('premiere', 'live chat moves opening hype', () => {
