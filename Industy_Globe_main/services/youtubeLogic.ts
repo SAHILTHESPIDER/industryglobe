@@ -6,6 +6,8 @@ import { hydrateGenreXP } from './genreCatalog';
 import { PUBLIC_CREATORS, PublicCreator } from './youtubeCreators';
 import { aiOffline } from '../src/services/aiContent';
 import { isMarketingType } from './youtubeMarketing';
+import { getAbsoluteWeek } from './legacyLogic';
+import { SHORT_REACH, adRevenue, minutesFor, partnerReady, sponsorViewMultiplier, watchHoursFromVideos } from './youtubePartner';
 
 export const YOUTUBE_MONETIZATION_SUBS = 1000;
 export const YOUTUBE_MONETIZATION_VIEWS = 4000;
@@ -458,7 +460,8 @@ export const generateYoutubeBrandDeal = (player: Player): YoutubeBrandDeal | nul
     const requiredType = pick(YOUTUBE_BRAND_TYPES);
     const imageMultiplier = creatorScore >= 80 ? 1.35 : creatorScore >= 65 ? 1.18 : creatorScore < 35 ? 0.72 : 1;
     const lifestyleMultiplier = channel.creatorIdentity === 'LIFESTYLE_ICON' ? 1.15 : channel.creatorIdentity === 'CONTROVERSY_MAGNET' ? 0.84 : 1;
-    const payout = Math.max(1500, Math.floor(channel.subscribers * (0.18 + Math.random() * 0.22) * imageMultiplier * lifestyleMultiplier));
+    const sponsorDrag = sponsorViewMultiplier(channel.videos || [], getAbsoluteWeek(player.age, player.currentWeek));
+    const payout = Math.max(800, Math.floor(channel.subscribers * (0.18 + Math.random() * 0.22) * imageMultiplier * lifestyleMultiplier * (0.65 + sponsorDrag * 0.35)));
     const energyCost = requiredType === 'TRAILER' ? 20 : 16;
     const bonusViews = Math.max(6000, Math.floor(channel.subscribers * (0.12 + Math.random() * 0.18) * Math.max(0.75, imageMultiplier)));
     const penalty = Math.floor(payout * 0.4);
@@ -481,6 +484,7 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
     let channel = { ...player.youtube };
     let weeklyRevenue = 0;
     let newSubsTotal = 0;
+    let addedHours = 0;
     const notifications: string[] = [];
 
     // 1. Process Videos
@@ -508,15 +512,15 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
         // Random variance
         const variance = 0.8 + Math.random() * 0.4;
         
-        let newViews = Math.floor(subPush * growthFactor * qualityBonus * variance);
+        const formatReach = (video.isShort || video.type === 'SHORT') ? SHORT_REACH : 1;
+        let newViews = Math.floor(subPush * growthFactor * qualityBonus * variance * formatReach * sponsorViewMultiplier(channel.videos || [], getAbsoluteWeek(player.age, player.currentWeek)));
         
         // CRITICAL: Prevent Infinity/NaN propagation
         if (!isFinite(newViews)) newViews = 0;
         
-        // Earnings (RPM approx $2.00)
         let earnings = 0;
         if (channel.isMonetized) {
-            earnings = (newViews / 1000) * 2.0;
+            earnings = adRevenue(newViews, video, channel.audienceMix);
         }
         if (!isFinite(earnings)) earnings = 0;
         
@@ -542,6 +546,7 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
         if (!isFinite(subsGained)) subsGained = 0;
         
         newSubsTotal += subsGained;
+        addedHours += (newViews * minutesFor(video)) / 60;
 
         return {
             ...video,
@@ -555,6 +560,7 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
     channel.videos = updatedVideos;
     channel.subscribers += newSubsTotal;
     channel.lifetimeEarnings += weeklyRevenue;
+    channel.watchHours = (channel.watchHours || 0) > 0 ? (channel.watchHours || 0) + addedHours : watchHoursFromVideos(updatedVideos);
     
     // Safety checks for channel totals
     if (!isFinite(channel.subscribers)) channel.subscribers = 0;
@@ -566,7 +572,7 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
 
     // 2. Monetization Check
     if (!channel.isMonetized) {
-        if (channel.subscribers >= YOUTUBE_MONETIZATION_SUBS && totalViews >= YOUTUBE_MONETIZATION_VIEWS) {
+        if (partnerReady(channel.subscribers, channel.watchHours || 0)) {
             channel.isMonetized = true;
             notifications.push("🎉 You are now eligible for YouTube Monetization! Revenue enabled.");
         }

@@ -22,6 +22,7 @@ import { useYt } from './state';
 import { badgeFor, creatorFor, dubLine, postedAgo, STILL, stillForType, stillUrl, verifiedAuthor, weeksAgoFor } from './stills';
 import { createFittedThumbnailBlob, Face, MAX_THUMBNAIL_SOURCE_SIZE, ThumbnailFitMode } from './thumb';
 import { ChannelExtras, CreatorScreen, CreatorWatchSubscribe, PeopleSubs, TrophyShelf, bannerBackground } from './features';
+import { AnalyticsScreen, PartnerStrip } from './partner';
 import { AVATAR_PRESETS, lookFor, presetColors } from '../../../services/youtubeCustomize';
 import { playButtonLabel } from '../../../services/youtubeAwards';
 import { creatorAudience } from '../../../services/youtubePeople';
@@ -1098,8 +1099,9 @@ export const MoneyScreen: React.FC = () => {
     return (
         <div>
             <div className="h1">Earn</div>
+            <PartnerStrip />
             <TrophyShelf />
-            <div className="dim">Monetization at {YOUTUBE_MONETIZATION_SUBS.toLocaleString()} subs and {YOUTUBE_MONETIZATION_VIEWS.toLocaleString()} views. Ads pay a flat ${FLAT_RPM.toFixed(2)} RPM. {monetized ? 'This channel is monetized.' : 'Not monetized yet.'}</div>
+            <div className="dim">Partner ads need {YOUTUBE_MONETIZATION_SUBS.toLocaleString()} subscribers and 4,000 watch hours. CPM follows the country, not a flat ${FLAT_RPM.toFixed(2)}. {monetized ? 'This channel is monetized.' : 'Not monetized yet.'}</div>
             <div className="g6" style={{ marginTop: 14 }}>
                 {MILESTONES.map(item => {
                     const have = item.kind === 'subs' ? api.channel.subscribers : api.channel.totalChannelViews;
@@ -1241,5 +1243,6 @@ export const screenFor = (screen: string) => {
     if (screen === 'shorts') return <ShortsScreen />;
     if (screen === 'live') return <LiveScreen />;
     if (screen === 'money') return <MoneyScreen />;
+    if (screen === 'analytics') return <AnalyticsScreen />;
     return <HomeScreen />;
 };

@@ -674,7 +674,7 @@ export interface RivalSyncResult {
 
 const emptyOf = (channel: YoutubeChannel): YoutubeChannel => ({
     ...channel,
-    schemaVersion: 4,
+    schemaVersion: 5,
     rivalChannels: channel.rivalChannels || [],
     subscriptions: channel.subscriptions || [],
 });
@@ -730,7 +730,7 @@ export const syncRivalYoutube = (player: Player, channel: YoutubeChannel, mode: 
         ? (mode === 'week' ? abs : Math.max(0, abs - 1))
         : (mode === 'week' && cursor < abs ? abs : cursor);
     return {
-        channel: { ...base, rivalChannels: rivals, subscriptions, rivalSimWeekAbs, schemaVersion: 4 },
+        channel: { ...base, rivalChannels: rivals, subscriptions, rivalSimWeekAbs, schemaVersion: 5 },
         notes,
         news,
     };

@@ -89,7 +89,7 @@ record('roster', 'every house gets a channel', () => {
     });
   });
   assert((synced.rivalChannels || []).reduce((sum, channel) => sum + channel.videos.length, 0) <= 260, 'global video cap');
-  assert(synced.schemaVersion === 4, 'schema should move to 4');
+  assert(synced.schemaVersion === 5, 'schema should move to 4');
 });
 
 record('personality', 'stable per house', () => {
@@ -131,7 +131,7 @@ record('saves', 'old channel survives migration', () => {
   const migrated = migrateYoutubeSave(player);
   assert(migrated.videos.some(video => video.id === 'keep_me'), 'old personal video should remain');
   assert((migrated.videos.find(video => video.id === 'keep_me').weeklyHistory || []).length <= 26, 'personal history should trim');
-  assert(migrated.schemaVersion === 4, 'migration bumps schema');
+  assert(migrated.schemaVersion === 5, 'migration bumps schema');
   assert(migrated.handle === '@player', 'handle stays');
   const withHouses = syncRivalYoutube(player, migrated, 'view').channel;
   assert((withHouses.rivalChannels || []).length > 10, 'opening the app adds rival channels onto the old save');
@@ -266,7 +266,7 @@ record('zero', 'a new house channel starts empty', () => {
   const channel = syncOfficialChannels(player, migrateYoutubeSave(player));
   assert(channel.zeroStart === true, 'fresh career');
   assert(channel.extraChannelsUnlocked === false, 'switch stays locked');
-  assert(channel.schemaVersion === 4, 'schema 4');
+  assert(channel.schemaVersion === 5, 'schema 4');
   assert(channel.officialChannels.studio.subscribers === 0, 'studio subscribers');
   assert(channel.officialChannels.studio.totalViews === 0, 'studio views');
 });

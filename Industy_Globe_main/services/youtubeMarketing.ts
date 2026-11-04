@@ -287,7 +287,7 @@ export const ensureCampaign = (channel: YoutubeChannel, projectId: string): Yout
 
 export const emptyChannelExtras = (channel: YoutubeChannel): YoutubeChannel => ({
     ...channel,
-    schemaVersion: 4,
+    schemaVersion: 5,
     officialChannels: channel.officialChannels || {},
     marketing: channel.marketing || {},
     strikes: channel.strikes || [],
@@ -341,7 +341,10 @@ export const migrateYoutubeSave = (player: Player): YoutubeChannel => {
     });
     if (channel.zeroStart === undefined) channel.zeroStart = fresh;
     if (channel.extraChannelsUnlocked === undefined) channel.extraChannelsUnlocked = !fresh;
-    channel.schemaVersion = 4;
+    channel.schemaVersion = 5;
+    if (channel.watchHours == null) channel.watchHours = 0;
+    channel.promotions = channel.promotions || [];
+    channel.communityPosts = channel.communityPosts || [];
     return channel;
 };
 
@@ -424,7 +427,7 @@ export const applyYoutubeReleaseBoost = (player: Player, commitment: Commitment)
     if (!campaign) return null;
     const hidden = commitment.projectDetails?.hiddenStats;
     if (!hidden) return null;
-    const hype = clamp(campaign.campaignHype ?? 50, 0, 100);
+    const hype = clamp((campaign.campaignHype ?? 50) + (campaign.premiereHype || 0) * 0.35, 0, 100);
     const raw = clamp((hidden.rawHype ?? 50) + (hype - 50) * 0.35, 0, 100);
     const abs = getAbsoluteWeek(player.age, player.currentWeek);
     const share = trailerWarShare(hype, rivalBigHypes(player, abs));
@@ -525,8 +528,23 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
     player.youtube = channel;
     return result;
 
+    function boardHours(board?: OfficialChannel) {
+        return (board?.videos || []).reduce((sum, video) => {
+            const minutes = video.isShort || video.type === 'SHORT' ? 0.4 : video.type === 'PREMIERE_LIVE' ? 14 : 6.2;
+            return sum + ((video.views || 0) * minutes) / 60;
+        }, 0);
+    }
+    function boardPays(board?: OfficialChannel) {
+        return !!board && board.subscribers >= 1000 && boardHours(board) >= 4000;
+    }
+    function countryRpm(video: { isShort?: boolean; type: string; country?: string }) {
+        if (video.isShort || video.type === 'SHORT') return SHORTS_RPM;
+        return COUNTRY_RPM[video.country || 'IN'] || COUNTRY_RPM.OTHER;
+    }
+
     function ageOfficial(board: OfficialChannel | undefined, empire: boolean) {
         if (!board) return;
+        const paying = boardPays(board);
         board.videos.forEach(video => {
             const age = Math.max(0, abs - getAbsoluteWeek(video.yearUploaded || player.age, video.weekUploaded));
             if (age <= 0 || age > 16) return;
@@ -536,7 +554,7 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             video.weeklyHistory = [...(video.weeklyHistory || []), views].slice(-26);
             board.totalViews += views;
             board.subscribers += Math.floor(views / 400);
-            const earned = Math.floor((views / 1000) * (video.isShort ? SHORTS_RPM : FLAT_RPM));
+            const earned = paying ? Math.floor((views / 1000) * countryRpm(video)) : 0;
             video.earnings += earned;
             board.lifetimeEarnings += earned;
             if (empire) empireRevenue += earned;
@@ -659,8 +677,8 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             language: 'hi',
             country: 'IN',
         };
-        const rpm = drop.type === 'SHORT' ? SHORTS_RPM : FLAT_RPM;
-        const money = (yt.isMonetized || destination === 'official') ? Math.floor((views / 1000) * rpm) : 0;
+        const rpm = countryRpm({ isShort: drop.type === 'SHORT', type: drop.type, country: 'IN' });
+        const money = (destination === 'personal' ? yt.isMonetized : boardPays(target || undefined)) ? Math.floor((views / 1000) * rpm) : 0;
         video.earnings = money;
         if (destination === 'personal') {
             yt.videos = [video, ...(yt.videos || [])];

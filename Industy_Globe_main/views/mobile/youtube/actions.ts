@@ -9,6 +9,7 @@ import { findRivalChannel } from '../../../services/youtubeRivals';
 import { liveCreators } from '../../../services/youtubeCreators';
 import { channelSwitchAllowed, lookFor } from '../../../services/youtubeCustomize';
 import { findCreatorSeed } from '../../../services/youtubePeople';
+import { collabOutlook, payWallet, sponsorMoodHit } from '../../../services/youtubePartner';
 
 export const UPLOAD_PLANS: Record<YoutubeUploadPlan, { label: string; viewBoost: number; qualityBoost: number; trust: number; mood: number; controversy: number }> = {
     SAFE: { label: 'Safe', viewBoost: 0, qualityBoost: 5, trust: 4, mood: 1, controversy: -2 },
@@ -95,6 +96,7 @@ export const makeVideo = (player: Player, title: string, type: YoutubeVideoType,
         isShort: type === 'SHORT',
         language: 'hi',
         country: 'IN',
+        uploadSlot: player.youtube.defaultUploadSlot || 'EVENING',
         ...extra,
     };
 };
@@ -182,6 +184,25 @@ export const goLive = (player: Player, mode: 'standard' | 'guest' | 'surprise' |
         }
     }
     spendPlayerEnergy(next, 18);
+    const liveProject = player.commitments?.find(item => item.projectDetails);
+    if (liveProject && next.youtube.marketing?.[liveProject.id]) {
+        const campaign = next.youtube.marketing[liveProject.id];
+        const chat = Math.max(0, Math.min(100, Math.round((next.youtube.fanMood ?? 55) - (messy ? 18 : 0))));
+        next = {
+            ...next,
+            youtube: {
+                ...next.youtube,
+                marketing: {
+                    ...next.youtube.marketing,
+                    [liveProject.id]: {
+                        ...campaign,
+                        premiereHype: chat,
+                        campaignHype: Math.max(0, Math.min(100, campaign.campaignHype + (messy ? -4 : 3))),
+                    },
+                },
+            },
+        };
+    }
     next = xpost(log(next, messy
         ? `Livestream got messy: +${liveViews.toLocaleString()} views, $${donations.toLocaleString()} donations.`
         : `Livestream: +${liveViews.toLocaleString()} views, +${subs.toLocaleString()} subs, $${donations.toLocaleString()} super chat.`, messy ? 'negative' : 'positive'), messy
@@ -350,41 +371,52 @@ export const publishUpload = (player: Player, input: {
 
 export const completeCollab = (player: Player, collab: YoutubeCollabOffer): ActionResult => {
     if (player.energy.current < collab.energyCost) return { player, error: 'Not enough energy.' };
-    const video = makeVideo(player, collab.conceptTitle, collab.requiredType, 'BTS', { views: Math.floor(collab.bonusViews * 0.9) });
+    const outlook = collabOutlook(player.youtube.subscribers || 0, Math.max(collab.bonusSubscribers * 40, 1000), player.youtube.controversy || 0, player.youtube.audienceTrust ?? 55);
+    const video = makeVideo(player, collab.conceptTitle, collab.requiredType, 'BTS', { views: outlook.views });
     video.likes = Math.floor(video.views * 0.06);
     let next: Player = {
         ...player,
-        stats: { ...player.stats, fame: Math.min(100, player.stats.fame + 1), reputation: Math.min(100, player.stats.reputation + 1) },
+        stats: { ...player.stats, fame: Math.min(100, player.stats.fame + (outlook.backlash ? 0 : 1)), reputation: Math.min(100, Math.max(0, player.stats.reputation + (outlook.backlash ? -1 : 1))) },
         youtube: {
             ...player.youtube,
-            subscribers: player.youtube.subscribers + collab.bonusSubscribers,
+            subscribers: player.youtube.subscribers + outlook.subs,
             totalChannelViews: (player.youtube.totalChannelViews || 0) + video.views,
             videos: [video, ...player.youtube.videos],
             activeCollabs: player.youtube.activeCollabs.filter(item => item.id !== collab.id),
+            audienceTrust: Math.max(0, Math.min(100, (player.youtube.audienceTrust ?? 55) + outlook.trust)),
+            controversy: Math.max(0, Math.min(100, (player.youtube.controversy || 0) + outlook.backlash)),
+            fanMood: Math.max(0, Math.min(100, (player.youtube.fanMood ?? 55) + (outlook.backlash ? -4 : 3))),
         },
     };
     spendPlayerEnergy(next, collab.energyCost);
-    const social = aiOffline.xPosts({ speaker: player.name, subject: collab.creatorName, event: 'just dropped a collab', seed: collab.id })[0];
-    next = xpost(log(next, `Collab with ${collab.creatorName} is up.`, 'positive'), social);
+    const social = aiOffline.xPosts({ speaker: player.name, subject: collab.creatorName, event: outlook.backlash ? 'just had a messy collab' : 'just dropped a collab', seed: collab.id })[0];
+    next = xpost(log(next, `${outlook.note} ${collab.creatorName}.`, outlook.backlash ? 'negative' : 'positive'), social);
     return { player: next };
 };
 
 export const completeBrand = (player: Player, deal: YoutubeBrandDeal): ActionResult => {
     if (player.energy.current < deal.energyCost) return { player, error: 'Not enough energy.' };
     const video = makeVideo(player, `${deal.brandName} x ${player.name}`, deal.requiredType, 'SPONSOR_HEAVY', { views: Math.floor(deal.bonusViews * 0.9) });
-    let next: Player = {
-        ...player,
-        money: player.money + deal.payout,
+    const kind = player.youtube.activeChannel || 'personal';
+    let next = payWallet(player, kind, deal.payout, `${deal.brandName} integration`);
+    const hit = sponsorMoodHit([video, ...(player.youtube.videos || [])], getAbsoluteWeek(player.age, player.currentWeek));
+    next = {
+        ...next,
         youtube: {
-            ...player.youtube,
-            lifetimeEarnings: player.youtube.lifetimeEarnings + deal.payout,
-            totalChannelViews: (player.youtube.totalChannelViews || 0) + video.views,
-            videos: [video, ...player.youtube.videos],
-            activeBrandDeals: player.youtube.activeBrandDeals.filter(item => item.id !== deal.id),
+            ...next.youtube,
+            lifetimeEarnings: next.youtube.lifetimeEarnings + deal.payout,
+            totalChannelViews: (next.youtube.totalChannelViews || 0) + video.views,
+            videos: [video, ...next.youtube.videos],
+            activeBrandDeals: next.youtube.activeBrandDeals.filter(item => item.id !== deal.id),
+            audienceTrust: Math.max(0, (next.youtube.audienceTrust ?? 55) - hit.trust),
+            fanMood: Math.max(0, (next.youtube.fanMood ?? 55) - hit.mood),
+            controversy: Math.min(100, (next.youtube.controversy || 0) + hit.heat),
         },
     };
     spendPlayerEnergy(next, deal.energyCost);
-    next = log(next, `${deal.brandName} integration paid $${deal.payout.toLocaleString()}.`, 'positive');
+    next = log(next, hit.trust > 0
+        ? `${deal.brandName} paid $${deal.payout.toLocaleString()}. Regulars are tired of the ads.`
+        : `${deal.brandName} integration paid $${deal.payout.toLocaleString()}.`, hit.trust > 0 ? 'neutral' : 'positive');
     return { player: next };
 };
 

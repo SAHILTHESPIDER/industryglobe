@@ -1581,6 +1581,8 @@ export enum Page {
       creatorChannelId?: string;
       /** Generated thumbnail preset chosen for this upload. */
       thumbnailPreset?: string;
+      /** When it went out. Missing videos count as evening. */
+      uploadSlot?: 'MORNING' | 'EVENING' | 'LATE';
   }
 
   export interface MarketingDrop {
@@ -1616,6 +1618,29 @@ export enum Page {
       lastDropWeekAbs: number;
       songs?: CampaignSong[];
       songStreams?: number;
+      /** 0–100. A premiere or a hot live chat lifts the opening. */
+      premiereHype?: number;
+  }
+
+  export interface YoutubePromotion {
+      id: string;
+      videoId: string;
+      budget: number;
+      countries: string[];
+      weeks: number;
+      weekStarted: number;
+      spent: number;
+      viewsAdded: number;
+      fatigued?: boolean;
+      channelKind?: YoutubeChannelKind;
+  }
+
+  export interface YoutubeCommunityPost {
+      id: string;
+      text: string;
+      tone: 'WARM' | 'HEAT' | 'NEWS';
+      weekAbs: number;
+      mood: number;
   }
 
   export interface OfficialChannel {
@@ -1727,8 +1752,8 @@ export enum Page {
       lastMerchResult?: string;
       creatorIdentity: YoutubeCreatorIdentity;
       lastIdentityChangeWeek: number;
-      /** 2 = official channels and campaigns. 3 adds rival houses. 4 adds play buttons, looks, creator channels, and zero-start. */
-      schemaVersion?: 2 | 3 | 4;
+      /** 2 = official channels. 3 = rivals. 4 = awards and zero-start. 5 = partner program, promos, and community. */
+      schemaVersion?: 2 | 3 | 4 | 5;
       officialChannels?: { studio?: OfficialChannel; empirePlus?: OfficialChannel };
       marketing?: Record<string, YoutubeCampaign>;
       rivalChannels?: RivalYoutubeChannel[];
@@ -1749,6 +1774,14 @@ export enum Page {
       pendingCeremonies?: YoutubeCeremony[];
       /** First pass records buttons the save already earned, without a second reward. */
       awardsMigrated?: boolean;
+      /** Public watch hours. Partner ads need 4,000 of these, plus 1,000 subscribers. */
+      watchHours?: number;
+      /** Share of the audience by market code. Used for CPM, not as a subscriber count. */
+      audienceMix?: Record<string, number>;
+      /** When new uploads are timed. Evening is the default. */
+      defaultUploadSlot?: 'MORNING' | 'EVENING' | 'LATE';
+      promotions?: YoutubePromotion[];
+      communityPosts?: YoutubeCommunityPost[];
       strikes?: YoutubeStrike[];
       leaks?: YoutubeLeak[];
       shortsRemixes?: number;
