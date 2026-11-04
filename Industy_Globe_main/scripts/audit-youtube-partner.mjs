@@ -276,6 +276,30 @@ record('ads', 'returns diminish and a weak video converts worse', () => {
   const ids = (ninth.player.youtube.partner.promotions || []).map(row => row.id);
   assert(ids.length === 9, 'paid campaign was dropped, left ' + ids.length);
   assert(ids.includes('old_7'), 'an older paid campaign disappeared');
+  const finished = playerWith({
+    subscribers: 8000,
+    videos: [video({ id: 'push', views: 2000, qualityScore: 70, signals: { trackedViews: 2000, trackedEarnings: 0 } })],
+  });
+  finished.youtube.partner.seeded = true;
+  finished.youtube.partner.settledAbs = undefined;
+  finished.youtube.partner.promotions = [{
+    id: 'done',
+    videoId: 'push',
+    budget: 1000,
+    countries: ['US'],
+    weeksLeft: 0,
+    weeksTotal: 2,
+    viewsDelivered: 400,
+    subsDelivered: 10,
+    viewsPlanned: 1000,
+    subsPlanned: 20,
+    wallet: 'personal',
+    weak: false,
+    efficiency: 0.5,
+  }];
+  const after = settleYoutubePartnerWeek(finished);
+  const done = after.player.youtube.partner.promotions.find(row => row.id === 'done');
+  assert(done && done.viewsDelivered === 400 && done.subsDelivered === 10, 'a finished buy kept accruing ' + (done && done.viewsDelivered));
   const before = bought.player.youtube.videos[0].views;
   const settled = settleYoutubePartnerWeek(bought.player);
   assert(settled.player.youtube.videos[0].views > before, 'promotion delivered no views');
