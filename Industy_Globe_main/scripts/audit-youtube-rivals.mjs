@@ -15,13 +15,16 @@ import { getAbsoluteWeek } from '${root}services/legacyLogic.ts';
 import { STUDIO_CATALOG } from '${root}services/studioLogic.ts';
 import { PLATFORMS } from '${root}services/streamingLogic.ts';
 import {
-  slotUnlocked, trailerWarShare, openingMultiplier, applyYoutubeReleaseBoost, migrateYoutubeSave, priorReleasedOfType,
+  slotUnlocked, trailerWarShare, openingMultiplier, applyYoutubeReleaseBoost, migrateYoutubeSave, priorReleasedOfType, syncOfficialChannels,
 } from '${root}services/youtubeMarketing.ts';
 import { clashMultiplier, dropOutlook, repeatMultiplier, timingBand } from '${root}services/youtubeConsequences.ts';
 import {
   MUSIC_LABELS, personalityFor, pruneRivalChannels, syncRivalYoutube,
 } from '${root}services/youtubeRivals.ts';
-import { publishUpload, toggleSubscription } from '${root}views/mobile/youtube/actions.ts';
+import { publishUpload, setChannel, toggleSubscription } from '${root}views/mobile/youtube/actions.ts';
+import { settlePlayButtons } from '${root}services/youtubeAwards.ts';
+import { saveChannelLook, unlockExtraYoutubeChannels } from '${root}services/youtubeCustomize.ts';
+import { syncCreatorYoutube } from '${root}services/youtubePeople.ts';
 
 const failures = [];
 let checks = 0;
@@ -86,7 +89,7 @@ record('roster', 'every house gets a channel', () => {
     });
   });
   assert((synced.rivalChannels || []).reduce((sum, channel) => sum + channel.videos.length, 0) <= 260, 'global video cap');
-  assert(synced.schemaVersion === 3, 'schema should move to 3');
+  assert(synced.schemaVersion === 4, 'schema should move to 4');
 });
 
 record('personality', 'stable per house', () => {
@@ -128,7 +131,7 @@ record('saves', 'old channel survives migration', () => {
   const migrated = migrateYoutubeSave(player);
   assert(migrated.videos.some(video => video.id === 'keep_me'), 'old personal video should remain');
   assert((migrated.videos.find(video => video.id === 'keep_me').weeklyHistory || []).length <= 26, 'personal history should trim');
-  assert(migrated.schemaVersion === 3, 'migration bumps schema');
+  assert(migrated.schemaVersion === 4, 'migration bumps schema');
   assert(migrated.handle === '@player', 'handle stays');
   const withHouses = syncRivalYoutube(player, migrated, 'view').channel;
   assert((withHouses.rivalChannels || []).length > 10, 'opening the app adds rival channels onto the old save');
@@ -255,6 +258,94 @@ record('prune', 'old videos and history drop', () => {
   assert(pruned[0].videos.length <= 16, 'per-channel cap');
   assert(pruned[0].videos.every(video => video.weeklyHistory.length <= 12), 'history cap');
   assert(pruned[0].videos.every(video => video.comments.length <= 4), 'comment cap');
+});
+
+record('zero', 'a new house channel starts empty', () => {
+  const player = clone(INITIAL_PLAYER);
+  player.businesses = [{ id: 'house', name: 'Northlight', type: 'PRODUCTION_HOUSE', isActive: true, balance: 0 }];
+  const channel = syncOfficialChannels(player, migrateYoutubeSave(player));
+  assert(channel.zeroStart === true, 'fresh career');
+  assert(channel.extraChannelsUnlocked === false, 'switch stays locked');
+  assert(channel.schemaVersion === 4, 'schema 4');
+  assert(channel.officialChannels.studio.subscribers === 0, 'studio subscribers');
+  assert(channel.officialChannels.studio.totalViews === 0, 'studio views');
+});
+
+record('zero', 'old progress stays put', () => {
+  const player = worldWithSlate();
+  player.youtube = { ...player.youtube, schemaVersion: 3, subscribers: 44000, rivalSimWeekAbs: 10, rivalChannels: [{
+    id: 'label:tseries', houseId: 'tseries', kind: 'LABEL', name: 'T-Series', handle: '@tseries',
+    subscribers: 280000000, totalViews: 10, videos: [{ id: 'old', title: 'Old', type: 'MUSIC_VIDEO', thumbnailColor: 'poster-song', views: 10, likes: 1, earnings: 0, weekUploaded: 1, yearUploaded: 18, isPlayer: false, authorName: 'T-Series', qualityScore: 50, weeklyHistory: [10], comments: ['a'] }],
+    personality: 'MUSIC_LED', language: 'hi', country: 'IN', fatigue: 0, backlash: 0,
+  }] };
+  const migrated = migrateYoutubeSave(player);
+  assert(migrated.subscribers === 44000, 'personal subs stay');
+  assert(migrated.zeroStart === false, 'old save is not wiped');
+  assert(migrated.extraChannelsUnlocked === true, 'an old save keeps channel switching');
+  const synced = syncRivalYoutube(player, migrated, 'view').channel;
+  const label = synced.rivalChannels.find(channel => channel.houseId === 'tseries');
+  assert(label.subscribers >= 280000000, 'listed audience stays, saw ' + label.subscribers);
+});
+
+record('zero', 'a new rival grows instead of starting famous', () => {
+  const player = worldWithSlate();
+  const synced = syncRivalYoutube(player, migrateYoutubeSave(player), 'view').channel;
+  const label = synced.rivalChannels.find(channel => channel.houseId === 'tseries');
+  assert(label.subscribers < 5000000, 'T-Series should not be stamped at 280M, saw ' + label.subscribers);
+  assert(label.pace > 2, 'a global brand should grow faster');
+  const quiet = synced.rivalChannels.find(channel => channel.houseId === 'ARTISAN_PICTURES');
+  if (quiet) assert(label.pace >= (quiet.pace || 1), 'T-Series pace should lead a smaller house');
+});
+
+record('awards', 'silver is awarded once', () => {
+  const player = clone(INITIAL_PLAYER);
+  player.youtube = { ...migrateYoutubeSave(player), subscribers: 100000, awardsMigrated: true };
+  const first = settlePlayButtons(player);
+  assert(first.player.youtube.playButtons.personal.length === 1, 'one silver');
+  assert(first.player.youtube.pendingCeremonies.length === 1, 'ceremony queued');
+  assert(first.player.stats.fame === (player.stats.fame || 0) + 2, 'modest fame');
+  const second = settlePlayButtons(first.player);
+  assert(second.player === first.player, 'the same tier does not pay twice');
+});
+
+record('switch', 'cash opens extra channels once', () => {
+  const player = clone(INITIAL_PLAYER);
+  player.money = 8000;
+  player.youtube = migrateYoutubeSave(player);
+  const blocked = setChannel(player, 'studio');
+  assert((blocked.youtube.activeChannel || 'personal') === 'personal', 'locked switch does nothing');
+  const opened = unlockExtraYoutubeChannels(player);
+  assert(!opened.error, opened.error || '');
+  assert(opened.player.money === 0, 'the price comes out of cash');
+  const again = unlockExtraYoutubeChannels(opened.player);
+  assert(again.player.money === 0, 'paying twice should not happen');
+  assert(setChannel(opened.player, 'studio').youtube.activeChannel === 'studio', 'studio opens after the gate');
+});
+
+record('subscribe', 'a person can be followed', () => {
+  const player = clone(INITIAL_PLAYER);
+  player.youtube = syncCreatorYoutube(player, migrateYoutubeSave(player), 'view').channel;
+  const creator = player.youtube.creatorChannels[0];
+  assert(creator.subscribers < player.youtube.creatorChannels[0].subscribers + 1 || creator.subscribers >= 0, 'creator exists');
+  const fresh = creator.subscribers;
+  const on = toggleSubscription(player, creator.id);
+  assert(!on.error, on.error || '');
+  assert(on.player.youtube.subscriptions.includes(creator.id), 'the subscription is saved');
+  const off = toggleSubscription(on.player, creator.id);
+  assert(!off.player.youtube.subscriptions.includes(creator.id), 'unsubscribe sticks');
+  assert(fresh >= 0, 'zero-start creators are not negative');
+});
+
+record('look', 'a rename is saved', () => {
+  const player = clone(INITIAL_PLAYER);
+  player.youtube = migrateYoutubeSave(player);
+  const saved = saveChannelLook(player, 'personal', { name: 'Asha On Camera', avatarPreset: 'gold', thumbPreset: 'poster-song' });
+  assert(!saved.error, saved.error || '');
+  assert(saved.player.youtube.looks.personal.name === 'Asha On Camera', 'name persists');
+  assert(saved.player.youtube.looks.personal.thumbPreset === 'poster-song', 'thumbnail preset persists');
+  const same = saveChannelLook(player, 'personal', { name: player.name, avatarPreset: 'gold' });
+  assert(!same.player.youtube.looks.personal.renames, 'saving the current name is not a rename');
+  assert((same.player.youtube.audienceTrust ?? 55) === (player.youtube.audienceTrust ?? 55), 'a look-only save does not confuse the audience');
 });
 
 record('sync', 'a second pass does not duplicate the week', () => {

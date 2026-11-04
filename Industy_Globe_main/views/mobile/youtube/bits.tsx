@@ -42,7 +42,9 @@ export const Logo = ({ small = false, onClick }: { small?: boolean; onClick?: ()
     </button>
 );
 
-export const Av = ({ kind, size = 36, label }: { kind: 'me' | 'studio' | 'eplus' | 'letter'; size?: number; label?: string }) => {
+export const Av = ({ kind, size = 36, label, src, colors }: { kind: 'me' | 'studio' | 'eplus' | 'letter'; size?: number; label?: string; src?: string; colors?: readonly string[] }) => {
+    if (src) return <div className="av" style={{ width: size, height: size, backgroundImage: `url(${src})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />;
+    if (colors) return <div className="av" style={{ width: size, height: size, background: `linear-gradient(145deg, ${colors[0]}, ${colors[1] || colors[0]})`, fontSize: size * 0.38 }}>{(label || 'A').slice(0, 1).toUpperCase()}</div>;
     if (kind === 'studio') return <div className="av avs" style={{ width: size, height: size }}><svg viewBox="0 0 24 24" width={size * 0.5} height={size * 0.5}><path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="#fff" /></svg></div>;
     if (kind === 'eplus') return <div className="av ave" style={{ width: size, height: size, fontSize: size * 0.36 }}>E+</div>;
     if (kind === 'me') {

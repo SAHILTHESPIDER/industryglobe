@@ -2,7 +2,7 @@ import { createContext, useContext } from 'react';
 import { Commitment, Player, YoutubeChannel, YoutubeChannelKind, YoutubeVideo, YoutubeVideoType } from '../../../types';
 import { ActionResult } from './actions';
 
-export type YtScreen = 'home' | 'watch' | 'hub' | 'upload' | 'studio' | 'channel' | 'trending' | 'music' | 'shorts' | 'live' | 'money' | 'subs' | 'rival';
+export type YtScreen = 'home' | 'watch' | 'hub' | 'upload' | 'studio' | 'channel' | 'trending' | 'music' | 'shorts' | 'live' | 'money' | 'subs' | 'rival' | 'creator';
 
 export interface YtApi {
     player: Player;
@@ -28,6 +28,9 @@ export interface YtApi {
     kind: YoutubeChannelKind;
     rivalId: string | null;
     openRival: (id: string) => void;
+    creatorId: string | null;
+    openCreator: (id: string) => void;
+    switchChannel: (kind: YoutubeChannelKind) => void;
 }
 
 export const YtContext = createContext<YtApi | null>(null);

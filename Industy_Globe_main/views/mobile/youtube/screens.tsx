@@ -12,14 +12,19 @@ import {
 } from '../../../services/youtubeMarketing';
 import { findRivalChannel, personalityLabel } from '../../../services/youtubeRivals';
 import {
-    changeIdentity, completeBrand, completeCollab, dropMerch, enableMemberships, goLive, identityTuning, setChannel,
+    changeIdentity, completeBrand, completeCollab, dropMerch, enableMemberships, goLive, identityTuning,
     MERCH, PERSONAL_COSTS, personalCollab, publishUpload, raidStreamer, reactToVideo, resolveLeak,
     strikeCount, toggleSave, toggleSubscription, UPLOAD_PLANS,
 } from './actions';
-import { Av, formatCompact, formatMoney, Gauge, Spark, Thumb } from './bits';
+import { Av, formatCompact, formatMoney, Gauge, Thumb } from './bits';
+import { AnimatedSpark as Spark, LikeBurst, PremiereCountdown, RollNumber } from './motion';
 import { useYt } from './state';
 import { badgeFor, creatorFor, dubLine, postedAgo, STILL, stillForType, stillUrl, verifiedAuthor, weeksAgoFor } from './stills';
 import { createFittedThumbnailBlob, Face, MAX_THUMBNAIL_SOURCE_SIZE, ThumbnailFitMode } from './thumb';
+import { ChannelExtras, CreatorScreen, CreatorWatchSubscribe, PeopleSubs, TrophyShelf, bannerBackground } from './features';
+import { AVATAR_PRESETS, lookFor, presetColors } from '../../../services/youtubeCustomize';
+import { playButtonLabel } from '../../../services/youtubeAwards';
+import { creatorAudience } from '../../../services/youtubePeople';
 
 const MUSIC_TYPES: YoutubeVideoType[] = ['MUSIC_VIDEO', 'JUKEBOX', 'LYRIC_VIDEO'];
 const LIVE_TYPES: YoutubeVideoType[] = ['PREMIERE_LIVE'];
@@ -278,12 +283,16 @@ export const WatchScreen: React.FC = () => {
 
     if (!video) return <div className="card pad">Nothing to watch yet.</div>;
     const watchingRival = video.rivalChannelId ? findRivalChannel(api.channel, video.rivalChannelId) : undefined;
-    const subscribed = !!(watchingRival && (api.channel.subscriptions || []).includes(watchingRival.id));
+    const creatorHit = !watchingRival && !(video.isPlayer || video.channelKind) ? creatorFor(video.authorName) : undefined;
     const subs = watchingRival
         ? watchingRival.subscribers
-        : video.isPlayer || video.channelKind
-            ? api.channel.subscribers
-            : (creatorFor(video.authorName)?.followers || 0);
+        : video.channelKind === 'studio'
+            ? (api.channel.officialChannels?.studio?.subscribers || 0)
+            : video.channelKind === 'empirePlus'
+                ? (api.channel.officialChannels?.empirePlus?.subscribers || 0)
+                : video.isPlayer
+                    ? api.channel.subscribers
+                    : creatorAudience(api.channel, video.creatorChannelId || creatorHit?.id || '', api.channel.zeroStart ? 0 : (creatorHit?.followers || 0));
     const likes = video.likes + (reaction === 'LIKE' ? 1 : 0);
     const dislikes = Math.floor(video.views * 0.006) + (reaction === 'DISLIKE' ? 1 : 0);
 
@@ -306,23 +315,21 @@ export const WatchScreen: React.FC = () => {
                 <h1 className="h2" style={{ fontSize: 20, marginTop: 14, lineHeight: 1.3 }}>{video.title}</h1>
                 <div className="between" style={{ marginTop: 10, flexWrap: 'wrap' }}>
                     <div className="row">
-                        <button type="button" className="row" onClick={() => { if (watchingRival) api.openRival(watchingRival.id); }} style={{ background: 'none' }}>
+                        <button type="button" className="row" onClick={() => { if (watchingRival) api.openRival(watchingRival.id); else if (video.creatorChannelId) api.openCreator(video.creatorChannelId); }} style={{ background: 'none' }}>
                         <Av kind={authorKind(video)} label={video.authorName} />
                         <div style={{ textAlign: 'left' }}><b>{video.authorName}</b>{verifiedAuthor(video) ? <span className="vf">✓</span> : null}<div className="dim">{formatCompact(subs)} subs{video.country ? ` · ${video.country}` : ''}</div></div>
                         </button>
-                        {watchingRival ? (
-                            <button className={`btn sm${subscribed ? '' : ' white'}`} onClick={() => api.apply(toggleSubscription(api.player, watchingRival.id))}>{subscribed ? 'Subscribed' : 'Subscribe'}</button>
-                        ) : (video.isPlayer || video.channelKind) ? <span className="pill">Your channel</span> : null}
+                        <CreatorWatchSubscribe video={video} />
                     </div>
                     <div className="row">
-                        <button className={`btn sm${reaction === 'LIKE' ? ' red' : ''}`} onClick={() => api.update(reactToVideo(api.player, video.id, 'LIKE'))}>▲ {formatCompact(likes)}</button>
+                        <LikeBurst className={`btn sm${reaction === 'LIKE' ? ' red' : ''}`} on={reaction === 'LIKE'} onClick={() => api.update(reactToVideo(api.player, video.id, 'LIKE'))}>▲ {formatCompact(likes)}</LikeBurst>
                         <button className={`btn sm${reaction === 'DISLIKE' ? ' red' : ''}`} onClick={() => api.update(reactToVideo(api.player, video.id, 'DISLIKE'))}>▼ {formatCompact(dislikes)}</button>
                         <button className="btn sm" onClick={() => api.update(toggleSave(api.player, video.id))}>{(api.channel.savedVideoIds || []).includes(video.id) ? 'Saved' : 'Save'}</button>
                         <button className="btn sm" onClick={() => api.go('shorts')}>Clip</button>
                     </div>
                 </div>
                 <div className="card pad" style={{ marginTop: 14 }}>
-                    <div className="mono dim">{formatCompact(video.views)} views · Week {video.weekUploaded}</div>
+                    <div className="mono dim"><RollNumber value={video.views} /> views · Week {video.weekUploaded}</div>
                     <p style={{ marginTop: 8 }}>{typeLabel(video.type)}{project ? ` · ${project.projectDetails?.title}` : ''}{video.dubCount ? ` · ${video.dubCount} dubs` : ''}. Pre-book opens with the release week.</p>
                     {campaign && (
                         <div className="mint" style={{ marginTop: 8 }}>Feeds {project?.projectDetails?.title}: opening {openingMultiplier(campaign.campaignHype).toFixed(2)}× · hype {Math.round(campaign.campaignHype)}</div>
@@ -723,15 +730,17 @@ export const ChannelScreen: React.FC = () => {
     const api = useYt();
     const [tab, setTab] = useState('Home');
     const official = api.kind === 'studio' ? api.channel.officialChannels?.studio : api.kind === 'empirePlus' ? api.channel.officialChannels?.empirePlus : null;
+    const look = lookFor(api.channel, api.kind);
     const subs = official ? official.subscribers : api.channel.subscribers;
     const videos = official ? official.videos : api.channel.videos;
     const handle = official?.handle || api.channel.handle;
+    const displayName = look.name || (api.kind === 'personal' ? api.player.name : api.kind === 'empirePlus' ? 'Empire+' : handle);
     const shown = videos.filter(video => tab === 'Shorts' ? video.isShort || video.type === 'SHORT' : tab === 'Live' ? video.type === 'PREMIERE_LIVE' : true);
     const featured = shown[0];
 
     return (
         <div>
-            <div className="chan-banner" style={{ backgroundImage: 'linear-gradient(90deg, rgba(8,8,11,.25), transparent), url(/yt/premiere.webp)' }}>
+            <div className="chan-banner" style={{ backgroundImage: bannerBackground(api.kind, look), backgroundSize: 'cover' }}>
                 <div className="disp" style={{ position: 'absolute', right: 20, bottom: 16, zIndex: 2, textAlign: 'right', fontSize: 30, lineHeight: 0.95 }}>
                     {api.projects[0]?.projectDetails?.title || api.player.name}
                     <small style={{ display: 'block', fontSize: 12, letterSpacing: '.22em', color: 'var(--gold)' }}>NEW TRAILER OUT NOW</small>
@@ -739,9 +748,9 @@ export const ChannelScreen: React.FC = () => {
             </div>
             <div className="chanhead">
                 <div className="row">
-                    <Av kind={api.kind === 'empirePlus' ? 'eplus' : api.kind === 'studio' ? 'studio' : 'me'} label={api.player.name} size={96} />
+                    <Av kind={api.kind === 'empirePlus' ? 'eplus' : api.kind === 'studio' ? 'studio' : 'me'} label={displayName} size={96} src={look.avatarData} colors={look.avatarData ? undefined : presetColors(look.avatarPreset, AVATAR_PRESETS)} />
                     <div>
-                        <div className="h2">{api.kind === 'personal' ? api.player.name : handle}</div>
+                        <div className="h2">{displayName}</div>
                         <div className="dim">{handle} · {formatCompact(subs)} subs · {videos.length} videos · {formatCompact(api.channel.members)} members</div>
                     </div>
                 </div>
@@ -754,7 +763,7 @@ export const ChannelScreen: React.FC = () => {
             </div>
             <div className="cs">
                 {(['personal', 'studio', 'empirePlus'] as const).map(item => (
-                    <button key={item} className={`csi${api.kind === item ? ' on' : ''}`} onClick={() => api.update(setChannel(api.player, item))}>
+                    <button key={item} className={`csi${api.kind === item ? ' on' : ''}`} onClick={() => api.switchChannel(item)}>
                         <Av kind={item === 'empirePlus' ? 'eplus' : item === 'studio' ? 'studio' : 'me'} label={api.player.name} size={26} />
                         {item === 'personal' ? 'Personal' : item === 'studio' ? 'Studio' : 'Empire+'}
                     </button>
@@ -792,6 +801,7 @@ export const ChannelScreen: React.FC = () => {
                     <div className="grid">{shown.slice(1, 5).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />)}</div>
                 </div>
             )}
+            <ChannelExtras />
             {tab === 'Home' && (
                 <div style={{ marginTop: 18 }}>
                     <div className="between"><div className="h2">Merch shelf</div><span className="pill gold">Premium drop live</span></div>
@@ -891,8 +901,11 @@ export const TrendingScreen: React.FC = () => {
                 {rising.map(creator => (
                     <div key={creator.id} className="slot">
                         <div className="between"><b>{creator.name}</b><span className="pill">{creator.category === 'STREAMER' ? 'Streamer' : creator.niche}</span></div>
-                        <div className="dim">{creator.handle} · {creator.country}{creator.org ? ` · ${creator.org}` : ''} · {formatCompact(creator.followers)}</div>
-                        <button className="btn sm" style={{ marginTop: 8 }} onClick={() => invite(creator.name, creator.id)}>Invite</button>
+                        <div className="dim">{creator.handle} · {creator.country}{creator.org ? ` · ${creator.org}` : ''} · {formatCompact(creatorAudience(api.channel, creator.id, api.channel.zeroStart ? 0 : creator.followers))} subs</div>
+                        <div className="row" style={{ marginTop: 8 }}>
+                            <button className="btn sm" onClick={() => api.openCreator(creator.id)}>Channel</button>
+                            <button className="btn sm" onClick={() => invite(creator.name, creator.id)}>Invite</button>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -1053,13 +1066,13 @@ export const LiveScreen: React.FC = () => {
                     <button className="btn" onClick={() => api.apply(goLive(api.player, 'poll'))}>New poll</button>
                     <button className="btn" onClick={() => setEnded(true)}>End stream</button>
                 </div>
-                {project && <div className="card pad" style={{ marginTop: 12 }}><b>Premiere livestream</b><div className="mu">{project.projectDetails?.title} · {phase?.releaseWeekAbs != null ? `week ${((phase.releaseWeekAbs % 52) + 1)}` : 'when the film releases'}</div></div>}
+                {project && <div className="card pad" style={{ marginTop: 12 }}><div className="between"><b>Premiere livestream</b><PremiereCountdown weeks={phase?.releaseWeekAbs != null ? phase.releaseWeekAbs - api.absWeek : null} /></div><div className="mu">{project.projectDetails?.title}</div></div>}
             </div>
             <div>
                 <div className="card pad" style={{ maxHeight: 280, overflow: 'auto' }}>
                     <div className="h2">Live chat</div>
                     <div className="pill gold">Pinned · gifted memberships on</div>
-                    {chat.map((line, index) => <div key={`${index}-${line}`} style={{ marginTop: 8 }}><b className={index === 0 ? 'gold' : ''}>{index === 0 ? 'Member' : `chat${index}`}</b> <span className="mu">{line}</span></div>)}
+                    <div className="yt-chat-scroll">{chat.map((line, index) => <div key={`${index}-${line}`} style={{ marginTop: 8 }}><b className={index === 0 ? 'gold' : ''}>{index === 0 ? 'Member' : `chat${index}`}</b> <span className="mu">{line}</span></div>)}</div>
                 </div>
                 <div className="h2" style={{ marginTop: 14 }}>India live</div>
                 <div className="grid" style={{ marginTop: 8 }}>{india.map(creator => <Row key={creator.id} creator={creator} />)}</div>
@@ -1090,6 +1103,7 @@ export const MoneyScreen: React.FC = () => {
     return (
         <div>
             <div className="h1">Earn</div>
+            <TrophyShelf />
             <div className="dim">Monetization at {YOUTUBE_MONETIZATION_SUBS.toLocaleString()} subs and {YOUTUBE_MONETIZATION_VIEWS.toLocaleString()} views. Ads pay a flat ${FLAT_RPM.toFixed(2)} RPM. {monetized ? 'This channel is monetized.' : 'Not monetized yet.'}</div>
             <div className="g6" style={{ marginTop: 14 }}>
                 {MILESTONES.map(item => {
@@ -1107,7 +1121,7 @@ export const MoneyScreen: React.FC = () => {
             <div className="wgrid" style={{ marginTop: 16 }}>
                 <div className="card pad">
                     <div className="h2">Ad revenue</div>
-                    <div className="kpi"><div className="v">{formatMoney(api.channel.lifetimeEarnings)}</div></div>
+                    <div className="kpi"><div className="v"><RollNumber value={api.channel.lifetimeEarnings} money /></div></div>
                     {Object.entries(COUNTRY_RPM).slice(0, 5).map(([code, rpm]) => <div key={code} className="between"><span>{code}</span><span className="dim mono">table ${rpm.toFixed(2)}</span></div>)}
                 </div>
                 <div className="card pad">
@@ -1168,6 +1182,7 @@ export const SubscriptionsScreen: React.FC = () => {
     return (
         <div>
             <div className="h1">Subscriptions</div>
+            <PeopleSubs />
             <div className="dim" style={{ margin: '6px 0 14px' }}>Houses you follow. Their new uploads land here.</div>
             {followed.size === 0 && <div className="card pad">You are not following any house yet. Open one below and subscribe.</div>}
             <div className="grid" style={{ marginTop: 12 }}>
@@ -1203,6 +1218,7 @@ export const RivalChannelScreen: React.FC = () => {
                         <div className="h2">{house.name} <span className="vf">✓</span></div>
                         <div className="dim">{house.handle} · {formatCompact(house.subscribers)} subs · {shown.length} videos</div>
                         <div className="dim">{personalityLabel(house.personality)} · {house.country} · {house.language}</div>
+                        {(house.playButtons || []).length > 0 && <div className="dim">{house.playButtons!.map(tier => `${playButtonLabel(tier)} Play Button`).join(' · ')}</div>}
                         <div className="dim">Fatigue {Math.round(house.fatigue)} · Backlash {Math.round(house.backlash)}</div>
                     </div>
                 </div>
@@ -1225,6 +1241,7 @@ export const screenFor = (screen: string) => {
     if (screen === 'trending') return <TrendingScreen />;
     if (screen === 'subs') return <SubscriptionsScreen />;
     if (screen === 'rival') return <RivalChannelScreen />;
+    if (screen === 'creator') return <CreatorScreen />;
     if (screen === 'music') return <MusicScreen />;
     if (screen === 'shorts') return <ShortsScreen />;
     if (screen === 'live') return <LiveScreen />;
