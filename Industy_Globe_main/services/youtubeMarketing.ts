@@ -289,7 +289,7 @@ export const ensureCampaign = (channel: YoutubeChannel, projectId: string): Yout
 
 export const emptyChannelExtras = (channel: YoutubeChannel): YoutubeChannel => ({
     ...channel,
-    schemaVersion: Math.max(3, typeof channel.schemaVersion === 'number' ? channel.schemaVersion : 0),
+    schemaVersion: Math.max(4, typeof channel.schemaVersion === 'number' ? channel.schemaVersion : 0),
     officialChannels: channel.officialChannels || {},
     marketing: channel.marketing || {},
     strikes: channel.strikes || [],
@@ -317,8 +317,19 @@ const trimChannelVideos = (videos: YoutubeVideo[]): YoutubeVideo[] => {
     return sorted.slice(0, 60).map(video => ({ ...video, weeklyHistory: (video.weeklyHistory || []).slice(-26) }));
 };
 
+const isFreshYoutubeCareer = (raw?: YoutubeChannel) => {
+    if (!raw) return true;
+    if (raw.zeroStart !== undefined) return raw.zeroStart;
+    if ((raw.schemaVersion ?? 0) >= 2) return false;
+    if ((raw.subscribers || 0) > 0 || (raw.videos?.length || 0) > 0 || (raw.lifetimeEarnings || 0) > 0) return false;
+    if (raw.officialChannels?.studio || raw.officialChannels?.empirePlus || (raw.rivalChannels?.length || 0) > 0) return false;
+    return true;
+};
+
 export const migrateYoutubeSave = (player: Player): YoutubeChannel => {
-    const channel = emptyChannelExtras(player.youtube);
+    const raw = player.youtube;
+    const fresh = isFreshYoutubeCareer(raw);
+    const channel = emptyChannelExtras(raw);
     channel.videos = trimChannelVideos(channel.videos || []);
     if (channel.officialChannels?.studio) channel.officialChannels.studio.videos = trimChannelVideos(channel.officialChannels.studio.videos || []);
     if (channel.officialChannels?.empirePlus) channel.officialChannels.empirePlus.videos = trimChannelVideos(channel.officialChannels.empirePlus.videos || []);
@@ -330,6 +341,8 @@ export const migrateYoutubeSave = (player: Player): YoutubeChannel => {
         const age = getAbsoluteWeek(player.age, player.currentWeek) - strike.weekAbs;
         return age < 26;
     });
+    if (channel.zeroStart === undefined) channel.zeroStart = fresh;
+    if (channel.extraChannelsUnlocked === undefined) channel.extraChannelsUnlocked = !fresh;
     return ensureYoutubePartner(channel);
 };
 
@@ -340,12 +353,11 @@ export const syncOfficialChannels = (player: Player, channel: YoutubeChannel): Y
     const next = { ...channel, officialChannels: { ...(channel.officialChannels || {}) } };
     const house = productionHouse(player);
     if (house) {
-        const rep = clamp(house.stats?.brandHealth ?? player.stats?.reputation ?? 20, 0, 100);
         const existing = next.officialChannels.studio;
         next.officialChannels.studio = {
             ...(existing || {
                 handle: `@${(house.name || 'empire').toLowerCase().replace(/[^a-z0-9]+/g, '')}studios`,
-                subscribers: Math.floor(5_000 + rep * 2_000),
+                subscribers: 0,
                 totalViews: 0,
                 lifetimeEarnings: 0,
                 videos: [],
@@ -359,7 +371,7 @@ export const syncOfficialChannels = (player: Player, channel: YoutubeChannel): Y
         next.officialChannels.empirePlus = {
             ...(existing || {
                 handle: `@${(player.ownPlatform.name || 'empireplus').toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
-                subscribers: 25_000,
+                subscribers: 0,
                 totalViews: 0,
                 lifetimeEarnings: 0,
                 videos: [],
@@ -438,8 +450,9 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
     const rivalWeek = syncRivalYoutube(player, channel, 'week');
     channel = rivalWeek.channel;
     player.youtube = channel;
-    rivalWeek.notes.forEach(msg => result.logs.push({ msg: `YouTube · ${msg}`, type: 'neutral' }));
     const abs = getAbsoluteWeek(player.age, player.currentWeek);
+    rivalWeek.notes.forEach(msg => result.logs.push({ msg: `YouTube · ${msg}`, type: 'neutral' }));
+    rivalWeek.news.forEach((item, index) => result.news.push(newsItem(player, `news_rival_award_${abs}_${index}`, item.headline, item.impact)));
     let studioRevenue = 0;
     let empireRevenue = 0;
     ageOfficial(channel.officialChannels?.studio, false);
@@ -580,7 +593,7 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
             quality: hidden?.qualityScore || 60,
         });
         const v0 = openingViews({
-            officialSubs: target?.subscribers || 5_000,
+            officialSubs: target?.subscribers ?? 0,
             personalSubs: yt.subscribers || 0,
             playerInCast: (details.castList || []).some(member => member.isPlayer) || project.type === 'ACTING_GIG',
             castFame: castFame.length ? castFame : [current.stats.fame || 20],

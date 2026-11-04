@@ -8,6 +8,8 @@ import {
 import { findRivalChannel } from '../../../services/youtubeRivals';
 import { liveCreators, PUBLIC_CREATORS } from '../../../services/youtubeCreators';
 import { collabBoard, deliverSponsorship, filmCollab, filmCollabFromOffer, partnerHeat } from '../../../services/youtubePartner';
+import { channelSwitchAllowed, lookFor } from '../../../services/youtubeCustomize';
+import { findCreatorSeed } from '../../../services/youtubePeople';
 
 export const UPLOAD_PLANS: Record<YoutubeUploadPlan, { label: string; viewBoost: number; qualityBoost: number; trust: number; mood: number; controversy: number }> = {
     SAFE: { label: 'Safe', viewBoost: 0, qualityBoost: 5, trust: 4, mood: 1, controversy: -2 },
@@ -76,14 +78,15 @@ export const makeVideo = (player: Player, title: string, type: YoutubeVideoType,
         id: `vid_${Date.now()}_${Math.floor(Math.random() * 9999)}`,
         title,
         type,
-        thumbnailColor: 'poster-hero',
+        thumbnailColor: lookFor(player.youtube, player.youtube.activeChannel || 'personal').thumbPreset || 'poster-hero',
         views: seeded,
         likes: Math.floor(seeded * 0.05),
         earnings: 0,
         weekUploaded: player.currentWeek,
         yearUploaded: player.age,
         isPlayer: true,
-        authorName: player.name,
+        authorName: lookFor(player.youtube, 'personal').name || player.name,
+        thumbnailPreset: lookFor(player.youtube, player.youtube.activeChannel || 'personal').thumbPreset,
         qualityScore: quality,
         uploadPlan: plan,
         controversyScore: Math.max(0, p.controversy + ident.heat),
@@ -452,26 +455,43 @@ export const raidStreamer = (player: Player, creatorId: string): ActionResult =>
 export const toggleSubscription = (player: Player, channelId: string): ActionResult => {
     const channel = player.youtube;
     const house = findRivalChannel(channel, channelId);
-    if (!house) return { player, error: 'That channel is not on YouTube yet.' };
+    const creator = house ? undefined : findCreatorSeed(player, channelId);
+    if (!house && !creator) return { player, error: 'That channel is not on YouTube yet.' };
+    const id = house ? house.id : creator!.id;
     const subs = new Set(channel.subscriptions || []);
-    const on = subs.has(channelId);
-    if (on) subs.delete(channelId);
-    else subs.add(channelId);
-    const rivalChannels = (channel.rivalChannels || []).map(item => item.id === channelId
-        ? { ...item, subscribers: Math.max(0, item.subscribers + (on ? -1 : 1)) }
-        : item);
+    const on = subs.has(id);
+    if (on) subs.delete(id);
+    else subs.add(id);
+    const rivalChannels = house
+        ? (channel.rivalChannels || []).map(item => item.id === id
+            ? { ...item, subscribers: Math.max(0, item.subscribers + (on ? -1 : 1)) }
+            : item)
+        : channel.rivalChannels;
+    let creatorChannels = channel.creatorChannels || [];
+    if (creator) {
+        const next = creatorChannels.map(item => item.id === creator.id
+            ? { ...item, subscribers: Math.max(0, item.subscribers + (on ? -1 : 1)) }
+            : item);
+        creatorChannels = next.some(item => item.id === creator.id)
+            ? next
+            : [...next, { id: creator.id, subscribers: on ? 0 : 1, totalViews: 0, playButtons: [] }];
+    }
+    const name = house ? house.name : creator!.name;
     return {
         player: log({
             ...player,
-            youtube: { ...channel, subscriptions: [...subs], rivalChannels },
-        }, on ? `Unsubscribed from ${house.name}.` : `Subscribed to ${house.name}.`, 'neutral'),
+            youtube: { ...channel, subscriptions: [...subs], rivalChannels, creatorChannels },
+        }, on ? `Unsubscribed from ${name}.` : `Subscribed to ${name}.`, 'neutral'),
     };
 };
 
-export const setChannel = (player: Player, activeChannel: Player['youtube']['activeChannel']): Player => ({
-    ...player,
-    youtube: { ...player.youtube, activeChannel },
-});
+export const setChannel = (player: Player, activeChannel: Player['youtube']['activeChannel']): Player => {
+    if (!activeChannel || !channelSwitchAllowed(player.youtube, activeChannel)) return player;
+    return {
+        ...player,
+        youtube: { ...player.youtube, activeChannel },
+    };
+};
 
 export const toggleSave = (player: Player, videoId: string): Player => {
     const saved = new Set(player.youtube.savedVideoIds || []);

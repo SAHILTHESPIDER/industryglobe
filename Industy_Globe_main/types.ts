@@ -1682,6 +1682,10 @@ export enum Page {
       country?: string;
       /** Set when a rival house uploaded this video. */
       rivalChannelId?: string;
+      /** Set when a person or creator uploaded this video. */
+      creatorChannelId?: string;
+      /** Generated thumbnail preset chosen for this upload. */
+      thumbnailPreset?: string;
       /** Partner-program stats. Missing on older videos. */
       signals?: YoutubeVideoSignals;
   }
@@ -1733,6 +1737,7 @@ export enum Page {
 
   export type RivalHouseKind = 'STUDIO' | 'PLATFORM' | 'LABEL';
   export type RivalPersonality = 'AGGRESSIVE' | 'MYSTERY' | 'MUSIC_LED' | 'SPAMMY' | 'PRESTIGE';
+  export type PlayButtonTier = 'SILVER' | 'GOLD' | 'DIAMOND' | 'RED_DIAMOND';
 
   /** A rival production house, streaming platform, or music label on YouTube. */
   export interface RivalYoutubeChannel {
@@ -1751,6 +1756,47 @@ export enum Page {
       fatigue: number;
       /** 0–100. Spam, weak cuts, and bad timing stick. */
       backlash: number;
+      /** Growth speed from the house's standing. Not a starting subscriber count. */
+      pace?: number;
+      /** Play Button tiers this house has already been given. */
+      playButtons?: PlayButtonTier[];
+  }
+
+  export interface PlayButtonAward {
+      tier: PlayButtonTier;
+      /** Subscribers on the channel when the button was earned. */
+      subscribers: number;
+      weekAbs: number;
+  }
+
+  export interface YoutubeCeremony {
+      id: string;
+      tier: PlayButtonTier;
+      channelKind: YoutubeChannelKind;
+      name: string;
+      weekAbs: number;
+  }
+
+  /** Art and name the player picked for one of their channels. */
+  export interface ChannelLook {
+      name?: string;
+      avatarPreset?: string;
+      /** Resized data URL. Absent when a preset is used. */
+      avatarData?: string;
+      bannerPreset?: string;
+      bannerData?: string;
+      /** Default generated thumbnail for new uploads. */
+      thumbPreset?: string;
+      renameWeekAbs?: number;
+      renames?: number;
+  }
+
+  /** A person, actor, singer, or influencer on YouTube. Separate from their social follower count. */
+  export interface CreatorYoutubeChannel {
+      id: string;
+      subscribers: number;
+      totalViews: number;
+      playButtons?: PlayButtonTier[];
   }
 
   export interface YoutubeStrike {
@@ -1790,7 +1836,9 @@ export enum Page {
       lastIdentityChangeWeek: number;
       /**
        * 2 = official channels and campaigns. 3 adds rival houses.
-       * 4 adds the partner program. A higher value from another branch is kept.
+       * 4 adds play buttons, looks, creator channels, and zero-start.
+       * 5 adds the partner program. A higher value from another branch is kept.
+       * Saves written as 4 by either feature are told apart by which fields they already have.
        */
       schemaVersion?: number;
       /** Monetization, collabs, ads, and analytics. Missing until the save is migrated. */
@@ -1798,10 +1846,23 @@ export enum Page {
       officialChannels?: { studio?: OfficialChannel; empirePlus?: OfficialChannel };
       marketing?: Record<string, YoutubeCampaign>;
       rivalChannels?: RivalYoutubeChannel[];
-      /** Rival channel ids the player follows. */
+      /** Rival house ids and creator ids the player follows. */
       subscriptions?: string[];
       /** Last absolute week the rival slate was simulated. Missing on older saves. */
       rivalSimWeekAbs?: number;
+      /** Person and creator channels. Missing until the first sync. */
+      creatorChannels?: CreatorYoutubeChannel[];
+      /** Last absolute week creator channels were aged. */
+      creatorSimWeekAbs?: number;
+      /** True on a career that began with empty YouTube numbers. */
+      zeroStart?: boolean;
+      /** Studio and Empire+ switching. Personal is always open. */
+      extraChannelsUnlocked?: boolean;
+      looks?: Partial<Record<YoutubeChannelKind, ChannelLook>>;
+      playButtons?: Partial<Record<YoutubeChannelKind, PlayButtonAward[]>>;
+      pendingCeremonies?: YoutubeCeremony[];
+      /** First pass records buttons the save already earned, without a second reward. */
+      awardsMigrated?: boolean;
       strikes?: YoutubeStrike[];
       leaks?: YoutubeLeak[];
       shortsRemixes?: number;

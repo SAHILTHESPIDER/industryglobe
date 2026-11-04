@@ -11,7 +11,7 @@ const bundle = join(tempDir, 'yt-partner-audit-bundle.mjs');
 
 const source = `
 import { INITIAL_PLAYER } from '${root}types.ts';
-import { applyYoutubeReleaseBoost } from '${root}services/youtubeMarketing.ts';
+import { applyYoutubeReleaseBoost, migrateYoutubeSave } from '${root}services/youtubeMarketing.ts';
 import {
   adDollars, buyPromotion, chargeYoutubeWallet, creditYoutubeWallet, ensureYoutubePartner,
   filmCollab, quotePromotion, readAnalytics, runPremiere, scaleBrandPayout, settleYoutubePartnerWeek,
@@ -76,7 +76,56 @@ record('migrate', 'keeps a higher schema and foreign fields, and is idempotent',
   assert(once.partner.audience[0].code === 'US', 'audience was replaced');
   assert(JSON.stringify(once) === JSON.stringify(twice), 'second migrate changed the save');
   const fresh = ensureYoutubePartner({ ...clone(INITIAL_PLAYER.youtube), schemaVersion: 3 });
-  assert(fresh.schemaVersion === 4, 'v3 did not move to 4');
+  assert(fresh.schemaVersion === 5, 'v3 did not move to 5');
+});
+
+record('migrate', 'v3, play-button v4, and partner v4 all land on schema 5', () => {
+  const v3 = clone(INITIAL_PLAYER);
+  v3.youtube = { ...v3.youtube, schemaVersion: 3, subscribers: 44000, isMonetized: true, looks: { personal: { name: 'Kept Name' } } };
+  const fromV3 = migrateYoutubeSave(v3);
+  assert(fromV3.schemaVersion === 5, 'v3 schema ' + fromV3.schemaVersion);
+  assert(fromV3.partner && fromV3.partner.feature === 1, 'v3 missing partner');
+  assert(fromV3.partner.monetized.personal === true, 'an already monetized v3 channel lost ads');
+  assert(fromV3.zeroStart === false, 'v3 became a fresh career');
+  assert(fromV3.extraChannelsUnlocked === true, 'v3 lost the account switch');
+  assert(fromV3.looks.personal.name === 'Kept Name', 'v3 lost a look');
+
+  const awards = clone(INITIAL_PLAYER);
+  awards.youtube = {
+    ...awards.youtube,
+    schemaVersion: 4,
+    subscribers: 0,
+    isMonetized: false,
+    zeroStart: true,
+    extraChannelsUnlocked: false,
+    looks: { personal: { name: 'Asha' } },
+    playButtons: { personal: [{ tier: 'SILVER', subscribers: 100000, weekAbs: 4 }] },
+  };
+  const fromAwards = migrateYoutubeSave(awards);
+  const fromAwardsAgain = migrateYoutubeSave({ ...awards, youtube: fromAwards });
+  assert(fromAwards.schemaVersion === 5, 'awards schema ' + fromAwards.schemaVersion);
+  assert(fromAwards.zeroStart === true, 'zero start was cleared');
+  assert(fromAwards.extraChannelsUnlocked === false, 'locked switch was opened');
+  assert(fromAwards.looks.personal.name === 'Asha', 'look was dropped');
+  assert(fromAwards.playButtons.personal[0].tier === 'SILVER', 'play button was dropped');
+  assert(fromAwards.partner && fromAwards.partner.monetized.personal !== true, 'zero start was grandfathered into ads');
+  assert(JSON.stringify(fromAwards) === JSON.stringify(fromAwardsAgain), 'awards migration was not idempotent');
+
+  const partnerSave = clone(INITIAL_PLAYER);
+  partnerSave.youtube = {
+    ...partnerSave.youtube,
+    schemaVersion: 4,
+    subscribers: 8000,
+    isMonetized: true,
+    partner: { feature: 1, seeded: true, hourWeeks: { personal: [5000], studio: [], empirePlus: [] }, customNote: 'keep-me' },
+  };
+  const fromPartner = migrateYoutubeSave(partnerSave);
+  assert(fromPartner.schemaVersion === 5, 'partner schema ' + fromPartner.schemaVersion);
+  assert(fromPartner.partner.customNote === 'keep-me', 'partner field was dropped');
+  assert(fromPartner.partner.seeded === true, 'seeded flag was reset');
+  assert(fromPartner.zeroStart === false, 'a partner save was marked fresh');
+  assert(fromPartner.extraChannelsUnlocked === true, 'a partner save lost channel switching');
+  assert(fromPartner.partner.monetized.personal === true, 'partner monetization was cleared');
 });
 
 record('ypp', 'ads need the partner flag, and a US audience pays more than India', () => {

@@ -6,7 +6,8 @@ import { YoutubeChannelKind, YoutubeDaypart, YoutubeFormat, YoutubeVideo, Youtub
  * Weak videos, bad fits, and over-buying only change the result.
  */
 
-export const YPP_SCHEMA = 4;
+/** 5 follows play buttons and zero-start, which already used 4. */
+export const YPP_SCHEMA = 5;
 export const YPP_SUBS = 1000;
 export const YPP_WATCH_HOURS = 4000;
 /** Shorts path, same as YouTube: 1,000 subs and 10 million Shorts views in the rolling window. */
