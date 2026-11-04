@@ -5,6 +5,7 @@ import { aiOffline } from '../../../src/services/aiContent';
 import {
     activeStrikeCount, dropCost, dropEnergy, ensureCampaign, isMarketingType, registerStrike, strikeRisk, syncOfficialChannels, typeLabel,
 } from '../../../services/youtubeMarketing';
+import { findRivalChannel } from '../../../services/youtubeRivals';
 import { liveCreators } from '../../../services/youtubeCreators';
 
 export const UPLOAD_PLANS: Record<YoutubeUploadPlan, { label: string; viewBoost: number; qualityBoost: number; trust: number; mood: number; controversy: number }> = {
@@ -89,6 +90,8 @@ export const makeVideo = (player: Player, title: string, type: YoutubeVideoType,
         weeklyHistory: seeded ? [seeded] : [],
         comments: [],
         isShort: type === 'SHORT',
+        language: 'hi',
+        country: 'IN',
         ...extra,
     };
 };
@@ -261,39 +264,47 @@ export const publishUpload = (player: Player, input: {
         const budget = project?.projectDetails?.estimatedBudget || 0;
         const cost = dropCost(input.type, budget);
         const energy = dropEnergy(input.type);
-        if (player.money < cost) return { player, error: 'Not enough money for this drop.' };
-        if (player.energy.current < energy && energy > 0) return { player, error: 'Not enough energy.' };
+        if (energy > 0 && player.energy.current < energy) return { player, error: 'Not enough energy.' };
         const house = player.businesses?.find(item => item.type === 'PRODUCTION_HOUSE' && item.isActive);
-        if (cost > 0 && house) {
-            house.balance = Math.max(0, (house.balance || 0) - cost);
+        const houseCanPay = !!house && cost > 0 && (house.balance || 0) >= cost;
+        const personalCanPay = player.money >= cost;
+        const underfunded = cost > 0 && !houseCanPay && !personalCanPay;
+        const paid = underfunded ? 0 : cost;
+        const chargeHouse = paid > 0 && houseCanPay;
+        if (chargeHouse && house) {
+            house.balance = Math.max(0, (house.balance || 0) - paid);
             house.studioState = house.studioState || { scripts: [], concepts: [], writers: [], ipMarket: [], lastMarketRefreshWeek: 0, lastWriterRefreshWeek: 0 };
             house.studioState.financeLedger = [
-                { id: `yt_spend_${Date.now()}`, week: player.currentWeek, year: player.age, amount: -cost, type: 'PRODUCTION_SPEND' as const, label: `YouTube · ${typeLabel(input.type)}` },
+                { id: `yt_spend_${Date.now()}`, week: player.currentWeek, year: player.age, amount: -paid, type: 'PRODUCTION_SPEND' as const, label: `YouTube · ${typeLabel(input.type)}` },
                 ...(house.studioState.financeLedger || []),
             ].slice(0, 80);
         }
         const campaign = ensureCampaign(channel, input.projectId);
-        if (input.type !== 'SHORT' && input.type !== 'CLIP' && campaign.drops.some(drop => drop.type === input.type)) {
-            return { player, error: `${typeLabel(input.type)} is already on this campaign.` };
-        }
+        const repeats = campaign.drops.filter(drop => drop.type === input.type).length;
         const drop = {
-            id: `drop_${Date.now()}`,
+            id: `drop_${Date.now()}_${repeats}`,
             type: input.type,
             scheduledWeekAbs: input.scheduledWeekAbs ?? abs,
             status: 'SCHEDULED' as const,
             title,
             thumbnailScore: input.thumbnailScore || 0.62,
+            underfunded,
         };
         let next: Player = {
             ...player,
-            money: house ? player.money : player.money - cost,
+            money: chargeHouse || underfunded ? player.money : player.money - paid,
             youtube: {
                 ...channel,
                 marketing: { ...(channel.marketing || {}), [input.projectId]: { ...campaign, drops: [...campaign.drops, drop] } },
             },
         };
         if (energy > 0) spendPlayerEnergy(next, energy);
-        next = log(next, `Scheduled ${typeLabel(input.type)}: ${title}`, 'positive');
+        const note = underfunded
+            ? `Scheduled ${typeLabel(input.type)} without the spend. Reach will be weaker: ${title}`
+            : repeats
+                ? `Scheduled another ${typeLabel(input.type)}. Repeats return less: ${title}`
+                : `Scheduled ${typeLabel(input.type)}: ${title}`;
+        next = log(next, note, underfunded || repeats ? 'neutral' : 'positive');
         return { player: next, screen: 'hub' };
     }
     const cost = PERSONAL_COSTS[input.type] || { cost: 0, energy: input.type === 'SHORT' ? 6 : 12 };
@@ -442,6 +453,25 @@ export const raidStreamer = (player: Player, creatorId: string): ActionResult =>
     }
     next = log(next, `${live.name} raided the trailer. +${views.toLocaleString()} views.`, 'positive');
     return { player: next };
+};
+
+export const toggleSubscription = (player: Player, channelId: string): ActionResult => {
+    const channel = player.youtube;
+    const house = findRivalChannel(channel, channelId);
+    if (!house) return { player, error: 'That channel is not on YouTube yet.' };
+    const subs = new Set(channel.subscriptions || []);
+    const on = subs.has(channelId);
+    if (on) subs.delete(channelId);
+    else subs.add(channelId);
+    const rivalChannels = (channel.rivalChannels || []).map(item => item.id === channelId
+        ? { ...item, subscribers: Math.max(0, item.subscribers + (on ? -1 : 1)) }
+        : item);
+    return {
+        player: log({
+            ...player,
+            youtube: { ...channel, subscriptions: [...subs], rivalChannels },
+        }, on ? `Unsubscribed from ${house.name}.` : `Subscribed to ${house.name}.`, 'neutral'),
+    };
 };
 
 export const setChannel = (player: Player, activeChannel: Player['youtube']['activeChannel']): Player => ({

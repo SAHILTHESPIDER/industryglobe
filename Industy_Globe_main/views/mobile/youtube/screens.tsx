@@ -4,15 +4,17 @@ import { saveMediaBlob } from '../../../services/mediaStorage';
 import { aiContent, aiOffline } from '../../../src/services/aiContent';
 import { hashString, liveCreators, PUBLIC_CREATORS, reactionTitle, streamers } from '../../../services/youtubeCreators';
 import { calculateYoutubeCreatorScore, getYoutubePublicImageLabel, YOUTUBE_MONETIZATION_SUBS, YOUTUBE_MONETIZATION_VIEWS } from '../../../services/youtubeLogic';
+import { dropOutlook } from '../../../services/youtubeConsequences';
 import {
     carry, COUNTRY_RPM, ctrFor, dropCost, dropEnergy, ensureCampaign, FLAT_RPM, forecastOpeningGross, forecastYtLift, isMarketingType,
     MARKETING_TYPES, musicOpeningBonus, openingMultiplier, PERSONAL_TYPES, readPhase,
-    SHORTS_RPM, slotUnlocked, trailerWarShare, typeLabel,
+    SHORTS_RPM, trailerWarShare, typeLabel,
 } from '../../../services/youtubeMarketing';
+import { findRivalChannel, personalityLabel } from '../../../services/youtubeRivals';
 import {
     changeIdentity, completeBrand, completeCollab, dropMerch, enableMemberships, goLive, identityTuning, setChannel,
     MERCH, PERSONAL_COSTS, personalCollab, publishUpload, raidStreamer, reactToVideo, resolveLeak,
-    strikeCount, toggleSave, UPLOAD_PLANS,
+    strikeCount, toggleSave, toggleSubscription, UPLOAD_PLANS,
 } from './actions';
 import { Av, formatCompact, formatMoney, Gauge, Spark, Thumb } from './bits';
 import { useYt } from './state';
@@ -27,11 +29,14 @@ const PLANS: YoutubeUploadPlan[] = ['SAFE', 'VIRAL_BAIT', 'BTS', 'PROJECT_PROMO'
 const LANGS = ['Hindi', 'English', 'Tamil', 'Telugu', 'Spanish', 'Arabic'];
 
 const authorKind = (video: YoutubeVideo): 'me' | 'studio' | 'eplus' | 'letter' => {
+    if (video.rivalChannelId) return 'letter';
     if (video.channelKind === 'empirePlus') return 'eplus';
     if (video.channelKind === 'studio') return 'studio';
     if (video.isPlayer) return 'me';
     return 'letter';
 };
+
+const ownedVideo = (video: YoutubeVideo) => !!(video.isPlayer || video.channelKind === 'studio' || video.channelKind === 'empirePlus');
 
 const Card: React.FC<{ video: YoutubeVideo; onOpen: (id: string) => void; age: number; week: number }> = ({ video, onOpen, age, week }) => {
     const scheduled = video.weekUploaded > week && (video.yearUploaded || age) >= age;
@@ -60,7 +65,7 @@ const CHIPS = ['All', 'Your projects', 'Trailers', 'Music', 'Interviews', 'Short
 
 const matchesChip = (video: YoutubeVideo, chip: string) => {
     const creator = creatorFor(video.authorName);
-    if (chip === 'Your projects') return !!(video.isPlayer || video.projectId);
+    if (chip === 'Your projects') return !video.rivalChannelId && ownedVideo(video);
     if (chip === 'Trailers') return /TRAILER|TEASER|POSTER/.test(video.type);
     if (chip === 'Music') return MUSIC_TYPES.includes(video.type) || video.type === 'COVER';
     if (chip === 'Interviews') return video.type === 'CAST_INTERVIEW' || video.type === 'Q_AND_A';
@@ -88,7 +93,7 @@ export const HomeScreen: React.FC = () => {
     const [chip, setChip] = useState('All');
     const [booked, setBooked] = useState(false);
     const q = api.query.trim().toLowerCase();
-    const pool = api.videos.filter(video => !q || `${video.title} ${video.authorName}`.toLowerCase().includes(q));
+    const pool = api.videos.filter(video => !q || `${video.title} ${video.authorName} ${video.language || ''} ${video.country || ''}`.toLowerCase().includes(q));
     const filtered = chip === 'All' ? pool : pool.filter(video => matchesChip(video, chip));
     const project = api.projects.find(item => item.id === api.projectId) || api.projects[0];
     const phase = project ? readPhase(api.player, project) : null;
@@ -96,14 +101,14 @@ export const HomeScreen: React.FC = () => {
     const weeks = phase?.releaseWeekAbs != null ? Math.max(0, phase.releaseWeekAbs - api.absWeek) : null;
     const releaseWeek = releaseWeekNumber(api, phase?.releaseWeekAbs ?? null);
     const done = campaign?.drops.filter(drop => drop.status === 'RELEASED').length || 0;
-    const slots = MARKETING_TYPES.filter(type => type !== 'SHORT').length;
-    const hero = filtered.find(video => video.type === 'TRAILER_2' && (video.isPlayer || video.projectId))
-        || filtered.find(video => /TRAILER/.test(video.type) && (video.isPlayer || !!video.projectId))
+    const hero = filtered.find(video => ownedVideo(video) && video.type === 'TRAILER_2')
+        || filtered.find(video => ownedVideo(video) && /TRAILER|TEASER/.test(video.type))
+        || filtered.find(ownedVideo)
         || filtered[0]
         || pool[0];
-    const rivals = pool.filter(video => video.id !== hero?.id && !video.projectId && /TRAILER|TEASER|POSTER/.test(video.type)).sort((a, b) => b.views - a.views).slice(0, 2);
+    const rivals = pool.filter(video => video.rivalChannelId && video.id !== hero?.id && /TRAILER|TEASER|POSTER|ANNOUNCE|RELEASE_PROMO|STREAM_PREMIERE/.test(video.type)).sort((a, b) => b.views - a.views).slice(0, 2);
     const board = [hero, ...rivals].filter((video): video is YoutubeVideo => !!video).slice(0, 3);
-    const owned = pool.filter(video => (video.isPlayer || video.projectId) && !video.isShort && video.type !== 'SHORT' && video.id !== hero?.id);
+    const owned = pool.filter(video => ownedVideo(video) && !video.rivalChannelId && !video.isShort && video.type !== 'SHORT' && video.id !== hero?.id);
     const pick = (type: YoutubeVideo['type']) => owned.find(video => video.type === type);
     const fromProjects = [pick('TEASER'), pick('MUSIC_VIDEO'), pick('CAST_INTERVIEW'), pick('BTS')].filter((video): video is YoutubeVideo => !!video);
     const projectCards = fromProjects.length ? fromProjects : owned.slice(0, 4);
@@ -122,7 +127,8 @@ export const HomeScreen: React.FC = () => {
             return rank(a) - rank(b) || b.views - a.views;
         })
         .slice(0, 4);
-    const title = project?.projectDetails?.title || hero?.title || 'Your channel';
+    const heroRival = hero?.rivalChannelId ? findRivalChannel(api.channel, hero.rivalChannelId) : null;
+    const title = heroRival ? hero.title : (project?.projectDetails?.title || hero?.title || 'Your channel');
     const tagline = project?.projectDetails?.customPoster?.tagline || project?.projectDetails?.genre || '';
     const role = project?.projectDetails?.castList?.find(member => member.isPlayer)?.roleName
         || project?.projectDetails?.castList?.find(member => member.isPlayer)?.characterName;
@@ -160,7 +166,7 @@ export const HomeScreen: React.FC = () => {
                                 <span className="pill">{dubLine(hero.dubCount)}</span>
                             </div>
                             <div className="ttl">{title}{tagline ? <span>{tagline}</span> : null}</div>
-                            <div className="m">{studioName} <span className="vf">✓</span>{releaseWeek ? ` · In theaters Week ${releaseWeek}` : ''}{role ? ` · Your film as ${role}` : ''}</div>
+                            <div className="m">{heroRival ? hero.authorName : studioName} <span className="vf">✓</span>{heroRival ? ` · ${formatCompact(heroRival.subscribers)} subs` : ''}{!heroRival && releaseWeek ? ` · In theaters Week ${releaseWeek}` : ''}{!heroRival && role ? ` · Your film as ${role}` : ''}</div>
                             <div className="acts">
                                 <button className="btn white lg" onClick={() => api.openVideo(hero.id)}>▶ Watch trailer</button>
                                 <button className="btn lg" onClick={() => api.go('hub')}>Marketing Hub</button>
@@ -173,7 +179,7 @@ export const HomeScreen: React.FC = () => {
                         <div className="dim" style={{ fontSize: 12, marginTop: 4 }}>{title}{releaseWeek ? ` opens Week ${releaseWeek}` : ''} · theatrical in IN, AE, UK, US</div>
                         <div className="cd">
                             <div><b>{weeks == null ? '—' : String(weeks).padStart(2, '0')}</b><small>WEEKS</small></div>
-                            <div><b>{done}/{slots}</b><small>DROPS</small></div>
+                            <div><b>{done}</b><small>DROPS</small></div>
                             <div><b className="mint">{opening > 0 ? formatMoney(opening) : '—'}</b><small>OPENING</small></div>
                             <div><b className="amb">{lift >= 0 ? `+${lift}%` : `${lift}%`}</b><small>FROM YT</small></div>
                         </div>
@@ -195,6 +201,16 @@ export const HomeScreen: React.FC = () => {
                         })}
                     </div>
                 </div>
+            )}
+            {pool.some(video => video.rivalChannelId) && (
+                <section className="sect">
+                    <div className="between"><div className="h2">From the houses</div><button className="btn sm" onClick={() => api.go('subs')}>All channels</button></div>
+                    <div className="grid">
+                        {pool.filter(video => video.rivalChannelId && !video.isShort).sort((a, b) => b.views - a.views).slice(0, 4).map(video => (
+                            <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />
+                        ))}
+                    </div>
+                </section>
             )}
             <section className="sect">
                 <div className="between"><div className="h2">From your projects</div><button className="btn sm" onClick={() => api.go('hub')}>See all {done || projectCards.length} drops</button></div>
@@ -227,16 +243,18 @@ export const HomeScreen: React.FC = () => {
 
 export const WatchScreen: React.FC = () => {
     const api = useYt();
-    const video = api.videos.find(item => item.id === api.watchId) || api.videos.find(item => item.type === 'TRAILER_2' && item.projectId) || api.videos[0];
+    const video = api.videos.find(item => item.id === api.watchId) || api.videos.find(item => item.type === 'TRAILER_2' && ownedVideo(item)) || api.videos.find(ownedVideo) || api.videos[0];
     const [filter, setFilter] = useState('All');
     const [comments, setComments] = useState<string[]>([]);
     const [playing, setPlaying] = useState(true);
     const reaction = (api.player.flags?.youtubeVideoReactions || {})[video?.id || ''] as string | undefined;
-    const project = video?.projectId ? api.projects.find(item => item.id === video.projectId) : api.projects[0];
+    const project = video && !video.rivalChannelId
+        ? (video.projectId ? api.projects.find(item => item.id === video.projectId) : api.projects[0])
+        : undefined;
     const campaign = project ? ensureCampaign(api.channel, project.id) : null;
     const hype = video?.hype ?? campaign?.campaignHype ?? 50;
     const sentiment = video?.sentiment || [62, 24, 14];
-    const upNext = api.videos.filter(item => item.id !== video?.id && (filter === 'All' || (filter === 'Rivals' ? !item.isPlayer : item.projectId === project?.id))).slice(0, 6);
+    const upNext = api.videos.filter(item => item.id !== video?.id && (filter === 'All' || (filter === 'Rivals' ? !!item.rivalChannelId || !item.isPlayer : !item.rivalChannelId && item.projectId === project?.id))).slice(0, 6);
 
     useEffect(() => {
         if (!video) return;
@@ -259,6 +277,13 @@ export const WatchScreen: React.FC = () => {
     }, [video?.id, api.player.settings?.aiContentEnabled]);
 
     if (!video) return <div className="card pad">Nothing to watch yet.</div>;
+    const watchingRival = video.rivalChannelId ? findRivalChannel(api.channel, video.rivalChannelId) : undefined;
+    const subscribed = !!(watchingRival && (api.channel.subscriptions || []).includes(watchingRival.id));
+    const subs = watchingRival
+        ? watchingRival.subscribers
+        : video.isPlayer || video.channelKind
+            ? api.channel.subscribers
+            : (creatorFor(video.authorName)?.followers || 0);
     const likes = video.likes + (reaction === 'LIKE' ? 1 : 0);
     const dislikes = Math.floor(video.views * 0.006) + (reaction === 'DISLIKE' ? 1 : 0);
 
@@ -281,9 +306,13 @@ export const WatchScreen: React.FC = () => {
                 <h1 className="h2" style={{ fontSize: 20, marginTop: 14, lineHeight: 1.3 }}>{video.title}</h1>
                 <div className="between" style={{ marginTop: 10, flexWrap: 'wrap' }}>
                     <div className="row">
-                        <Av kind={video.channelKind === 'empirePlus' ? 'eplus' : video.channelKind === 'studio' ? 'studio' : video.isPlayer ? 'me' : 'letter'} label={video.authorName} />
-                        <div><b>{video.authorName}</b>{verifiedAuthor(video) ? <span className="vf">✓</span> : null}<div className="dim">{formatCompact(video.isPlayer ? api.channel.subscribers : (creatorFor(video.authorName)?.followers || api.channel.subscribers))} subs</div></div>
-                        <button className="btn white sm">Subscribe</button>
+                        <button type="button" className="row" onClick={() => { if (watchingRival) api.openRival(watchingRival.id); }} style={{ background: 'none' }}>
+                        <Av kind={authorKind(video)} label={video.authorName} />
+                        <div style={{ textAlign: 'left' }}><b>{video.authorName}</b>{verifiedAuthor(video) ? <span className="vf">✓</span> : null}<div className="dim">{formatCompact(subs)} subs{video.country ? ` · ${video.country}` : ''}</div></div>
+                        </button>
+                        {watchingRival ? (
+                            <button className={`btn sm${subscribed ? '' : ' white'}`} onClick={() => api.apply(toggleSubscription(api.player, watchingRival.id))}>{subscribed ? 'Subscribed' : 'Subscribe'}</button>
+                        ) : (video.isPlayer || video.channelKind) ? <span className="pill">Your channel</span> : null}
                     </div>
                     <div className="row">
                         <button className={`btn sm${reaction === 'LIKE' ? ' red' : ''}`} onClick={() => api.update(reactToVideo(api.player, video.id, 'LIKE'))}>▲ {formatCompact(likes)}</button>
@@ -383,18 +412,26 @@ export const HubScreen: React.FC = () => {
             </div>
             <div className="g3" style={{ marginTop: 12 }}>
                 <div className="card pad"><div className="lbl">Optimal slot</div><div className="h2">1–3 weeks out</div><div className="mu">Carry stays above 0.84.</div></div>
-                <div className="card pad"><div className="lbl">Gaps</div><div className="h2">{slots.filter(type => !campaign.drops.some(drop => drop.type === type) && slotUnlocked(type, phase)).length} open</div><div className="mu">Phase {phase.gate}.</div></div>
+                <div className="card pad"><div className="lbl">Repeats</div><div className="h2">{slots.filter(type => campaign.drops.some(drop => drop.type === type)).length} used</div><div className="mu">Post again. Each repeat returns less.</div></div>
                 <div className="card pad"><div className="lbl">Rival clash</div><div className="h2">Watch Trending</div><div className="mu">Trailer war uses hype^1.5.</div></div>
             </div>
             <div className="slotgrid" style={{ marginTop: 16 }}>
                 {slots.map(type => {
-                    const drop = campaign.drops.find(item => item.type === type);
-                    const open = slotUnlocked(type, phase);
-                    const status = drop?.status || (open ? 'READY' : 'LOCKED');
+                    const posted = campaign.drops.filter(item => item.type === type);
+                    const drop = posted[posted.length - 1];
+                    const outlook = dropOutlook({
+                        type,
+                        weeksBefore: phase.releaseWeekAbs == null ? null : phase.releaseWeekAbs - api.absWeek,
+                        repeats: posted.length,
+                        sameWeekPosts: 1,
+                        rivalBigDrops: 1,
+                        quality: project.projectDetails?.hiddenStats?.qualityScore,
+                    });
                     return (
-                        <button key={type} className={`slot${open ? '' : ' lock'}`} disabled={!open || !!drop} onClick={() => api.armUpload(type, project.id)}>
-                            <div className="between"><b>{typeLabel(type)}</b><span className={`pill ${status === 'RELEASED' ? 'mint' : status === 'SCHEDULED' ? 'amb' : status === 'LOCKED' ? '' : 'red'}`}>{status}</span></div>
-                            <div className="dim" style={{ marginTop: 6 }}>{formatMoney(dropCost(type, project.projectDetails?.estimatedBudget || 0))} · {dropEnergy(type)}E</div>
+                        <button key={type} className="slot" onClick={() => api.armUpload(type, project.id)}>
+                            <div className="between"><b>{typeLabel(type)}</b><span className={`pill ${posted.length ? 'mint' : 'red'}`}>{posted.length ? `${posted.length} out` : 'Open'}</span></div>
+                            <div className="dim" style={{ marginTop: 6 }}>{formatMoney(dropCost(type, project.projectDetails?.estimatedBudget || 0))} if you pay · {dropEnergy(type)}E</div>
+                            <div className="dim" style={{ marginTop: 6 }}>{outlook.note}</div>
                             {drop?.title && <div style={{ marginTop: 6 }}>{drop.title}</div>}
                         </button>
                     );
@@ -487,15 +524,12 @@ export const UploadScreen: React.FC = () => {
                         {(['Personal', 'Project', 'Music', 'Live'] as const).map(item => <button key={item} className={tab === item ? 'on' : ''} onClick={() => setTab(item)}>{item}</button>)}
                     </div>
                     <div className="slots" style={{ marginTop: 14 }}>
-                        {types.map(item => {
-                            const locked = project && phase ? !slotUnlocked(item, phase) && isMarketingType(item) && item !== 'SHORT' : false;
-                            return (
-                                <button key={item} className={`slot${type === item ? '' : ''}${locked ? ' lock' : ''}`} onClick={() => { if (!locked) setType(item); }} style={type === item ? { borderColor: 'var(--red)' } : undefined}>
-                                    <b>{typeLabel(item)}</b>
-                                    <div className="dim">{locked ? `Locked until ${phase?.gate}` : `${formatMoney(isMarketingType(item) ? dropCost(item, project?.projectDetails?.estimatedBudget || 0) : (PERSONAL_COSTS[item]?.cost || 0))} · ${isMarketingType(item) ? dropEnergy(item) : (PERSONAL_COSTS[item]?.energy || 12)}E`}</div>
-                                </button>
-                            );
-                        })}
+                        {types.map(item => (
+                            <button key={item} className="slot" onClick={() => setType(item)} style={type === item ? { borderColor: 'var(--red)' } : undefined}>
+                                <b>{typeLabel(item)}</b>
+                                <div className="dim">{formatMoney(isMarketingType(item) ? dropCost(item, project?.projectDetails?.estimatedBudget || 0) : (PERSONAL_COSTS[item]?.cost || 0))} if you pay · {isMarketingType(item) ? dropEnergy(item) : (PERSONAL_COSTS[item]?.energy || 12)}E</div>
+                            </button>
+                        ))}
                     </div>
                     {tab === 'Live' && <button className="btn" style={{ marginTop: 12 }} onClick={() => api.go('live')}>Open the live desk</button>}
                     </div>
@@ -584,8 +618,15 @@ export const UploadScreen: React.FC = () => {
                     <div className="card pad">
                         <div className="lbl">Forecast</div>
                         <div className="kpi"><div className="v">{(ctrFor(variants[variant].score, hype) * 100).toFixed(1)}% CTR</div></div>
-                        <div>Hype weight on this slot · cost {formatMoney(cost)} · {energy} energy</div>
-                        <div className="mu">24h views settle on the next week tick. Ads stay at a flat ${FLAT_RPM.toFixed(2)} RPM.</div>
+                        <div>Hype weight on this slot · {formatMoney(cost)} if you pay · {energy} energy</div>
+                        <div className="mu">{project ? dropOutlook({
+                            type,
+                            weeksBefore: phase?.releaseWeekAbs == null ? null : phase.releaseWeekAbs - api.absWeek - weekOffset,
+                            repeats: (ensureCampaign(api.channel, project.id).drops || []).filter(drop => drop.type === type).length,
+                            sameWeekPosts: 1,
+                            rivalBigDrops: 1,
+                        }).note : 'Personal uploads skip the campaign.'}</div>
+                        <div className="mu">Short on cash still schedules the drop, with a weaker open. 24h views settle on the next week tick. Ads stay at a flat ${FLAT_RPM.toFixed(2)} RPM.</div>
                     </div>
                 </div>
             )}
@@ -706,7 +747,7 @@ export const ChannelScreen: React.FC = () => {
                 </div>
                 <div className="row">
                     <span className="pill gold">{playTier(subs, official ? official.totalViews : api.channel.totalChannelViews)}</span>
-                    <button className="btn white sm">Subscribe</button>
+                    <span className="pill">Your channel</span>
                     <button className="btn sm" onClick={() => api.go('money')}>Join</button>
                     <button className="btn sm" onClick={() => setTab('Store')}>Store</button>
                 </div>
@@ -778,15 +819,18 @@ export const TrendingScreen: React.FC = () => {
     const [country, setCountry] = useState('India');
     const [tab, setTab] = useState('Now');
     const ranked = useMemo(() => {
-        const rows = api.videos.filter(video => {
-            if (tab === 'Trailers') return /TRAILER|TEASER/.test(video.type);
+        const code = country === 'India' ? 'IN' : country === 'United States' ? 'US' : country === 'Spain' ? 'ES' : country === 'South Korea' ? 'KR' : country === 'Brazil' ? 'BR' : '';
+        const matchTab = (video: YoutubeVideo) => {
+            if (tab === 'Trailers') return /TRAILER|TEASER|ANNOUNCE|PROMO|STREAM_PREMIERE|POSTER/.test(video.type);
             if (tab === 'Music') return MUSIC_TYPES.includes(video.type) || video.type === 'COVER';
-            if (tab === 'Films & Series') return !!video.projectId || /TRAILER|CLIP|REVIEW/.test(video.type);
+            if (tab === 'Films & Series') return !!video.projectId || !!video.rivalChannelId || /TRAILER|CLIP|REVIEW/.test(video.type);
             if (tab === 'Gaming') return /game|raid|react/i.test(`${video.title} ${video.type}`);
             return true;
-        });
+        };
+        const local = api.videos.filter(video => matchTab(video) && (!code || !video.country || video.country === code));
+        const rows = local.length >= 3 ? local : api.videos.filter(matchTab);
         return [...rows].sort((a, b) => b.views - a.views).slice(0, 10);
-    }, [api.videos, tab]);
+    }, [api.videos, tab, country]);
     const top = ranked[0];
     const yours = api.videos.find(video => video.isPlayer && /TRAILER|TEASER/.test(video.type)) || api.videos.find(video => video.isPlayer);
     const rival = ranked.find(video => video.id !== yours?.id);
@@ -804,8 +848,7 @@ export const TrendingScreen: React.FC = () => {
         const title = creator && project?.projectDetails
             ? reactionTitle(creator, project.projectDetails.title, 'trailer')
             : `${name} × ${api.player.name}`;
-        const phase = project ? readPhase(api.player, project) : null;
-        if (project && phase && slotUnlocked('REACTION_COLLAB', phase)) {
+        if (project) {
             api.apply(publishUpload(api.player, { title, type: 'REACTION_COLLAB', plan: 'PROJECT_PROMO', projectId: project.id }));
             return;
         }
@@ -830,7 +873,7 @@ export const TrendingScreen: React.FC = () => {
                     <button key={video.id} className="rank" onClick={() => api.openVideo(video.id)}>
                         <b className="mono" style={{ width: 28 }}>{index + 1}</b>
                         <Face video={video} ratio="16/10" />
-                        <div style={{ flex: 1 }}><b>{video.title}</b><div className="dim">{video.authorName} · {video.isPlayer ? 'Your project' : 'Rival'}</div></div>
+                        <div style={{ flex: 1 }}><b>{video.title}</b><div className="dim">{video.authorName} · {video.rivalChannelId ? 'House' : video.isPlayer ? 'Your project' : 'Creator'}{video.country ? ` · ${video.country}` : ''}</div></div>
                         <span className={index % 3 === 2 ? 'dn' : 'up'}>{index % 3 === 2 ? '▼' : '▲'} {formatCompact(video.views)}</span>
                     </button>
                 ))}
@@ -867,8 +910,11 @@ export const MusicScreen: React.FC = () => {
         { id: 'bgm', title: 'Night BGM', singer: 'Instrumental', composer: 'Studio score', plays: Math.floor((campaign?.songStreams || 0) * 0.2), duration: '2:56', status: 'LOCKED' as const },
     ];
     const [current, setCurrent] = useState(songs[0]?.id);
+    const [chart, setChart] = useState('IN');
     const song = songs.find(item => item.id === current) || songs[0];
     const bonus = musicOpeningBonus(campaign?.songStreams || song?.plays || 0);
+    const chartCode = chart === 'Global' ? '' : chart === 'US' ? 'US' : 'IN';
+    const chartRows = api.videos.filter(video => (MUSIC_TYPES.includes(video.type) || video.type === 'COVER') && (!chartCode || !video.country || video.country === chartCode));
 
     return (
         <div>
@@ -893,14 +939,14 @@ export const MusicScreen: React.FC = () => {
                 </div>
             </div>
             <div className="h2" style={{ marginTop: 18 }}>Top songs</div>
-            <div className="chips" style={{ marginTop: 8 }}><span className="chip on">India</span><span className="chip">Global</span><span className="chip">US</span></div>
+            <div className="chips" style={{ marginTop: 8 }}>{['IN', 'Global', 'US'].map(item => <button key={item} className={`chip${chart === item ? ' on' : ''}`} onClick={() => setChart(item)}>{item === 'IN' ? 'India' : item === 'US' ? 'US' : 'Global'}</button>)}</div>
             <div className="card pad" style={{ marginTop: 10 }}>
-                {api.videos.filter(video => MUSIC_TYPES.includes(video.type) || video.type === 'COVER').slice(0, 6).map((video, index) => (
+                {chartRows.slice(0, 8).map((video, index) => (
                     <button key={video.id} className="between" style={{ width: '100%', marginTop: 8 }} onClick={() => api.openVideo(video.id)}>
-                        <span>{index + 1}. {video.title}</span><span className="dim">{video.authorName}</span>
+                        <span>{index + 1}. {video.title}</span><span className="dim">{video.authorName}{video.country ? ` · ${video.country}` : ''}</span>
                     </button>
                 ))}
-                {api.videos.filter(video => MUSIC_TYPES.includes(video.type) || video.type === 'COVER').length === 0 && <div className="mu">Chart fills when a music video, lyric video, or cover is out.</div>}
+                {chartRows.length === 0 && <div className="mu">Chart fills when a music video, lyric video, or cover is out.</div>}
             </div>
             <div className="card pad" style={{ marginTop: 12 }}>
                 <div className="between"><b>Now playing</b><span className="dim">{song?.duration}</span></div>
@@ -950,7 +996,7 @@ export const ShortsScreen: React.FC = () => {
                 <div className="card pad">
                     <div className="h2">Sound usage</div>
                     <div>{formatCompact(remixes)} remixes</div>
-                    <button className="btn sm" style={{ marginTop: 8 }} onClick={() => api.armUpload('SHORT', video.projectId)}>Use this sound</button>
+                    <button className="btn sm" style={{ marginTop: 8 }} onClick={() => api.armUpload('SHORT', video.rivalChannelId ? undefined : video.projectId)}>Use this sound</button>
                 </div>
                 <div className="h2" style={{ marginTop: 12 }}>Up next</div>
                 {list.map((item, itemIndex) => (
@@ -1112,6 +1158,64 @@ export const MoneyScreen: React.FC = () => {
     );
 };
 
+export const SubscriptionsScreen: React.FC = () => {
+    const api = useYt();
+    const houses = api.channel.rivalChannels || [];
+    const followed = new Set(api.channel.subscriptions || []);
+    const feed = api.videos
+        .filter(video => video.rivalChannelId && followed.has(video.rivalChannelId))
+        .sort((a, b) => (b.yearUploaded || 0) - (a.yearUploaded || 0) || b.weekUploaded - a.weekUploaded);
+    return (
+        <div>
+            <div className="h1">Subscriptions</div>
+            <div className="dim" style={{ margin: '6px 0 14px' }}>Houses you follow. Their new uploads land here.</div>
+            {followed.size === 0 && <div className="card pad">You are not following any house yet. Open one below and subscribe.</div>}
+            <div className="grid" style={{ marginTop: 12 }}>
+                {feed.slice(0, 8).map(video => <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />)}
+            </div>
+            <div className="h2" style={{ marginTop: 18 }}>Houses</div>
+            <div className="slots" style={{ marginTop: 8 }}>
+                {houses.map(house => (
+                    <button key={house.id} className="slot" onClick={() => api.openRival(house.id)} style={{ textAlign: 'left' }}>
+                        <div className="between"><b>{house.name}</b><span className="pill">{followed.has(house.id) ? 'Subscribed' : house.country}</span></div>
+                        <div className="dim">{house.handle} · {formatCompact(house.subscribers)} subs · {personalityLabel(house.personality)}</div>
+                        <div className="dim">{house.language} · {house.videos.length} uploads</div>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+export const RivalChannelScreen: React.FC = () => {
+    const api = useYt();
+    const house = findRivalChannel(api.channel, api.rivalId) || (api.channel.rivalChannels || [])[0];
+    if (!house) return <div className="card pad">No rival channels yet. They appear with the studios, platforms, and labels in this world.</div>;
+    const subscribed = (api.channel.subscriptions || []).includes(house.id);
+    const shown = house.videos;
+    return (
+        <div>
+            <button className="btn sm" onClick={() => api.go('subs')}>All houses</button>
+            <div className="chanhead" style={{ marginTop: 12 }}>
+                <div className="row">
+                    <Av kind="letter" label={house.name} size={72} />
+                    <div>
+                        <div className="h2">{house.name} <span className="vf">✓</span></div>
+                        <div className="dim">{house.handle} · {formatCompact(house.subscribers)} subs · {shown.length} videos</div>
+                        <div className="dim">{personalityLabel(house.personality)} · {house.country} · {house.language}</div>
+                        <div className="dim">Fatigue {Math.round(house.fatigue)} · Backlash {Math.round(house.backlash)}</div>
+                    </div>
+                </div>
+                <button className={`btn sm${subscribed ? '' : ' white'}`} onClick={() => api.apply(toggleSubscription(api.player, house.id))}>{subscribed ? 'Subscribed' : 'Subscribe'}</button>
+            </div>
+            <div className="grid" style={{ marginTop: 16 }}>
+                {shown.map(video => <Card key={video.id} video={video} onOpen={api.openVideo} age={api.player.age} week={api.player.currentWeek} />)}
+            </div>
+            {shown.length === 0 && <div className="card pad" style={{ marginTop: 12 }}>{house.name} has not posted in this window. A quiet house stays quiet until a real project is close.</div>}
+        </div>
+    );
+};
+
 export const screenFor = (screen: string) => {
     if (screen === 'watch') return <WatchScreen />;
     if (screen === 'hub') return <HubScreen />;
@@ -1119,6 +1223,8 @@ export const screenFor = (screen: string) => {
     if (screen === 'studio') return <StudioScreen />;
     if (screen === 'channel') return <ChannelScreen />;
     if (screen === 'trending') return <TrendingScreen />;
+    if (screen === 'subs') return <SubscriptionsScreen />;
+    if (screen === 'rival') return <RivalChannelScreen />;
     if (screen === 'music') return <MusicScreen />;
     if (screen === 'shorts') return <ShortsScreen />;
     if (screen === 'live') return <LiveScreen />;

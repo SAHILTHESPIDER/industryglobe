@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { Bell, ChevronDown, DollarSign, Flame, Home, Layout, Menu, Mic, Music, Play, Plus, Radio, Search, User, Video, X } from 'lucide-react';
+import { Bell, ChevronDown, DollarSign, Flame, Home, Layout, Menu, Mic, Music, Play, Plus, Radio, Search, User, Users, Video, X } from 'lucide-react';
 import { Player, YoutubeChannelKind, YoutubeVideoType } from '../../types';
 import { getAbsoluteWeek } from '../../services/legacyLogic';
 import { generateYoutubeFeed } from '../../services/youtubeLogic';
-import { ensureCampaign, MARKETING_TYPES, migrateYoutubeSave, playerProjects, syncOfficialChannels } from '../../services/youtubeMarketing';
+import { ensureCampaign, migrateYoutubeSave, playerProjects, syncOfficialChannels } from '../../services/youtubeMarketing';
+import { syncRivalYoutube } from '../../services/youtubeRivals';
 import { setChannel } from './youtube/actions';
 import { Av, formatCompact, Logo } from './youtube/bits';
 import { screenFor } from './youtube/screens';
@@ -21,6 +22,7 @@ const DISCOVER: { id: YtScreen; label: string; icon: React.ReactNode }[] = [
     { id: 'home', label: 'Home', icon: <Home size={18} /> },
     { id: 'shorts', label: 'Shorts', icon: <Play size={18} /> },
     { id: 'trending', label: 'Trending', icon: <Flame size={18} /> },
+    { id: 'subs', label: 'Subscriptions', icon: <Users size={18} /> },
     { id: 'music', label: 'Music', icon: <Music size={18} /> },
     { id: 'live', label: 'Live', icon: <Radio size={18} /> },
 ];
@@ -42,7 +44,8 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
     const [error, setError] = useState<string | null>(null);
     const [youOpen, setYouOpen] = useState(false);
     const [mobileSearch, setMobileSearch] = useState(false);
-    const channel = useMemo(() => syncOfficialChannels(player, migrateYoutubeSave(player)), [player]);
+    const [rivalId, setRivalId] = useState<string | null>(null);
+    const channel = useMemo(() => syncRivalYoutube(player, syncOfficialChannels(player, migrateYoutubeSave(player)), 'view').channel, [player]);
     const projects = useMemo(() => playerProjects({ ...player, youtube: channel }), [player, channel]);
     const videos = useMemo(() => {
         const feed = generateYoutubeFeed({ ...player, youtube: channel });
@@ -50,6 +53,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
             ...channel.videos,
             ...(channel.officialChannels?.studio?.videos || []),
             ...(channel.officialChannels?.empirePlus?.videos || []),
+            ...(channel.rivalChannels || []).flatMap(rival => rival.videos || []),
         ];
         const seen = new Set<string>();
         return [...owned, ...feed].filter(video => {
@@ -70,7 +74,6 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
     const bleed = screen === 'watch' || screen === 'shorts' || screen === 'live';
     const campaign = focus ? ensureCampaign(channel, focus.id) : null;
     const releasedDrops = campaign?.drops.filter(drop => drop.status === 'RELEASED').length || 0;
-    const dropSlots = MARKETING_TYPES.filter(type => type !== 'SHORT').length;
     const nextDrop = campaign?.drops.filter(drop => drop.status === 'SCHEDULED').sort((a, b) => a.scheduledWeekAbs - b.scheduledWeekAbs)[0];
     const weekOf = (abs: number) => {
         let week = player.currentWeek + (abs - absWeek);
@@ -125,6 +128,8 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
         projects,
         absWeek,
         kind,
+        rivalId,
+        openRival: (id) => { setRivalId(id); go('rival'); },
     };
 
     const switchKind = (next: YoutubeChannelKind) => onUpdatePlayer(setChannel(player, next));
@@ -167,7 +172,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                         {EMPIRE.map(item => (
                             <button key={item.id} className={`ri${screen === item.id ? ' on' : ''}`} onClick={() => go(item.id)} data-yt-nav={item.id}>
                                 {item.icon}{item.label}
-                                {item.id === 'hub' && focus && <span className="ct">{releasedDrops}/{dropSlots}</span>}
+                                {item.id === 'hub' && focus && releasedDrops > 0 && <span className="ct">{releasedDrops}</span>}
                             </button>
                         ))}
                         <div className="rh">Your channels</div>
@@ -213,7 +218,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                 {youOpen && (
                     <div className="sheet" onClick={() => setYouOpen(false)}>
                         <div className="panel" onClick={event => event.stopPropagation()}>
-                            {(['studio', 'channel', 'trending', 'music', 'live', 'money'] as YtScreen[]).map(item => (
+                            {(['studio', 'channel', 'trending', 'subs', 'music', 'live', 'money'] as YtScreen[]).map(item => (
                                 <button key={item} className="btn" onClick={() => go(item)} data-yt-nav={item}>{item}</button>
                             ))}
                             <button className="btn" onClick={onBack}>Close YouTube</button>

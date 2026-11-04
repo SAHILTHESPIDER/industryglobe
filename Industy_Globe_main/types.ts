@@ -1572,6 +1572,11 @@ export enum Page {
       durationLabel?: string;
       /** 0–100 continue-watching bar. Absent means the card draws none. */
       watchProgress?: number;
+      /** ISO-like market code. Present from the rival-channel save onward. */
+      language?: string;
+      country?: string;
+      /** Set when a rival house uploaded this video. */
+      rivalChannelId?: string;
   }
 
   export interface MarketingDrop {
@@ -1587,6 +1592,8 @@ export enum Page {
       countryRanks?: Record<string, number>;
       views?: number;
       thumbnailScore?: number;
+      /** Scheduled without the listed spend. Reach is weaker. The upload still goes out. */
+      underfunded?: boolean;
   }
 
   export interface CampaignSong {
@@ -1613,6 +1620,30 @@ export enum Page {
       totalViews: number;
       lifetimeEarnings: number;
       videos: YoutubeVideo[];
+      language?: string;
+      country?: string;
+  }
+
+  export type RivalHouseKind = 'STUDIO' | 'PLATFORM' | 'LABEL';
+  export type RivalPersonality = 'AGGRESSIVE' | 'MYSTERY' | 'MUSIC_LED' | 'SPAMMY' | 'PRESTIGE';
+
+  /** A rival production house, streaming platform, or music label on YouTube. */
+  export interface RivalYoutubeChannel {
+      id: string;
+      houseId: string;
+      kind: RivalHouseKind;
+      name: string;
+      handle: string;
+      subscribers: number;
+      totalViews: number;
+      videos: YoutubeVideo[];
+      personality: RivalPersonality;
+      language: string;
+      country: string;
+      /** 0–100. Repeated types wear the audience out. */
+      fatigue: number;
+      /** 0–100. Spam, weak cuts, and bad timing stick. */
+      backlash: number;
   }
 
   export interface YoutubeStrike {
@@ -1650,9 +1681,15 @@ export enum Page {
       lastMerchResult?: string;
       creatorIdentity: YoutubeCreatorIdentity;
       lastIdentityChangeWeek: number;
-      schemaVersion?: 2;
+      /** 2 = official channels and campaigns. 3 adds rival houses and subscriptions. */
+      schemaVersion?: 2 | 3;
       officialChannels?: { studio?: OfficialChannel; empirePlus?: OfficialChannel };
       marketing?: Record<string, YoutubeCampaign>;
+      rivalChannels?: RivalYoutubeChannel[];
+      /** Rival channel ids the player follows. */
+      subscriptions?: string[];
+      /** Last absolute week the rival slate was simulated. Missing on older saves. */
+      rivalSimWeekAbs?: number;
       strikes?: YoutubeStrike[];
       leaks?: YoutubeLeak[];
       shortsRemixes?: number;
