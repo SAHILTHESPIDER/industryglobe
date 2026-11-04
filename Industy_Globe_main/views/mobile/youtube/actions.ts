@@ -6,7 +6,8 @@ import {
     activeStrikeCount, dropCost, dropEnergy, ensureCampaign, isMarketingType, registerStrike, strikeRisk, syncOfficialChannels, typeLabel,
 } from '../../../services/youtubeMarketing';
 import { findRivalChannel } from '../../../services/youtubeRivals';
-import { liveCreators } from '../../../services/youtubeCreators';
+import { liveCreators, PUBLIC_CREATORS } from '../../../services/youtubeCreators';
+import { collabBoard, deliverSponsorship, filmCollab, filmCollabFromOffer, partnerHeat } from '../../../services/youtubePartner';
 
 export const UPLOAD_PLANS: Record<YoutubeUploadPlan, { label: string; viewBoost: number; qualityBoost: number; trust: number; mood: number; controversy: number }> = {
     SAFE: { label: 'Safe', viewBoost: 0, qualityBoost: 5, trust: 4, mood: 1, controversy: -2 },
@@ -96,7 +97,7 @@ export const makeVideo = (player: Player, title: string, type: YoutubeVideoType,
     };
 };
 
-export interface ActionResult { player: Player; error?: string; screen?: 'studio' | 'watch' | 'home' | 'hub' }
+export interface ActionResult { player: Player; error?: string; screen?: 'studio' | 'watch' | 'home' | 'hub' | 'analytics' }
 
 export const changeIdentity = (player: Player, next: YoutubeCreatorIdentity): ActionResult => {
     const abs = getAbsoluteWeek(player.age, player.currentWeek);
@@ -222,23 +223,34 @@ export const dropMerch = (player: Player, tierKey: YoutubeMerchTier): ActionResu
 
 export const personalCollab = (player: Player, creatorName: string, title: string): ActionResult => {
     if (player.energy.current < 16) return { player, error: 'Not enough energy.' };
-    const video = makeVideo(player, title, 'Q_AND_A', 'BTS', {
-        views: Math.floor(Math.max(4000, player.youtube.subscribers * 0.2 + 8000)),
-        authorName: `${player.name} × ${creatorName}`,
-    });
-    video.likes = Math.floor(video.views * 0.06);
-    video.comments = aiOffline.generateComments({ videoTitle: title, videoType: 'collab', author: creatorName, seed: title });
-    let next: Player = {
-        ...player,
-        youtube: {
-            ...player.youtube,
-            subscribers: player.youtube.subscribers + Math.floor(video.views / 180),
-            totalChannelViews: (player.youtube.totalChannelViews || 0) + video.views,
-            videos: [video, ...player.youtube.videos],
-        },
+    const known = PUBLIC_CREATORS.find(creator => creator.name === creatorName)
+        || collabBoard(player).find(item => item.name === creatorName);
+    const target = known && 'followers' in known ? {
+        id: known.id,
+        name: known.name,
+        handle: 'handle' in known ? known.handle : `@${creatorName}`,
+        avatar: 'avatar' in known ? known.avatar : '',
+        followers: known.followers,
+        country: known.country,
+        niche: 'niche' in known ? known.niche : 'Vlog',
+        heat: 'heat' in known ? known.heat : partnerHeat('niche' in known ? known.niche : 'Vlog'),
+        kind: ('kind' in known && known.kind === 'STUDIO' ? 'STUDIO' : 'CREATOR') as 'CREATOR' | 'STUDIO',
+        rivalChannelId: 'rivalChannelId' in known ? known.rivalChannelId : undefined,
+    } : {
+        id: creatorName,
+        name: creatorName,
+        handle: `@${creatorName.replace(/\s/g, '')}`,
+        avatar: '',
+        followers: Math.max(8000, player.youtube.subscribers * 4),
+        country: 'IN',
+        niche: 'Vlog',
+        heat: 28,
+        kind: 'CREATOR' as const,
     };
+    const filmed = filmCollab(player, target, { title, type: 'Q_AND_A' });
+    let next = filmed.player;
     spendPlayerEnergy(next, 16);
-    next = log(next, `Collab with ${creatorName} is on the channel.`, 'positive');
+    next = log(next, filmed.note, filmed.tone);
     return { player: next, screen: 'studio' };
 };
 
@@ -347,41 +359,23 @@ export const publishUpload = (player: Player, input: {
 
 export const completeCollab = (player: Player, collab: YoutubeCollabOffer): ActionResult => {
     if (player.energy.current < collab.energyCost) return { player, error: 'Not enough energy.' };
-    const video = makeVideo(player, collab.conceptTitle, collab.requiredType, 'BTS', { views: Math.floor(collab.bonusViews * 0.9) });
-    video.likes = Math.floor(video.views * 0.06);
+    const filmed = filmCollabFromOffer(player, collab);
     let next: Player = {
-        ...player,
-        stats: { ...player.stats, fame: Math.min(100, player.stats.fame + 1), reputation: Math.min(100, player.stats.reputation + 1) },
-        youtube: {
-            ...player.youtube,
-            subscribers: player.youtube.subscribers + collab.bonusSubscribers,
-            totalChannelViews: (player.youtube.totalChannelViews || 0) + video.views,
-            videos: [video, ...player.youtube.videos],
-            activeCollabs: player.youtube.activeCollabs.filter(item => item.id !== collab.id),
-        },
+        ...filmed.player,
+        stats: { ...filmed.player.stats, fame: Math.min(100, filmed.player.stats.fame + (filmed.tone === 'negative' ? 0 : 1)), reputation: Math.min(100, filmed.player.stats.reputation + (filmed.tone === 'negative' ? -1 : 1)) },
     };
     spendPlayerEnergy(next, collab.energyCost);
     const social = aiOffline.xPosts({ speaker: player.name, subject: collab.creatorName, event: 'just dropped a collab', seed: collab.id })[0];
-    next = xpost(log(next, `Collab with ${collab.creatorName} is up.`, 'positive'), social);
+    next = xpost(log(next, filmed.note, filmed.tone), social);
     return { player: next };
 };
 
 export const completeBrand = (player: Player, deal: YoutubeBrandDeal): ActionResult => {
     if (player.energy.current < deal.energyCost) return { player, error: 'Not enough energy.' };
-    const video = makeVideo(player, `${deal.brandName} x ${player.name}`, deal.requiredType, 'SPONSOR_HEAVY', { views: Math.floor(deal.bonusViews * 0.9) });
-    let next: Player = {
-        ...player,
-        money: player.money + deal.payout,
-        youtube: {
-            ...player.youtube,
-            lifetimeEarnings: player.youtube.lifetimeEarnings + deal.payout,
-            totalChannelViews: (player.youtube.totalChannelViews || 0) + video.views,
-            videos: [video, ...player.youtube.videos],
-            activeBrandDeals: player.youtube.activeBrandDeals.filter(item => item.id !== deal.id),
-        },
-    };
+    const delivered = deliverSponsorship(player, deal);
+    let next = delivered.player;
     spendPlayerEnergy(next, deal.energyCost);
-    next = log(next, `${deal.brandName} integration paid $${deal.payout.toLocaleString()}.`, 'positive');
+    next = log(next, delivered.note, delivered.tone);
     return { player: next };
 };
 

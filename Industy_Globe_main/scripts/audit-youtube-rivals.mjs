@@ -128,9 +128,11 @@ record('saves', 'old channel survives migration', () => {
   const migrated = migrateYoutubeSave(player);
   assert(migrated.videos.some(video => video.id === 'keep_me'), 'old personal video should remain');
   assert((migrated.videos.find(video => video.id === 'keep_me').weeklyHistory || []).length <= 26, 'personal history should trim');
-  assert(migrated.schemaVersion === 3, 'migration bumps schema');
+  assert(migrated.schemaVersion === 4, 'migration bumps schema');
+  assert(migrated.partner && migrated.partner.feature === 1, 'partner fields are filled');
   assert(migrated.handle === '@player', 'handle stays');
   const withHouses = syncRivalYoutube(player, migrated, 'view').channel;
+  assert((withHouses.schemaVersion || 0) >= 4, 'rival sync should keep the partner schema');
   assert((withHouses.rivalChannels || []).length > 10, 'opening the app adds rival channels onto the old save');
   assert(withHouses.videos.some(video => video.id === 'keep_me'), 'rival sync should keep the old video');
 });

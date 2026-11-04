@@ -3,14 +3,16 @@ import { YoutubeCreatorIdentity, YoutubeMerchTier, YoutubeUploadPlan, YoutubeVid
 import { saveMediaBlob } from '../../../services/mediaStorage';
 import { aiContent, aiOffline } from '../../../src/services/aiContent';
 import { hashString, liveCreators, PUBLIC_CREATORS, reactionTitle, streamers } from '../../../services/youtubeCreators';
-import { calculateYoutubeCreatorScore, getYoutubePublicImageLabel, YOUTUBE_MONETIZATION_SUBS, YOUTUBE_MONETIZATION_VIEWS } from '../../../services/youtubeLogic';
+import { calculateYoutubeCreatorScore, getYoutubePublicImageLabel, YOUTUBE_MONETIZATION_SUBS } from '../../../services/youtubeLogic';
+import { COUNTRY_CPM, yppProgress, YPP_WATCH_HOURS } from '../../../services/youtubePartner';
 import { dropOutlook } from '../../../services/youtubeConsequences';
 import {
-    carry, COUNTRY_RPM, ctrFor, dropCost, dropEnergy, ensureCampaign, FLAT_RPM, forecastOpeningGross, forecastYtLift, isMarketingType,
+    carry, ctrFor, dropCost, dropEnergy, ensureCampaign, forecastOpeningGross, forecastYtLift, isMarketingType,
     MARKETING_TYPES, musicOpeningBonus, openingMultiplier, PERSONAL_TYPES, readPhase,
-    SHORTS_RPM, trailerWarShare, typeLabel,
+    trailerWarShare, typeLabel,
 } from '../../../services/youtubeMarketing';
 import { findRivalChannel, personalityLabel } from '../../../services/youtubeRivals';
+import { AnalyticsScreen } from './AnalyticsScreen';
 import {
     changeIdentity, completeBrand, completeCollab, dropMerch, enableMemberships, goLive, identityTuning, setChannel,
     MERCH, PERSONAL_COSTS, personalCollab, publishUpload, raidStreamer, reactToVideo, resolveLeak,
@@ -626,7 +628,7 @@ export const UploadScreen: React.FC = () => {
                             sameWeekPosts: 1,
                             rivalBigDrops: 1,
                         }).note : 'Personal uploads skip the campaign.'}</div>
-                        <div className="mu">Short on cash still schedules the drop, with a weaker open. 24h views settle on the next week tick. Ads stay at a flat ${FLAT_RPM.toFixed(2)} RPM.</div>
+                        <div className="mu">Short on cash still schedules the drop, with a weaker open. 24h views settle on the next week tick. Ad CPM follows the audience country and the genre. Shorts pay much less than long-form.</div>
                     </div>
                 </div>
             )}
@@ -676,13 +678,11 @@ export const StudioScreen: React.FC = () => {
                 <div className="card pad">
                     <div className="h2">Revenue</div>
                     <Spark values={[earned * 0.2, earned * 0.35, earned * 0.3, earned * 0.5, earned * 0.46, earned * factor].map(value => Math.max(1, value))} color="#36d99a" />
-                    <div className="dim">Ads use the flat ${FLAT_RPM.toFixed(2)} RPM. Members, super chat, merch, and sponsors stack on top.</div>
+                    <div className="dim">Ad CPM follows the audience mix. Open Analytics for the country rates, retention, and which wallet gets paid.</div>
                 </div>
                 <div className="card pad">
                     <div className="h2">Audience</div>
-                    {Object.entries(COUNTRY_RPM).map(([code, rpm]) => (
-                        <div key={code} className="between" style={{ marginTop: 6 }}><span>{code}</span><span className="mono dim">${rpm.toFixed(2)} table · pay ${FLAT_RPM.toFixed(2)}</span></div>
-                    ))}
+                    <div className="dim">Country CPM is on Analytics. A US-heavy audience pays several times an India-heavy one. Controversy cuts the rate. It does not switch ads off.</div>
                 </div>
             </div>
             <div className="between" style={{ marginTop: 16 }}>
@@ -969,7 +969,7 @@ export const ShortsScreen: React.FC = () => {
         <div className="card pad">
             <div className="lbl">This Short</div>
             <div className="mono">{formatCompact(video.views)} views</div>
-            <div className="dim">Viewed vs swiped 71% · subs +{Math.floor(video.views / 240)} · RPM ${SHORTS_RPM.toFixed(2)}</div>
+            <div className="dim">Viewed vs swiped 71% · subs +{Math.floor(video.views / 240)} · Shorts RPM is a small fraction of long-form</div>
             <Spark values={video.weeklyHistory?.length ? video.weeklyHistory : [4, 8, 6, 12, 9, 14, 11]} />
             <div className="mint">Remixes drive the title track +{formatCompact(remixes * 40)} streams.</div>
         </div>
@@ -1085,12 +1085,14 @@ export const MoneyScreen: React.FC = () => {
     const unlocked = new Set<string>(api.player.flags?.youtubeMilestonesUnlocked || []);
     const strikes = strikeCount(api.player);
     const leaks = (api.channel.leaks || []).filter(leak => !leak.resolved);
-    const monetized = api.channel.isMonetized || (api.channel.subscribers >= YOUTUBE_MONETIZATION_SUBS && api.channel.totalChannelViews >= YOUTUBE_MONETIZATION_VIEWS);
+    const progress = yppProgress(api.channel, api.kind, api.absWeek);
+    const monetized = progress.monetized || api.channel.isMonetized;
 
     return (
         <div>
             <div className="h1">Earn</div>
-            <div className="dim">Monetization at {YOUTUBE_MONETIZATION_SUBS.toLocaleString()} subs and {YOUTUBE_MONETIZATION_VIEWS.toLocaleString()} views. Ads pay a flat ${FLAT_RPM.toFixed(2)} RPM. {monetized ? 'This channel is monetized.' : 'Not monetized yet.'}</div>
+            <div className="dim">Monetization at {YOUTUBE_MONETIZATION_SUBS.toLocaleString()} subs and {YPP_WATCH_HOURS.toLocaleString()} watch hours. CPM follows audience country and genre, and the money goes to {api.kind === 'personal' ? 'personal cash' : api.kind === 'studio' ? 'the studio treasury' : 'the Empire+ treasury'}. {monetized ? 'This channel is monetized.' : `This channel has ${Math.round(progress.watchHours).toLocaleString()} watch hours.`}</div>
+            <button className="btn sm" style={{ marginTop: 8 }} onClick={() => api.go('analytics')}>Open analytics</button>
             <div className="g6" style={{ marginTop: 14 }}>
                 {MILESTONES.map(item => {
                     const have = item.kind === 'subs' ? api.channel.subscribers : api.channel.totalChannelViews;
@@ -1108,7 +1110,7 @@ export const MoneyScreen: React.FC = () => {
                 <div className="card pad">
                     <div className="h2">Ad revenue</div>
                     <div className="kpi"><div className="v">{formatMoney(api.channel.lifetimeEarnings)}</div></div>
-                    {Object.entries(COUNTRY_RPM).slice(0, 5).map(([code, rpm]) => <div key={code} className="between"><span>{code}</span><span className="dim mono">table ${rpm.toFixed(2)}</span></div>)}
+                    {Object.entries(COUNTRY_CPM).filter(([code]) => code !== 'UK').slice(0, 5).map(([code, rpm]) => <div key={code} className="between"><span>{code}</span><span className="dim mono">${rpm.toFixed(2)} CPM</span></div>)}
                 </div>
                 <div className="card pad">
                     <div className="h2">Memberships</div>
@@ -1229,5 +1231,6 @@ export const screenFor = (screen: string) => {
     if (screen === 'shorts') return <ShortsScreen />;
     if (screen === 'live') return <LiveScreen />;
     if (screen === 'money') return <MoneyScreen />;
+    if (screen === 'analytics') return <AnalyticsScreen />;
     return <HomeScreen />;
 };

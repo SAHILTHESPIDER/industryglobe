@@ -2399,34 +2399,23 @@ export const App: React.FC = () => {
                           <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 mb-3">What&apos;s New</div>
                           <h3 className="text-2xl font-black text-white mb-2">Version {APP_DISPLAY_VERSION}</h3>
                           <p className="text-sm text-zinc-400 leading-relaxed">
-                              Films now leave the editing room with scores, a test screening, and a festival circuit that can turn into a bidding war.
+                              YouTube now pays like YouTube. Ads, collabs, premieres, and promotion all land on the channel that earned them.
                           </p>
                       </div>
 
                       <div className="space-y-4 text-sm text-zinc-300">
-                          <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Critics</div>
+                          <div className="rounded-2xl border border-red-500/15 bg-red-500/10 px-4 py-3">
+                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2">YouTube</div>
                               <ul className="space-y-2 leading-relaxed">
-                                  <li>• Every film gets a critics percent and an audience percent, listed beside the IMDb rating. Named critics show up with a short quote. Some are on your side. Some are not.</li>
-                                  <li>• Praise on a talk-show tour, or a feud on X, changes how that roster treats the next film.</li>
-                                  <li>• High heat or a messy YouTube channel can trigger a review bomb. Ignore it, call it out, or ask the platform to clean it up over two weeks.</li>
-                              </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Test screenings</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• After a production-house film wraps, you can buy a test screening. The score is a hint, within 8 points of the real audience number.</li>
-                                  <li>• Release the cut you tested, pay for a recut, reshoot the ending, or bury the film on streaming and keep the marketing money.</li>
-                              </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">Festivals</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• Submit to Sundance, Berlin, Cannes, Venice, or TIFF. Quality above the festival&apos;s bar raises the odds. It does not guarantee a slot.</li>
-                                  <li>• A selected film gets a premiere reaction and can win a prize. A breakout opens a bidding room: accept, counter, or walk, up to three rounds.</li>
-                                  <li>• A prize is worth an extra 5 points when the Oscars and BAFTA score that season.</li>
+                                  <li>• The Partner Program turns on at 1,000 subscribers and 4,000 watch hours. Ad CPM follows the audience&apos;s countries and the video&apos;s genre.</li>
+                                  <li>• Studio-channel money goes to the house treasury. Personal-channel money goes to your cash. Empire+ goes to company cash.</li>
+                                  <li>• Shorts travel fast and pay a fraction of a long video. Long videos build the watch hours.</li>
+                                  <li>• Collabs cross both audiences. A bad fit or a hot partner causes backlash instead of a locked button.</li>
+                                  <li>• A premiere or a live launch moves campaign hype, and that hype moves opening weekend.</li>
+                                  <li>• Analytics shows CTR, retention, audience by country, the best upload window, and revenue.</li>
+                                  <li>• Brand deals scale with subscribers. Stack too many and the audience gets tired of them.</li>
+                                  <li>• Community posts show fan mood. A controversy can trend.</li>
+                                  <li>• Paid promotion takes a budget, countries, and a duration. Bigger spends return less, and pushing a weak video converts poorly.</li>
                               </ul>
                           </div>
 
@@ -2448,6 +2437,7 @@ export const App: React.FC = () => {
                               <div className="rounded-2xl border border-white/10 bg-zinc-950/80 px-4 py-3">
                                   <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 mb-2">Previous Highlights</div>
                                   <ul className="space-y-2 leading-relaxed text-zinc-400">
+                                      <li>• 1.1.28 added critic scores, test screenings, and a festival circuit that can turn into a bidding war.</li>
                                       <li>• 1.1.27 fixed the streaming plan price, filled the weekend Top 10, and tied your X location to the city you live in.</li>
                                       <li>• 1.1.25 fixed streaming viewership curves, bid wars, pregnancy logic, and long-career save stability.</li>
                                       <li>• Greenlight shows which returning talent deals are pending, with quick negotiate actions.</li>
