@@ -47,6 +47,9 @@ export const lookFor = (channel: YoutubeChannel | undefined, kind: YoutubeChanne
 export const presetColors = (id: string | undefined, bank: readonly { id: string; colors: readonly string[] }[]) =>
     bank.find(item => item.id === id)?.colors;
 
+export const avatarColors = (look: ChannelLook | undefined) =>
+    look?.avatarData ? undefined : presetColors(look?.avatarPreset, AVATAR_PRESETS);
+
 const log = (player: Player, message: string, type: 'positive' | 'negative' | 'neutral' = 'neutral'): Player => ({
     ...player,
     logs: [{ week: player.currentWeek, year: player.age, message, type }, ...(player.logs || [])].slice(0, 50),
@@ -72,7 +75,8 @@ export const saveChannelLook = (player: Player, kind: YoutubeChannelKind, patch:
     const channel = player.youtube;
     const current = lookFor(channel, kind);
     const nextName = (patch.name ?? current.name ?? '').trim().slice(0, 42);
-    const nameChanged = nextName.length > 0 && nextName !== (current.name || '');
+    const shownName = (current.name || (kind === 'personal' ? player.name : '')).trim();
+    const nameChanged = nextName !== shownName && (nextName.length > 0 || !!current.name);
     const abs = getAbsoluteWeek(player.age, player.currentWeek);
     const frequent = nameChanged && (current.renames || 0) >= 1 && abs - (current.renameWeekAbs || -999) < RENAME_CONFUSION_WEEKS;
     const look: ChannelLook = {

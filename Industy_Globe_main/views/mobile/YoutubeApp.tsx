@@ -7,7 +7,7 @@ import { ensureCampaign, migrateYoutubeSave, playerProjects, syncOfficialChannel
 import { syncRivalYoutube } from '../../services/youtubeRivals';
 import { syncCreatorYoutube } from '../../services/youtubePeople';
 import { settlePlayButtons } from '../../services/youtubeAwards';
-import { EXTRA_CHANNEL_UNLOCK_PRICE, channelSwitchAllowed, lookFor } from '../../services/youtubeCustomize';
+import { EXTRA_CHANNEL_UNLOCK_PRICE, avatarColors, channelSwitchAllowed, lookFor } from '../../services/youtubeCustomize';
 import { setChannel } from './youtube/actions';
 import { Ceremony, UnlockSheet, dismissOpenCeremony } from './youtube/features';
 import { ScreenFade } from './youtube/motion';
@@ -199,9 +199,9 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                             </button>
                             <button className="switcher" onClick={() => switchKind(kind === 'personal' ? 'studio' : kind === 'studio' ? 'empirePlus' : 'personal')} data-yt-switch>
                                 <span className="stack">
-                                    <Av kind="me" label={personalLook.name || player.name} size={30} src={personalLook.avatarData} />
-                                    <Av kind="studio" size={30} />
-                                    <Av kind="eplus" size={30} />
+                                    <Av kind="me" label={personalLook.name || player.name} size={30} src={personalLook.avatarData} colors={avatarColors(personalLook)} />
+                                    <Av kind="studio" label={studioLook.name || studioName} size={30} src={studioLook.avatarData} colors={avatarColors(studioLook)} />
+                                    <Av kind="eplus" label={empireLook.name || 'Empire+'} size={30} src={empireLook.avatarData} colors={avatarColors(empireLook)} />
                                 </span>
                                 <span><b>{kind === 'personal' ? (personalLook.name || player.name) : kind === 'studio' ? (studioLook.name || studioName) : (empireLook.name || 'Empire+')}</b><small>{locked && kind === 'personal' ? 'Unlock more channels' : 'Switch channel'}</small></span>
                                 <ChevronDown size={14} />
@@ -221,9 +221,9 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                             </button>
                         ))}
                         <div className="rh">Your channels</div>
-                        <button className={`chan${kind === 'personal' ? ' on' : ''}`} onClick={() => switchKind('personal')}><Av kind="me" label={personalLook.name || player.name} size={26} src={personalLook.avatarData} /><span><b>{personalLook.name || player.name}</b><small>Personal · {formatCompact(channel.subscribers)}</small></span></button>
-                        <button className={`chan${kind === 'studio' ? ' on' : ''}${locked ? ' locked' : ''}`} onClick={() => switchKind('studio')} data-yt-channel="studio"><Av kind="studio" size={26} />{locked && <Lock size={12} />} <span><b>{studioLook.name || studioName}</b><small>{locked ? `Locked · ${formatCompact(EXTRA_CHANNEL_UNLOCK_PRICE)}` : studio ? `Official · ${formatCompact(studio.subscribers)}` : 'Opens with a house'}</small></span></button>
-                        <button className={`chan${kind === 'empirePlus' ? ' on' : ''}${locked ? ' locked' : ''}`} onClick={() => switchKind('empirePlus')} data-yt-channel="empirePlus"><Av kind="eplus" size={26} /><span><b>{empireLook.name || 'Empire+'}</b><small>{locked ? 'Locked' : empire ? `Official · ${formatCompact(empire.subscribers)}` : 'When Empire+ is live'}</small></span></button>
+                        <button className={`chan${kind === 'personal' ? ' on' : ''}`} onClick={() => switchKind('personal')}><Av kind="me" label={personalLook.name || player.name} size={26} src={personalLook.avatarData} colors={avatarColors(personalLook)} /><span><b>{personalLook.name || player.name}</b><small>Personal · {formatCompact(channel.subscribers)}</small></span></button>
+                        <button className={`chan${kind === 'studio' ? ' on' : ''}${locked ? ' locked' : ''}`} onClick={() => switchKind('studio')} data-yt-channel="studio"><Av kind="studio" label={studioLook.name || studioName} size={26} src={studioLook.avatarData} colors={avatarColors(studioLook)} />{locked && <Lock size={12} />} <span><b>{studioLook.name || studioName}</b><small>{locked ? `Locked · ${formatCompact(EXTRA_CHANNEL_UNLOCK_PRICE)}` : studio ? `Official · ${formatCompact(studio.subscribers)}` : 'Opens with a house'}</small></span></button>
+                        <button className={`chan${kind === 'empirePlus' ? ' on' : ''}${locked ? ' locked' : ''}`} onClick={() => switchKind('empirePlus')} data-yt-channel="empirePlus"><Av kind="eplus" label={empireLook.name || 'Empire+'} size={26} src={empireLook.avatarData} colors={avatarColors(empireLook)} /><span><b>{empireLook.name || 'Empire+'}</b><small>{locked ? 'Locked' : empire ? `Official · ${formatCompact(empire.subscribers)}` : 'When Empire+ is live'}</small></span></button>
                         <div className="weekcard">
                             <div className="k">Week {player.currentWeek} · {1998 + player.age}</div>
                             <div className="v">{focus?.projectDetails?.title || 'No release'}{weeksLeft != null ? <> opens in <span className="red">{weeksLeft} wks</span></> : null}</div>
@@ -245,7 +245,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
                         <button className="iconbtn" aria-label="Create" onClick={() => go('upload')}><Video size={18} /></button>
                         <button className="iconbtn" onClick={() => go('money')} aria-label="Alerts"><Bell size={18} />{badge && <span className="dot">{badge}</span>}</button>
                         <button className="iconbtn" aria-label="Search" onClick={() => setMobileSearch(open => !open)}><Search size={18} /></button>
-                        <button aria-label="You" onClick={() => setYouOpen(true)}><Av kind="me" label={player.name} size={28} /></button>
+                        <button aria-label="You" onClick={() => setYouOpen(true)}><Av kind="me" label={personalLook.name || player.name} size={28} src={personalLook.avatarData} colors={avatarColors(personalLook)} /></button>
                     </div>
                 </header>
                 {mobileSearch && (
