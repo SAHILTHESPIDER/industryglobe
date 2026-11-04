@@ -19,7 +19,7 @@ import {
     strikeCount, toggleSave, toggleSubscription, UPLOAD_PLANS,
 } from './actions';
 import { Av, formatCompact, formatMoney, Gauge, Thumb } from './bits';
-import { AnimatedSpark as Spark, LikeBurst, PremiereCountdown, RollNumber } from './motion';
+import { AnimatedSpark as Spark, LikeBurst, LiveFeed, PremiereCountdown, RollNumber } from './motion';
 import { useYt } from './state';
 import { badgeFor, creatorFor, dubLine, postedAgo, STILL, stillForType, stillUrl, verifiedAuthor, weeksAgoFor } from './stills';
 import { createFittedThumbnailBlob, Face, MAX_THUMBNAIL_SOURCE_SIZE, ThumbnailFitMode } from './thumb';
@@ -1072,7 +1072,7 @@ export const LiveScreen: React.FC = () => {
                 <div className="card pad" style={{ maxHeight: 280, overflow: 'auto' }}>
                     <div className="h2">Live chat</div>
                     <div className="pill gold">Pinned · gifted memberships on</div>
-                    <div className="yt-chat-scroll">{chat.map((line, index) => <div key={`${index}-${line}`} style={{ marginTop: 8 }}><b className={index === 0 ? 'gold' : ''}>{index === 0 ? 'Member' : `chat${index}`}</b> <span className="mu">{line}</span></div>)}</div>
+                    <LiveFeed>{chat.map((line, index) => <div key={`${index}-${line}`} style={{ marginTop: 8 }}><b className={index === 0 ? 'gold' : ''}>{index === 0 ? 'Member' : `chat${index}`}</b> <span className="mu">{line}</span></div>)}</LiveFeed>
                 </div>
                 <div className="h2" style={{ marginTop: 14 }}>India live</div>
                 <div className="grid" style={{ marginTop: 8 }}>{india.map(creator => <Row key={creator.id} creator={creator} />)}</div>
