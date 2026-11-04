@@ -7,7 +7,7 @@ import { PUBLIC_CREATORS, PublicCreator } from './youtubeCreators';
 import { aiOffline } from '../src/services/aiContent';
 import { isMarketingType } from './youtubeMarketing';
 import { getAbsoluteWeek } from './legacyLogic';
-import { SHORT_REACH, adRevenue, minutesFor, partnerReady, sponsorViewMultiplier, watchHoursFromVideos } from './youtubePartner';
+import { SHORT_REACH, adRevenue, applyAudienceMix, partnerReady, slotMultiplier, sponsorViewMultiplier, watchHoursFromVideos } from './youtubePartner';
 
 export const YOUTUBE_MONETIZATION_SUBS = 1000;
 export const YOUTUBE_MONETIZATION_VIEWS = 4000;
@@ -484,7 +484,6 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
     let channel = { ...player.youtube };
     let weeklyRevenue = 0;
     let newSubsTotal = 0;
-    let addedHours = 0;
     const notifications: string[] = [];
 
     // 1. Process Videos
@@ -513,7 +512,7 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
         const variance = 0.8 + Math.random() * 0.4;
         
         const formatReach = (video.isShort || video.type === 'SHORT') ? SHORT_REACH : 1;
-        let newViews = Math.floor(subPush * growthFactor * qualityBonus * variance * formatReach * sponsorViewMultiplier(channel.videos || [], getAbsoluteWeek(player.age, player.currentWeek)));
+        let newViews = Math.floor(subPush * growthFactor * qualityBonus * variance * formatReach * slotMultiplier(video.uploadSlot) * sponsorViewMultiplier(channel.videos || [], getAbsoluteWeek(player.age, player.currentWeek)));
         
         // CRITICAL: Prevent Infinity/NaN propagation
         if (!isFinite(newViews)) newViews = 0;
@@ -546,7 +545,7 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
         if (!isFinite(subsGained)) subsGained = 0;
         
         newSubsTotal += subsGained;
-        addedHours += (newViews * minutesFor(video)) / 60;
+        if (newViews > 0) channel.audienceMix = applyAudienceMix(channel, video.country || 'IN', newViews).audienceMix;
 
         return {
             ...video,
@@ -560,7 +559,7 @@ export const processYoutubeChannel = (player: Player): { channel: YoutubeChannel
     channel.videos = updatedVideos;
     channel.subscribers += newSubsTotal;
     channel.lifetimeEarnings += weeklyRevenue;
-    channel.watchHours = (channel.watchHours || 0) > 0 ? (channel.watchHours || 0) + addedHours : watchHoursFromVideos(updatedVideos);
+    channel.watchHours = watchHoursFromVideos(updatedVideos);
     
     // Safety checks for channel totals
     if (!isFinite(channel.subscribers)) channel.subscribers = 0;

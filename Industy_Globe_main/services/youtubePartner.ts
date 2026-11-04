@@ -3,7 +3,7 @@ import {
 } from '../types';
 import { getAbsoluteWeek } from './legacyLogic';
 import { addCompanyCash, readCompanyCash } from './ownPlatform/companyCash';
-import { COUNTRY_RPM } from './youtubeMarketing';
+import { COUNTRY_RPM, UPLOAD_SLOT_REACH } from './youtubeMarketing';
 
 /**
  * YouTube Partner Program and the money around it.
@@ -35,9 +35,6 @@ const TYPE_CPM: Record<string, number> = {
     PREMIERE_LIVE: 1.1, CAST_INTERVIEW: 1.04,
 };
 
-const SLOT_BIAS: Record<'MORNING' | 'EVENING' | 'LATE', number> = {
-    MORNING: 0.86, EVENING: 1, LATE: 0.92,
-};
 
 export const minutesFor = (video: Pick<YoutubeVideo, 'type' | 'isShort' | 'qualityScore'>): number => {
     if (video.isShort || video.type === 'SHORT') return SHORT_MINUTES;
@@ -119,7 +116,34 @@ export const collabOutlook = (subs: number, partnerFollowers: number, heat: numb
     };
 };
 
-export const slotMultiplier = (slot?: 'MORNING' | 'EVENING' | 'LATE') => SLOT_BIAS[slot || 'EVENING'];
+export const slotMultiplier = (slot?: 'MORNING' | 'EVENING' | 'LATE') => UPLOAD_SLOT_REACH[slot || 'EVENING'];
+
+export const hoursForViews = (video: Pick<YoutubeVideo, 'type' | 'isShort' | 'qualityScore'>, views: number) =>
+    (Math.max(0, views) * minutesFor(video)) / 60;
+
+/** Personal watch time is the videos on that channel, including views added after the counter started. */
+export const syncPersonalWatchHours = (channel: YoutubeChannel): YoutubeChannel => ({
+    ...channel,
+    watchHours: watchHoursFromVideos(channel.videos || []),
+});
+
+export const activePartner = (channel: YoutubeChannel, kind: YoutubeChannelKind) => {
+    if (kind === 'studio' || kind === 'empirePlus') {
+        const board = kind === 'studio' ? channel.officialChannels?.studio : channel.officialChannels?.empirePlus;
+        const videos = board?.videos || [];
+        const hours = watchHoursFromVideos(videos);
+        const subs = board?.subscribers || 0;
+        return { subs, hours, monetized: partnerReady(subs, hours), videos, revenue: board?.lifetimeEarnings || 0 };
+    }
+    const hours = channelWatchHours(channel);
+    return {
+        subs: channel.subscribers || 0,
+        hours,
+        monetized: !!channel.isMonetized || partnerReady(channel.subscribers || 0, hours),
+        videos: channel.videos || [],
+        revenue: channel.lifetimeEarnings || 0,
+    };
+};
 
 export interface AnalyticsSnapshot {
     ctr: number;
@@ -264,14 +288,35 @@ export const promoteVideo = (player: Player, input: { videoId: string; budget: n
     };
     video.views += quote.views;
     video.weeklyHistory = [...(video.weeklyHistory || []), quote.views];
+    const gainedSubs = Math.floor(quote.views / (quote.fatigued ? 500 : 220));
     let channel = charged.player.youtube;
     if (kind === 'personal') {
         channel = {
             ...channel,
             totalChannelViews: (channel.totalChannelViews || 0) + quote.views,
-            subscribers: channel.subscribers + Math.floor(quote.views / (quote.fatigued ? 500 : 220)),
+            subscribers: channel.subscribers + gainedSubs,
+            watchHours: watchHoursFromVideos(channel.videos || []),
         };
+    } else {
+        const key = kind === 'studio' ? 'studio' : 'empirePlus';
+        const board = channel.officialChannels?.[key];
+        if (board) {
+            channel = {
+                ...channel,
+                officialChannels: {
+                    ...channel.officialChannels,
+                    [key]: {
+                        ...board,
+                        totalViews: (board.totalViews || 0) + quote.views,
+                        subscribers: (board.subscribers || 0) + gainedSubs,
+                    },
+                },
+            };
+        }
     }
+    countries.forEach(code => {
+        channel = applyAudienceMix(channel, code, Math.max(1, quote.views / countries.length));
+    });
     channel = {
         ...channel,
         promotions: [promo, ...(channel.promotions || [])].slice(0, 16),

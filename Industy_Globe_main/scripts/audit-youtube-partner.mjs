@@ -84,6 +84,8 @@ record('wallet', 'personal cash pays for a promo and a broke wallet does not', (
   assert(!bought.error, bought.error || '');
   assert(bought.player.money === 300, 'personal cash was charged');
   assert(bought.player.youtube.videos.find(item => item.id === 'cut').views > 1000, 'views were bought');
+  assert(bought.player.youtube.watchHours > 0, 'bought views count as watch time');
+  assert((bought.player.youtube.audienceMix || {}).IN > 0, 'the buy is in the country mix');
   const broke = promoteVideo(bought.player, { videoId: 'cut', budget: 5000, countries: ['IN'], weeks: 1 });
   assert(broke.error, 'a short wallet should refuse the buy');
 });
@@ -97,6 +99,9 @@ record('wallet', 'studio ads bill the house', () => {
   assert(!bought.error, bought.error || '');
   assert(bought.player.money === 0, 'personal cash stays put');
   assert(bought.player.businesses[0].balance === 1600, 'the house paid');
+  const board = bought.player.youtube.officialChannels.studio;
+  assert(board.subscribers > 0 && board.totalViews > 1000, 'the studio board records the bought audience');
+  assert((bought.player.youtube.audienceMix || {}).US > (bought.player.youtube.audienceMix || {}).IN, 'a US buy shifts RPM away from India');
 });
 
 record('community', 'heat can trend without blocking the post', () => {

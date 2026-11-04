@@ -273,6 +273,8 @@ export const COUNTRY_RPM: Record<string, number> = {
 /** Flat $2 RPM stays the default. The weighted table is available for a later balance pass. */
 export const FLAT_RPM = 2;
 export const SHORTS_RPM = 0.06;
+/** Evening is the full audience. Morning and late night are smaller rooms, not blocks. */
+export const UPLOAD_SLOT_REACH = { MORNING: 0.86, EVENING: 1, LATE: 0.92 } as const;
 
 export const playerProjects = (player: Player): Commitment[] =>
     (player.commitments || []).filter(item =>
@@ -735,11 +737,13 @@ const settlePersonalShorts = (player: Player, channel: YoutubeChannel): number =
         const age = Math.max(0, getAbsoluteWeek(player.age, player.currentWeek) - getAbsoluteWeek(video.yearUploaded || player.age, video.weekUploaded));
         if (age === 0) return;
         const Q = 0.6 + ((video.qualityScore || 50) / 100);
-        const views = shortViews(channel.subscribers || 0, Q, age, 0.9 + ((hashString(video.id + age) % 20) / 100));
+        const slot = UPLOAD_SLOT_REACH[video.uploadSlot || 'EVENING'];
+        const views = Math.floor(shortViews(channel.subscribers || 0, Q, age, 0.9 + ((hashString(video.id + age) % 20) / 100)) * slot);
         video.views += views;
         video.weeklyHistory = [...(video.weeklyHistory || []), views].slice(-26);
         channel.totalChannelViews += views;
         channel.subscribers += Math.floor(views / 240);
+        channel.watchHours = (channel.watchHours || 0) + (views * 0.4) / 60;
         if (video.songId) {
             const remixes = Math.floor(views * 0.02);
             channel.shortsRemixes = (channel.shortsRemixes || 0) + remixes;

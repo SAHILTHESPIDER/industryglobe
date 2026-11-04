@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    PARTNER_SUBS, PARTNER_WATCH_HOURS, analyticsFor, channelWatchHours, postCommunity, premiereProject, promoteVideo, quotePromotion,
+    PARTNER_SUBS, PARTNER_WATCH_HOURS, activePartner, analyticsFor, postCommunity, premiereProject, promoteVideo, quotePromotion,
 } from '../../../services/youtubePartner';
 import { formatCompact, formatMoney } from './bits';
 import { useYt } from './state';
@@ -9,8 +9,9 @@ const MARKETS = ['IN', 'US', 'UK', 'AE', 'CA'];
 
 export const PartnerStrip = () => {
     const api = useYt();
-    const hours = channelWatchHours(api.channel);
-    const ready = api.channel.isMonetized || (api.channel.subscribers >= PARTNER_SUBS && hours >= PARTNER_WATCH_HOURS);
+    const board = activePartner(api.channel, api.kind);
+    const hours = board.hours;
+    const ready = board.monetized;
     return (
         <div className="card pad" data-yt-partner style={{ marginTop: 12 }}>
             <div className="between">
@@ -28,9 +29,16 @@ export const PartnerStrip = () => {
 
 export const AnalyticsScreen = () => {
     const api = useYt();
-    const official = api.kind === 'studio' ? api.channel.officialChannels?.studio : api.kind === 'empirePlus' ? api.channel.officialChannels?.empirePlus : null;
-    const videos = official?.videos || api.channel.videos;
-    const stats = analyticsFor(official ? { ...api.channel, subscribers: official.subscribers, lifetimeEarnings: official.lifetimeEarnings, videos } : api.channel, videos);
+    const board = activePartner(api.channel, api.kind);
+    const videos = board.videos;
+    const stats = analyticsFor({
+        ...api.channel,
+        subscribers: board.subs,
+        lifetimeEarnings: board.revenue,
+        videos,
+        watchHours: board.hours,
+        isMonetized: board.monetized,
+    }, videos);
     const [budget, setBudget] = useState(1000);
     const [weeks, setWeeks] = useState(1);
     const [countries, setCountries] = useState<string[]>(['IN']);

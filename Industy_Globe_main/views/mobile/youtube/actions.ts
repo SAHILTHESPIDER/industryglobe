@@ -9,7 +9,7 @@ import { findRivalChannel } from '../../../services/youtubeRivals';
 import { liveCreators } from '../../../services/youtubeCreators';
 import { channelSwitchAllowed, lookFor } from '../../../services/youtubeCustomize';
 import { findCreatorSeed } from '../../../services/youtubePeople';
-import { collabOutlook, payWallet, sponsorMoodHit } from '../../../services/youtubePartner';
+import { applyAudienceMix, collabOutlook, payWallet, sponsorMoodHit, watchHoursFromVideos } from '../../../services/youtubePartner';
 
 export const UPLOAD_PLANS: Record<YoutubeUploadPlan, { label: string; viewBoost: number; qualityBoost: number; trust: number; mood: number; controversy: number }> = {
     SAFE: { label: 'Safe', viewBoost: 0, qualityBoost: 5, trust: 4, mood: 1, controversy: -2 },
@@ -171,38 +171,27 @@ export const goLive = (player: Player, mode: 'standard' | 'guest' | 'surprise' |
         },
     };
     if (mode === 'surprise') {
-        const project = player.commitments?.find(item => item.projectDetails);
+        const project = player.commitments?.find(item => item.projectDetails && next.youtube.marketing?.[item.id]);
         if (project && next.youtube.marketing?.[project.id]) {
             const campaign = next.youtube.marketing[project.id];
+            const chat = Math.max(0, Math.min(100, Math.round((next.youtube.fanMood ?? 55) - (messy ? 18 : 0))));
             next = {
                 ...next,
                 youtube: {
                     ...next.youtube,
-                    marketing: { ...next.youtube.marketing, [project.id]: { ...campaign, campaignHype: Math.min(100, campaign.campaignHype + 3) } },
+                    marketing: {
+                        ...next.youtube.marketing,
+                        [project.id]: {
+                            ...campaign,
+                            premiereHype: chat,
+                            campaignHype: Math.max(0, Math.min(100, campaign.campaignHype + (messy ? -4 : 3))),
+                        },
+                    },
                 },
             };
         }
     }
     spendPlayerEnergy(next, 18);
-    const liveProject = player.commitments?.find(item => item.projectDetails);
-    if (liveProject && next.youtube.marketing?.[liveProject.id]) {
-        const campaign = next.youtube.marketing[liveProject.id];
-        const chat = Math.max(0, Math.min(100, Math.round((next.youtube.fanMood ?? 55) - (messy ? 18 : 0))));
-        next = {
-            ...next,
-            youtube: {
-                ...next.youtube,
-                marketing: {
-                    ...next.youtube.marketing,
-                    [liveProject.id]: {
-                        ...campaign,
-                        premiereHype: chat,
-                        campaignHype: Math.max(0, Math.min(100, campaign.campaignHype + (messy ? -4 : 3))),
-                    },
-                },
-            },
-        };
-    }
     next = xpost(log(next, messy
         ? `Livestream got messy: +${liveViews.toLocaleString()} views, $${donations.toLocaleString()} donations.`
         : `Livestream: +${liveViews.toLocaleString()} views, +${subs.toLocaleString()} subs, $${donations.toLocaleString()} super chat.`, messy ? 'negative' : 'positive'), messy
@@ -371,22 +360,24 @@ export const publishUpload = (player: Player, input: {
 
 export const completeCollab = (player: Player, collab: YoutubeCollabOffer): ActionResult => {
     if (player.energy.current < collab.energyCost) return { player, error: 'Not enough energy.' };
-    const outlook = collabOutlook(player.youtube.subscribers || 0, Math.max(collab.bonusSubscribers * 40, 1000), player.youtube.controversy || 0, player.youtube.audienceTrust ?? 55);
+    const partner = (collab.creatorId ? findCreatorSeed(player, collab.creatorId) : undefined) || findCreatorSeed(player, collab.creatorName);
+    const outlook = collabOutlook(player.youtube.subscribers || 0, partner?.followers || Math.max(collab.bonusViews, 1000), player.youtube.controversy || 0, player.youtube.audienceTrust ?? 55);
     const video = makeVideo(player, collab.conceptTitle, collab.requiredType, 'BTS', { views: outlook.views });
     video.likes = Math.floor(video.views * 0.06);
+    const withVideo = {
+        ...player.youtube,
+        subscribers: player.youtube.subscribers + outlook.subs,
+        totalChannelViews: (player.youtube.totalChannelViews || 0) + video.views,
+        videos: [video, ...player.youtube.videos],
+        activeCollabs: player.youtube.activeCollabs.filter(item => item.id !== collab.id),
+        audienceTrust: Math.max(0, Math.min(100, (player.youtube.audienceTrust ?? 55) + outlook.trust)),
+        controversy: Math.max(0, Math.min(100, (player.youtube.controversy || 0) + outlook.backlash)),
+        fanMood: Math.max(0, Math.min(100, (player.youtube.fanMood ?? 55) + (outlook.backlash ? -4 : 3))),
+    };
     let next: Player = {
         ...player,
         stats: { ...player.stats, fame: Math.min(100, player.stats.fame + (outlook.backlash ? 0 : 1)), reputation: Math.min(100, Math.max(0, player.stats.reputation + (outlook.backlash ? -1 : 1))) },
-        youtube: {
-            ...player.youtube,
-            subscribers: player.youtube.subscribers + outlook.subs,
-            totalChannelViews: (player.youtube.totalChannelViews || 0) + video.views,
-            videos: [video, ...player.youtube.videos],
-            activeCollabs: player.youtube.activeCollabs.filter(item => item.id !== collab.id),
-            audienceTrust: Math.max(0, Math.min(100, (player.youtube.audienceTrust ?? 55) + outlook.trust)),
-            controversy: Math.max(0, Math.min(100, (player.youtube.controversy || 0) + outlook.backlash)),
-            fanMood: Math.max(0, Math.min(100, (player.youtube.fanMood ?? 55) + (outlook.backlash ? -4 : 3))),
-        },
+        youtube: applyAudienceMix({ ...withVideo, watchHours: watchHoursFromVideos(withVideo.videos) }, video.country || 'IN', video.views),
     };
     spendPlayerEnergy(next, collab.energyCost);
     const social = aiOffline.xPosts({ speaker: player.name, subject: collab.creatorName, event: outlook.backlash ? 'just had a messy collab' : 'just dropped a collab', seed: collab.id })[0];
@@ -396,23 +387,59 @@ export const completeCollab = (player: Player, collab: YoutubeCollabOffer): Acti
 
 export const completeBrand = (player: Player, deal: YoutubeBrandDeal): ActionResult => {
     if (player.energy.current < deal.energyCost) return { player, error: 'Not enough energy.' };
-    const video = makeVideo(player, `${deal.brandName} x ${player.name}`, deal.requiredType, 'SPONSOR_HEAVY', { views: Math.floor(deal.bonusViews * 0.9) });
     const kind = player.youtube.activeChannel || 'personal';
+    if (kind !== 'personal' && !player.youtube.officialChannels?.[kind === 'studio' ? 'studio' : 'empirePlus']) {
+        return { player, error: 'That official channel is not open yet.' };
+    }
+    const video = makeVideo(player, `${deal.brandName} x ${player.name}`, deal.requiredType, 'SPONSOR_HEAVY', { views: Math.floor(deal.bonusViews * 0.9), channelKind: kind });
     let next = payWallet(player, kind, deal.payout, `${deal.brandName} integration`);
-    const hit = sponsorMoodHit([video, ...(player.youtube.videos || [])], getAbsoluteWeek(player.age, player.currentWeek));
-    next = {
-        ...next,
-        youtube: {
-            ...next.youtube,
-            lifetimeEarnings: next.youtube.lifetimeEarnings + deal.payout,
-            totalChannelViews: (next.youtube.totalChannelViews || 0) + video.views,
-            videos: [video, ...next.youtube.videos],
-            activeBrandDeals: next.youtube.activeBrandDeals.filter(item => item.id !== deal.id),
-            audienceTrust: Math.max(0, (next.youtube.audienceTrust ?? 55) - hit.trust),
-            fanMood: Math.max(0, (next.youtube.fanMood ?? 55) - hit.mood),
-            controversy: Math.min(100, (next.youtube.controversy || 0) + hit.heat),
-        },
+    const boardVideos = kind === 'studio'
+        ? next.youtube.officialChannels?.studio?.videos || []
+        : kind === 'empirePlus'
+            ? next.youtube.officialChannels?.empirePlus?.videos || []
+            : next.youtube.videos || [];
+    const hit = sponsorMoodHit([video, ...boardVideos], getAbsoluteWeek(player.age, player.currentWeek));
+    const mood = {
+        audienceTrust: Math.max(0, (next.youtube.audienceTrust ?? 55) - hit.trust),
+        fanMood: Math.max(0, (next.youtube.fanMood ?? 55) - hit.mood),
+        controversy: Math.min(100, (next.youtube.controversy || 0) + hit.heat),
+        activeBrandDeals: next.youtube.activeBrandDeals.filter(item => item.id !== deal.id),
     };
+    if (kind === 'personal') {
+        const videos = [video, ...next.youtube.videos];
+        next = {
+            ...next,
+            youtube: applyAudienceMix({
+                ...next.youtube,
+                ...mood,
+                lifetimeEarnings: next.youtube.lifetimeEarnings + deal.payout,
+                totalChannelViews: (next.youtube.totalChannelViews || 0) + video.views,
+                videos,
+                watchHours: watchHoursFromVideos(videos),
+            }, video.country || 'IN', video.views),
+        };
+    } else {
+        const key = kind === 'studio' ? 'studio' : 'empirePlus';
+        const board = next.youtube.officialChannels?.[key];
+        if (!board) return { player, error: 'That official channel is not open yet.' };
+        next = {
+            ...next,
+            youtube: applyAudienceMix({
+                ...next.youtube,
+                ...mood,
+                officialChannels: {
+                    ...next.youtube.officialChannels,
+                    [key]: {
+                        ...board,
+                        videos: [video, ...(board.videos || [])].slice(0, 60),
+                        totalViews: (board.totalViews || 0) + video.views,
+                        subscribers: (board.subscribers || 0) + Math.floor(video.views / 400),
+                        lifetimeEarnings: (board.lifetimeEarnings || 0) + deal.payout,
+                    },
+                },
+            }, video.country || 'IN', video.views),
+        };
+    }
     spendPlayerEnergy(next, deal.energyCost);
     next = log(next, hit.trust > 0
         ? `${deal.brandName} paid $${deal.payout.toLocaleString()}. Regulars are tired of the ads.`

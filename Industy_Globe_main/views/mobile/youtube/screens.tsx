@@ -23,6 +23,7 @@ import { badgeFor, creatorFor, dubLine, postedAgo, STILL, stillForType, stillUrl
 import { createFittedThumbnailBlob, Face, MAX_THUMBNAIL_SOURCE_SIZE, ThumbnailFitMode } from './thumb';
 import { ChannelExtras, CreatorScreen, CreatorWatchSubscribe, PeopleSubs, TrophyShelf, bannerBackground } from './features';
 import { AnalyticsScreen, PartnerStrip } from './partner';
+import { activePartner } from '../../../services/youtubePartner';
 import { AVATAR_PRESETS, lookFor, presetColors } from '../../../services/youtubeCustomize';
 import { playButtonLabel } from '../../../services/youtubeAwards';
 import { creatorAudience } from '../../../services/youtubePeople';
@@ -1099,7 +1100,7 @@ export const MoneyScreen: React.FC = () => {
     const unlocked = new Set<string>(api.player.flags?.youtubeMilestonesUnlocked || []);
     const strikes = strikeCount(api.player);
     const leaks = (api.channel.leaks || []).filter(leak => !leak.resolved);
-    const monetized = api.channel.isMonetized || (api.channel.subscribers >= YOUTUBE_MONETIZATION_SUBS && api.channel.totalChannelViews >= YOUTUBE_MONETIZATION_VIEWS);
+    const monetized = activePartner(api.channel, api.kind).monetized;
 
     return (
         <div>
