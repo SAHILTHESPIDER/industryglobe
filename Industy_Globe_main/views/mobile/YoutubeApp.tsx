@@ -10,7 +10,7 @@ import { settlePlayButtons } from '../../services/youtubeAwards';
 import { EXTRA_CHANNEL_UNLOCK_PRICE, avatarColors, channelSwitchAllowed, lookFor } from '../../services/youtubeCustomize';
 import { setChannel } from './youtube/actions';
 import { Ceremony, UnlockSheet, dismissOpenCeremony } from './youtube/features';
-import { ScreenFade } from './youtube/motion';
+import { ScreenFade, heatClass } from './youtube/motion';
 import { Av, formatCompact, Logo } from './youtube/bits';
 import { screenFor } from './youtube/screens';
 import { YtApi, YtContext, YtScreen } from './youtube/state';
@@ -181,7 +181,7 @@ export const YoutubeApp: React.FC<YoutubeAppProps> = ({ player, onBack, onUpdate
 
     return (
         <YtContext.Provider value={api}>
-            <div className={`yt-root${bleed ? ' bleed' : ''}${(channel.controversy || 0) >= 70 ? ' yt-heat' : ''}`} data-yt-screen={screen}>
+            <div className={`yt-root${bleed ? ' bleed' : ''} ${heatClass((channel.controversy || 0) >= 70)}`.trim()} data-yt-screen={screen}>
                 <div className="app">
                     <header className="top">
                         <button className="iconbtn" aria-label="Menu" onClick={() => go('home')}><Menu size={20} /></button>

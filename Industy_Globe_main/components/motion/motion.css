@@ -1,0 +1,16 @@
+.motion-confetti, .yt-confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.motion-confetti i, .yt-confetti i { position: absolute; top: -8px; width: 8px; height: 12px; border-radius: 2px; animation: motion-fall 1.1s ease-in forwards; }
+@keyframes motion-fall { to { transform: translateY(280px) rotate(160deg); opacity: 0.2; } }
+.motion-heart, .yt-heart { position: absolute; margin-top: -18px; color: #ff2e43; font-size: 16px; animation: motion-pop 0.35s ease; }
+@keyframes motion-pop { from { transform: translateY(6px) scale(0.6); opacity: 0; } to { transform: translateY(-8px) scale(1); opacity: 1; } }
+.motion-live-feed, .yt-chat-scroll { animation: motion-chat 8s linear infinite; }
+@keyframes motion-chat { from { transform: translateY(8px); } to { transform: translateY(-18px); } }
+.motion-heat, .yt-root.yt-heat { animation: motion-shake 0.42s linear; }
+@keyframes motion-shake { 20% { transform: translateX(-2px); } 40% { transform: translateX(2px); } 60% { transform: translateX(-1px); } 80% { transform: translateX(1px); } }
+.motion-countdown, .yt-premiere { display: inline-flex; flex-direction: column; min-width: 72px; padding: 6px 10px; border-radius: 12px; background: #1a0c10; border: 1px solid rgba(255,46,67,.4); }
+.motion-countdown b, .yt-premiere b { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 18px; }
+.motion-countdown small, .yt-premiere small { color: var(--dim, #6c6c7e); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) {
+  .motion-confetti, .motion-confetti i, .motion-live-feed, .motion-heat, .motion-heart,
+  .yt-confetti, .yt-chat-scroll, .yt-root.yt-heat, .yt-heart { animation: none; }
+}
