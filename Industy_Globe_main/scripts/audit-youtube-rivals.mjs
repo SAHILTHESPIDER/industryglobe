@@ -162,6 +162,20 @@ record('uploads', 'studio treasury covers an empty personal wallet', () => {
   assert(result.player.money === 0, 'personal cash stays empty');
 });
 
+record('uploads', 'personal cash covers a broke house', () => {
+  const player = clone(INITIAL_PLAYER);
+  player.money = 80000;
+  player.businesses = [{ id: 'house', name: 'Empire', type: 'PRODUCTION_HOUSE', isActive: true, balance: 0 }];
+  player.commitments = [{ id: 'proj', name: 'Moon', type: 'ACTING_GIG', energyCost: 0, income: 0, payoutType: 'LUMPSUM', projectDetails: { estimatedBudget: 1000000, hiddenStats: {} } }];
+  const result = publishUpload(player, { title: 'Moon teaser', type: 'TEASER', plan: 'SAFE', projectId: 'proj' });
+  assert(!result.error, result.error || 'personally funded teaser should schedule');
+  const drop = result.player.youtube.marketing.proj.drops[0];
+  assert(drop.underfunded !== true, 'personal cash should count when the house is empty');
+  assert(result.player.money < 80000, 'the player should be billed');
+  const house = result.player.businesses.find(item => item.type === 'PRODUCTION_HOUSE');
+  assert(house.balance === 0, 'an empty house should not be billed');
+});
+
 record('roster', 'a bought studio is not a rival channel', () => {
   const player = worldWithSlate();
   player.world.studios.NETFLIX.isPlayerOwned = true;

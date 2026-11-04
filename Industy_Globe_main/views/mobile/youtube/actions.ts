@@ -266,10 +266,12 @@ export const publishUpload = (player: Player, input: {
         const energy = dropEnergy(input.type);
         if (energy > 0 && player.energy.current < energy) return { player, error: 'Not enough energy.' };
         const house = player.businesses?.find(item => item.type === 'PRODUCTION_HOUSE' && item.isActive);
-        const payerBalance = house ? (house.balance || 0) : player.money;
-        const underfunded = cost > 0 && payerBalance < cost;
+        const houseCanPay = !!house && cost > 0 && (house.balance || 0) >= cost;
+        const personalCanPay = player.money >= cost;
+        const underfunded = cost > 0 && !houseCanPay && !personalCanPay;
         const paid = underfunded ? 0 : cost;
-        if (paid > 0 && house) {
+        const chargeHouse = paid > 0 && houseCanPay;
+        if (chargeHouse && house) {
             house.balance = Math.max(0, (house.balance || 0) - paid);
             house.studioState = house.studioState || { scripts: [], concepts: [], writers: [], ipMarket: [], lastMarketRefreshWeek: 0, lastWriterRefreshWeek: 0 };
             house.studioState.financeLedger = [
@@ -290,7 +292,7 @@ export const publishUpload = (player: Player, input: {
         };
         let next: Player = {
             ...player,
-            money: house || underfunded ? player.money : player.money - paid,
+            money: chargeHouse || underfunded ? player.money : player.money - paid,
             youtube: {
                 ...channel,
                 marketing: { ...(channel.marketing || {}), [input.projectId]: { ...campaign, drops: [...campaign.drops, drop] } },
