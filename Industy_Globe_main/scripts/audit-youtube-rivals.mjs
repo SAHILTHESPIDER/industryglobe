@@ -343,6 +343,9 @@ record('look', 'a rename is saved', () => {
   assert(!saved.error, saved.error || '');
   assert(saved.player.youtube.looks.personal.name === 'Asha On Camera', 'name persists');
   assert(saved.player.youtube.looks.personal.thumbPreset === 'poster-song', 'thumbnail preset persists');
+  const same = saveChannelLook(player, 'personal', { name: player.name, avatarPreset: 'gold' });
+  assert(!same.player.youtube.looks.personal.renames, 'saving the current name is not a rename');
+  assert((same.player.youtube.audienceTrust ?? 55) === (player.youtube.audienceTrust ?? 55), 'a look-only save does not confuse the audience');
 });
 
 record('sync', 'a second pass does not duplicate the week', () => {

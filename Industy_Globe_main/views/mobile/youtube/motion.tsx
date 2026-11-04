@@ -127,5 +127,5 @@ export const PremiereCountdown = ({ weeks }: { weeks: number | null }) => {
 };
 
 export const useAwardHaptic = () => {
-    useEffect(() => { tap('HEAVY'); }, []);
+    useEffect(() => { tap('LIGHT'); }, []);
 };

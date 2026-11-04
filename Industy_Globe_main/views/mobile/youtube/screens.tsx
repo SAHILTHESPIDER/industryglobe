@@ -284,11 +284,16 @@ export const WatchScreen: React.FC = () => {
 
     if (!video) return <div className="card pad">Nothing to watch yet.</div>;
     const watchingRival = video.rivalChannelId ? findRivalChannel(api.channel, video.rivalChannelId) : undefined;
+    const creatorHit = !watchingRival && !(video.isPlayer || video.channelKind) ? creatorFor(video.authorName) : undefined;
     const subs = watchingRival
         ? watchingRival.subscribers
-        : video.isPlayer || video.channelKind
-            ? api.channel.subscribers
-            : (creatorFor(video.authorName)?.followers || 0);
+        : video.channelKind === 'studio'
+            ? (api.channel.officialChannels?.studio?.subscribers || 0)
+            : video.channelKind === 'empirePlus'
+                ? (api.channel.officialChannels?.empirePlus?.subscribers || 0)
+                : video.isPlayer
+                    ? api.channel.subscribers
+                    : creatorAudience(api.channel, video.creatorChannelId || creatorHit?.id || '', api.channel.zeroStart ? 0 : (creatorHit?.followers || 0));
     const likes = video.likes + (reaction === 'LIKE' ? 1 : 0);
     const dislikes = Math.floor(video.views * 0.006) + (reaction === 'DISLIKE' ? 1 : 0);
 
