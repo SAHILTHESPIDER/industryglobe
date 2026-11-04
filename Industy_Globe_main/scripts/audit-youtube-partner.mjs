@@ -114,6 +114,15 @@ record('ypp', 'ads need the partner flag, and a US audience pays more than India
   shortFirst.youtube.partner.audience = [{ code: 'US', share: 1 }];
   const analytics = readAnalytics(shortFirst.youtube, 'personal', 10);
   assert(analytics.blendedCpm > 5, 'CPM followed the short: ' + analytics.blendedCpm);
+  const shortsOnly = playerWith({
+    isMonetized: true,
+    subscribers: 20000,
+    videos: [short, video({ id: 's2', type: 'SHORT', isShort: true, views: 8000, qualityScore: 60 })],
+  });
+  shortsOnly.youtube.partner.audience = [{ code: 'US', share: 1 }];
+  const shortsCpm = readAnalytics(shortsOnly.youtube, 'personal', 10).blendedCpm;
+  assert(shortsCpm < 1, 'shorts-only channel showed long-form CPM ' + shortsCpm);
+  assert(shortsCpm > 0.05, 'shorts-only CPM collapsed to ' + shortsCpm);
 });
 
 record('ypp', 'a channel with the hours and the subs unlocks on the week tick', () => {
