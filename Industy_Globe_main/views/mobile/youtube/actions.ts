@@ -9,6 +9,7 @@ import { findRivalChannel } from '../../../services/youtubeRivals';
 import { liveCreators } from '../../../services/youtubeCreators';
 import { channelSwitchAllowed, lookFor } from '../../../services/youtubeCustomize';
 import { findCreatorSeed } from '../../../services/youtubePeople';
+import { NPC_DATABASE } from '../../../services/npcLogic';
 import { applyAudienceMix, collabOutlook, payWallet, sponsorMoodHit, watchHoursFromVideos } from '../../../services/youtubePartner';
 
 export const UPLOAD_PLANS: Record<YoutubeUploadPlan, { label: string; viewBoost: number; qualityBoost: number; trust: number; mood: number; controversy: number }> = {
@@ -360,8 +361,10 @@ export const publishUpload = (player: Player, input: {
 
 export const completeCollab = (player: Player, collab: YoutubeCollabOffer): ActionResult => {
     if (player.energy.current < collab.energyCost) return { player, error: 'Not enough energy.' };
-    const partner = (collab.creatorId ? findCreatorSeed(player, collab.creatorId) : undefined) || findCreatorSeed(player, collab.creatorName);
-    const outlook = collabOutlook(player.youtube.subscribers || 0, partner?.followers || Math.max(collab.bonusViews, 1000), player.youtube.controversy || 0, player.youtube.audienceTrust ?? 55);
+    const listed = (collab.creatorId ? findCreatorSeed(player, collab.creatorId) : undefined) || findCreatorSeed(player, collab.creatorName);
+    const npc = NPC_DATABASE.find(item => item.id === collab.creatorId || item.name === collab.creatorName);
+    const partnerFollowers = collab.partnerFollowers || listed?.followers || npc?.followers || Math.max(collab.bonusViews, 1000);
+    const outlook = collabOutlook(player.youtube.subscribers || 0, partnerFollowers, player.youtube.controversy || 0, player.youtube.audienceTrust ?? 55);
     const video = makeVideo(player, collab.conceptTitle, collab.requiredType, 'BTS', { views: outlook.views });
     video.likes = Math.floor(video.views * 0.06);
     const withVideo = {

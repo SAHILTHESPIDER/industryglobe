@@ -3,7 +3,7 @@ import {
 } from '../types';
 import { getAbsoluteWeek } from './legacyLogic';
 import { addCompanyCash, readCompanyCash } from './ownPlatform/companyCash';
-import { COUNTRY_RPM, UPLOAD_SLOT_REACH } from './youtubeMarketing';
+import { COUNTRY_RPM, TYPE_CPM, UPLOAD_SLOT_REACH } from './youtubeMarketing';
 
 /**
  * YouTube Partner Program and the money around it.
@@ -27,13 +27,6 @@ export const LIVE_MINUTES = 14;
 export const SPONSOR_FREE = 2;
 export const SPONSOR_WINDOW = 8;
 export const PROMO_CURVE = 0.62;
-
-const TYPE_CPM: Record<string, number> = {
-    VLOG: 1.12, SKIT: 1.16, Q_AND_A: 1.08, STORYTIME: 1.1, COVER: 0.9,
-    SHORT: 1, TRAILER: 1.05, TRAILER_1: 1.05, TRAILER_2: 1.04, TEASER: 1.02,
-    MUSIC_VIDEO: 0.86, LYRIC_VIDEO: 0.84, JUKEBOX: 0.8, BTS: 1.06,
-    PREMIERE_LIVE: 1.1, CAST_INTERVIEW: 1.04,
-};
 
 
 export const minutesFor = (video: Pick<YoutubeVideo, 'type' | 'isShort' | 'qualityScore'>): number => {
@@ -164,8 +157,11 @@ export const analyticsFor = (channel: YoutubeChannel, videos: YoutubeVideo[]): A
     const held = sample.reduce((sum, video) => sum + minutesFor(video), 0) / Math.max(1, sample.length);
     const retention = Math.max(0.08, Math.min(0.92, held / 12));
     const hours = channelWatchHours(channel);
-    const mix = channel.audienceMix || { IN: 70, US: 15, UK: 8, OTHER: 7 };
-    const countries = Object.entries(mix).map(([code, share]) => ({ code, share })).sort((a, b) => b.share - a.share);
+    const rawMix = channel.audienceMix && Object.values(channel.audienceMix).some(value => value > 0)
+        ? channel.audienceMix
+        : { IN: 70, US: 15, UK: 8, OTHER: 7 };
+    const mixTotal = Object.values(rawMix).reduce((sum, value) => sum + value, 0) || 1;
+    const countries = Object.entries(rawMix).map(([code, value]) => ({ code, share: (value / mixTotal) * 100 })).sort((a, b) => b.share - a.share);
     const slotViews: Record<'MORNING' | 'EVENING' | 'LATE', number> = { MORNING: 0, EVENING: 0, LATE: 0 };
     const slotCount: Record<'MORNING' | 'EVENING' | 'LATE', number> = { MORNING: 0, EVENING: 0, LATE: 0 };
     sample.forEach(video => {
@@ -176,7 +172,7 @@ export const analyticsFor = (channel: YoutubeChannel, videos: YoutubeVideo[]): A
     const average = (slot: 'MORNING' | 'EVENING' | 'LATE') => slotViews[slot] / Math.max(1, slotCount[slot]);
     const slots: ('MORNING' | 'EVENING' | 'LATE')[] = ['EVENING', 'MORNING', 'LATE'];
     const bestSlot = slots.sort((a, b) => average(b) - average(a))[0];
-    const rpm = sample.length ? sample.reduce((sum, video) => sum + blendedRpm(video, mix), 0) / sample.length : blendedRpm({ type: 'VLOG', country: 'IN' } as YoutubeVideo, mix);
+    const rpm = sample.length ? sample.reduce((sum, video) => sum + blendedRpm(video, rawMix), 0) / sample.length : blendedRpm({ type: 'VLOG', country: 'IN' } as YoutubeVideo, rawMix);
     return {
         ctr, retention, watchHours: hours, revenue: channel.lifetimeEarnings || 0, rpm,
         countries, bestSlot, slotViews, monetized: !!channel.isMonetized, subs: channel.subscribers || 0,
@@ -266,8 +262,8 @@ export const promoteVideo = (player: Player, input: { videoId: string; budget: n
         : kind === 'empirePlus'
             ? player.youtube.officialChannels?.empirePlus?.videos || []
             : player.youtube.videos || [];
-    const video = videos.find(item => item.id === input.videoId) || player.youtube.videos.find(item => item.id === input.videoId);
-    if (!video) return { player, error: 'Pick a video that is already up.' };
+    const video = videos.find(item => item.id === input.videoId);
+    if (!video) return { player, error: 'That video is not on this channel.' };
     const budget = Math.max(0, Math.floor(input.budget));
     if (budget < 100) return { player, error: 'A promotion needs at least $100.' };
     const countries = (input.countries.length ? input.countries : ['IN']).slice(0, 4);
@@ -403,12 +399,11 @@ export const premiereProject = (player: Player, projectId: string): { player: Pl
     return { player: log(next, sour ? 'Premiere chat was rough. Opening hype slipped.' : 'Premiere chat was with you. Opening hype picked up.', sour ? 'negative' : 'positive') };
 };
 
+/** Adds raw views to a country. Shares are computed later, so one upload cannot erase the rest. */
 export const applyAudienceMix = (channel: YoutubeChannel, country: string, weight: number): YoutubeChannel => {
-    const mix = { ...(channel.audienceMix || { IN: 70, US: 15, UK: 8, OTHER: 7 }) };
+    const mix = { ...(channel.audienceMix || {}) };
     const code = COUNTRY_RPM[country] ? country : 'OTHER';
-    mix[code] = (mix[code] || 0) + weight;
-    const total = Object.values(mix).reduce((sum, value) => sum + value, 0) || 1;
-    Object.keys(mix).forEach(key => { mix[key] = Math.round((mix[key] / total) * 1000) / 10; });
+    mix[code] = (mix[code] || 0) + Math.max(0, weight);
     return { ...channel, audienceMix: mix };
 };
 

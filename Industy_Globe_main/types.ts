@@ -1444,6 +1444,8 @@ export enum Page {
       bonusSubscribers: number;
       description: string;
       expiresInWeeks: number;
+      /** Following of the partner when the offer was written. NPCs are not on the YouTube roster. */
+      partnerFollowers?: number;
   }
   
   export interface YoutubeBrandDeal {

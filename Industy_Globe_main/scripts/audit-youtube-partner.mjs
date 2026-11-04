@@ -101,7 +101,8 @@ record('wallet', 'studio ads bill the house', () => {
   assert(bought.player.businesses[0].balance === 1600, 'the house paid');
   const board = bought.player.youtube.officialChannels.studio;
   assert(board.subscribers > 0 && board.totalViews > 1000, 'the studio board records the bought audience');
-  assert((bought.player.youtube.audienceMix || {}).US > (bought.player.youtube.audienceMix || {}).IN, 'a US buy shifts RPM away from India');
+  const mix = bought.player.youtube.audienceMix || {};
+  assert((mix.US || 0) > (mix.IN || 0), 'a US buy shifts RPM away from India');
 });
 
 record('community', 'heat can trend without blocking the post', () => {

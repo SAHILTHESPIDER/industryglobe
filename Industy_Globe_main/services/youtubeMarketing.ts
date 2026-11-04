@@ -273,6 +273,13 @@ export const COUNTRY_RPM: Record<string, number> = {
 /** Flat $2 RPM stays the default. The weighted table is available for a later balance pass. */
 export const FLAT_RPM = 2;
 export const SHORTS_RPM = 0.06;
+/** Multiplies the country RPM. Shorts ignore it and use SHORTS_RPM. */
+export const TYPE_CPM: Record<string, number> = {
+    VLOG: 1.12, SKIT: 1.16, Q_AND_A: 1.08, STORYTIME: 1.1, COVER: 0.9,
+    SHORT: 1, TRAILER: 1.05, TRAILER_1: 1.05, TRAILER_2: 1.04, TEASER: 1.02,
+    MUSIC_VIDEO: 0.86, LYRIC_VIDEO: 0.84, JUKEBOX: 0.8, BTS: 1.06,
+    PREMIERE_LIVE: 1.1, CAST_INTERVIEW: 1.04,
+};
 /** Evening is the full audience. Morning and late night are smaller rooms, not blocks. */
 export const UPLOAD_SLOT_REACH = { MORNING: 0.86, EVENING: 1, LATE: 0.92 } as const;
 
@@ -541,7 +548,8 @@ export const processYoutubeCampaignWeek = (player: Player): CampaignWeekResult =
     }
     function countryRpm(video: { isShort?: boolean; type: string; country?: string }) {
         if (video.isShort || video.type === 'SHORT') return SHORTS_RPM;
-        return COUNTRY_RPM[video.country || 'IN'] || COUNTRY_RPM.OTHER;
+        const country = COUNTRY_RPM[video.country || 'IN'] || COUNTRY_RPM.OTHER;
+        return country * (TYPE_CPM[video.type] || 1);
     }
 
     function ageOfficial(board: OfficialChannel | undefined, empire: boolean) {

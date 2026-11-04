@@ -438,6 +438,7 @@ export const generateYoutubeCollabOffer = (player: Player): YoutubeCollabOffer |
         qualityBonus,
         bonusViews,
         bonusSubscribers,
+        partnerFollowers: creator.followers,
         description: `${creator.name} wants a ${requiredType.replace(/_/g, ' ')} collab. Your public image is ${publicImage.toLowerCase()}, so chemistry can either compound the hype or expose the risk.`,
         expiresInWeeks: 3
     };

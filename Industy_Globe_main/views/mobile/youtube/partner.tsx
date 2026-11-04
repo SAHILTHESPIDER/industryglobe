@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     PARTNER_SUBS, PARTNER_WATCH_HOURS, activePartner, analyticsFor, postCommunity, premiereProject, promoteVideo, quotePromotion,
 } from '../../../services/youtubePartner';
@@ -43,6 +43,10 @@ export const AnalyticsScreen = () => {
     const [weeks, setWeeks] = useState(1);
     const [countries, setCountries] = useState<string[]>(['IN']);
     const [videoId, setVideoId] = useState(videos[0]?.id || '');
+    const videoKey = videos.map(item => item.id).join('|');
+    useEffect(() => {
+        if (!videos.some(item => item.id === videoId)) setVideoId(videos[0]?.id || '');
+    }, [videoKey]);
     const [text, setText] = useState('');
     const picked = videos.find(video => video.id === videoId);
     const quote = quotePromotion(budget, weeks, countries, picked?.qualityScore || 50);
