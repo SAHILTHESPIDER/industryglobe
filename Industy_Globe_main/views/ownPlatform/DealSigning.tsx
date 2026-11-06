@@ -27,10 +27,14 @@ export interface DealSigningModel {
     facts: DealFact[];
     clauses: DealClause[];
     stamp: string;
-    /** Ledger line, such as "Stake sale to Netflax". */
+    /** Ledger line, such as "Stake sale to Netflax" or "IPO proceeds". */
     cashLabel: string;
     cashFrom: number;
     cashTo: number;
+    /** Small line above the title. Stake sales leave this off. */
+    kicker?: string;
+    /** Sentence under the facts. Stake sales leave this off. */
+    preamble?: string;
 }
 
 interface Props {
@@ -155,7 +159,7 @@ export const DealSigning: React.FC<Props> = ({ model, onComplete }) => {
                     {model.stamp}
                 </div>
                 <div className="px-5 sm:px-8 py-6 sm:py-8 overflow-y-auto flex-1 min-h-0 pr-28 sm:pr-36">
-                    <div className="text-[11px] uppercase tracking-[0.28em] text-[#7c5c28]" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Private agreement</div>
+                    <div className="text-[11px] uppercase tracking-[0.28em] text-[#7c5c28]" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>{model.kicker || 'Private agreement'}</div>
                     <h2 className="text-4xl sm:text-5xl leading-none mt-2" style={{ fontFamily: '"Bebas Neue", "Arial Narrow", sans-serif' }}>{model.documentTitle}</h2>
                     <p className="mt-2 text-lg italic text-[#5c5346]">{model.company}</p>
                     <p className="mt-2 text-sm text-[#5c5346]" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Skip finishes the signing now. The deal still stands, and the money still lands in company cash.</p>
@@ -168,7 +172,7 @@ export const DealSigning: React.FC<Props> = ({ model, onComplete }) => {
                         ))}
                     </div>
                     <p className="mt-4 text-base leading-relaxed">
-                        {model.sellerName} sells the stake below to {model.buyerName}. The price is paid into company cash. Personal cash does not move.
+                        {model.preamble || `${model.sellerName} sells the stake below to ${model.buyerName}. The price is paid into company cash. Personal cash does not move.`}
                     </p>
                     <ol className="mt-4 space-y-3">
                         {model.clauses.map((clause, index) => (

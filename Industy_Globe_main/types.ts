@@ -1031,6 +1031,38 @@ export enum Page {
       note: string;
   }
 
+  /** One line on the valuation card. Missing on saves from before the listing flow. */
+  export interface IpoValueDriver {
+      label: string;
+      /** Plain sentence for what this number is. */
+      line: string;
+      amount: number;
+  }
+
+  /**
+   * Snapshot written when the player signs the listing.
+   * Later features can read this. Missing until that signing.
+   */
+  export interface IpoListing {
+      floatPct: number;
+      proceeds: number;
+      gross: number;
+      sharePrice: number;
+      shares: number;
+      oversubscription: number;
+      exchange: string;
+      bankId: string;
+      bankName: string;
+      feePct: number;
+      spreadPct: number;
+      ticker: string;
+      week: number;
+      year: number;
+      headline: string;
+      /** Founder fraction after the new shares dilute everyone. */
+      founderAfter: number;
+  }
+
   export interface IpoState {
       stage: IpoStage;
       valuation: number;
@@ -1051,6 +1083,9 @@ export enum Page {
       lastPrice: number;
       dayMove: number[];
       ticker: string;
+      /** Set when the player signs. Older listings can omit it. */
+      listing?: IpoListing;
+      valueDrivers?: IpoValueDriver[];
   }
 
   export interface OwnedStreamer {

@@ -20,6 +20,7 @@ import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON
 import { publicBrandName } from '../rights/alterName';
 import { addCompanyCash, readCompanyCash } from './companyCash';
 import { stakeBoardSeats, stakeObligationNote, stakeProfitCuts } from './stakeSale';
+import { readValuationParts } from './ipo';
 
 const FACILITY_USD = 4_000_000;
 const FACILITY_RATE = 0.09;
@@ -178,16 +179,7 @@ const log = (player: Player, message: string) => {
     player.logs = [...(player.logs || []), { week: player.currentWeek, year: player.age, message, type: 'neutral' }];
 };
 
-export const quoteValuation = (player: Player): number => {
-    const state = player.ownPlatform;
-    if (!state) return 6_000_000;
-    const quote = quoteLaunch(player);
-    const homes = Math.max(state.subscribers, quote.households * 0.15);
-    const titles = state.catalogue.length * 1_400_000 + state.closedDeals.length * 900_000;
-    const acquired = (state.ownedStreamers || []).reduce((sum, row) => sum + row.householdsM * 800_000, 0);
-    const live = state.stage === 'LIVE' ? 4_000_000 : state.commissioned ? 1_500_000 : 0;
-    return Math.round(6_000_000 + homes * 35 + titles + acquired + live);
-};
+export const quoteValuation = (player: Player): number => readValuationParts(player).total;
 
 export const fairSharePrice = (player: Player): number => {
     const valuation = quoteValuation(player);

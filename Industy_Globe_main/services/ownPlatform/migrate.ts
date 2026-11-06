@@ -21,6 +21,7 @@ import { cityById } from './serverCities';
 import { sanitizeGoal, sanitizeIncidents, sanitizeLoadTest, sanitizeOffices, sanitizeSites } from './infrastructure';
 import { addCompanyCash } from './companyCash';
 import { sanitizeShareholders } from './stakeSale';
+import { sanitizeIpoListing, sanitizeValueDrivers } from './ipo';
 import { LAUNCH_INVESTORS, LAUNCH_SEED_LINE, LAUNCH_SEED_STAKE, LAUNCH_SEED_USD, defaultReleaseSlot, emptyBooks, emptyIpo, launchSeedBooks } from './studio';
 import { clampReleaseOffset } from './weeks';
 
@@ -232,15 +233,22 @@ const normalizeSlot = (raw: ReleaseSlot | undefined, player: Player): ReleaseSlo
 const normalizeIpo = (raw: IpoState | undefined, name: string): IpoState => {
     const fresh = emptyIpo(name);
     if (!raw || typeof raw !== 'object') return fresh;
-    return {
+    const listing = sanitizeIpoListing(raw.listing);
+    const valueDrivers = sanitizeValueDrivers(raw.valueDrivers);
+    const next: IpoState = {
         ...fresh,
         ...raw,
         stage: IPO_STAGES.includes(raw.stage) ? raw.stage : 'IDLE',
         disclosures: Array.isArray(raw.disclosures) && raw.disclosures.length ? raw.disclosures : fresh.disclosures,
         votes: Array.isArray(raw.votes) ? raw.votes : [],
-        dayMove: Array.isArray(raw.dayMove) ? raw.dayMove : [],
+        dayMove: Array.isArray(raw.dayMove) ? raw.dayMove.filter(point => Number.isFinite(point)) : [],
         ticker: typeof raw.ticker === 'string' && raw.ticker.trim() ? raw.ticker.slice(0, 5).toUpperCase() : fresh.ticker,
     };
+    if (listing) next.listing = listing;
+    else delete next.listing;
+    if (valueDrivers) next.valueDrivers = valueDrivers;
+    else delete next.valueDrivers;
+    return next;
 };
 
 const sanitizePreset = (value: unknown): InfraPresetId | undefined =>

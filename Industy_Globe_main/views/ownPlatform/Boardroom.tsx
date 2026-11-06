@@ -4,7 +4,6 @@ import { formatCompact } from '../../services/ownPlatform/logic';
 import { debtPicture, repayLoan } from '../../services/loanLogic';
 import {
     advanceBook,
-    beginIpo,
     chooseDisclosure,
     closeBook,
     fileWithRegulator,
@@ -112,9 +111,8 @@ export const Boardroom: React.FC<Props> = ({ player, onPlayer }) => {
             {ipo.stage === 'IDLE' && (
                 <Paper>
                     <div className="text-[11px] uppercase tracking-wider text-zinc-500">{state.name}</div>
-                    <div className="text-2xl font-black mt-1">Resolution to proceed with an initial public offering</div>
-                    <p className="text-sm text-zinc-600 mt-2">The company would apply to list ordinary shares. Indicated value today is {formatCompact(quoteValuation(player))}.</p>
-                    <Gold onClick={() => apply(beginIpo(player))}>Open the resolution</Gold>
+                    <div className="text-2xl font-black mt-1">The listing starts on the cap table</div>
+                    <p className="text-sm text-zinc-600 mt-2">IPO sits with company cash and ownership, above this room. Indicated value today is {formatCompact(quoteValuation(player))}. Nothing here starts a listing on its own.</p>
                 </Paper>
             )}
 
