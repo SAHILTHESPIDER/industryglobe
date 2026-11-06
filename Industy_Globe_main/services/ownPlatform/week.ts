@@ -9,6 +9,7 @@ import { countryPiracy, formatCompact, quoteLaunch, selectedCountries } from './
 import { officeWeekly, rollWeeklyIncident } from './infrastructure';
 import { normalizeOwnPlatform } from './migrate';
 import { sportsViewerBump } from './stakeSale';
+import { tickStreamRights } from './streamRights';
 import { settleBooks } from './studio';
 
 export interface PlatformWeekNote {
@@ -242,6 +243,8 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     const rolled = rollWeeklyIncident(player.ownPlatform, weekKey, player.currentWeek, player.age);
     player.ownPlatform = rolled.state;
     if (rolled.note) notes.push({ msg: rolled.note, type: 'negative' });
+
+    notes.push(...tickStreamRights(player, absoluteWeek));
 
     const books = settleBooks(player);
     notes.push(...books.notes);

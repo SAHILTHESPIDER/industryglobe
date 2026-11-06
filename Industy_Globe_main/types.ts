@@ -1167,6 +1167,74 @@ export enum Page {
       opensYear?: number;
   }
 
+  export type StreamRightKind = 'EXCLUSIVE' | 'NON_EXCLUSIVE' | 'WINDOW';
+  export type StreamRightFormat = 'FILM' | 'SHOW';
+  export type StreamTerritoryKind = 'WORLD' | 'REGION' | 'COUNTRY';
+
+  /** A film or show sitting on the Empire+ rights floor. */
+  export interface StreamRightsListing {
+      id: string;
+      title: string;
+      format: StreamRightFormat;
+      genre: string;
+      language: string;
+      homeCountryId: string;
+      regionId: LaunchRegionId;
+      basePrice: number;
+      years: number;
+      suggested: StreamRightKind;
+      rivalId?: string;
+      weeksLeft: number;
+  }
+
+  /** Live table for one listing a rival also wants. */
+  export interface StreamRightsAuction {
+      listingId: string;
+      kind: StreamRightKind;
+      territory: StreamTerritoryKind;
+      countryId?: string;
+      regionId?: LaunchRegionId;
+      ask: number;
+      playerBid: number;
+      rivalBid: number;
+      rivalCeiling: number;
+      rivalId: string;
+      round: number;
+  }
+
+  /** A licence in the contract vault. Missing fields are filled on load. */
+  export interface StreamRightsHolding {
+      id: string;
+      listingId?: string;
+      title: string;
+      format: StreamRightFormat;
+      genre: string;
+      language: string;
+      kind: StreamRightKind;
+      territory: StreamTerritoryKind;
+      countryId?: string;
+      regionId?: LaunchRegionId;
+      years: number;
+      expiresAbsolute: number;
+      windowEndsAbsolute?: number;
+      paid: number;
+      lift: number;
+      weeklySubs: number;
+      weeklyEarn: number;
+      lastEarn: number;
+      source: 'MARKET' | 'OWN_FILM';
+      originId?: string;
+      lastRemindAbsolute?: number;
+  }
+
+  /** Optional. Missing on every save from before the rights floor. */
+  export interface StreamRightsDesk {
+      anchorAbsolute: number;
+      listings: StreamRightsListing[];
+      holdings: StreamRightsHolding[];
+      auction: StreamRightsAuction | null;
+  }
+
   /** Optional. Missing on every save made before the player opened their own service. */
   export interface OwnPlatformState {
       version: 1;
@@ -1244,6 +1312,8 @@ export enum Page {
       ipo?: IpoState;
       ownedStreamers?: OwnedStreamer[];
       resolvedCommissions?: ResolvedCommission[];
+      /** Films and shows licensed for the service. Missing on older saves. */
+      streamRights?: StreamRightsDesk;
   }
   
   export interface FuturePotential {
