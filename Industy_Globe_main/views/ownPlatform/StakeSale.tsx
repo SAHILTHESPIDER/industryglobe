@@ -4,12 +4,10 @@ import { Briefcase, Clapperboard, Trophy, Tv, UserRound } from 'lucide-react';
 import { Player, StakeBuyerKind, StakeConditionKind } from '../../types';
 import { loadCatalogue } from '../../services/rights/catalogue';
 import { formatCompact } from '../../services/ownPlatform/logic';
-import { readCompanyCash } from '../../services/ownPlatform/companyCash';
 import {
     STAKE_CHIPS,
     STAKE_SALE_LINE,
     StakeOffer,
-    acceptStakeOffer,
     buildStakeOffers,
     buyerKindLabel,
     capSlices,
@@ -20,7 +18,7 @@ import {
     offerMoneyRange,
     rejectOffer,
 } from '../../services/ownPlatform/stakeSale';
-import { DealSigning, DealSigningModel } from './DealSigning';
+import { StakeDealClose } from './StakeDealClose';
 import { headingFont } from './ui';
 
 interface Props {
@@ -48,7 +46,7 @@ export const StakeSale: React.FC<Props> = ({ player, valuation, onClose, onApply
     const [chipNote, setChipNote] = useState('');
     const [talkingId, setTalkingId] = useState<string | null>(null);
     const [ask, setAsk] = useState('');
-    const [signing, setSigning] = useState<{ model: DealSigningModel; next: Player } | null>(null);
+    const [closing, setClosing] = useState<StakeOffer | null>(null);
     const salt = useMemo(() => Math.floor(Math.random() * 1_000_000), []);
     const pct = points / 100;
     const range = offerMoneyRange(valuation, pct);
@@ -89,38 +87,13 @@ export const StakeSale: React.FC<Props> = ({ player, valuation, onClose, onApply
     };
 
     const accept = (offer: StakeOffer) => {
-        const result = acceptStakeOffer(player, offer);
-        if (result.error) {
-            setError(result.error);
-            return;
-        }
-        const next = result.player;
-        setSigning({
-            next,
-            model: {
-                documentTitle: 'Share purchase agreement',
-                company: player.ownPlatform?.name || 'The company',
-                sellerName: player.name || 'Founder',
-                sellerRole: 'Founder',
-                buyerName: offer.name,
-                buyerRole: buyerKindLabel(offer.kind),
-                facts: [
-                    { label: 'Stake sold', value: `${Math.round(offer.pct * 100)}%` },
-                    { label: 'Price', value: formatCompact(offer.amount) },
-                    { label: 'Buyer', value: offer.name },
-                    { label: 'Implied value', value: formatCompact(impliedValuation(offer.amount, offer.pct)) },
-                ],
-                clauses: offer.conditions.map(condition => ({ title: condition.label, body: condition.effect })),
-                stamp: 'DEAL DONE',
-                cashLabel: `Stake sale to ${offer.name}`,
-                cashFrom: readCompanyCash(player),
-                cashTo: readCompanyCash(next),
-            },
-        });
+        if (offer.status !== 'OPEN') return;
+        setError('');
+        setClosing(offer);
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[260] bg-black/75 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+        <div className="fixed inset-0 z-[260] bg-black/75 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => { if (!closing) onClose(); }}>
             <div
                 data-screen="stake-sale"
                 data-testid="stake-flow"
@@ -128,6 +101,7 @@ export const StakeSale: React.FC<Props> = ({ player, valuation, onClose, onApply
                 onClick={event => event.stopPropagation()}
                 role="dialog"
                 aria-label="Sell a stake"
+                inert={closing ? true : undefined}
             >
                 <div className="text-[11px] uppercase tracking-[0.22em] text-[#FFC44D]">Cap table</div>
                 <h3 className="text-4xl sm:text-5xl font-black uppercase leading-none mt-1" style={{ fontFamily: headingFont }}>Stake becho</h3>
@@ -222,11 +196,14 @@ export const StakeSale: React.FC<Props> = ({ player, valuation, onClose, onApply
                     </div>
                 )}
             </div>
-            {signing && (
-                <DealSigning
-                    model={signing.model}
-                    onComplete={() => {
-                        onApply({ player: signing.next });
+            {closing && (
+                <StakeDealClose
+                    player={player}
+                    offer={closing}
+                    onBackToOffers={() => setClosing(null)}
+                    onCancelSale={onClose}
+                    onSigned={next => {
+                        onApply({ player: next });
                         onClose();
                     }}
                 />
@@ -286,7 +263,7 @@ const OfferCard: React.FC<{
                     <div className="mt-4 grid sm:grid-cols-3 gap-2">
                         <div>
                             <button type="button" data-testid="stake-accept" onClick={onAccept} className="w-full py-2.5 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Accept</button>
-                            <p className="text-[11px] text-zinc-500 mt-1">Sells the stake at this price. The money goes to company cash.</p>
+                            <p className="text-[11px] text-zinc-500 mt-1">Opens the offer letter. No money moves until the final signature.</p>
                         </div>
                         <div>
                             <button type="button" data-testid="stake-reject" onClick={onReject} className="w-full py-2.5 rounded-full border border-white/15 text-[11px] font-bold uppercase tracking-wider">Reject</button>
