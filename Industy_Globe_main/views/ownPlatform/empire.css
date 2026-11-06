@@ -253,3 +253,6 @@
 .empire .shaking{animation:empire-shake .3s ease-out;}
 @keyframes empire-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px) rotate(-.4deg)}75%{transform:translateX(8px) rotate(.4deg)}}
 @media(max-width:760px){.empire .offer-title{font-size:56px}}
+@media (prefers-reduced-motion: reduce){
+  .empire .bar i{transition:none !important;animation:none !important}
+}

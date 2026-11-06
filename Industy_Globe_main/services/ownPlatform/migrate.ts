@@ -22,6 +22,7 @@ import { sanitizeGoal, sanitizeIncidents, sanitizeLoadTest, sanitizeOffices, san
 import { addCompanyCash } from './companyCash';
 import { sanitizeShareholders } from './stakeSale';
 import { sanitizeIpoListing, sanitizeValueDrivers } from './ipo';
+import { sanitizeStreamRights } from './streamRights';
 import { LAUNCH_INVESTORS, LAUNCH_SEED_LINE, LAUNCH_SEED_STAKE, LAUNCH_SEED_USD, defaultReleaseSlot, emptyBooks, emptyIpo, launchSeedBooks } from './studio';
 import { clampReleaseOffset } from './weeks';
 
@@ -185,6 +186,7 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         ipo: normalizeIpo(raw.ipo, typeof raw.name === 'string' ? raw.name : created.name),
         ownedStreamers: Array.isArray(raw.ownedStreamers) ? raw.ownedStreamers.filter(row => row && row.name) : [],
         resolvedCommissions: Array.isArray(raw.resolvedCommissions) ? raw.resolvedCommissions.filter(row => row && row.id) : [],
+        streamRights: sanitizeStreamRights(raw.streamRights),
     };
     return syncRegions(merged);
 };

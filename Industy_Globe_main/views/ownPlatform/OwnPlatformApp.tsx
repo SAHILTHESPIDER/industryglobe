@@ -10,7 +10,7 @@ import { EmpirePane, Shell } from './ui';
 import { EmpireIntro } from './intro/EmpireIntro';
 import { DefineLaunch } from './DefineLaunch';
 import { BuildPlatform } from './BuildPlatform';
-import { DealRoom } from './DealRoom';
+import { RightsFloor } from './RightsFloor';
 import { HqPrompt } from './PlacePanels';
 import { Operations } from './Operations';
 import { IdentBumper } from './IdentStage';
@@ -105,13 +105,13 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const pastDefine = state.stage !== 'DEFINE' || state.commissioned;
     const kicker = pane === 'launch'
         ? 'Define the launch'
-        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Film distribution' : pane === 'ops' ? 'Operations' : 'The world';
+        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Kahani khareedo' : pane === 'ops' ? 'Operations' : 'The world';
     const title = pane === 'launch'
         ? LAUNCH_TITLES[state.defineStep] || serviceName
         : pane === 'build'
             ? (state.buildStep === 0 ? 'Lay the network' : state.buildStep === 1 ? 'Then find out what it costs' : state.buildStep === 2 ? 'Rehearse opening night' : 'Sign the build')
             : pane === 'rights'
-                ? 'Who gets the film'
+                ? 'Rights'
                 : pane === 'ops'
                     ? 'Run the company'
                     : 'Forty desks, one audience';
@@ -176,7 +176,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                         onLaunch={() => setPane('launch')}
                     />
                 )}
-                {pane === 'rights' && <DealRoom player={player} onPlayer={onUpdatePlayer} />}
+                {pane === 'rights' && <RightsFloor player={player} onPlayer={onUpdatePlayer} />}
                 {pane === 'ops' && <Operations player={player} onPlayer={onUpdatePlayer} />}
                 {pane === 'world' && (
                     <div className="body">

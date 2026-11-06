@@ -605,23 +605,6 @@ export const licenceShelf = (): CataloguePick[] => LICENCE_SHELF.map(title => ({
     cost: title.cost,
 }));
 
-const pushTransaction = (player: Player, amount: number, description: string) => {
-    const safe = Math.trunc(amount);
-    if (!safe) return;
-    player.money = (Number.isFinite(player.money) ? player.money : 0) + safe;
-    if (!player.finance) return;
-    if (!Array.isArray(player.finance.history)) player.finance.history = [];
-    player.finance.history.unshift({
-        id: `tx_platform_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        week: player.currentWeek,
-        year: player.age,
-        amount: safe,
-        category: 'BUSINESS',
-        description,
-    });
-    if (player.finance.history.length > 200) player.finance.history.pop();
-};
-
 export const commissionPlatform = (player: Player): { player: Player; error?: string } => {
     if (!player.ownPlatform) return { player, error: 'Open the launch first.' };
     const quote = quoteLaunch(player);
@@ -792,10 +775,12 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
     const net = incoming - spend;
     const offset = clampReleaseOffset(player.ownPlatform?.releaseSlot?.weekOffset ?? 0);
     const opening = releaseWeekParts(player.currentWeek, offset);
+    const books = player.ownPlatform?.books;
     const next: Player = {
         ...player,
         ownPlatform: player.ownPlatform ? {
             ...player.ownPlatform,
+            books: books ? { ...books, lines: [...books.lines], history: [...(books.history || [])] } : books,
             pendingDeal: null,
             closedDeals: [
                 {
@@ -836,13 +821,11 @@ export const lockRightsDeal = (player: Player): { player: Player; error?: string
         logs: [...(player.logs || []), {
             week: player.currentWeek,
             year: player.age,
-            message: `Locked ${pending.title} with ${publicBrandName(pending.offer.bidderName)}. Views begin ${releaseWeekLabel(player.currentWeek, offset)}. ${formatCompact(net)} net to your personal cash after the campaign.`,
+            message: `Sold ${pending.title} to ${publicBrandName(pending.offer.bidderName)}. Views begin ${releaseWeekLabel(player.currentWeek, offset)}. ${formatCompact(net)} net landed in company cash. Personal cash did not move.`,
             type: 'positive' as const,
         }],
     };
-    pushTransaction(next, pending.offer.guarantee, `${publicBrandName(pending.offer.bidderName)} guarantee · ${pending.title}`);
-    if (pending.offer.funding > 0) pushTransaction(next, pending.offer.funding, `${publicBrandName(pending.offer.bidderName)} production funding`);
-    if (spend > 0) pushTransaction(next, -spend, `${pending.title} release campaign`);
+    if (net > 0) addCompanyCash(next, net, `Sold ${pending.title} to ${publicBrandName(pending.offer.bidderName)}`, 'TITLE');
     return { player: next };
 };
 

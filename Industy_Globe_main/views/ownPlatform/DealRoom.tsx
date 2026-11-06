@@ -18,6 +18,7 @@ import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { ReleaseCalendar } from './ReleaseCalendar';
 import { Card, headingFont } from './ui';
 import { publicBrandName } from '../../services/rights/alterName';
+import { shelveOwnFilm } from '../../services/ownPlatform/streamRights';
 
 interface Props {
     player: Player;
@@ -31,6 +32,7 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
     const [tick, setTick] = useState(0);
     const [choice, setChoice] = useState<'THEATRICAL' | 'STREAMING' | null>(null);
     const [error, setError] = useState('');
+    const [note, setNote] = useState('');
     const lot = lotId === 'practice' ? PRACTICE_LOT : lots.find(item => lotKey(item) === lotId) || PRACTICE_LOT;
     const offers = useMemo(() => (open ? buildStandingOffers(lot, tick) : []), [open, lot, tick]);
     const pending = player.ownPlatform?.pendingDeal || null;
@@ -74,9 +76,9 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
         <div className="p-4 lg:p-10 space-y-4" data-screen="rights-floor">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Release strategy</div>
-                    <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Distribution</h2>
-                    <p className="text-sm text-zinc-400 max-w-xl mt-2">How will this title meet an audience? Theatrical keeps the run you already plan. Streaming opens a live room. The calendar shows who else opens that week.</p>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Apni film becho</div>
+                    <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Your films</h2>
+                    <p className="text-sm text-zinc-400 max-w-xl mt-2">Empire+ par lagao puts your film on your own service. The shoot is already paid for, so company cash does not move. Rival ko becho opens the room, and that cheque lands in company cash, not personal cash.</p>
                 </div>
             </div>
             <ReleaseCalendar player={player} onPlayer={onPlayer} />
@@ -95,6 +97,37 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
                     {lots.length === 0 && <p className="text-xs text-zinc-500">No film of yours is waiting on a buyer. The practice room shows the floor without paying anyone.</p>}
                 </div>
                 <div className="space-y-4">
+                    {!lot.simulated && (
+                        <Card>
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <div className="text-[11px] uppercase tracking-[0.18em] text-[#8B7BFF]">Empire+ par lagao</div>
+                                    <div className="font-bold">{lot.title}</div>
+                                    <p className="text-sm text-zinc-400">Apni film. Banane ka kharcha ho chuka. Company cash nahi hilta.</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    data-testid="shelf-own-film"
+                                    onClick={() => {
+                                        const result = shelveOwnFilm(player, lot);
+                                        if (result.error) {
+                                            setError(result.error);
+                                            setNote('');
+                                            return;
+                                        }
+                                        setError('');
+                                        setNote(result.note || `${lot.title} is in the contract vault.`);
+                                        onPlayer(result.player);
+                                    }}
+                                    className="px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider"
+                                >
+                                    Put it on Empire+
+                                </button>
+                            </div>
+                            {note && <p className="text-sm text-emerald-200 mt-2" data-testid="shelf-note">{note}</p>}
+                            {error && !choice && <p className="text-sm text-rose-200 mt-2">{error}</p>}
+                        </Card>
+                    )}
                     {!choice && (
                         <div className="grid sm:grid-cols-2 gap-3">
                             <button onClick={() => setChoice('THEATRICAL')} className="text-left rounded-3xl border border-amber-200/20 bg-gradient-to-b from-[#2a2418] to-[#12100c] p-5">
@@ -120,10 +153,10 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
                     )}
                     {choice === 'STREAMING' && !open && (
                         <Card>
-                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Lot on offer</div>
+                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Lot on offer · rival ko becho</div>
                             <div className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>{lot.title}</div>
                             <p className="text-sm text-zinc-400">{lot.genre} · budget {formatCompact(lot.budget)} · gross so far {formatCompact(lot.gross)}</p>
-                            <p className="text-sm text-zinc-400 mt-3">Offers move for 45 seconds. A bidder may improve, go final, or leave. Then the table hard-closes. Walking out kills every offer. Nothing is saved until you take one.</p>
+                            <p className="text-sm text-zinc-400 mt-3">Offers move for 45 seconds. A bidder may improve, go final, or leave. Then the table hard-closes. Walking out kills every offer. The cheque is company cash. Personal cash does not move. Nothing is saved until you take one.</p>
                             <button onClick={() => { setTick(0); setOpen(true); }} className="mt-4 px-6 py-3 rounded-full bg-sky-200 text-black font-black uppercase tracking-wider text-sm">Open the room</button>
                         </Card>
                     )}
@@ -266,13 +299,13 @@ const ReleasePlanner: React.FC<{ player: Player; deal: PendingRightsDeal; onPlay
                         <div>Backend <b>{deal.offer.backendPct}%</b></div>
                         <div>Campaign <b>{formatCompact(deal.plan.spend)}</b></div>
                         <div>Funding <b>{formatCompact(deal.offer.funding)}</b></div>
-                        <div>Net to treasury <b>{formatCompact(deal.offer.guarantee + deal.offer.funding - deal.plan.spend)}</b></div>
+                        <div>Net to company cash <b>{formatCompact(deal.offer.guarantee + deal.offer.funding - deal.plan.spend)}</b></div>
                         <div>Forecast <b>{formatCompact(deal.plan.forecastUsd)}</b></div>
                         <div>Rank value <b>{formatCompact(deal.offer.value)}</b></div>
                         <div>Window <b>{deal.offer.windowLabel}</b></div>
                         <div>Views begin <b>{openLabel}</b></div>
                     </div>
-                    <p className="text-sm text-zinc-400 mt-3">Nothing is earned before {openLabel}. Moving the calendar moves this date, before or after the lock.</p>
+                    <p className="text-sm text-zinc-400 mt-3">Nothing is earned before {openLabel}. The net lands in company cash. Personal cash does not move. Moving the calendar moves this date, before or after the lock.</p>
                     {error && <p className="text-rose-300 mt-3">{error}</p>}
                     <div className="flex gap-2 mt-4">
                         <button onClick={lock} className="px-5 py-3 rounded-full bg-[#4F3BFF] font-black uppercase tracking-wider text-xs">Lock the strategy</button>
