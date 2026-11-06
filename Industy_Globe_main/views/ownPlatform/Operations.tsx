@@ -35,6 +35,8 @@ import {
     obligationLines,
 } from '../../services/ownPlatform/stakeSale';
 import { StakeSale } from './StakeSale';
+import { IpoFlow } from './IpoFlow';
+import { IPO_LINE, draftCanDrop, dropIpoDraft, ipoBlockers, showPct } from '../../services/ownPlatform/ipo';
 import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
@@ -100,7 +102,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                 </div>
             )}
             {books && desk !== 'board' && (
-                <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {Math.round((capSlices(player).seed + capSlices(player).legacy + capSlices(player).holders) * 100)}%</p>
+                <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {showPct(capSlices(player).seed + capSlices(player).legacy + capSlices(player).holders + capSlices(player).pub)}</p>
             )}
         </div>
     );
@@ -302,8 +304,12 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
     const holders = books?.shareholders || [];
     const seedName = books?.seedPartner || LAUNCH_INVESTORS;
     const [saleOpen, setSaleOpen] = useState(false);
+    const [ipoOpen, setIpoOpen] = useState(false);
     const canSell = maxSellPoints(player) >= 1;
     const obligations = obligationLines(player);
+    const listed = state.ipo?.stage === 'LISTED' || Boolean(state.ipo?.listing);
+    const ipoReasons = listed ? [] : ipoBlockers(player);
+    const publicPct = showPct(slices.pub);
     return (
         <div className="space-y-4" data-screen="studio-finance">
             <div>
@@ -320,7 +326,7 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                 <Metric label="Debt" value={formatCompact(books?.debt || 0)} />
                 <Metric label="Debt pressure" value={books && books.debt > 0 ? `${Math.round((books.facilityRate || 0.09) * 100)}% / year` : 'None'} />
                 <Metric label="Valuation" value={formatCompact(valuation)} />
-                <Metric label="Outside owners" value={`${Math.round((seedPct + soldPct + slices.holders) * 100)}%`} />
+                <Metric label="Outside owners" value={showPct(seedPct + soldPct + slices.holders + slices.pub)} />
             </div>
             <CompanyTransfer player={player} onApply={onApply} />
             <div className="grid lg:grid-cols-2 gap-3">
@@ -348,17 +354,16 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     {seedPct > 0 && <p className="text-sm text-zinc-300 mt-2">{LAUNCH_SEED_LINE}</p>}
                     <div className="text-sm mt-1 space-y-2" data-testid="cap-table">
                         <p>
-                            You {Math.round(founder * 100)}%
-                            {seedPct > 0 ? ` · ${seedName} ${Math.round(seedPct * 100)}% (seed funding)` : ''}
-                            {soldPct > 0 ? ` · ${books?.pePartner || 'Partners'} ${Math.round(soldPct * 100)}%` : ''}
-                            {state.ipo?.stage === 'LISTED' ? ` · public float on ${state.ipo.ticker}` : ''}
+                            You {showPct(founder)}
+                            {seedPct > 0 ? ` · ${seedName} ${showPct(seedPct)} (seed funding)` : ''}
+                            {soldPct > 0 ? ` · ${books?.pePartner || 'Partners'} ${showPct(soldPct)}` : ''}
                         </p>
                         {holders.map(holder => {
                             const locked = lockWeeksLeft(player, holder);
                             const cameo = holder.conditions.find(row => row.kind === 'ROLE_GUARANTEE' && !row.fulfilled);
                             return (
                                 <div key={holder.id} data-testid="cap-holder" className="rounded-2xl border border-white/10 p-3">
-                                    <div className="font-bold">{holder.name} · {buyerKindLabel(holder.kind)} · {Math.round(holder.pct * 100)}%</div>
+                                    <div className="font-bold">{holder.name} · {buyerKindLabel(holder.kind)} · {showPct(holder.pct)}</div>
                                     <p className="text-xs text-zinc-500">Paid {formatCompact(holder.paid)} into company cash in week {holder.week}.</p>
                                     {holder.conditions.map(condition => (
                                         <div key={condition.kind} className="mt-2">
@@ -393,8 +398,47 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                             {obligations.map(line => <p key={line} className="text-xs text-zinc-300 mt-1">{line}.</p>)}
                         </div>
                     )}
+                    {listed && (
+                        <div className="mt-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-3" data-testid="cap-public-float">
+                            <div className="font-bold">Public float · {publicPct} · {state.ipo?.listing?.exchange || state.ipo?.ticker}</div>
+                            <p className="text-xs text-zinc-300 mt-1">
+                                New shareholders hold this slice
+                                {state.ipo?.ticker ? ` on ${state.ipo.ticker}` : ''}.
+                                {state.ipo?.listing
+                                    ? ` IPO proceeds ${formatCompact(state.ipo.listing.proceeds)} went to company cash, labelled IPO proceeds.`
+                                    : ' The listing is on the company books.'}
+                                {' '}Your personal cash did not change.
+                            </p>
+                        </div>
+                    )}
+                    {!listed && (
+                        <div className="mt-4" data-testid="ipo-entry">
+                            <button
+                                type="button"
+                                data-testid="ipo-open"
+                                disabled={ipoReasons.length > 0}
+                                onClick={() => { if (ipoReasons.length === 0) setIpoOpen(true); }}
+                                className="px-4 py-2 rounded-full bg-[#e8c547] text-black text-[11px] font-black uppercase tracking-wider disabled:opacity-40"
+                            >
+                                IPO · List company
+                            </button>
+                            <p className="text-sm text-zinc-300 mt-2">{IPO_LINE}</p>
+                            {ipoReasons.map(reason => (
+                                <p key={reason} data-testid="ipo-reason" className="text-sm text-amber-200 mt-1">{reason}</p>
+                            ))}
+                            {draftCanDrop(player) && (
+                                <div className="mt-2">
+                                    <button type="button" data-testid="ipo-drop-draft" onClick={() => onApply(dropIpoDraft(player))} className="px-4 py-2 rounded-full border border-white/20 text-[11px] font-black uppercase tracking-wider">
+                                        Drop the old draft
+                                    </button>
+                                    <p className="text-xs text-zinc-500 mt-1">Clears the unfinished boardroom listing. No money moves.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
                     {last && <div className="text-xs text-zinc-500 mt-2">Last closed week profit {formatCompact(last.profit)}</div>}
                     {saleOpen && <StakeSale player={player} valuation={valuation} onClose={() => setSaleOpen(false)} onApply={onApply} />}
+                    {ipoOpen && <IpoFlow player={player} onClose={() => setIpoOpen(false)} onApply={onApply} />}
                 </div>
             </div>
             <div className="rounded-3xl border border-white/10 bg-[#12151c] p-4">
