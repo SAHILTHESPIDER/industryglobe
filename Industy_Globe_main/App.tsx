@@ -41,6 +41,7 @@ import { sanitizeAwardRecords } from './services/awardLogic';
 import { RoleType } from './types';
 import { applyParenthoodAbandonment, getPregnancyFeedbackCopy } from './services/familyLogic';
 import { APP_DISPLAY_VERSION } from './services/appVersion';
+import { WhatsNewNotes } from './components/WhatsNewNotes';
 import { applyLegacyFilmScores, hydrateReleaseWorld } from './services/releaseGauntlet';
 import { FestivalNightModal } from './views/FestivalNightModal';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
@@ -2392,94 +2393,15 @@ export const App: React.FC = () => {
 
       {showWhatsNewModal && gameStatus === 'PLAYING' && (
           <div className="fixed inset-0 z-[140] bg-black/85 backdrop-blur-md overflow-y-auto custom-scrollbar px-3 py-5 sm:p-6 animate-in fade-in duration-200">
-              <div className="bg-zinc-900 border border-zinc-700 rounded-3xl w-full max-w-lg mx-auto max-h-[calc(100dvh-2.5rem)] sm:max-h-[calc(100dvh-3rem)] shadow-2xl flex flex-col relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500"></div>
+              <div className="relative mx-auto flex max-h-[calc(100dvh-2.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-blue-400/30 bg-black shadow-2xl sm:max-h-[calc(100dvh-3rem)]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-400 to-amber-300"></div>
                   <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar p-5 pb-4 sm:p-6">
-                      <div className="mb-6">
-                          <div className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-400 mb-3">What&apos;s New</div>
-                          <h3 className="text-2xl font-black text-white mb-2">Version {APP_DISPLAY_VERSION}</h3>
-                          <p className="text-sm text-zinc-400 leading-relaxed">
-                              YouTube starts empty, pays like YouTube, and can wear a look you pick.
-                          </p>
-                      </div>
-
-                      <div className="space-y-4 text-sm text-zinc-300">
-                          <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-300 mb-2">Play Buttons</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• Silver at 100K subscribers, Gold at 1M, Diamond at 10M, Red Diamond at 100M. Each plaque is awarded once.</li>
-                                  <li>• Crossing a line opens a short ceremony and puts the button on your channel shelf. Fame and trust move a little. A brand may call.</li>
-                                  <li>• Rival houses and creator channels can earn them too. That shows up in the news, not as a second prize for you.</li>
-                              </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300 mb-2">Your channel</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• Change the name, avatar, banner, and thumbnail style from presets or a photo. It stays in the save.</li>
-                                  <li>• Renaming again within 8 weeks confuses search for a moment. It does not lock the name.</li>
-                                  <li>• The studio channel and Empire+ stay locked until you pay $8,000 from cash. Personal is free.</li>
-                              </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-sky-300 mb-2">From zero</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• A new career, including your production house, starts with no subscribers and no views. Uploads earn them.</li>
-                                  <li>• Other houses and people start empty too, then post on their own cadence. Big brands grow faster. Old saves keep the numbers they already had.</li>
-                                  <li>• Subscribe works on people now, not only studio channels. They show up under Subscriptions.</li>
-                                  <li>• Ads still wait for 1,000 subscribers and 4,000 watch hours. Starting at zero does not skip the Partner Program.</li>
-                              </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-red-500/15 bg-red-500/10 px-4 py-3">
-                              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-red-300 mb-2">Partner Program</div>
-                              <ul className="space-y-2 leading-relaxed">
-                                  <li>• The Partner Program turns on at 1,000 subscribers and 4,000 watch hours. Ad CPM follows the audience&apos;s countries and the video&apos;s genre.</li>
-                                  <li>• Studio-channel money goes to the house treasury. Personal-channel money goes to your cash. Empire+ goes to company cash.</li>
-                                  <li>• Shorts travel fast and pay a fraction of a long video. Long videos build the watch hours.</li>
-                                  <li>• Collabs cross both audiences. A bad fit or a hot partner causes backlash instead of a locked button.</li>
-                                  <li>• A premiere or a live launch moves campaign hype, and that hype moves opening weekend.</li>
-                                  <li>• Analytics shows CTR, retention, audience by country, the best upload window, and revenue.</li>
-                                  <li>• Brand deals scale with subscribers. Stack too many and the audience gets tired of them.</li>
-                                  <li>• Community posts show fan mood. A controversy can trend.</li>
-                                  <li>• Paid promotion takes a budget, countries, and a duration. Bigger spends return less, and pushing a weak video converts poorly.</li>
-                              </ul>
-                          </div>
-
-                          <button
-                              type="button"
-                              onClick={() => setShowPreviousWhatsNewNotes(prev => !prev)}
-                              className="w-full rounded-2xl border border-white/10 bg-zinc-950/80 px-4 py-3 text-left transition-colors hover:bg-zinc-900"
-                          >
-                              <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                      <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300">Previous Notes</div>
-                                      <p className="mt-1 text-xs leading-relaxed text-zinc-500">Tap to view earlier update highlights.</p>
-                                  </div>
-                                  <span className="text-lg font-black text-zinc-400">{showPreviousWhatsNewNotes ? '-' : '+'}</span>
-                              </div>
-                          </button>
-
-                          {showPreviousWhatsNewNotes && (
-                              <div className="rounded-2xl border border-white/10 bg-zinc-950/80 px-4 py-3">
-                                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-300 mb-2">Previous Highlights</div>
-                                  <ul className="space-y-2 leading-relaxed text-zinc-400">
-                                      <li>• 1.1.28 added critic scores, test screenings, and the festival circuit.</li>
-                                      <li>• 1.1.27 fixed the streaming plan price, filled the weekend Top 10, and tied your X location to the city you live in.</li>
-                                      <li>• 1.1.25 fixed streaming viewership curves, bid wars, pregnancy logic, and long-career save stability.</li>
-                                      <li>• Greenlight shows which returning talent deals are pending, with quick negotiate actions.</li>
-                                      <li>• Expanded Development Lab, franchise, universe, creator, social, and global talent systems.</li>
-                                  </ul>
-                              </div>
-                          )}
-                      </div>
+                      <WhatsNewNotes />
                   </div>
-
-                  <div className="shrink-0 bg-zinc-900/95 backdrop-blur px-5 pb-5 pt-3 sm:px-6 sm:pb-6 border-t border-white/5">
+                  <div className="shrink-0 border-t border-white/10 bg-black px-5 pb-5 pt-3 sm:px-6 sm:pb-6">
                       <button
                           onClick={handleDismissWhatsNew}
-                          className="w-full py-4 bg-white text-black font-bold rounded-2xl hover:bg-zinc-200 transition-colors"
+                          className="min-h-12 w-full rounded-2xl bg-amber-300 py-4 font-bold text-black hover:bg-amber-200"
                       >
                           Continue
                       </button>

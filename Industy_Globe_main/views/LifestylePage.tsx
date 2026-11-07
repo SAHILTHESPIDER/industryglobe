@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Player, Property, Vehicle, ClothingItem, SettableClothingStyle } from '../types';
-import { CreditCard, Store, Briefcase, ChevronRight, Clapperboard, Tv, Star } from 'lucide-react';
+import { Store, Briefcase, ChevronRight, Clapperboard, Tv, Star } from 'lucide-react';
 import { OwnPlatformApp } from './ownPlatform/OwnPlatformApp';
 import { armPlatformIdent } from '../services/ownPlatform/identAudio';
 import { LifestyleAssets } from './lifestyle/LifestyleAssets';
@@ -12,6 +12,7 @@ import { PROPERTY_CUSTOMIZATIONS, VEHICLE_CUSTOMIZATIONS } from '../services/lif
 import { PremiumProductId } from '../services/premiumLogic';
 import { getPlayerLanguage, t } from '../services/i18n';
 import { useGameNav } from '../components/GameNav';
+import './lifestyleDesk.css';
 
 interface LifestylePageProps {
   player: Player;
@@ -173,65 +174,57 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
       );
   }
 
+  const companyEquity = player.businesses.reduce((sum, b) => sum + b.stats.valuation, 0);
   return (
-    <div className="space-y-6 pb-8 pt-2">
-        <div className="flex items-center gap-4 mb-6"><h2 className="text-3xl font-bold text-white">{tr('lifestyle.title')}</h2></div>
-        
-        <div className="glass-card p-6 rounded-3xl relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-5"><CreditCard size={100} /></div>
-            <div className="relative z-10">
-                <div className="text-zinc-500 text-xs font-bold uppercase tracking-widest mb-1">{tr('lifestyle.liquidCash')}</div>
-                <button type="button" onClick={() => nav?.openPhone({ app: 'BANK' })} className="mb-4 block min-h-11 text-left text-3xl font-bold text-white tracking-tight">${player.money.toLocaleString()}</button>
-                <div className="flex gap-4">
-                    <div><div className="text-[10px] text-zinc-600 uppercase font-bold">{tr('lifestyle.assets')}</div><div className="text-sm font-mono text-zinc-300">~${(player.assets.length * 50000).toLocaleString()}</div></div>
-                    <div><div className="text-[10px] text-zinc-600 uppercase font-bold">{tr('lifestyle.equity')}</div><div className="text-sm font-mono text-emerald-400">${player.businesses.reduce((sum, b) => sum + b.stats.valuation, 0).toLocaleString()}</div></div>
-                </div>
+    <div className="ls-page pb-8 pt-2">
+        <h2 className="ls-title">{tr('lifestyle.title')}</h2>
+        <section className="ls-wallet">
+            <div className="ls-card-art" aria-hidden="true" />
+            <div className="ls-kicker">Personal wallet</div>
+            <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-500">{tr('lifestyle.liquidCash')}</div>
+            <button type="button" onClick={() => nav?.openPhone({ app: 'BANK' })} className="ls-cash">${player.money.toLocaleString()}</button>
+            <div className="ls-chips">
+                <span className="ls-chip">{tr('lifestyle.assets')} <b>~${(player.assets.length * 50000).toLocaleString()}</b></span>
+                <span className="ls-chip is-company">{tr('lifestyle.equity')} <b>${companyEquity.toLocaleString()}</b></span>
+                <span className="ls-chip is-personal">Personal money</span>
             </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            
-            {/* PRODUCTION HOUSE - Special Highlighted Card */}
-            <button 
-                onClick={handleProductionClick} 
-                className={`glass-card p-6 rounded-3xl text-left transition-all group relative overflow-hidden ${productionStudio ? 'border-amber-500/50 hover:bg-amber-900/10' : 'hover:bg-white/5 opacity-80 hover:opacity-100'}`}
-            >
-                {/* Gold Glow for Owners */}
-                {productionStudio && <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent pointer-events-none"></div>}
-                
-                <div className="flex items-center gap-4 relative z-10">
-                    <div className={`p-3 rounded-2xl ${productionStudio ? 'bg-amber-500 text-black' : 'bg-amber-500/10 text-amber-400'}`}>
-                        <Clapperboard size={24}/>
-                    </div>
-                    <div>
-                        <div className="font-bold text-xl text-white flex items-center gap-2">
-                            {productionStudio ? productionStudio.name : tr('lifestyle.productionHouse')}
-                            {productionStudio && <Star size={12} className="text-amber-500 fill-amber-500"/>}
-                        </div>
-                        <div className="text-sm text-zinc-400">
-                            {productionStudio ? tr('lifestyle.manageStudioSlate') : tr('lifestyle.createBlockbusters')}
-                        </div>
-                    </div>
-                </div>
-                <ChevronRight className="absolute top-1/2 -translate-y-1/2 right-6 text-zinc-700 group-hover:text-zinc-400 transition-colors"/>
+        </section>
+        <div className="ls-grid">
+            <button type="button" onClick={handleProductionClick} className={`ls-entry is-studio ${productionStudio ? '' : 'opacity-80'}`}>
+                <span className={`ls-ico ${productionStudio ? 'bg-amber-400 text-black' : 'bg-amber-400/15 text-amber-300'}`}><Clapperboard size={22}/></span>
+                <span>
+                    <strong>{productionStudio ? productionStudio.name : tr('lifestyle.productionHouse')} {productionStudio && <Star size={12} className="inline text-amber-300" />}</strong>
+                    <em>{productionStudio ? tr('lifestyle.manageStudioSlate') : tr('lifestyle.createBlockbusters')}</em>
+                    <i className="ls-tag is-company">Company</i>
+                </span>
+                <ChevronRight className="ls-chev" size={18} />
             </button>
-
-            {/* Standard Assets */}
-            <button onClick={() => setView('ASSETS')} className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative">
-                <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400"><Store size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.assetsTitle')}</div><div className="text-sm text-zinc-400">{tr('lifestyle.assetsSub')}</div></div></div>
-                <ChevronRight className="absolute top-1/2 -translate-y-1/2 right-6 text-zinc-700 group-hover:text-zinc-400 transition-colors"/>
+            <button type="button" onClick={() => setView('ASSETS')} className="ls-entry">
+                <span className="ls-ico bg-blue-500/15 text-blue-300"><Store size={22}/></span>
+                <span>
+                    <strong>{tr('lifestyle.assetsTitle')}</strong>
+                    <em>{tr('lifestyle.assetsSub')}</em>
+                    <i className="ls-tag is-personal">Personal</i>
+                </span>
+                <ChevronRight className="ls-chev" size={18} />
             </button>
-
-            {/* Business Empire (Excluding Production House) */}
-            <button onClick={() => setView('BUSINESS')} className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative">
-                <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-emerald-500/10 text-emerald-400"><Briefcase size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.businessEmpire')}</div><div className="text-sm text-zinc-400">{tr('lifestyle.businessSub')}</div></div></div>
-                <ChevronRight className="absolute top-1/2 -translate-y-1/2 right-6 text-zinc-700 group-hover:text-zinc-400 transition-colors"/>
+            <button type="button" onClick={() => setView('BUSINESS')} className="ls-entry">
+                <span className="ls-ico bg-emerald-500/15 text-emerald-300"><Briefcase size={22}/></span>
+                <span>
+                    <strong>{tr('lifestyle.businessEmpire')}</strong>
+                    <em>{tr('lifestyle.businessSub')}</em>
+                    <i className="ls-tag is-company">Company</i>
+                </span>
+                <ChevronRight className="ls-chev" size={18} />
             </button>
-
-            {/* Locked Content */}
-            <button onClick={() => { armPlatformIdent(player); setView('STREAMING'); }} className="glass-card p-6 rounded-3xl text-left hover:bg-white/5 transition-all group relative border border-[#ff3b30]/30">
-                <div className="flex items-center gap-4"><div className="p-3 rounded-2xl bg-[#ff3b30] text-white"><Tv size={24}/></div><div><div className="font-bold text-xl text-white">{tr('lifestyle.streamingPlatform')}</div><div className="text-sm text-zinc-400">{player.ownPlatform ? `${player.ownPlatform.name} · ${player.ownPlatform.stage}. Same company as the phone.` : tr('lifestyle.streamingSub')}</div></div></div>
-                <ChevronRight className="absolute top-1/2 -translate-y-1/2 right-6 text-zinc-700 group-hover:text-zinc-400 transition-colors"/>
+            <button type="button" onClick={() => { armPlatformIdent(player); setView('STREAMING'); }} className="ls-entry is-empire">
+                <span className="ls-ico bg-[#ff3b30] text-white"><Tv size={22}/></span>
+                <span>
+                    <strong>{tr('lifestyle.streamingPlatform')}</strong>
+                    <em>{player.ownPlatform ? `${player.ownPlatform.name} · ${player.ownPlatform.stage}. Same company as the phone.` : tr('lifestyle.streamingSub')}</em>
+                    <i className="ls-tag is-company">Company</i>
+                </span>
+                <ChevronRight className="ls-chev" size={18} />
             </button>
         </div>
     </div>

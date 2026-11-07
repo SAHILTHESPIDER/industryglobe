@@ -1,0 +1,142 @@
+/* Lifestyle landing only. */
+
+.ls-page { min-width: 0; }
+.ls-title {
+    margin: 0 0 1rem;
+    color: #fff;
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+.ls-wallet {
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 12px;
+    border: 1px solid rgba(232, 200, 114, 0.28);
+    border-radius: 24px;
+    background:
+        radial-gradient(ellipse at 100% 0%, rgba(232, 200, 114, 0.16), transparent 42%),
+        #050505;
+    padding: 18px 18px 16px;
+}
+.ls-kicker {
+    color: #e8c872;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+.ls-cash {
+    display: block;
+    margin-top: 6px;
+    max-width: calc(100% - 92px);
+    color: #fff;
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+.ls-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+}
+.ls-chip {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    background: #000;
+    padding: 6px 10px;
+    color: #d4d4d8;
+    font-size: 12px;
+}
+.ls-chip b { color: #fff; font-weight: 800; }
+.ls-chip.is-company { border-color: rgba(96, 165, 250, 0.45); color: #bfdbfe; }
+.ls-chip.is-personal { border-color: rgba(232, 200, 114, 0.4); color: #f5e6b8; }
+.ls-card-art {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 74px;
+    height: 48px;
+    border-radius: 8px;
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.35), transparent 42%),
+        linear-gradient(160deg, #f6e2a8, #b8882d 55%, #6d5014);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+.ls-card-art::before,
+.ls-card-art::after {
+    content: "";
+    position: absolute;
+    background: rgba(80, 56, 12, 0.45);
+}
+.ls-card-art::before { top: 10px; right: 10px; width: 16px; height: 12px; border-radius: 2px; }
+.ls-card-art::after { left: 10px; right: 10px; bottom: 8px; height: 6px; border-radius: 2px; }
+.ls-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+.ls-entry {
+    display: flex;
+    width: 100%;
+    min-height: 84px;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    background: #070707;
+    padding: 14px 40px 14px 14px;
+    color: #fff;
+    text-align: left;
+    position: relative;
+}
+.ls-entry:hover,
+.ls-entry:focus-visible,
+.ls-cash:focus-visible {
+    border-color: rgba(96, 165, 250, 0.7);
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+.ls-entry.is-studio { border-color: rgba(232, 200, 114, 0.55); }
+.ls-entry.is-empire { border-color: rgba(255, 59, 48, 0.45); }
+.ls-ico {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: none;
+    place-items: center;
+    border-radius: 14px;
+}
+.ls-entry strong { display: block; font-size: 1.05rem; }
+.ls-entry span, .ls-entry em {
+    display: block;
+    color: #a1a1aa;
+    font-size: 13px;
+    font-style: normal;
+}
+.ls-tag {
+    display: inline-flex;
+    margin-top: 4px;
+    border-radius: 999px;
+    padding: 1px 7px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+.ls-tag.is-company { background: rgba(37, 99, 235, 0.18); color: #93c5fd; }
+.ls-tag.is-personal { background: rgba(232, 200, 114, 0.14); color: #e8c872; }
+.ls-chev {
+    position: absolute;
+    top: 50%;
+    right: 14px;
+    color: #71717a;
+    transform: translateY(-50%);
+}
+@media (min-width: 800px) {
+    .ls-grid { grid-template-columns: 1fr 1fr; }
+}
