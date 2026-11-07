@@ -168,11 +168,37 @@
 @media (min-width: 1024px) {
     .phn-layout {
         display: grid;
-        grid-template-columns: 210px minmax(280px, 420px);
-        justify-content: start;
-        align-items: start;
+        grid-template-columns: 220px minmax(0, 1fr);
+        justify-content: stretch;
+        align-items: stretch;
     }
-    .phn-layout.has-notes { grid-template-columns: 210px minmax(280px, 420px) minmax(200px, 260px); }
+    .phn-layout.has-notes { grid-template-columns: 220px minmax(0, 1fr); }
+    .phn-device { grid-column: 2; grid-row: 1 / span 2; }
+    .phn-notes { grid-column: 1; grid-row: 2; max-height: 220px; overflow: auto; }
+    .phn-device {
+        max-width: none;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    .phn-screen {
+        height: calc(100dvh - 8.5rem);
+        min-height: 36rem;
+        max-height: none;
+        border-radius: 28px;
+    }
+    .phn-grid {
+        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+        gap: 22px 12px;
+    }
+    .phn-dock {
+        width: min(560px, 100%);
+        margin-left: auto;
+        margin-right: auto;
+    }
     .phn-side {
         display: flex;
         max-height: calc(100dvh - 8.5rem);
@@ -200,22 +226,28 @@
     }
 }
 
-/* Nested apps sit in a frame narrower than the desktop window.
-   Viewport lg/md rules must not open a second desktop sidebar here. */
-.phn-screen [class~="lg:flex-row"] { flex-direction: column !important; }
-.phn-screen [class~="hidden"][class~="lg:flex"],
-.phn-screen [class~="hidden"][class~="lg:block"],
-.phn-screen [class~="hidden"][class~="lg:grid"] { display: none !important; }
-.phn-screen [class~="lg:hidden"] { display: flex !important; }
-.phn-screen [class*="lg:grid-cols"],
-.phn-screen [class*="md:grid-cols"] { grid-template-columns: minmax(0, 1fr) !important; }
-.phn-screen [class*="lg:max-w"] { max-width: none !important; }
+/* Keep Empire+ inside the career-desk content area, not over the browser window. */
 .phn-screen .empire {
     position: absolute !important;
     inset: 0 !important;
     width: auto !important;
     height: 100% !important;
+    min-height: 0 !important;
     z-index: 80;
 }
+.phn-screen .empire .app { min-height: 0 !important; height: 100% !important; }
+.phn-screen .empire .rail { height: 100%; max-height: 100%; }
 .phn-screen .empire .sheet,
 .phn-screen .empire .toast { position: absolute !important; }
+
+/* Only a genuinely narrow phone surface uses the compact app chrome. */
+@container phone (max-width: 720px) {
+    .phn-screen [class~="lg:flex-row"] { flex-direction: column !important; }
+    .phn-screen [class~="hidden"][class~="lg:flex"],
+    .phn-screen [class~="hidden"][class~="lg:block"],
+    .phn-screen [class~="hidden"][class~="lg:grid"] { display: none !important; }
+    .phn-screen [class~="lg:hidden"] { display: flex !important; }
+    .phn-screen [class*="lg:grid-cols"],
+    .phn-screen [class*="md:grid-cols"] { grid-template-columns: minmax(0, 1fr) !important; }
+    .phn-screen [class*="lg:max-w"] { max-width: none !important; }
+}
