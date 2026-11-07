@@ -22,7 +22,10 @@
 }
 .phn-screen {
     position: relative;
+    container-type: inline-size;
+    container-name: phone;
     overflow: hidden;
+    min-width: 0;
     height: min(720px, calc(100dvh - 11rem));
     min-height: 520px;
     border-radius: 24px;
@@ -136,11 +139,31 @@
 }
 @media (max-width: 1023px) {
     .phn-notes { order: -1; }
+    .phn-device { max-width: none; }
+    .phn-screen {
+        height: calc(100dvh - 12.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        min-height: 280px;
+        max-height: calc(100dvh - 11rem);
+    }
+    .phn-layout.has-notes .phn-screen {
+        height: calc(100dvh - 18rem - env(safe-area-inset-bottom));
+        min-height: 220px;
+    }
 }
 @media (max-width: 480px) {
     .phn-device { border-radius: 22px; padding: 5px; }
-    .phn-screen { height: min(640px, calc(100dvh - 10.5rem)); min-height: 460px; border-radius: 18px; }
+    .phn-screen { border-radius: 18px; }
     .phn-ico { width: 48px; height: 48px; }
+}
+@media (max-height: 520px) {
+    .phn-notes { order: 0; }
+    .phn-screen,
+    .phn-layout.has-notes .phn-screen {
+        height: calc(100dvh - 8rem - env(safe-area-inset-bottom));
+        min-height: 0;
+        max-height: calc(100dvh - 8rem);
+    }
+    .phn-home { padding-bottom: 8px; }
 }
 @media (min-width: 1024px) {
     .phn-layout {
@@ -176,3 +199,23 @@
         box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.45);
     }
 }
+
+/* Nested apps sit in a frame narrower than the desktop window.
+   Viewport lg/md rules must not open a second desktop sidebar here. */
+.phn-screen [class~="lg:flex-row"] { flex-direction: column !important; }
+.phn-screen [class~="hidden"][class~="lg:flex"],
+.phn-screen [class~="hidden"][class~="lg:block"],
+.phn-screen [class~="hidden"][class~="lg:grid"] { display: none !important; }
+.phn-screen [class~="lg:hidden"] { display: flex !important; }
+.phn-screen [class*="lg:grid-cols"],
+.phn-screen [class*="md:grid-cols"] { grid-template-columns: minmax(0, 1fr) !important; }
+.phn-screen [class*="lg:max-w"] { max-width: none !important; }
+.phn-screen .empire {
+    position: absolute !important;
+    inset: 0 !important;
+    width: auto !important;
+    height: 100% !important;
+    z-index: 80;
+}
+.phn-screen .empire .sheet,
+.phn-screen .empire .toast { position: absolute !important; }

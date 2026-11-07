@@ -1,0 +1,116 @@
+/* Career-desk home only. */
+
+.hm-home { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.hm-hero, .hm-tile, .hm-panel, .hm-feed {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #070707;
+}
+.hm-hero {
+    border-radius: 24px;
+    padding: 16px;
+    background:
+        radial-gradient(ellipse at 100% 0%, rgba(232, 200, 114, 0.12), transparent 36%),
+        #070707;
+}
+.hm-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; min-width: 0; }
+.hm-avatar { position: relative; flex: none; min-width: 76px; min-height: 76px; }
+.hm-avatar-ring {
+    width: 76px; height: 76px; padding: 2px; border-radius: 999px;
+    background: linear-gradient(135deg, #f6e2a8, #e8c872 45%, #2563eb);
+}
+.hm-avatar img { width: 100%; height: 100%; border-radius: 999px; object-fit: cover; border: 2px solid #050505; background: #111; }
+.hm-cam, .hm-lvl {
+    position: absolute; display: grid; place-items: center;
+    border: 1px solid rgba(255,255,255,0.14); background: #050505; color: #e4e4e7;
+}
+.hm-cam { top: -2px; left: -2px; width: 28px; height: 28px; border-radius: 999px; }
+.hm-lvl { right: -4px; bottom: -2px; border-radius: 999px; padding: 2px 6px; font-size: 10px; font-weight: 800; }
+.hm-who { min-width: 9.5rem; flex: 1 1 10rem; }
+.hm-who h1 { margin: 0; color: #fff; font-size: clamp(1.6rem, 4vw, 2.1rem); font-weight: 800; letter-spacing: -0.03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-role {
+    display: inline-flex; margin-top: 4px; border-radius: 6px; border: 1px solid rgba(96,165,250,0.45);
+    background: rgba(37,99,235,0.15); padding: 2px 7px; color: #bfdbfe;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.hm-meta { margin-top: 4px; color: #a1a1aa; font-size: 13px; }
+.hm-cash {
+    display: block; margin-top: 4px; min-height: 44px; color: #34d399;
+    font-family: ui-monospace, monospace; font-size: 1.35rem; font-weight: 800; text-align: left;
+}
+.hm-weekstar {
+    position: relative; display: grid; width: 84px; height: 84px; flex: none; place-items: center; color: #e8c872;
+}
+.hm-weekstar svg { position: absolute; inset: 0; width: 84px; height: 84px; }
+.hm-weekstar div { position: relative; text-align: center; line-height: 1; }
+.hm-weekstar span { display: block; font-size: 9px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.hm-weekstar b { display: block; margin-top: 2px; color: #fff; font-size: 22px; }
+.hm-tools { display: flex; gap: 6px; flex: 1 1 100%; justify-content: flex-end; }
+@media (min-width: 720px) {
+    .hm-tools { flex: 0 0 auto; }
+}
+.hm-tools button {
+    display: grid; width: 44px; height: 44px; place-items: center; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.1); background: #050505; color: #d4d4d8;
+}
+.hm-energy { margin-top: 14px; }
+.hm-energy-top, .hm-panel h3, .hm-feed h3 {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    color: #a1a1aa; font-size: 10px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+}
+.hm-track { position: relative; height: 12px; margin-top: 8px; overflow: hidden; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); background: #050505; }
+.hm-track i { position: absolute; top: 0; bottom: 0; left: 0; background: linear-gradient(90deg, #2563eb, #e8c872); }
+.hm-track b { position: absolute; top: 0; bottom: 0; right: 0; background: repeating-linear-gradient(45deg, #18181b, #18181b 4px, #27272a 4px, #27272a 8px); }
+.hm-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hm-tile {
+    display: flex; min-height: 84px; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    border-radius: 18px; color: #fff; font-size: 12px; font-weight: 800;
+}
+.hm-tile svg { color: #60a5fa; }
+.hm-tile:hover, .hm-home button:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+.hm-lower { display: grid; gap: 12px; min-width: 0; }
+.hm-panel, .hm-feed { border-radius: 20px; padding: 14px; min-width: 0; }
+.hm-rings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.hm-ring { position: relative; display: grid; place-items: center; min-height: 96px; }
+.hm-ring svg { width: 92px; height: 92px; transform: rotate(-90deg); }
+.hm-ring-track { fill: none; stroke: #18181b; stroke-width: 7; }
+.hm-ring-value { fill: none; stroke-width: 7; stroke-linecap: round; }
+.hm-ring figcaption { position: absolute; text-align: center; line-height: 1.1; }
+.hm-ring b { display: block; color: #fff; font-size: 14px; }
+.hm-ring span { display: block; margin-top: 2px; color: #a1a1aa; font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.hm-split { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.hm-mini { border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: #050505; padding: 10px; min-width: 0; }
+.hm-mini span { display: block; color: #a1a1aa; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+.hm-mini b { display: block; margin-top: 4px; overflow: hidden; color: #fff; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.hm-feed { display: flex; min-height: 220px; max-height: 420px; flex-direction: column; }
+.hm-log { flex: 1; min-height: 0; overflow: auto; }
+.hm-log article { display: grid; grid-template-columns: 12px minmax(0, 1fr); gap: 8px; margin-top: 10px; }
+.hm-log i { width: 8px; height: 8px; margin-top: 4px; border-radius: 999px; background: #3b82f6; }
+.hm-log article.is-good i { background: #34d399; }
+.hm-log article.is-bad i { background: #fb7185; }
+.hm-log small { display: block; color: #71717a; font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+.hm-log p { margin: 2px 0 0; color: #e4e4e7; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
+.hm-age {
+    display: flex; min-height: 52px; width: 100%; align-items: center; justify-content: center; gap: 8px;
+    border-radius: 16px; background: #e8c872; color: #111; font-size: 1.05rem; font-weight: 800;
+}
+@media (max-width: 380px) {
+    .hm-who { min-width: 0; flex-basis: 8rem; }
+    .hm-who h1 { font-size: 1.35rem; }
+    .hm-cash { font-size: 1.15rem; overflow-wrap: anywhere; }
+    .hm-weekstar, .hm-weekstar svg { width: 68px; height: 68px; }
+    .hm-rings { gap: 4px; }
+    .hm-ring svg { width: 78px; height: 78px; }
+}
+@media (max-height: 520px) {
+    .hm-feed { min-height: 140px; max-height: 220px; }
+    .hm-hero { padding: 12px; }
+}
+.hm-age:disabled { background: #27272a; color: #71717a; }
+@media (min-width: 720px) {
+    .hm-rings { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 960px) {
+    .hm-actions { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .hm-lower { grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); align-items: stretch; }
+    .hm-feed { max-height: none; min-height: 100%; }
+}

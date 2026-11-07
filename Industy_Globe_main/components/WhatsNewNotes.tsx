@@ -18,7 +18,7 @@ export const WhatsNewNotes: React.FC = () => {
                 <div className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">What&apos;s New</div>
                 <h3 className="text-2xl font-black text-white">Version {APP_DISPLAY_VERSION}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                    Empire+ can list, buy stories, and close a stake. The production house, training, lifestyle, and phone are easier to read.
+                    Empire+ can list, buy stories, and close a stake. Home, the production house, training, lifestyle, and phone are easier to read.
                 </p>
             </div>
             <div className="space-y-3 text-sm">
@@ -26,9 +26,10 @@ export const WhatsNewNotes: React.FC = () => {
                     tone="gold"
                     kicker="This update"
                     items={[
+                        'Home keeps your portrait, personal cash, energy, and week together. Casting, Studio, Empire+, News, Bank, and Stocks are the same shortcuts. Condition, skills, and the live feed use your real numbers.',
                         'Self Improvement keeps Wellbeing, Workshops, and Genre Lab. On a wide screen they sit side by side. On a phone you still switch tabs. Prices, weeks, and energy are the real courses.',
                         'Lifestyle opens on your personal cash. Equity is the value of your companies, not money you can spend. Production, Assets, Business Empire, and Empire+ are the same doors.',
-                        'The phone keeps every app. Unread notes show only when a real message is waiting.',
+                        'The phone keeps every app, and each one fits the phone frame instead of stretching to the desktop window. Unread notes show only when a real message is waiting.',
                     ]}
                 />
                 <Note

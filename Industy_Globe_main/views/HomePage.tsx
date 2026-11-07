@@ -2,7 +2,6 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { Player, ActorSkills, Commitment, ActiveRelease, ScheduledEvent, Message, AuditionOpportunity, NegotiationData, UniverseContract, UniverseId, Page, Genre, Relationship, LifeEvent, SponsorshipOffer, XPost } from '../types';
 import { formatMoney } from '../services/formatUtils';
-import { StatsBar } from '../components/StatsBar';
 import { generateProjectDetails } from '../services/roleLogic';
 import { generateDirectEntryOffer, normalizeUniverseForSave } from '../services/universeLogic';
 import { generateLifeEvent } from '../services/lifeEventLogic';
@@ -14,6 +13,7 @@ import { ALL_GENRES, formatGenreLabel } from '../services/genreCatalog';
 import { getPlayerLanguage, t } from '../services/i18n';
 import { Heart, Smile, Star, Zap, DollarSign, Brain, Calendar, Activity, TrendingUp, Trophy, X, Sliders, Users, Film, Tv, PlayCircle, Lock, FastForward, Key, AlertTriangle, Mic2, Mail, FileText, Dumbbell, Sparkles, Settings, ShoppingCart, Clapperboard, ZapOff, Crown, Skull, Camera, UploadCloud, Check, MessageSquareQuote, Globe, Landmark, Newspaper, Radio } from 'lucide-react';
 import { useGameNav } from '../components/GameNav';
+import './homeDesk.css';
 import { armPlatformIdent } from '../services/ownPlatform/identAudio';
 import { addBreadcrumb, recordNonFatal, setCrashContext, startPerformanceTrace, stopPerformanceTrace, trackGameEvent } from '../services/firebaseService';
 
@@ -3046,7 +3046,7 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
 
 
   return (
-    <div className="relative space-y-6 pb-8 pt-2 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+    <div className="hm-home relative pb-8 pt-2">
       
       {/* PASSWORD PROMPT OVERLAY */}
       {showPasswordPrompt && (
@@ -3632,97 +3632,49 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
           </div>
       )}
 
-      {/* Premium Profile Header */}
-      <div className="relative glass-card p-5 sm:p-6 rounded-3xl overflow-hidden group lg:col-span-2">
-        <div className="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition-opacity">
-            <Star size={120} className="text-amber-500 rotate-12" />
-        </div>
-        
-        <div className="relative z-10 flex flex-wrap items-center gap-4">
-            <div className="relative cursor-pointer active:scale-95 transition-transform shrink-0" onClick={handleAvatarClick}>
-                <div className="w-20 h-20 rounded-full p-[2px] bg-gradient-to-tr from-amber-300 via-amber-500 to-amber-700 shadow-lg shadow-amber-900/20">
-                    <img 
-                        src={player.avatar} 
-                        alt="Avatar" 
-                        className="w-full h-full rounded-full object-cover border-2 border-zinc-900"
-                    />
+      <section className="hm-hero">
+        <div className="hm-identity">
+            <div className="hm-avatar" onClick={handleAvatarClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') handleAvatarClick(); }}>
+                <div className="hm-avatar-ring">
+                    <img src={player.avatar} alt="Avatar" />
                 </div>
-                <div className="absolute -top-1 -left-1 bg-zinc-900/95 text-zinc-200 p-1.5 rounded-full border border-zinc-700 shadow-lg">
-                    <Camera size={12} />
-                </div>
-                <div className="absolute -bottom-1 -right-1 bg-zinc-900 text-[10px] px-2 py-0.5 rounded-full border border-zinc-700 text-zinc-300 font-bold uppercase tracking-wider">
-                    Lvl {Math.floor((player.stats?.fame || 0) / 10) + 1}
+                <span className="hm-cam"><Camera size={12} /></span>
+                <span className="hm-lvl">Lvl {Math.floor((player.stats?.fame || 0) / 10) + 1}</span>
+            </div>
+            <div className="hm-who">
+                <h1>{player.name}</h1>
+                <div className="hm-role">Actor</div>
+                <div className="hm-meta">Age {player.age}</div>
+                <button type="button" data-testid="player-money" onClick={() => nav?.openPhone({ app: 'BANK' })} className="hm-cash">{formatMoney(player.money)}</button>
+            </div>
+            <div className="hm-weekstar" aria-label={`${tr('home.week')} ${player.currentWeek} ${tr('common.of')} 52`}>
+                <Star size={84} strokeWidth={1.25} />
+                <div>
+                    <span>{tr('home.week')}</span>
+                    <b>{player.currentWeek}</b>
                 </div>
             </div>
-            
-            <div className="flex-1 min-w-0">
-                <h1 className="text-3xl font-bold text-white tracking-tight truncate">{player.name}</h1>
-                <div className="flex items-center gap-3 mt-1">
-                    <span className="text-xs font-medium text-amber-400 uppercase tracking-widest border border-amber-900/50 bg-amber-950/30 px-2 py-1 rounded">Actor</span>
-                </div>
-                <button type="button" data-testid="player-money" onClick={() => nav?.openPhone({ app: 'BANK' })} className="mt-3 flex min-h-11 items-center text-left text-emerald-400 font-mono text-lg font-bold truncate">
-                    {formatMoney(player.money)}
-                </button>
-            </div>
-            
-            <div className="flex flex-col items-center justify-center pl-4 border-l border-white/5 shrink-0">
-                <div className="text-[10px] text-zinc-500 uppercase tracking-wider font-bold mb-1">{tr('home.week')}</div>
-                <div className="text-3xl font-light text-white">{player.currentWeek}</div>
-                <div className="text-[10px] text-zinc-600">{tr('common.of')} 52</div>
-                
-                {/* SETTINGS AND STORE BUTTONS */}
-                <div className="flex gap-1 mt-2">
-                    {(player.bloodline && player.bloodline.length > 0) || player.relationships.some(rel => rel.relation === 'Child') ? (
-                        <button
-                            onClick={() => setPage && setPage(Page.SOCIAL)}
-                            className="inline-flex h-10 w-10 items-center justify-center bg-amber-900/50 hover:bg-amber-800/50 rounded-full text-amber-400 hover:text-white transition-colors"
-                            title={tr('home.viewLegacy')}
-                        >
-                            <Crown size={14} />
-                        </button>
-                    ) : null}
-                    <button
-                        onClick={() => setPage && setPage(Page.STORE)}
-                        className="inline-flex h-10 w-10 items-center justify-center bg-emerald-900/50 hover:bg-emerald-800/50 rounded-full text-emerald-400 hover:text-white transition-colors"
-                    >
-                        <ShoppingCart size={14} />
-                    </button>
-                    <button
-                        onClick={() => setPage && setPage(Page.SETTINGS)}
-                        className="inline-flex h-10 w-10 items-center justify-center bg-zinc-800/50 hover:bg-zinc-700/50 rounded-full text-zinc-400 hover:text-white transition-colors"
-                    >
-                        <Settings size={14} />
-                    </button>
-                </div>
+            <div className="hm-tools">
+                {(player.bloodline && player.bloodline.length > 0) || player.relationships.some(rel => rel.relation === 'Child') ? (
+                    <button type="button" onClick={() => setPage && setPage(Page.SOCIAL)} title={tr('home.viewLegacy')} aria-label={tr('home.viewLegacy')}><Crown size={16} /></button>
+                ) : null}
+                <button type="button" onClick={() => setPage && setPage(Page.STORE)} aria-label="Store"><ShoppingCart size={16} /></button>
+                <button type="button" onClick={() => setPage && setPage(Page.SETTINGS)} aria-label="Settings"><Settings size={16} /></button>
             </div>
         </div>
-      </div>
+        <div className="hm-energy">
+            <div className="hm-energy-top">
+                <span><Zap size={12} /> {tr('home.energy')}</span>
+                <span>{player.energy.current} / {100 - weeklyDrain} {tr('home.max')}</span>
+            </div>
+            <div className="hm-track">
+                <i style={{ width: `${Math.max(0, Math.min(100, player.energy.current))}%` }} />
+                <b style={{ width: `${Math.max(0, Math.min(100, weeklyDrain))}%` }} />
+            </div>
+        </div>
+      </section>
 
-      {/* Energy Bar */}
-      <div className="glass-card p-5 rounded-3xl relative overflow-hidden lg:col-span-2">
-         <div className="flex justify-between items-center mb-3">
-            <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                <Zap className="text-amber-400 fill-amber-400" size={14} /> {tr('home.energy')}
-            </h2>
-            <span className="text-xs text-zinc-500 font-mono">
-                <span className="text-white">{player.energy.current}</span> / {100 - weeklyDrain} {tr('home.max').toUpperCase()}
-            </span>
-         </div>
-         <div className="h-4 bg-zinc-900/50 rounded-full overflow-hidden border border-white/5 relative">
-            {/* The Used/Committed Portion */}
-            <div 
-                className="absolute right-0 top-0 h-full bg-zinc-800 pattern-diagonal-lines border-l border-zinc-700" 
-                style={{ width: `${weeklyDrain}%` }}
-            />
-            {/* The Current Active Energy */}
-            <div 
-                className="absolute left-0 top-0 h-full bg-gradient-to-r from-amber-600 to-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-all duration-700" 
-                style={{ width: `${Math.max(0, player.energy.current)}%` }}
-            />
-         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:col-span-2 lg:grid-cols-6">
+      <div className="hm-actions">
           {[
               { label: 'Casting', icon: Film, run: () => nav?.openPhone({ app: 'CASTLINK' }) },
               { label: 'Studio', icon: Clapperboard, run: () => nav?.openLifestyle(player.businesses.some(b => b.type === 'PRODUCTION_HOUSE') ? 'PRODUCTION_GAME' : 'PRODUCTION_WIZARD') },
@@ -3733,86 +3685,69 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
           ].map(link => {
               const Icon = link.icon;
               return (
-                  <button key={link.label} onClick={link.run} className="glass-card flex min-h-11 items-center gap-2 rounded-2xl px-3 py-3 text-left text-xs font-bold text-white hover:bg-white/5">
-                      <Icon size={14} className="shrink-0 text-amber-400" />
-                      <span className="truncate">{link.label}</span>
+                  <button key={link.label} type="button" onClick={link.run} className="hm-tile">
+                      <Icon size={26} />
+                      <span>{link.label}</span>
                   </button>
               );
           })}
       </div>
 
-      {/* Stats Section Redesign */}
-      <div className="space-y-4">
-          
-          {/* Personal Condition */}
-          <div className="glass-card p-5 rounded-3xl space-y-3">
-              <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                  <Activity size={12} /> {tr('home.personalCondition')}
-              </h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <StatsBar label={tr('home.health')} value={player.stats.health} color="bg-rose-500" icon={<Heart size={12}/>} />
-                  <StatsBar label={tr('home.physique')} value={player.stats.body} color="bg-amber-500" icon={<Dumbbell size={12}/>} />
-                  <StatsBar label={tr('home.mood')} value={player.stats.happiness} color="bg-teal-400" icon={<Smile size={12}/>} />
-                  <StatsBar label={tr('home.looks')} value={player.stats.looks} color="bg-purple-500" icon={<Sparkles size={12}/>} />
+      <div className="hm-lower">
+          <div className="hm-panel">
+              <h3><Activity size={12} /> {tr('home.personalCondition')}</h3>
+              <div className="hm-rings">
+                  {[
+                      { label: tr('home.health'), value: player.stats.health, color: '#fb7185' },
+                      { label: tr('home.physique'), value: player.stats.body, color: '#e8c872' },
+                      { label: tr('home.mood'), value: player.stats.happiness, color: '#38bdf8' },
+                      { label: tr('home.looks'), value: player.stats.looks, color: '#60a5fa' },
+                  ].map(stat => {
+                      const safe = Math.max(0, Math.min(100, Number.isFinite(stat.value) ? stat.value : 0));
+                      const radius = 32;
+                      const circ = 2 * Math.PI * radius;
+                      return (
+                          <figure key={stat.label} className="hm-ring">
+                              <svg viewBox="0 0 84 84" aria-hidden="true">
+                                  <circle className="hm-ring-track" cx="42" cy="42" r={radius} />
+                                  <circle className="hm-ring-value" cx="42" cy="42" r={radius} stroke={stat.color} strokeDasharray={`${(safe / 100) * circ} ${circ}`} />
+                              </svg>
+                              <figcaption><b>{Math.round(safe)}%</b><span>{stat.label}</span></figcaption>
+                          </figure>
+                      );
+                  })}
+              </div>
+              <div className="hm-split">
+                  <div className="hm-mini">
+                      <span>{tr('home.skills')}</span>
+                      <b>{tr('home.talent')} {Math.round(player.stats.talent || 0)}%</b>
+                      <b>{tr('home.experience')} {Math.round(player.stats.experience || 0)}%</b>
+                  </div>
+                  <div className="hm-mini">
+                      <span>{tr('home.status')}</span>
+                      <b>{tr('home.reputation')} {Math.round(player.stats.reputation || 0)}%</b>
+                      <b>{tr('home.fame')} {Math.round(player.stats.fame || 0)}%</b>
+                  </div>
               </div>
           </div>
-
-          {/* Career Metrics */}
-          <div className="grid grid-cols-2 gap-4">
-              <div className="glass-card p-5 rounded-3xl space-y-3">
-                  <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-                      <Brain size={12} /> {tr('home.skills')}
-                  </h3>
-                  <StatsBar label={tr('home.talent')} value={player.stats.talent} color="bg-indigo-500" icon={<Brain size={12}/>} />
-                  <StatsBar label={tr('home.experience')} value={player.stats.experience} color="bg-violet-500" icon={<TrendingUp size={12}/>} />
-              </div>
-              <div className="glass-card p-5 rounded-3xl space-y-3">
-                  <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1 flex items-center gap-2">
-                      <Star size={12} /> {tr('home.status')}
-                  </h3>
-                  <StatsBar label={tr('home.reputation')} value={player.stats.reputation} color="bg-blue-500" icon={<Trophy size={12}/>} />
-                  <StatsBar label={tr('home.fame')} value={player.stats.fame} color="bg-gradient-to-r from-yellow-400 to-yellow-600" icon={<Star size={12}/>} />
+          <div className="hm-feed">
+              <h3>{tr('home.liveFeed')}</h3>
+              <div ref={logContainerRef} className="hm-log custom-scrollbar">
+                  {player.logs.map((log, idx) => (
+                      <article key={idx} className={log.type === 'positive' ? 'is-good' : log.type === 'negative' ? 'is-bad' : ''}>
+                          <i />
+                          <div>
+                              <small>{tr('common.year')} {log.year} · {tr('common.week')} {log.week}</small>
+                              <p>{log.message}</p>
+                          </div>
+                      </article>
+                  ))}
               </div>
           </div>
       </div>
 
-      {/* Activity Log - Terminal Style */}
-      <div className="glass-card p-5 rounded-3xl h-48 lg:h-[28rem] flex flex-col relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-zinc-700 to-transparent opacity-50"></div>
-        <h3 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> {tr('home.liveFeed')}
-        </h3>
-        <div ref={logContainerRef} className="flex-1 overflow-y-auto space-y-3 pr-2 custom-scrollbar mask-image-gradient">
-            {player.logs.map((log, idx) => (
-                <div key={idx} className={`text-sm leading-relaxed border-l-2 pl-3 ${
-                    log.type === 'positive' ? 'border-emerald-500/50 text-emerald-100' : 
-                    log.type === 'negative' ? 'border-rose-500/50 text-rose-100' : 'border-zinc-700 text-zinc-400'
-                }`}>
-                    <span className="text-zinc-600 text-[10px] font-mono mr-2 block uppercase">{tr('common.year')} {log.year} • {tr('common.week')} {log.week}</span>
-                    {log.message}
-                </div>
-            ))}
-        </div>
-      </div>
-
-      {/* Main Action Button */}
-      <button
-        onClick={onNextWeek}
-        disabled={isProcessing}
-        className={`lg:col-span-2 w-full min-h-14 py-5 rounded-2xl font-bold text-lg shadow-xl shadow-amber-900/20 transform active:scale-[0.98] transition-all flex items-center justify-center gap-3 border border-white/10 ${
-            isProcessing 
-            ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
-            : 'bg-gradient-to-br from-amber-500 to-amber-700 text-white hover:brightness-110 relative overflow-hidden group'
-        }`}
-      >
-        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 blur-xl"></div>
-        {isProcessing ? (
-            <span className="animate-pulse">{tr('home.processingWeek')}</span>
-        ) : (
-            <>
-                <Calendar size={22} /> {tr('home.ageUpWeek')}
-            </>
-        )}
+      <button type="button" onClick={onNextWeek} disabled={isProcessing} className="hm-age">
+          {isProcessing ? tr('home.processingWeek') : <><Calendar size={20} /> {tr('home.ageUpWeek')}</>}
       </button>
     </div>
   );
