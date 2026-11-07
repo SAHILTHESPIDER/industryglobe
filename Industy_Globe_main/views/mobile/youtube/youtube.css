@@ -175,6 +175,7 @@
   .yt-root .hero { grid-template-columns: 1fr; }
   .yt-root .wgrid, .yt-root .shorts-layout { grid-template-columns: 1fr; }
   .yt-root .slots { grid-template-columns: 1fr 1fr; }
+  .yt-root .bill .ttl { white-space: normal; font-size: 64px; }
 }
 @container yt (max-width: 600px) {
   .yt-root { font-size: 13px; }
