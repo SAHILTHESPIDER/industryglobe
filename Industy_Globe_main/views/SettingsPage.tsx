@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, Twitter, Send, Star, Globe, LogOut, Coffee, Bug, Puzzle, Lock, CheckCircle2, Users, ChevronRight, Sparkles, SlidersHorizontal, ShieldCheck, Gauge, Database, Copy, Smartphone, MessageCircle, LifeBuoy, Bell } from 'lucide-react';
 import { GameLanguage, Player } from '../types';
 import { APP_DISPLAY_VERSION } from '../services/appVersion';
+import { WhatsNewNotes } from '../components/WhatsNewNotes';
 import { createGlobalActorPackNPCs, GLOBAL_ACTOR_PACKS } from '../services/npcLogic';
 import { getGlobalCreatorCountForPack } from '../services/youtubeLogic';
 import { getPlayerLanguage, SUPPORTED_LANGUAGES, t } from '../services/i18n';
@@ -16,7 +17,7 @@ interface SettingsPageProps {
   onMainMenu: () => void;
 }
 
-type SettingsMode = 'SETTINGS' | 'PERFORMANCE' | 'GAMEPLAY' | 'SUPPORT' | 'COMMUNITY' | 'MODS' | 'EXTERNAL_ACTORS';
+type SettingsMode = 'SETTINGS' | 'PERFORMANCE' | 'GAMEPLAY' | 'SUPPORT' | 'COMMUNITY' | 'MODS' | 'EXTERNAL_ACTORS' | 'WHATS_NEW';
 type SettingsIcon = React.ComponentType<{ size?: number; className?: string }>;
 
 const ISSUE_CATEGORIES = [
@@ -541,6 +542,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
     );
   }
 
+  if (mode === 'WHATS_NEW') {
+    return (
+      <div className="space-y-5 pb-8 pt-2">
+        {renderSubpageHeader('Version', "What's New")}
+        <div className="rounded-3xl border border-blue-400/25 bg-black p-5">
+          <WhatsNewNotes />
+        </div>
+      </div>
+    );
+  }
+
   if (mode === 'SUPPORT') {
     return (
       <div className="space-y-5 pb-8 pt-2">
@@ -1007,6 +1019,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
       </div>
 
       <button
+        type="button"
+        onClick={() => setMode('WHATS_NEW')}
+        className="flex min-h-14 w-full items-center justify-between rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-left"
+      >
+        <div>
+          <div className="font-bold text-white">What&apos;s New</div>
+          <div className="text-xs text-zinc-400">Update notes for v{APP_DISPLAY_VERSION}</div>
+        </div>
+        <div className="font-mono text-sm font-bold text-amber-200">v{APP_DISPLAY_VERSION}</div>
+      </button>
+
+      <button
         onClick={onMainMenu}
         className="w-full flex items-center justify-between p-4 bg-zinc-900/45 rounded-2xl hover:bg-rose-900/20 hover:border-rose-900/50 transition-all border border-white/5 group"
       >
@@ -1019,9 +1043,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
         </div>
       </button>
 
-      <div className="text-center text-xs text-zinc-600 font-mono mt-8">
+      <button type="button" onClick={() => setMode('WHATS_NEW')} className="mt-8 w-full text-center font-mono text-xs text-amber-200/80">
         v{APP_DISPLAY_VERSION}
-      </div>
+      </button>
     </div>
   );
 };

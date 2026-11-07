@@ -6,6 +6,7 @@ import { rewardGenreExperience, calculateGlobalTalent } from '../services/roleLo
 import { formatGenreLabel } from '../services/genreCatalog';
 import { getPlayerLanguage, t } from '../services/i18n';
 import { Dumbbell, BookOpen, Brain, Drama, Check, ChevronDown, ChevronUp, Zap, DollarSign, Activity, Smile, Heart, Lock, Sparkles, HeartPulse, X, Clapperboard, Monitor, Skull, Ghost, Sword, Rocket, Map, Shield, Mic, Camera, FlaskConical, Award, Users } from 'lucide-react';
+import './improveDesk.css';
 
 interface ImprovePageProps {
   player: Player;
@@ -106,11 +107,21 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
   };
 
   return (
-    <div className="space-y-6 pb-8 pt-2 lg:grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start lg:gap-6 lg:space-y-0">
-      <h2 className="text-3xl font-bold text-white mb-2 lg:col-span-2">{tr('improve.title')}</h2>
+    <div className="ig-improve pb-8 pt-2">
+      <h2 className="ig-title">{tr('improve.title')}</h2>
+
+      <div className="ig-tabs">
+          <button type="button" onClick={() => setActiveTab('WELLBEING')} className={`ig-tab ${activeTab === 'WELLBEING' ? 'is-on' : ''}`}>{tr('improve.wellbeing')}</button>
+          <button type="button" onClick={() => setActiveTab('WORKSHOPS')} className={`ig-tab ${activeTab === 'WORKSHOPS' ? 'is-on' : ''}`}>{tr('improve.workshops')}</button>
+          <button type="button" onClick={() => setActiveTab('GENRE')} className={`ig-tab ${activeTab === 'GENRE' ? 'is-on' : ''}`}>{tr('improve.genreLab')}</button>
+      </div>
+
+      {/* TAB CONTENT: WELLBEING */}
+      <section className={`ig-panel ig-panel-well space-y-4 ${activeTab === 'WELLBEING' ? 'is-on' : ''}`}>
+          <h3 className="ig-panel-title">{tr('improve.wellbeing')}</h3>
 
       {/* SECTION 1: ACTOR SKILL PROFILE (ACCORDION) */}
-      <div className="glass-card rounded-3xl overflow-hidden transition-all duration-300">
+      <div className="ig-talent glass-card rounded-3xl overflow-hidden">
           <button 
             onClick={() => setIsTalentExpanded(!isTalentExpanded)}
             className="w-full p-5 flex items-center justify-between bg-white/5 hover:bg-white/10 transition-colors"
@@ -171,32 +182,6 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
           )}
       </div>
 
-      <div className="space-y-6">
-      {/* SECTION 2: TABS */}
-      <div className="flex p-1 bg-zinc-900/50 rounded-2xl border border-white/5">
-          <button 
-            onClick={() => setActiveTab('WELLBEING')}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'WELLBEING' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-              {tr('improve.wellbeing')}
-          </button>
-          <button 
-            onClick={() => setActiveTab('WORKSHOPS')}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'WORKSHOPS' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-              {tr('improve.workshops')}
-          </button>
-          <button 
-            onClick={() => setActiveTab('GENRE')}
-            className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'GENRE' ? 'bg-zinc-800 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
-          >
-              {tr('improve.genreLab')}
-          </button>
-      </div>
-
-      {/* TAB CONTENT: WELLBEING */}
-      {activeTab === 'WELLBEING' && (
-          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
               
               {/* Category Selectors */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -207,7 +192,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                           <button 
                             key={cat.id}
                             onClick={() => setSelectedCategory(cat.id)}
-                            className={`flex flex-col items-center p-3 rounded-2xl transition-all border ${isSelected ? 'bg-zinc-800 border-white/20 shadow-lg scale-[1.02]' : 'bg-zinc-900 border-transparent hover:bg-zinc-800'}`}
+                            className={`ig-cat flex min-h-16 flex-col items-center rounded-2xl border p-3 ${isSelected ? 'is-on' : 'border-transparent'}`}
                           >
                               <Icon size={20} className={`${cat.color} mb-2`} />
                               <span className={`text-[10px] font-bold uppercase ${isSelected ? 'text-white' : 'text-zinc-500'}`}>{cat.label}</span>
@@ -226,14 +211,12 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                   </h3>
                   
                   {IMPROVEMENT_CATALOG[selectedCategory].map(act => (
-                      <div key={act.id} onClick={() => setSelectedActivity(act)} className="glass-card p-4 rounded-2xl flex items-center justify-between cursor-pointer hover:bg-white/5 transition-colors group">
+                      <div key={act.id} onClick={() => setSelectedActivity(act)} className="ig-activity glass-card flex min-h-16 cursor-pointer items-center justify-between gap-3 p-3">
                           <div>
                               <div className="font-bold text-white group-hover:text-indigo-400 transition-colors">{trFallback(`improve.activity.${act.id}.name`, act.name)}</div>
                               <div className="text-xs text-zinc-500">{trFallback(`improve.activity.${act.id}.desc`, act.description)}</div>
                           </div>
-                          <div className="bg-zinc-800 p-2 rounded-full text-zinc-400 group-hover:bg-indigo-500 group-hover:text-white transition-all">
-                              <ChevronDown size={16} />
-                          </div>
+                          <button type="button" className="ig-go" onClick={(event) => { event.stopPropagation(); setSelectedActivity(act); }}>Options</button>
                       </div>
                   ))}
               </div>
@@ -314,12 +297,10 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                   </div>
               )}
 
-          </div>
-      )}
+      </section>
 
-      {/* TAB CONTENT: WORKSHOPS (REDESIGNED) */}
-      {activeTab === 'WORKSHOPS' && (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+      <section className={`ig-panel ig-panel-work space-y-4 ${activeTab === 'WORKSHOPS' ? 'is-on' : ''}`}>
+          <h3 className="ig-panel-title">{tr('improve.workshops')}</h3>
               <div className="flex justify-between items-center text-xs text-zinc-500 px-2 mb-2">
                   <span>{tr('improve.professionalTraining')}</span>
                   <div className="flex items-center gap-1">
@@ -345,7 +326,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                   ))}
               </div>
               
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                   {WORKSHOP_CATALOG.filter(course => {
                       if (workshopFilter === 'ALL') return true;
                       if (workshopFilter === 'ACTING') return !!course.skillGains;
@@ -363,7 +344,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                           <div 
                             key={course.id} 
                             className={`
-                                relative overflow-hidden rounded-3xl border transition-all duration-300
+                                ig-course relative overflow-hidden rounded-3xl border transition-all duration-300
                                 ${isEnrolled 
                                     ? 'bg-gradient-to-r from-zinc-900 to-black border-indigo-500/30' 
                                     : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'}
@@ -425,7 +406,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                                               className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${
                                                   !canAfford || !hasEnergySpace 
                                                   ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' 
-                                                  : 'bg-white text-black hover:bg-zinc-200'
+                                                  : 'ig-go'
                                               }`}
                                           >
                                               {tr('improve.enroll')}
@@ -458,18 +439,16 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                       );
                   })}
               </div>
-          </div>
-      )}
+      </section>
 
-      {/* TAB CONTENT: GENRE LAB (NEW GRID UI) */}
-      {activeTab === 'GENRE' && (
-          <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+      <section className={`ig-panel ig-panel-genre space-y-4 ${activeTab === 'GENRE' ? 'is-on' : ''}`}>
+          <h3 className="ig-panel-title">{tr('improve.genreLab')}</h3>
               <div className="flex items-center gap-2 text-zinc-500 px-2 text-xs mb-2">
                   <Monitor size={12}/>
                   <p>{tr('improve.genreHelp')}</p>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="ig-genre-grid">
                   {GENRE_TRAINING_CATALOG.map(training => {
                       const currentXP = player.stats.genreXP[training.genre] || 0;
                       const isMastered = currentXP >= 100;
@@ -487,11 +466,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                               }}
                               disabled={isMastered || !canTrain}
                               className={`
-                                relative flex flex-col items-center p-3 rounded-2xl border transition-all duration-300 group
-                                ${isMastered 
-                                    ? 'bg-amber-900/10 border-amber-500/50 cursor-default shadow-[0_0_15px_rgba(245,158,11,0.1)]' 
-                                    : 'bg-zinc-900/50 border-white/5 hover:bg-zinc-800 active:scale-[0.98]'
-                                }
+                                ig-genre relative flex min-h-16 flex-col items-center p-3 ${isMastered ? 'is-master' : ''}
                               `}
                           >
                               {/* Icon Badge */}
@@ -530,9 +505,7 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
                       );
                   })}
               </div>
-          </div>
-      )}
-      </div>
+      </section>
 
     </div>
   );
