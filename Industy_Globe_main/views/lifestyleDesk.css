@@ -26,6 +26,7 @@
     letter-spacing: 0.18em;
     text-transform: uppercase;
 }
+.ls-page { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 .ls-cash {
     display: block;
     margin-top: 6px;
@@ -77,12 +78,14 @@
 .ls-card-art::after { left: 10px; right: 10px; bottom: 8px; height: 6px; border-radius: 2px; }
 .ls-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 10px;
+    min-width: 0;
 }
 .ls-entry {
     display: flex;
     width: 100%;
+    min-width: 0;
     min-height: 84px;
     align-items: center;
     gap: 12px;
@@ -107,13 +110,32 @@
     display: grid;
     width: 44px;
     height: 44px;
-    flex: none;
+    flex: 0 0 44px;
     place-items: center;
+    align-content: center;
+    justify-content: center;
     border-radius: 14px;
+    line-height: 0;
 }
-.ls-entry strong { display: block; font-size: 1.05rem; }
-.ls-entry span, .ls-entry em {
+.ls-ico svg {
     display: block;
+    width: 22px;
+    height: 22px;
+    flex: none;
+}
+.ls-copy {
+    display: block;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.ls-copy strong,
+.ls-copy em {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.ls-copy strong { color: #fff; font-size: 1.05rem; font-weight: 800; }
+.ls-copy em {
     color: #a1a1aa;
     font-size: 13px;
     font-style: normal;
@@ -137,6 +159,11 @@
     color: #71717a;
     transform: translateY(-50%);
 }
+@media (max-width: 380px) {
+    .ls-cash { font-size: 1.45rem; max-width: calc(100% - 78px); }
+    .ls-card-art { width: 62px; height: 40px; }
+    .ls-copy strong { font-size: 1rem; }
+}
 @media (min-width: 800px) {
-    .ls-grid { grid-template-columns: 1fr 1fr; }
+    .ls-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }

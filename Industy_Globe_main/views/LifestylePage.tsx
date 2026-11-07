@@ -192,7 +192,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
         <div className="ls-grid">
             <button type="button" onClick={handleProductionClick} className={`ls-entry is-studio ${productionStudio ? '' : 'opacity-80'}`}>
                 <span className={`ls-ico ${productionStudio ? 'bg-amber-400 text-black' : 'bg-amber-400/15 text-amber-300'}`}><Clapperboard size={22}/></span>
-                <span>
+                <span className="ls-copy">
                     <strong>{productionStudio ? productionStudio.name : tr('lifestyle.productionHouse')} {productionStudio && <Star size={12} className="inline text-amber-300" />}</strong>
                     <em>{productionStudio ? tr('lifestyle.manageStudioSlate') : tr('lifestyle.createBlockbusters')}</em>
                     <i className="ls-tag is-company">Company</i>
@@ -201,7 +201,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
             </button>
             <button type="button" onClick={() => setView('ASSETS')} className="ls-entry">
                 <span className="ls-ico bg-blue-500/15 text-blue-300"><Store size={22}/></span>
-                <span>
+                <span className="ls-copy">
                     <strong>{tr('lifestyle.assetsTitle')}</strong>
                     <em>{tr('lifestyle.assetsSub')}</em>
                     <i className="ls-tag is-personal">Personal</i>
@@ -210,7 +210,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
             </button>
             <button type="button" onClick={() => setView('BUSINESS')} className="ls-entry">
                 <span className="ls-ico bg-emerald-500/15 text-emerald-300"><Briefcase size={22}/></span>
-                <span>
+                <span className="ls-copy">
                     <strong>{tr('lifestyle.businessEmpire')}</strong>
                     <em>{tr('lifestyle.businessSub')}</em>
                     <i className="ls-tag is-company">Company</i>
@@ -219,7 +219,7 @@ export const LifestylePage: React.FC<LifestylePageProps> = ({ player, onBuyItem,
             </button>
             <button type="button" onClick={() => { armPlatformIdent(player); setView('STREAMING'); }} className="ls-entry is-empire">
                 <span className="ls-ico bg-[#ff3b30] text-white"><Tv size={22}/></span>
-                <span>
+                <span className="ls-copy">
                     <strong>{tr('lifestyle.streamingPlatform')}</strong>
                     <em>{player.ownPlatform ? `${player.ownPlatform.name} · ${player.ownPlatform.stage}. Same company as the phone.` : tr('lifestyle.streamingSub')}</em>
                     <i className="ls-tag is-company">Company</i>
