@@ -488,6 +488,12 @@ export enum Page {
       ytCampaignHype?: number;
       /** Theatrical opening multiplier from the YouTube campaign. 1 is unchanged. */
       ytOpeningMultiplier?: number;
+      /** Hype points added by the marketing desk. Capped so a buy cannot guarantee the opening. */
+      marketingHypeAdded?: number;
+      /** Extra streaming views while a campaign is live. 0.12 is a strong week. Missing means none. */
+      marketingStreamBoost?: number;
+      /** Theatrical holdover while a campaign is live. 1 is unchanged. */
+      marketingLegs?: number;
       /** Critic percent locked at release. Missing on older saves until it is derived. */
       criticScore?: number;
       /** Audience percent before a review-bomb cut. */
@@ -1314,6 +1320,8 @@ export enum Page {
       resolvedCommissions?: ResolvedCommission[];
       /** Films and shows licensed for the service. Missing on older saves. */
       streamRights?: StreamRightsDesk;
+      /** Live marketing pull on household demand, 0–0.1. Missing means none. */
+      marketingDemand?: number;
   }
   
   export interface FuturePotential {
@@ -2863,6 +2871,178 @@ export enum Page {
       untilAbsolute: number;
   }
 
+  export type MarketingOwnerKind = 'EMPIRE' | 'HOUSE' | 'RIVAL_PLATFORM' | 'RIVAL_HOUSE';
+  export type MarketingCategory = 'OUTDOOR' | 'TOUR' | 'STAGE' | 'DIGITAL' | 'PRESS' | 'BRAND';
+  export type MarketingActionId =
+      | 'billboard' | 'digital_screen' | 'transit' | 'standee'
+      | 'city_tour' | 'fan_meet' | 'college' | 'mall'
+      | 'announcement' | 'teaser' | 'trailer' | 'music' | 'premiere'
+      | 'reels' | 'influencer' | 'paid_ads' | 'bts'
+      | 'interview' | 'presser' | 'tv_spot' | 'podcast'
+      | 'tieup' | 'merch' | 'contest' | 'giveaway';
+  export type MarketingStatus = 'SCHEDULED' | 'LIVE' | 'COMPLETE';
+  export type MarketingAudience = 'MASS' | 'PRESTIGE' | 'YOUTH' | 'FAMILY' | 'GENRE';
+  export type MarketingDateStyle = 'FULL' | 'SEASON' | 'COUNTDOWN' | 'NONE';
+  export type MarketingSocialFormat = 'STILL' | 'REEL' | 'TRAILER' | 'ANNOUNCEMENT' | 'THREAD';
+  export type MarketingEmphasis = 'ENSEMBLE' | 'LEAD' | 'DIRECTOR' | 'TITLE';
+  export type MarketingTitleStatus = 'Coming Soon' | 'In Cinemas' | 'Streaming' | 'Released';
+
+  /** One bought or simulated campaign. Optional fields are filled when an old save loads. */
+  export interface MarketingCreative {
+      layoutId: string;
+      paletteId: string;
+      sizeId: string;
+      castEmphasis: MarketingEmphasis;
+      tagline: string;
+      dateStyle: MarketingDateStyle;
+      socialFormat: MarketingSocialFormat;
+      stageTheme: string;
+      languageVariant?: string;
+  }
+
+  export interface MarketingTarget {
+      regionId: string;
+      countryId?: string;
+      cityId?: string;
+      language?: string;
+      durationWeeks: number;
+      startOffset: number;
+      audience: MarketingAudience;
+  }
+
+  export interface MarketingQuote {
+      cost: number;
+      castFee: number;
+      reach: number;
+      reachLow: number;
+      reachHigh: number;
+      hype: number;
+      ticketInterest: number;
+      streamInterest: number;
+      competition: number;
+      saturation: number;
+      overexposed: boolean;
+      notes: string[];
+  }
+
+  export interface MarketingPoster {
+      title: string;
+      tagline: string;
+      castLine: string;
+      directorLine: string;
+      banner: string;
+      statusLine: MarketingTitleStatus;
+      dateLine: string;
+      layoutId: string;
+      paletteId: string;
+      sizeId: string;
+      emphasis: MarketingEmphasis;
+      gradient: string;
+      accent: string;
+      ink: string;
+      image?: string;
+  }
+
+  export interface MarketingOutcome {
+      reach: number;
+      hype: number;
+      ticketInterest: number;
+      streamInterest: number;
+      appliedWeeks: number;
+      overexposed: boolean;
+      note: string;
+      regions: { id: string; name: string; reach: number; interest: number }[];
+      channels: { id: string; name: string; reach: number; sentiment: number }[];
+  }
+
+  export interface MarketingCampaign {
+      id: string;
+      key: string;
+      ownerKind: MarketingOwnerKind;
+      ownerId: string;
+      ownerName: string;
+      titleId: string;
+      titleName: string;
+      actionId: MarketingActionId | string;
+      category: MarketingCategory | string;
+      status: MarketingStatus;
+      startAbsolute: number;
+      endAbsolute: number;
+      charged: boolean;
+      chargeAmount: number;
+      lastAppliedAbsolute?: number;
+      creative: MarketingCreative;
+      target: MarketingTarget;
+      quote: MarketingQuote;
+      roll: number;
+      resolvedReach: number;
+      resolvedHype: number;
+      resolvedTicket: number;
+      resolvedStream: number;
+      outcome: MarketingOutcome;
+      castNames: string[];
+      poster: MarketingPoster;
+      feedPostIds: string[];
+      rival: boolean;
+  }
+
+  export interface MarketingFeedPost {
+      id: string;
+      campaignId: string;
+      network: 'FRAME' | 'WIRE';
+      ownerKind: MarketingOwnerKind;
+      ownerName: string;
+      handle: string;
+      avatarHue: number;
+      titleName: string;
+      caption: string;
+      format: 'PHOTO' | 'REEL' | 'MICRO' | 'REPOST';
+      likes: number;
+      comments: number;
+      shares: number;
+      reposts: number;
+      commentList: string[];
+      week: number;
+      year: number;
+      absoluteWeek: number;
+      trending: boolean;
+      poster: MarketingPoster;
+      rival: boolean;
+      actionId: string;
+  }
+
+  export interface MarketingExposure {
+      titleId: string;
+      regionId: string;
+      category: string;
+      heat: number;
+      lastAbsolute: number;
+  }
+
+  export interface MarketingRecord {
+      ownerKind: 'EMPIRE' | 'HOUSE';
+      ownerId: string;
+      titleId: string;
+      titleName: string;
+      spent: number;
+      reach: number;
+      hype: number;
+      ticketInterest: number;
+      streamInterest: number;
+  }
+
+  /** Optional. Missing on every save from before the marketing desk. Version stays 1. */
+  export interface MarketingState {
+      version: 1;
+      campaigns: MarketingCampaign[];
+      posts: MarketingFeedPost[];
+      exposure: MarketingExposure[];
+      records: MarketingRecord[];
+      /** Last absolute week rival desks posted, so a repeat tick does not duplicate them. */
+      npcWeek?: number;
+      exposureWeek?: number;
+  }
+
   /** Optional on saves written before platform commissions. */
   export interface CommissionDeskState {
       version: 1;
@@ -3002,6 +3182,8 @@ export enum Page {
       ownPlatform?: OwnPlatformState;
       /** Platform commissions. Missing on saves from before this desk. */
       commissionDesk?: CommissionDeskState;
+      /** Campaigns for the streaming company and the production house. Missing on older saves. */
+      marketing?: MarketingState;
       activePregnancy?: {
           partnerId: string;
           partnerName?: string;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Player, BudgetTier, Genre, ProjectDetails, ActiveRelease, Commitment, Business, LocationDetails, NewsItem, XPost, StudioEquipment, Script, Writer, GameLanguage } from '../../../types';
-import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Tv, ArrowDownLeft, ArrowUpRight, WalletCards, Mail } from 'lucide-react';
+import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Tv, ArrowDownLeft, ArrowUpRight, WalletCards, Mail, Megaphone } from 'lucide-react';
 import { NPC_DATABASE, getAvailableTalent, calculateProjectFameMultiplier } from '../../../services/npcLogic';
 import { sellBusiness, liquidateBusiness } from '../../../services/businessLogic';
 import { NPCActor, NPCTier } from '../../../types';
@@ -21,6 +21,7 @@ import { IPManagement } from './IPManagement';
 import { RightsLibrary } from './RightsLibrary';
 import { CommissionModal, CommissionSlateCards, CommissionToast, OffersPage, openBriefScreen } from './PlatformCommissions';
 import { deskOf } from '../../../services/commissions/logic';
+import { MarketingDesk } from '../../marketing/MarketingDesk';
 import type { CommissionBrief, CommissionProject } from '../../../types';
 
 interface ProductionHouseGameProps {
@@ -30,7 +31,7 @@ interface ProductionHouseGameProps {
     businessId?: string;
 }
 
-type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS' | 'OFFERS';
+type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS' | 'OFFERS' | 'MARKETING';
 
 // --- HELPERS ---
 const formatMoney = (val: number) => {
@@ -67,6 +68,7 @@ const ProductionHouseInner: React.FC<{
     onUpdatePlayer: (p: Player) => void;
 }> = ({ player, studio, onBack, onUpdatePlayer }) => {
     const [view, setView] = useState<StudioView>('DASHBOARD');
+    const [marketingTitleId, setMarketingTitleId] = useState<string | undefined>(undefined);
     const [commissionFlow, setCommissionFlow] = useState<{ screen: 'sheet' | 'counter' | 'reply' | 'contract' | 'signed' | 'lost' | 'project'; briefId?: string; projectId?: string } | null>(null);
     const [snoozedOffers, setSnoozedOffers] = useState<string[]>([]);
     const openCommission = (brief: CommissionBrief) => setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
@@ -546,6 +548,21 @@ const ProductionHouseInner: React.FC<{
         return selectedProjectDashboard;
     }, [selectedProjectDashboard, player]);
 
+    if (view === 'MARKETING') {
+        return (
+            <MarketingDesk
+                player={player}
+                ownerKind="HOUSE"
+                ownerId={studio.id}
+                ownerName={studio.name}
+                cash={studio.balance}
+                initialTitleId={marketingTitleId}
+                onPlayer={onUpdatePlayer}
+                onBack={() => setView('DASHBOARD')}
+            />
+        );
+    }
+
     if (view === 'FINANCE') {
         return <StudioFinanceView player={player} studio={studio} onBack={() => setView('DASHBOARD')} onUpdatePlayer={onUpdatePlayer} onExit={onBack} />;
     }
@@ -614,6 +631,11 @@ const ProductionHouseInner: React.FC<{
                     onConfigureRelease={(p) => {
                         setSelectedProjectDashboard(p);
                         setView('RELEASE');
+                    }}
+                    onMarket={(project) => {
+                        setSelectedProjectDashboard(null);
+                        setMarketingTitleId(project?.id);
+                        setView('MARKETING');
                     }}
                 />
             )}
@@ -834,6 +856,18 @@ const ProductionHouseInner: React.FC<{
                     <h2 className="text-lg font-bold text-white tracking-tight mb-4">{tr('studio.corporateDivisions')}</h2>
                     
                     <div className="grid grid-cols-2 gap-3">
+                        <DivisionCard
+                            title="Marketing"
+                            subtitle="Boards, feeds, tours"
+                            icon={<Megaphone size={20}/>}
+                            color="bg-orange-600"
+                            testId="open-house-marketing"
+                            stats={[
+                                { label: "Live", value: String((player.marketing?.campaigns || []).filter(row => row.ownerId === studio.id && row.status === 'LIVE').length) }
+                            ]}
+                            onClick={() => { setMarketingTitleId(undefined); setView('MARKETING'); }}
+                        />
+
                         {/* Development Division */}
                         <DivisionCard 
                             title={tr('studio.devLab')}

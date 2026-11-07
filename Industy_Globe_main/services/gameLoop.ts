@@ -68,6 +68,7 @@ import { checkForDirectorDecision, checkForProductionCrisis } from './production
 import { processBusinessWeek } from './businessLogic';
 import { getAbsoluteWeek, getRelationshipAge, inferStreamingStartWeekAbsolute } from './legacyLogic';
 import { tickOwnPlatform } from './ownPlatform/week';
+import { applyMarketingWeek } from './marketing/engine';
 import { tickRightsWeek } from './rights/tick';
 import { tickCommissionWeek } from './commissions/logic';
 import { applyRightsToPotential, registerAdaptationResult } from './rights/logic';
@@ -1050,6 +1051,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     }
 
     const logsToAdd: {msg: string, type: 'positive'|'negative'|'neutral'}[] = [];
+    try {
+        applyMarketingWeek(nextPlayer).forEach(msg => logsToAdd.push({ msg, type: 'neutral' }));
+    } catch (error) {
+        console.error('Marketing week failed:', error);
+    }
 
     // --- 0.5 INBOX MAINTENANCE ---
     nextPlayer.inbox = nextPlayer.inbox.filter(msg => {
@@ -3030,7 +3036,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     budget: rel.budget,
                 });
             const weekClash = rel.weekNum === 1 ? clashFactor : (0.82 + clashFactor * 0.18);
-            const revenue = Math.floor(Math.min(uncappedRevenue, remainingHeadroom) * weekClash);
+            const marketingLegs = rel.weekNum === 1 ? 1 : Math.max(1, Math.min(1.12, Number(rel.projectDetails.hiddenStats?.marketingLegs) || 1));
+            const revenue = Math.floor(Math.min(uncappedRevenue, remainingHeadroom) * weekClash * marketingLegs);
             rel.clashFactor = clashFactor;
             rel.releaseCalendarYear = rel.releaseCalendarYear || gameCalendarYear(nextPlayer.age);
             if (!rel.releaseWeek) rel.releaseWeek = ((openingAbs - 1) % 52) + 1;
@@ -3331,6 +3338,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             if (typeof ytHype === 'number') {
                 newViews = Math.floor(newViews * (1 + (ytHype - 50) / 250));
             }
+            const marketingStream = Number(rel.projectDetails.hiddenStats?.marketingStreamBoost) || 0;
+            if (marketingStream > 0) newViews = Math.floor(newViews * (1 + Math.min(0.22, marketingStream)));
             const totalViews = rel.streaming.totalViews + newViews;
             const newWeeklyViews = [...rel.streaming.weeklyViews, newViews];
             const shouldExit = checkStreamingExit(rel.streaming.platformId, newViews, rel.streaming.weekOnPlatform);
@@ -3774,6 +3783,12 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         nextPlayer.instagram.feed = [...weeklyInsta, ...nextPlayer.instagram.feed].slice(0, 50);
     } catch (error) {
         console.error('Weekly social feed generation failed during week processing:', error);
+    }
+
+    try {
+        applyMarketingWeek(nextPlayer).forEach(msg => logsToAdd.push({ msg, type: 'neutral' }));
+    } catch (error) {
+        console.error('Marketing week failed:', error);
     }
 
     // Limit social history (User Posts) to prevent bloat (e.g. 200 posts)
