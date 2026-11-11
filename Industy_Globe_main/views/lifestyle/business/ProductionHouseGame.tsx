@@ -23,6 +23,7 @@ import { CommissionModal, CommissionSlateCards, CommissionToast, OffersPage, ope
 import { deskOf } from '../../../services/commissions/logic';
 import { MarketingDesk } from '../../marketing/MarketingDesk';
 import type { CommissionBrief, CommissionProject } from '../../../types';
+import './productionDesk.css';
 
 interface ProductionHouseGameProps {
     player: Player;
@@ -697,114 +698,59 @@ const ProductionHouseInner: React.FC<{
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.4 }}
-                    className="fixed inset-0 z-[60] bg-[#050505] text-white flex flex-col font-sans"
+                    className="ph-shell"
                 >
-            
-            {/* 1. HERO SECTION (Executive Overview) */}
-            <div className="relative shrink-0 z-20 bg-zinc-950 border-b border-zinc-800 overflow-hidden">
-                {/* Background Glow / Texture */}
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-zinc-950 to-zinc-950"></div>
-                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
-
-                {/* Top Nav Bar (with pt-12 for mobile status bar) */}
-                <div className="relative flex items-center justify-between px-4 pt-12 pb-4">
-                    <div className="flex items-center gap-3">
-                        <button onClick={onBack} className="p-2 hover:bg-zinc-800/50 rounded-full text-zinc-400 hover:text-white transition-colors backdrop-blur-sm">
-                            <ArrowLeft size={20} />
-                        </button>
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                                <span className="font-serif font-black uppercase tracking-tight text-xl text-white drop-shadow-md">{studio.name}</span>
-                                <span className="text-[9px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded uppercase font-bold tracking-wider shadow-[0_0_10px_rgba(245,158,11,0.2)]">
-                                    {studio.subtype === 'MAJOR_STUDIO' ? 'Major' : 'Indie'}
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-1 text-[10px] text-zinc-400 mt-0.5">
-                                <MapPin size={10} />
-                                <span>{studio.subtype === 'MAJOR_STUDIO' ? 'Hollywood, CA' : 'Burbank, CA'}</span>
-                            </div>
-                        </div>
+            <aside className="ph-identity">
+                <button type="button" onClick={onBack} className="ph-back" aria-label="Back">
+                    <ArrowLeft size={18} />
+                </button>
+                <div className="ph-brand">
+                    <div className="ph-mark" aria-hidden="true">{studioInitials(studio.name)}</div>
+                    <h1 className="ph-studio-name">{studio.name}</h1>
+                    <span className="ph-tier">{studio.subtype === 'MAJOR_STUDIO' ? 'Major' : 'Indie'}</span>
+                    <div className="ph-where">
+                        <MapPin size={12} />
+                        <span>{studio.subtype === 'MAJOR_STUDIO' ? 'Hollywood, CA' : 'Burbank, CA'}</span>
                     </div>
                 </div>
-
-                {/* Valuation & Cash (The "Wow" Factor) */}
-                <div className="relative px-6 pb-6 flex justify-between items-end">
+                <div className="ph-money">
                     <div>
-                        <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Studio Valuation</div>
-                        <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 drop-shadow-sm tracking-tight">
-                            {formatMoney(studio.stats.valuation)}
-                        </div>
+                        <div className="ph-kicker">Valuation</div>
+                        <div className="ph-value ph-value-gold">{formatMoney(studio.stats.valuation)}</div>
                     </div>
-                    <div className="text-right flex flex-col items-end">
-                        <div className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest mb-1">Studio Capital</div>
-                        <div data-testid="studio-capital" className="text-lg font-mono font-bold text-emerald-400 drop-shadow-sm">
-                            {formatMoney(studio.balance)}
-                        </div>
+                    <div>
+                        <div className="ph-kicker">Capital</div>
+                        <div data-testid="studio-capital" className="ph-value ph-value-blue">{formatMoney(studio.balance)}</div>
                         {(studio.studioState?.productionFund || 0) > 0 && (
-                            <div className="text-[9px] text-emerald-500/70 font-bold uppercase mt-1">
-                                + {formatMoney(studio.studioState!.productionFund!)} Prod. Fund
-                            </div>
+                            <div className="ph-fund">+ {formatMoney(studio.studioState!.productionFund!)} Prod. Fund</div>
                         )}
                     </div>
                 </div>
-
-                {/* Metrics Strip */}
-                <div className="relative bg-black/40 backdrop-blur-md border-t border-white/5">
-                    <div className="flex overflow-x-auto no-scrollbar py-3 px-6 gap-8">
-                        <div className="flex flex-col shrink-0">
-                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-1.5 mb-0.5"><Star size={10} className="text-yellow-500"/> Avg Rating</span>
-                            <span className="text-white font-bold text-sm">{avgRating > 0 ? avgRating.toFixed(1) : '-.--'}</span>
-                        </div>
-                        <div className="w-px h-8 bg-zinc-800 shrink-0"></div>
-                        <div className="flex flex-col shrink-0">
-                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-1.5 mb-0.5"><Award size={10} className="text-amber-500"/> Awards Won</span>
-                            <span className="text-white font-bold text-sm">{awardsWon}</span>
-                        </div>
-                        <div className="w-px h-8 bg-zinc-800 shrink-0"></div>
-                        <div className="flex flex-col shrink-0">
-                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-1.5 mb-0.5"><Film size={10} className="text-blue-400"/> Total Films</span>
-                            <span className="text-white font-bold text-sm">{library.length}</span>
-                        </div>
-                        <div className="w-px h-8 bg-zinc-800 shrink-0"></div>
-                        <div className="flex flex-col shrink-0">
-                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-1.5 mb-0.5"><TrendingUp size={10} className="text-emerald-500"/> Lifetime B.O.</span>
-                            <span className="text-emerald-400 font-mono font-bold text-sm">{formatMoney(totalGross)}</span>
-                        </div>
-                        <div className="w-px h-8 bg-zinc-800 shrink-0"></div>
-                        <div className="flex flex-col shrink-0">
-                            <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center gap-1.5 mb-0.5"><Crown size={10} className="text-purple-500"/> Prestige</span>
-                            <span className="text-white font-bold text-sm">{prestigeScore}/100</span>
-                        </div>
-                    </div>
+                <div className="ph-stats">
+                    <div className="ph-stat"><span className="ph-stat-label"><Star size={14} /> Avg Rating</span><b>{avgRating > 0 ? avgRating.toFixed(1) : '--'}</b></div>
+                    <div className="ph-stat"><span className="ph-stat-label"><Award size={14} /> Awards</span><b>{awardsWon}</b></div>
+                    <div className="ph-stat"><span className="ph-stat-label"><Film size={14} /> Films</span><b>{library.length}</b></div>
+                    <div className="ph-stat"><span className="ph-stat-label"><TrendingUp size={14} /> Lifetime B.O.</span><b>{formatMoney(totalGross)}</b></div>
+                    <div className="ph-stat"><span className="ph-stat-label"><Crown size={14} /> Prestige</span><b>{prestigeScore}/100</b></div>
                 </div>
-            </div>
+            </aside>
 
-            {/* MAIN SCROLLABLE AREA */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar pb-20">
-                
-                {/* 2. ACTIVE SLATE (Netflix Style) */}
-                <div className="pt-6 pb-2">
+            <div className="ph-main custom-scrollbar">
+                <div className="ph-block">
                     <CommissionToast player={player} snoozed={snoozedOffers} onOpen={openCommission} onLater={id => setSnoozedOffers(current => [...current, id])} />
-                    <div className="px-4 mb-3 flex justify-between items-end">
-                        <h2 className="text-lg font-bold text-white tracking-tight">{tr('studio.activeSlate')}</h2>
+                    <div className="ph-section-head">
+                        <h2>{tr('studio.activeSlate')}</h2>
                     </div>
-                    
-                    <div className="flex gap-4 overflow-x-auto px-4 pb-4 no-scrollbar">
-                        {/* New Project Tile */}
-                        <button data-testid="open-greenlight" onClick={() => setView('GREENLIGHT')} className="min-w-[140px] w-[140px] h-[210px] rounded-lg border-2 border-dashed border-amber-500/50 bg-amber-500/5 flex flex-col items-center justify-center gap-3 text-amber-500 hover:bg-amber-500/10 hover:border-amber-500 hover:scale-105 transition-all duration-300 group shrink-0 relative overflow-hidden shadow-lg">
-                            <div className="absolute inset-0 bg-gradient-to-b from-amber-500/0 to-amber-500/10"></div>
-                            <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-500/30 transition-all duration-300">
-                                <Plus size={24} className="text-amber-400" />
-                            </div>
-                            <span className="text-xs font-bold uppercase tracking-widest drop-shadow-sm">{tr('studio.newProject')}</span>
+                    <div className="ph-slate-row">
+                        <button data-testid="open-greenlight" type="button" onClick={() => setView('GREENLIGHT')} className="ph-slate-new">
+                            <span className="ph-slate-plus"><Plus size={22} /></span>
+                            <span>{tr('studio.newProject')}</span>
                         </button>
-
-                        {/* Active Projects */}
                         <CommissionSlateCards player={player} onOpen={openCommissionProject} />
                         {(activeSlate as any[]).map((p, idx) => (
-                            <ActiveProjectCard 
-                                key={p.id || idx} 
-                                project={p} 
+                            <ActiveProjectCard
+                                key={p.id || idx}
+                                project={p}
                                 onClick={() => {
                                     if (p.phase === 'CONCEPT' || (p.phase === 'DEVELOPMENT' && p.concept)) {
                                         setSelectedConcept(p.concept);
@@ -824,23 +770,19 @@ const ProductionHouseInner: React.FC<{
                     </div>
                 </div>
 
-                {/* RECENT ARCHIVE (Past Projects) */}
                 {pastProjectsSlate.length > 0 && (
-                    <div className="pt-2 pb-6">
-                        <div className="px-4 mb-3 flex items-center justify-between gap-3">
-                            <h2 className="text-lg font-bold text-white tracking-tight">{tr('studio.pastProjects')}</h2>
-                            <button
-                                onClick={() => setView('FILMOGRAPHY')}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-700 bg-zinc-900/80 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:border-amber-500/50 hover:text-amber-300 transition-colors"
-                            >
+                    <div className="ph-block">
+                        <div className="ph-section-head">
+                            <h2>{tr('studio.pastProjects')}</h2>
+                            <button type="button" onClick={() => setView('FILMOGRAPHY')} className="ph-link">
                                 {tr('studio.seeMore')} <ChevronRight size={12} />
                             </button>
                         </div>
-                        <div className="flex gap-4 overflow-x-auto px-4 pb-4 no-scrollbar">
+                        <div className="ph-slate-row">
                             {recentPastProjectsPreview.map(p => (
-                                <ArchiveProjectCard 
-                                    key={p.id} 
-                                    project={p as any} 
+                                <ArchiveProjectCard
+                                    key={p.id}
+                                    project={p as any}
                                     isLatestInstallment={latestInstallmentIds.has(p.id)}
                                     onClick={() => {
                                         setSelectedProjectDashboard(p);
@@ -851,97 +793,75 @@ const ProductionHouseInner: React.FC<{
                     </div>
                 )}
 
-                {/* 3. CORPORATE DIVISIONS (Lower Section) */}
-                <div className="px-4 pb-8">
-                    <h2 className="text-lg font-bold text-white tracking-tight mb-4">{tr('studio.corporateDivisions')}</h2>
-                    
-                    <div className="grid grid-cols-2 gap-3">
+                <div className="ph-block" style={{ paddingBottom: 28 }}>
+                    <div className="ph-section-head">
+                        <h2>{tr('studio.corporateDivisions')}</h2>
+                    </div>
+                    <div className="ph-divisions">
                         <DivisionCard
-                            title="Marketing"
-                            subtitle="Boards, feeds, tours"
-                            icon={<Megaphone size={20}/>}
-                            color="bg-orange-600"
-                            testId="open-house-marketing"
-                            stats={[
-                                { label: "Live", value: String((player.marketing?.campaigns || []).filter(row => row.ownerId === studio.id && row.status === 'LIVE').length) }
-                            ]}
-                            onClick={() => { setMarketingTitleId(undefined); setView('MARKETING'); }}
-                        />
-
-                        {/* Development Division */}
-                        <DivisionCard 
+                            featured
                             title={tr('studio.devLab')}
                             subtitle="Scripts & IP"
-                            icon={<PenTool size={20}/>}
+                            icon={<PenTool size={18}/>}
                             color="bg-blue-600"
-                            stats={[
-                                { label: "Scripts", value: studio.studioState?.scripts.length.toString() || "0" }
-                            ]}
+                            stats={[{ label: "Scripts", value: String(studio.studioState?.scripts?.length || 0) }]}
                             onClick={() => setView('DEVELOPMENT')}
                         />
-
-                        {/* Production Infrastructure */}
-                        <DivisionCard 
-                            title={tr('studio.facilities')}
-                            subtitle="Upgrades"
-                            icon={<Building2 size={20}/>}
-                            color="bg-emerald-600"
-                            stats={[
-                                { label: "Tier", value: studio.subtype === 'MAJOR_STUDIO' ? 'Major' : 'Indie' }
-                            ]}
-                            onClick={() => setView('OFFICE')}
-                        />
-
-                        {/* Talent Division */}
-                        <DivisionCard 
-                            title={tr('studio.talent')}
-                            subtitle="Farm System"
-                            icon={<Users size={20}/>}
-                            color="bg-purple-600"
-                            stats={[
-                                { label: "Stars", value: (player.studio?.talentRoster?.length || 0).toString() }
-                            ]}
-                            onClick={() => setView('TALENT')}
-                        />
-
-                        {/* Finance Division */}
-                        <DivisionCard 
-                            title={tr('studio.finance')}
-                            subtitle="P&L & Capital"
-                            icon={<DollarSign size={20}/>}
-                            color="bg-amber-600"
-                            stats={[
-                                { label: "Capital", value: formatMoney(studio.balance) }
-                            ]}
-                            onClick={() => setView('FINANCE')}
-                        />
-
-                        <DivisionCard
-                            title="Offers"
-                            subtitle="Platform briefs"
-                            icon={<Mail size={20}/>}
-                            color="bg-indigo-600"
-                            testId="open-offers"
-                            stats={[
-                                { label: "Open", value: String(deskOf(player).briefs.filter(row => row.direction === 'IN' && (row.status === 'OPEN' || row.status === 'REPLIED' || row.status === 'CONTRACT')).length) }
-                            ]}
-                            onClick={() => setView('OFFERS')}
-                        />
-
-                        <DivisionCard
-                            title="Rights Library"
-                            subtitle="Books & lives"
-                            icon={<BookOpen size={20}/>}
-                            color="bg-rose-600"
-                            testId="open-rights-library"
-                            stats={[
-                                { label: "Held", value: String((studio.studioState?.rightsLibrary?.holdings || []).filter(row => row.owner === 'PLAYER' && row.status !== 'LOST' && row.status !== 'EXPIRED').length) }
-                            ]}
-                            onClick={() => setView('RIGHTS')}
-                        />
+                        <div className="ph-division-grid">
+                            <DivisionCard
+                                title="Marketing"
+                                subtitle="Boards, feeds, tours"
+                                icon={<Megaphone size={16}/>}
+                                color="bg-orange-600"
+                                testId="open-house-marketing"
+                                stats={[{ label: "Live", value: String((player.marketing?.campaigns || []).filter(row => row.ownerId === studio.id && row.status === 'LIVE').length) }]}
+                                onClick={() => { setMarketingTitleId(undefined); setView('MARKETING'); }}
+                            />
+                            <DivisionCard
+                                title={tr('studio.facilities')}
+                                subtitle="Upgrades"
+                                icon={<Building2 size={16}/>}
+                                color="bg-blue-700"
+                                stats={[{ label: "Tier", value: studio.subtype === 'MAJOR_STUDIO' ? 'Major' : 'Indie' }]}
+                                onClick={() => setView('OFFICE')}
+                            />
+                            <DivisionCard
+                                title="Offers"
+                                subtitle="Platform briefs"
+                                icon={<Mail size={16}/>}
+                                color="bg-rose-600"
+                                testId="open-offers"
+                                stats={[{ label: "Open", value: String(deskOf(player).briefs.filter(row => row.direction === 'IN' && (row.status === 'OPEN' || row.status === 'REPLIED' || row.status === 'CONTRACT')).length) }]}
+                                onClick={() => setView('OFFERS')}
+                            />
+                            <DivisionCard
+                                title={tr('studio.finance')}
+                                subtitle="P&L & Capital"
+                                icon={<DollarSign size={16}/>}
+                                color="bg-amber-500"
+                                stats={[{ label: "Capital", value: formatMoney(studio.balance) }]}
+                                onClick={() => setView('FINANCE')}
+                            />
+                            <DivisionCard
+                                title={tr('studio.talent')}
+                                subtitle="Farm System"
+                                icon={<Users size={16}/>}
+                                color="bg-violet-600"
+                                stats={[{ label: "Stars", value: String(studio.studioState?.talentRoster?.length ?? player.studio?.talentRoster?.length ?? 0) }]}
+                                onClick={() => setView('TALENT')}
+                            />
+                            <DivisionCard
+                                title="Rights Library"
+                                subtitle="Books & lives"
+                                icon={<BookOpen size={16}/>}
+                                color="bg-amber-700"
+                                testId="open-rights-library"
+                                stats={[{ label: "Held", value: String((studio.studioState?.rightsLibrary?.holdings || []).filter(row => row.owner === 'PLAYER' && row.status !== 'LOST' && row.status !== 'EXPIRED').length) }]}
+                                onClick={() => setView('RIGHTS')}
+                            />
+                        </div>
                     </div>
                 </div>
-
             </div>
                 </motion.div>
             )}
@@ -1817,258 +1737,98 @@ const CompactArchiveStat = ({ label, value, tone }: { label: string; value: stri
     </div>
 );
 
+const studioInitials = (name: string) => {
+    const parts = name.replace(/[^A-Za-z0-9 ]/g, " ").trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return "ST";
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+};
+
+const slateKind = (type?: string) => {
+    const key = String(type || "").toUpperCase();
+    if (key === "MOVIE" || key === "FILM" || key === "THEATRICAL") return "Film";
+    if (key === "SERIES" || key === "TV") return "Series";
+    if (!key) return "Project";
+    return key.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const slateMoney = (val: number) => {
+    const amount = Number(val) || 0;
+    if (Math.abs(amount) >= 1_000_000_000_000) return `$${(amount / 1_000_000_000_000).toFixed(1)}T`;
+    if (Math.abs(amount) >= 1_000_000_000) return `$${(amount / 1_000_000_000).toFixed(1)}B`;
+    if (Math.abs(amount) >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(amount) >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+    return `$${Math.round(amount)}`;
+};
+
+const SlatePoster: React.FC<{ project: any; badge: string; children?: React.ReactNode }> = ({ project, badge, children }) => {
+    const customPoster = getCustomPoster(project);
+    const hasImage = (customPoster?.type === "IMAGE" || customPoster?.type === "CANVA") && customPoster.imageData;
+    return (
+        <div className={`ph-slate-poster bg-gradient-to-br ${customPoster?.bgGradient || getPosterBg(project.name)}`}>
+            {hasImage && <img src={customPoster.imageData} alt="" />}
+            <div className="ph-slate-shade" />
+            {!hasImage && <div className="ph-slate-title">{project.name}</div>}
+            {children}
+            {badge && <div className="ph-phase">{badge}</div>}
+        </div>
+    );
+};
+
 const ActiveProjectCard: React.FC<{ project: any, onClick?: () => void, onDelete?: () => void }> = ({ project, onClick, onDelete }) => {
-    // Determine colors based on phase
-    let phaseColor = "bg-zinc-500 text-white";
-    let riskColor = "text-emerald-400";
-    
-    if (project.phase === 'CONCEPT') phaseColor = "bg-zinc-700 text-zinc-300 border border-zinc-600";
-    if (project.phase === 'DEVELOPMENT') phaseColor = "bg-yellow-500 text-black";
-    if (project.phase === 'PRE-PRODUCTION') phaseColor = "bg-orange-500 text-black";
-    if (project.phase === 'PRODUCTION') { phaseColor = "bg-red-600 text-white"; riskColor = "text-yellow-500"; }
-    if (project.phase === 'POST-PRODUCTION') phaseColor = "bg-blue-500 text-white";
-    if (project.phase === 'AWAITING RELEASE') phaseColor = "bg-amber-500 text-black";
-    if (project.phase === 'PLANNED RELEASE') phaseColor = "bg-emerald-600 text-white";
-    if (project.phase === 'RELEASED') phaseColor = "bg-emerald-500 text-black";
-
     const budget = project.projectDetails?.estimatedBudget || project.budget || 0;
-    
-    const formatMoney = (val: number) => {
-        if (val >= 1_000_000_000_000) return `$${(val/1_000_000_000_000).toFixed(2)}T`;
-        if (val >= 1_000_000_000) return `$${(val/1_000_000_000).toFixed(2)}B`;
-        if (val >= 1_000_000) return `$${(val/1_000_000).toFixed(1)}M`;
-        return `$${(val/1_000).toFixed(0)}k`;
-    };
-
-    const showTime = ['PRE-PRODUCTION', 'PRODUCTION', 'POST-PRODUCTION', 'AWAITING RELEASE', 'PLANNED RELEASE'].includes(project.phase);
+    const showTime = ["PRE-PRODUCTION", "PRODUCTION", "POST-PRODUCTION", "AWAITING RELEASE", "PLANNED RELEASE"].includes(project.phase);
     const weeksLeft = project.phaseWeeksLeft || 0;
-
-    const typeBorder = project.type === 'MOVIE' ? 'border-blue-500/60 shadow-blue-900/10' : 
-                       project.type === 'SERIES' ? 'border-red-500/60 shadow-red-900/10' : 
-                       'border-zinc-800';
-
+    const customPoster = getCustomPoster(project);
+    const hasImage = (customPoster?.type === "IMAGE" || customPoster?.type === "CANVA") && customPoster.imageData;
     return (
-        <div 
-            onClick={onClick}
-            className={`min-w-[140px] w-[140px] h-[210px] rounded-lg bg-zinc-900 border-2 flex flex-col relative overflow-hidden group shrink-0 cursor-pointer hover:scale-105 transition-all duration-300 shadow-lg ${typeBorder}`}
-        >
-            {/* Delete Button for Concepts */}
-            {project.phase === 'CONCEPT' && onDelete && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                    className="absolute top-2 left-2 z-30 p-1.5 bg-black/50 hover:bg-red-500 text-zinc-400 hover:text-white rounded-full transition-colors backdrop-blur-sm border border-white/10"
-                >
-                    <X size={12} />
-                </button>
-            )}
-
-            {/* Poster Area (Full Cover) */}
-            {(() => {
-                const customPoster = getCustomPoster(project);
-                if ((customPoster?.type === 'IMAGE' || customPoster?.type === 'CANVA') && customPoster.imageData) {
-                    return (
-                        <div className="absolute inset-0 bg-zinc-900">
-                            <img src={customPoster.imageData} alt={project.name} className="w-full h-full object-cover" />
-                        </div>
-                    );
-                }
-                if (customPoster?.type === 'CONFIG') {
-                    return (
-                        <div className={`absolute inset-0 bg-gradient-to-br ${customPoster.bgGradient || getPosterBg(project.name)} flex items-center justify-center p-2 overflow-hidden`}>
-                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-                            {customPoster.icon === 'Film' && <Film size={32} className="absolute text-white/10" />}
-                            {customPoster.icon === 'Tv' && <Tv size={32} className="absolute text-white/10" />}
-                            {customPoster.icon === 'Star' && <Star size={32} className="absolute text-white/10" />}
-                            <div className={`text-center font-serif font-black ${customPoster.textColor || 'text-white'} opacity-30 text-2xl leading-none uppercase tracking-tighter transform -rotate-6 scale-125 mix-blend-overlay relative z-10`}>
-                                {project.name}
-                            </div>
-                        </div>
-                    );
-                }
-                return (
-                    <div className={`absolute inset-0 bg-gradient-to-br ${getPosterBg(project.name)} flex items-center justify-center p-2 overflow-hidden`}>
-                        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-                        <div className="text-center font-serif font-black text-white/30 text-2xl leading-none uppercase tracking-tighter transform -rotate-6 scale-125 mix-blend-overlay">
-                            {project.name}
-                        </div>
-                    </div>
-                );
-            })()}
-            
-            {/* Gradient Overlay for Text Readability */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
-
-            {/* Content */}
-            <div className="absolute inset-0 p-3 flex flex-col justify-between">
-                <div className="flex justify-end">
-                    <div className={`text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${phaseColor} shadow-sm`}>
-                        {project.phase}
-                    </div>
-                </div>
-                
-                <div className="flex flex-col gap-1">
-                    <div className="font-bold text-sm text-white leading-tight line-clamp-2 drop-shadow-md">{project.name}</div>
-                    
-                    <div className="flex justify-between items-end mt-1">
-                        <div>
-                            <div className="text-[8px] text-zinc-400 uppercase font-bold">Budget</div>
-                            <div className="text-[10px] font-mono font-bold text-zinc-300">{formatMoney(budget)}</div>
-                        </div>
-                        <div className="text-right">
-                            {showTime && (
-                                <>
-                                    <div className="text-[8px] text-zinc-400 uppercase font-bold">Time Left</div>
-                                    <div className="text-[10px] font-mono font-bold text-white flex items-center justify-end gap-1">
-                                        <Clock size={10} className="text-zinc-500" /> {weeksLeft}w
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
+        <div className="ph-slate-card" onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onClick?.(); }}>
+            <SlatePoster project={project} badge={project.phase || ""}>
+                {project.phase === "CONCEPT" && onDelete && (
+                    <button type="button" className="ph-delete" aria-label="Delete concept" onClick={(event) => { event.stopPropagation(); onDelete(); }}>
+                        <X size={12} />
+                    </button>
+                )}
+            </SlatePoster>
+            <div className="ph-slate-meta">
+                <span>{hasImage ? project.name : `${slateKind(project.type)}${showTime ? ` · ${weeksLeft}w` : ""}`}</span>
+                <b>{slateMoney(budget)}</b>
             </div>
         </div>
     );
 };
 
-const ArchiveProjectCard: React.FC<{ project: any, isLatestInstallment?: boolean, onClick?: () => void }> = ({ project, isLatestInstallment, onClick }) => {
-    const formatMoney = (val: number) => {
-        if (val >= 1_000_000_000_000) return `$${(val/1_000_000_000_000).toFixed(2)}T`;
-        if (val >= 1_000_000_000) return `$${(val/1_000_000_000).toFixed(2)}B`;
-        if (val >= 1_000_000) return `$${(val/1_000_000).toFixed(1)}M`;
-        return `$${(val/1_000).toFixed(0)}k`;
-    };
-
-    const hasAwards = project.awards && project.awards.filter((a: any) => a.outcome === 'WON').length > 0;
-    
-    const typeBorder = project.type === 'MOVIE' ? 'border-blue-500/60 shadow-blue-900/10' : 
-                       project.type === 'SERIES' ? 'border-red-500/60 shadow-red-900/10' : 
-                       'border-zinc-800';
-
-    let outcomeLabel = null;
-    let outcomeColor = "";
+const ArchiveProjectCard: React.FC<{ project: any, isLatestInstallment?: boolean, onClick?: () => void }> = ({ project, onClick }) => {
     const projectRevenue = (project.gross || 0) + (project.streamingRevenue || project.projectDetails?.streamingRevenue || 0);
-    if (projectRevenue > (project.budget || 0) * 5) {
-        outcomeLabel = "BLOCKBUSTER";
-        outcomeColor = "bg-purple-500 text-white";
-    } else if (projectRevenue > (project.budget || 0) * 2) {
-        outcomeLabel = "HIT";
-        outcomeColor = "bg-emerald-500 text-white";
-    } else if (projectRevenue < (project.budget || 0)) {
-        outcomeLabel = "FLOP";
-        outcomeColor = "bg-rose-500 text-white";
-    } else {
-        outcomeLabel = "AVERAGE";
-        outcomeColor = "bg-zinc-500 text-white";
-    }
-
+    const budget = project.budget || 0;
+    let outcomeLabel = "Average";
+    if (projectRevenue > budget * 5) outcomeLabel = "Blockbuster";
+    else if (projectRevenue > budget * 2) outcomeLabel = "Hit";
+    else if (budget > 0 && projectRevenue < budget) outcomeLabel = "Flop";
+    const rating = project.rating || project.imdbRating;
+    const hasAwards = project.awards && project.awards.filter((award: any) => award.outcome === "WON").length > 0;
+    const status = project.phase || "Released";
+    const customPoster = getCustomPoster(project);
+    const hasImage = (customPoster?.type === "IMAGE" || customPoster?.type === "CANVA") && customPoster.imageData;
     return (
-        <div 
-            onClick={onClick}
-            className={`min-w-[140px] w-[140px] h-[210px] rounded-lg bg-zinc-900 border-2 flex flex-col relative overflow-hidden shrink-0 cursor-pointer hover:scale-105 transition-all duration-300 shadow-lg ${typeBorder}`}
-        >
-            {/* Poster Area */}
-            {(() => {
-                const customPoster = getCustomPoster(project);
-                if ((customPoster?.type === 'IMAGE' || customPoster?.type === 'CANVA') && customPoster.imageData) {
-                    return (
-                        <div className="absolute inset-0 bg-zinc-900">
-                            <img src={customPoster.imageData} alt={project.name} className="w-full h-full object-cover" />
-                        </div>
-                    );
-                }
-                if (customPoster?.type === 'CONFIG') {
-                    return (
-                        <div className={`absolute inset-0 bg-gradient-to-br ${customPoster.bgGradient || getPosterBg(project.name)} flex items-center justify-center p-2 overflow-hidden`}>
-                            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-                            {customPoster.icon === 'Film' && <Film size={32} className="absolute text-white/10" />}
-                            {customPoster.icon === 'Tv' && <Tv size={32} className="absolute text-white/10" />}
-                            {customPoster.icon === 'Star' && <Star size={32} className="absolute text-white/10" />}
-                            <div className={`text-center font-serif font-black ${customPoster.textColor || 'text-white'} opacity-30 text-2xl leading-none uppercase tracking-tighter transform -rotate-6 scale-125 mix-blend-overlay relative z-10`}>
-                                {project.name}
-                            </div>
-                        </div>
-                    );
-                }
-                return (
-                    <div className={`absolute inset-0 bg-gradient-to-br ${getPosterBg(project.name)} flex items-center justify-center p-2 overflow-hidden`}>
-                        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-                        <div className="text-center font-serif font-black text-white/30 text-2xl leading-none uppercase tracking-tighter transform -rotate-6 scale-125 mix-blend-overlay">
-                            {project.name}
-                        </div>
-                    </div>
-                );
-            })()}
-            
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent"></div>
-
-            {/* Content */}
-            <div className="absolute inset-0 p-3 flex flex-col justify-between pointer-events-none">
-                <div className="flex justify-between items-start">
-                    {outcomeLabel ? (
-                        <div className={`text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md shadow-sm ${outcomeColor}`}>
-                            {outcomeLabel}
-                        </div>
-                    ) : <div></div>}
-                    <div className="flex gap-1">
-                        {(project.rating || project.imdbRating) && (
-                            <div className="bg-yellow-500 text-black px-1.5 py-0.5 rounded-md shadow-sm text-[8px] font-black flex items-center gap-0.5">
-                                <Star size={8} className="fill-black" />
-                                {(project.rating || project.imdbRating).toFixed(1)}
-                            </div>
-                        )}
-                        {hasAwards && (
-                            <div className="bg-amber-500 text-black p-1 rounded-full shadow-md">
-                                <Award size={12} className="fill-black" />
-                            </div>
-                        )}
-                    </div>
-                </div>
-                
-                <div className="flex flex-col gap-1">
-                    <div className="font-bold text-sm text-white leading-tight line-clamp-2 drop-shadow-md">{project.name}</div>
-                    
-                    <div className="flex justify-between items-end mt-1">
-                        <div>
-                            <div className="text-[8px] text-zinc-400 uppercase font-bold">Budget</div>
-                            <div className="text-[10px] font-mono font-bold text-zinc-300">{formatMoney(project.budget || 0)}</div>
-                        </div>
-                        <div className="text-right">
-                            <div className="text-[8px] text-zinc-400 uppercase font-bold">Project Revenue</div>
-                            <div className="text-[10px] font-mono font-bold text-emerald-400">
-                                {formatMoney(projectRevenue)}
-                            </div>
-                            {project.views && (
-                                <div className="text-[7px] text-zinc-500 font-bold">
-                                    {(project.views / 1000000).toFixed(1)}M Views
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
+        <div className="ph-slate-card" onClick={onClick} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter") onClick?.(); }}>
+            <SlatePoster project={project} badge={status}>
+                {hasAwards && <Award size={14} className="absolute right-2 top-2 z-[2] text-amber-300" />}
+            </SlatePoster>
+            <div className="ph-slate-meta">
+                <span>{hasImage ? project.name : `${outcomeLabel}${rating ? ` · ${Number(rating).toFixed(1)}` : ""}`}</span>
+                <b>{slateMoney(projectRevenue)}</b>
             </div>
         </div>
     );
 };
 
-const DivisionCard: React.FC<{ title: string, subtitle: string, icon: React.ReactNode, color: string, stats: {label: string, value: string}[], onClick: () => void, locked?: boolean, testId?: string }> = ({ title, subtitle, icon, color, stats, onClick, locked, testId }) => (
-    <button data-testid={testId} onClick={locked ? undefined : onClick} className={`w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-3 flex flex-col items-center justify-center text-center transition-all group relative overflow-hidden gap-2 aspect-square shadow-md ${locked ? 'opacity-50 cursor-not-allowed' : 'hover:bg-zinc-800 hover:border-zinc-600'}`}>
-        {locked && (
-            <div className="absolute top-2 right-2 text-zinc-600">
-                <Lock size={10} />
-            </div>
-        )}
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white shadow-lg shrink-0 ${color} ${!locked && 'group-hover:scale-110'} transition-transform`}>
-            {icon}
-        </div>
-        <div className="flex flex-col items-center w-full">
-            <div className="font-bold text-[11px] text-white group-hover:text-amber-100 transition-colors leading-tight line-clamp-1">{title}</div>
-            <div className="text-[8px] text-zinc-500 uppercase tracking-wide mt-1 line-clamp-1">{subtitle}</div>
-            {!locked && stats.length > 0 && (
-                <div className="mt-2 text-[9px] font-bold text-zinc-300 bg-black/30 px-2 py-0.5 rounded-full border border-white/5">
-                    {stats[0].value} {stats[0].label}
-                </div>
-            )}
-        </div>
+const DivisionCard: React.FC<{ title: string, subtitle: string, icon: React.ReactNode, color: string, stats: {label: string, value: string}[], onClick: () => void, locked?: boolean, testId?: string, featured?: boolean }> = ({ title, subtitle, icon, color, stats, onClick, locked, testId, featured }) => (
+    <button data-testid={testId} type="button" onClick={locked ? undefined : onClick} disabled={!!locked} className={`ph-division ${featured ? "ph-division-feature" : ""} ${locked ? "cursor-not-allowed opacity-50" : ""}`}>
+        <span className={`ph-division-icon ${color}`}>{locked ? <Lock size={14} /> : icon}</span>
+        <span className="ph-division-copy">
+            <strong>{title}</strong>
+            <em>{!locked && stats.length > 0 ? `${stats[0].value} ${stats[0].label}` : subtitle}</em>
+        </span>
     </button>
 );

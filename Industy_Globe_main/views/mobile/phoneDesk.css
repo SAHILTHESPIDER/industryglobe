@@ -1,0 +1,253 @@
+/* In-game phone launcher. Nested apps keep their own screens. */
+
+.phn-layout {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 12px;
+}
+.phn-side {
+    display: none;
+}
+.phn-device {
+    min-width: 0;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    border: 1px solid rgba(232, 200, 114, 0.35);
+    border-radius: 32px;
+    background: linear-gradient(180deg, #2c2c31, #050505);
+    padding: 8px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.phn-screen {
+    position: relative;
+    container-type: inline-size;
+    container-name: phone;
+    overflow: hidden;
+    min-width: 0;
+    height: min(720px, calc(100dvh - 11rem));
+    min-height: 520px;
+    border-radius: 24px;
+    background:
+        radial-gradient(ellipse at 85% 0%, rgba(232, 200, 114, 0.2), transparent 36%),
+        radial-gradient(ellipse at 0% 100%, rgba(37, 99, 235, 0.45), transparent 46%),
+        linear-gradient(180deg, #05070d, #0c1d3d);
+}
+.phn-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px 0;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+}
+.phn-home {
+    display: flex;
+    height: calc(100% - 28px);
+    flex-direction: column;
+    padding: 8px 12px 12px;
+}
+.phn-grid {
+    display: grid;
+    flex: 1;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-content: start;
+    gap: 14px 8px;
+    min-height: 0;
+    overflow: auto;
+    padding-top: 8px;
+}
+.phn-app {
+    display: flex;
+    min-height: 64px;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: #fff;
+}
+.phn-app:focus-visible,
+.phn-side button:focus-visible,
+.phn-note:focus-visible {
+    outline: 2px solid #e8c872;
+    outline-offset: 2px;
+}
+.phn-ico {
+    display: grid;
+    width: 52px;
+    height: 52px;
+    place-items: center;
+    border-radius: 16px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.28);
+}
+.phn-app span {
+    max-width: 100%;
+    overflow: hidden;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 650;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    white-space: nowrap;
+}
+.phn-dock .phn-ico { width: 42px; height: 42px; border-radius: 14px; }
+.phn-dock {
+    display: grid;
+    flex: none;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 22px;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 8px 4px 6px;
+}
+.phn-notes {
+    min-width: 0;
+    border: 1px solid rgba(96, 165, 250, 0.28);
+    border-radius: 20px;
+    background: #050505;
+    padding: 12px;
+}
+.phn-notes h3 {
+    margin: 0 0 8px;
+    color: #e8c872;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+.phn-note {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: #0b0b0d;
+    padding: 10px 12px;
+    color: #fff;
+    text-align: left;
+}
+.phn-note b { display: block; font-size: 13px; }
+.phn-note span {
+    display: block;
+    margin-top: 2px;
+    color: #a1a1aa;
+    font-size: 12px;
+}
+@media (max-width: 1023px) {
+    .phn-notes { order: -1; }
+    .phn-device { max-width: none; }
+    .phn-screen {
+        height: calc(100dvh - 12.75rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        min-height: 280px;
+        max-height: calc(100dvh - 11rem);
+    }
+    .phn-layout.has-notes .phn-screen {
+        height: calc(100dvh - 18rem - env(safe-area-inset-bottom));
+        min-height: 220px;
+    }
+}
+@media (max-width: 480px) {
+    .phn-device { border-radius: 22px; padding: 5px; }
+    .phn-screen { border-radius: 18px; }
+    .phn-ico { width: 48px; height: 48px; }
+}
+@media (max-height: 520px) {
+    .phn-notes { order: 0; }
+    .phn-screen,
+    .phn-layout.has-notes .phn-screen {
+        height: calc(100dvh - 8rem - env(safe-area-inset-bottom));
+        min-height: 0;
+        max-height: calc(100dvh - 8rem);
+    }
+    .phn-home { padding-bottom: 8px; }
+}
+@media (min-width: 1024px) {
+    .phn-layout {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        justify-content: stretch;
+        align-items: stretch;
+    }
+    .phn-layout.has-notes { grid-template-columns: 220px minmax(0, 1fr); }
+    .phn-device { grid-column: 2; grid-row: 1 / span 2; }
+    .phn-notes { grid-column: 1; grid-row: 2; max-height: 220px; overflow: auto; }
+    .phn-device {
+        max-width: none;
+        margin: 0;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+    .phn-screen {
+        height: calc(100dvh - 8.5rem);
+        min-height: 36rem;
+        max-height: none;
+        border-radius: 28px;
+    }
+    .phn-grid {
+        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+        gap: 22px 12px;
+    }
+    .phn-dock {
+        width: min(560px, 100%);
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .phn-side {
+        display: flex;
+        max-height: calc(100dvh - 8.5rem);
+        flex-direction: column;
+        gap: 4px;
+        overflow: auto;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        background: #050505;
+        padding: 8px;
+    }
+    .phn-side button {
+        min-height: 40px;
+        border-radius: 12px;
+        padding: 8px 10px;
+        color: #a1a1aa;
+        font-size: 13px;
+        font-weight: 700;
+        text-align: left;
+    }
+    .phn-side button.is-on {
+        background: rgba(37, 99, 235, 0.18);
+        color: #dbeafe;
+        box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.45);
+    }
+}
+
+/* Keep Empire+ inside the career-desk content area, not over the browser window. */
+.phn-screen .empire {
+    position: absolute !important;
+    inset: 0 !important;
+    width: auto !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    z-index: 80;
+}
+.phn-screen .empire .app { min-height: 0 !important; height: 100% !important; }
+.phn-screen .empire .rail { height: 100%; max-height: 100%; }
+.phn-screen .empire .sheet,
+.phn-screen .empire .toast { position: absolute !important; }
+
+/* Only a genuinely narrow phone surface uses the compact app chrome. */
+@container phone (max-width: 720px) {
+    .phn-screen [class~="lg:flex-row"] { flex-direction: column !important; }
+    .phn-screen [class~="hidden"][class~="lg:flex"],
+    .phn-screen [class~="hidden"][class~="lg:block"],
+    .phn-screen [class~="hidden"][class~="lg:grid"] { display: none !important; }
+    .phn-screen [class~="lg:hidden"] { display: flex !important; }
+    .phn-screen [class*="lg:grid-cols"],
+    .phn-screen [class*="md:grid-cols"] { grid-template-columns: minmax(0, 1fr) !important; }
+    .phn-screen [class*="lg:max-w"] { max-width: none !important; }
+}

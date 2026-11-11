@@ -3785,12 +3785,6 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         console.error('Weekly social feed generation failed during week processing:', error);
     }
 
-    try {
-        applyMarketingWeek(nextPlayer).forEach(msg => logsToAdd.push({ msg, type: 'neutral' }));
-    } catch (error) {
-        console.error('Marketing week failed:', error);
-    }
-
     // Limit social history (User Posts) to prevent bloat (e.g. 200 posts)
     if (nextPlayer.instagram?.posts && nextPlayer.instagram.posts.length > 200) {
         nextPlayer.instagram.posts = nextPlayer.instagram.posts.slice(0, 200);

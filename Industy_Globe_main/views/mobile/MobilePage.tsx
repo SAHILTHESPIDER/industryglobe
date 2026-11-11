@@ -29,20 +29,20 @@ import { getPlayerLanguage, t } from '../../services/i18n';
 import { StreamingPage } from './StreamingPage';
 import { OwnPlatformApp } from '../ownPlatform/OwnPlatformApp';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
+import './phoneDesk.css';
 
-// Helper Component for App Icon
 const AppIcon = ({ icon, color, label, onClick, badge, customContent, customBg }: any) => (
-    <div className="flex flex-col items-center gap-1 group cursor-pointer" onClick={onClick}>
-        <div className={`w-14 h-14 ${customBg || color} rounded-2xl flex items-center justify-center text-white shadow-lg group-active:scale-95 transition-transform relative overflow-hidden`}>
+    <button type="button" className="phn-app" onClick={onClick}>
+        <span className={`phn-ico ${customBg || color} relative text-white`}>
             {customContent ? customContent : icon}
             {badge > 0 && (
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-zinc-900 flex items-center justify-center text-[10px] font-bold">
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-black bg-rose-500 px-1 text-[10px] font-bold">
                     {badge}
-                </div>
+                </span>
             )}
-        </div>
-        <span className="text-[10px] text-white font-medium drop-shadow-md">{label}</span>
-    </div>
+        </span>
+        <span>{label}</span>
+    </button>
 );
 
 export type PhoneAppId = 'HOME' | 'CASTLINK' | 'IMDB' | 'BOXOFFICE' | 'STREAMING' | 'OWN_PLATFORM' | 'INSTAGRAM' | 'X' | 'YOUTUBE' | 'NEWS' | 'TEAM' | 'MESSAGES' | 'FORBES' | 'STOCKS' | 'DATING_FOLDER' | 'SOCIAL_FOLDER' | 'TINDER' | 'LUXE' | 'BANK' | 'GUIDE';
@@ -418,29 +418,27 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
       setAppMode(app);
   };
 
+  const unreadNotes = (props.player.inbox || []).filter(message => !message.isRead).slice(0, 4);
   return (
-    <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-4 lg:items-stretch">
-        <aside className="hidden lg:flex flex-col gap-1 overflow-y-auto custom-scrollbar rounded-3xl border border-white/10 bg-zinc-950/80 p-3 max-h-[calc(100dvh-8.5rem)]">
-            <button onClick={() => setAppMode('HOME')} className={`rounded-2xl px-3 py-2 text-left text-sm font-bold ${appMode === 'HOME' ? 'bg-white text-black' : 'text-zinc-300 hover:bg-white/5'}`}>Home screen</button>
+    <div className={`phn-layout ${unreadNotes.length ? 'has-notes' : ''}`}>
+        <aside className="phn-side">
+            <button type="button" onClick={() => setAppMode('HOME')} className={appMode === 'HOME' ? 'is-on' : ''}>Home screen</button>
             {deskApps.map(app => (
                 <button
                     key={app.id}
+                    type="button"
                     onClick={() => openDesk(app.id, app.pane)}
-                    className={`rounded-2xl px-3 py-2 text-left text-sm font-semibold ${appMode === app.id ? 'bg-amber-500/15 text-amber-200' : 'text-zinc-400 hover:bg-white/5 hover:text-white'}`}
+                    className={appMode === app.id ? 'is-on' : ''}
                 >
                     {app.label}{app.id === 'MESSAGES' && unreadMessages > 0 ? ` (${unreadMessages})` : ''}
                 </button>
             ))}
         </aside>
-        <div className="ae-phone-stage bg-black border border-zinc-800 shadow-2xl">
-            <div className="w-full h-full bg-cover bg-center relative overflow-hidden" style={{ backgroundImage: 'linear-gradient(to bottom, #1e1b4b, #312e81)' }}>
-                <div className="h-8 w-full flex justify-between items-center px-4 sm:px-6 pt-2 text-[10px] text-white font-medium z-20 relative">
+        <div className="phn-device">
+            <div className="phn-screen">
+                <div className="phn-status">
                     <span>12:45</span>
-                    <div className="flex gap-1">
-                        <div className="w-3 h-3 bg-white rounded-full opacity-20"></div>
-                        <div className="w-3 h-3 bg-white rounded-full opacity-20"></div>
-                        <div className="w-3 h-3 bg-white rounded-full"></div>
-                    </div>
+                    <span className="tracking-[0.2em] text-[10px] text-white/70">IG</span>
                 </div>
 
                 {/* TOAST NOTIFICATION (Inside Phone Screen for better Z-index/Visibility) */}
@@ -453,8 +451,8 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
 
                 {/* HOME SCREEN */}
                 {appMode === 'HOME' && (
-                    <div className="h-full w-full p-4 pt-8 pb-8 flex flex-col overflow-y-auto custom-scrollbar animate-in fade-in duration-300">
-                        <div className="grid grid-cols-4 sm:grid-cols-5 xl:grid-cols-6 gap-x-3 gap-y-6 mt-2">
+                    <div className="phn-home">
+                        <div className="phn-grid">
                             <AppIcon 
                                 icon={<MessageSquare size={26} fill="white" />} 
                                 color="bg-green-500" 
@@ -470,8 +468,8 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                             />
                             
                             {/* SOCIAL FOLDER */}
-                            <div className="flex flex-col items-center gap-1 group cursor-pointer" onClick={() => setAppMode('SOCIAL_FOLDER')}>
-                                <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl p-2 grid grid-cols-2 gap-1 shadow-lg group-active:scale-95 transition-transform overflow-hidden">
+                            <button type="button" className="phn-app" onClick={() => setAppMode('SOCIAL_FOLDER')}>
+                                <span className="phn-ico grid grid-cols-2 gap-0.5 bg-white/15 p-1.5">
                                     <div className="w-full h-full bg-black flex items-center justify-center rounded-[5px] shadow-sm border border-zinc-700">
                                         <X size={12} strokeWidth={3} className="text-white"/>
                                     </div>
@@ -481,10 +479,10 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                                     <div className="w-full h-full bg-[#FF0000] rounded-[5px] flex items-center justify-center shadow-sm">
                                         <div className="w-0 h-0 border-t-[3px] border-t-transparent border-l-[6px] border-l-white border-b-[3px] border-b-transparent ml-0.5"></div>
                                     </div>
-                                    <div className="w-full h-full"></div>
-                                </div>
-                                <span className="text-[10px] text-white font-medium drop-shadow-md">{tr('mobile.social')}</span>
-                            </div>
+                                    <span className="h-full w-full" />
+                                </span>
+                                <span>{tr('mobile.social')}</span>
+                            </button>
 
                             <AppIcon 
                                 icon={<Newspaper size={26} />} 
@@ -543,8 +541,8 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                             />
                             
                             {/* DATING FOLDER */}
-                            <div className="flex flex-col items-center gap-1 group cursor-pointer" onClick={() => setAppMode('DATING_FOLDER')}>
-                                <div className="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl p-2 grid grid-cols-2 gap-1 shadow-lg group-active:scale-95 transition-transform overflow-hidden">
+                            <button type="button" className="phn-app" onClick={() => setAppMode('DATING_FOLDER')}>
+                                <span className="phn-ico grid grid-cols-2 gap-0.5 bg-white/15 p-1.5">
                                     <div className="w-full h-full bg-gradient-to-tr from-pink-500 to-orange-500 rounded-[5px] flex items-center justify-center shadow-sm">
                                         <Flame size={12} fill="white" className="text-white" />
                                     </div>
@@ -552,11 +550,11 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                                         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-transparent"></div>
                                         <Gem size={10} className="text-amber-500" />
                                     </div>
-                                    <div className="w-full h-full"></div>
-                                    <div className="w-full h-full"></div>
-                                </div>
-                                <span className="text-[10px] text-white font-medium drop-shadow-md">{tr('mobile.dating')}</span>
-                            </div>
+                                    <span className="h-full w-full" />
+                                    <span className="h-full w-full" />
+                                </span>
+                                <span>{tr('mobile.dating')}</span>
+                            </button>
 
                             {/* GUIDE APP (Updated Icon) */}
                             <AppIcon 
@@ -566,6 +564,12 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                                 onClick={() => setAppMode('GUIDE')} 
                             />
 
+                        </div>
+                        <div className="phn-dock">
+                            <AppIcon icon={<MessageSquare size={22} fill="white" />} color="bg-green-500" label={tr('mobile.messages')} onClick={() => setAppMode('MESSAGES')} badge={unreadMessages} />
+                            <AppIcon icon={<Search size={22} />} color="bg-indigo-600" label="CastLink" onClick={() => setAppMode('CASTLINK')} />
+                            <AppIcon icon={<Landmark size={22} />} color="bg-[#004b87]" label={tr('mobile.bank')} onClick={() => setAppMode('BANK')} />
+                            <AppIcon icon={<Activity size={22} />} color="bg-zinc-800" label={tr('mobile.stocks')} onClick={() => setAppMode('STOCKS')} />
                         </div>
                     </div>
                 )}
@@ -695,11 +699,24 @@ export const MobilePage: React.FC<MobilePageProps> = (props) => {
                     <GuideView onBack={() => setAppMode('HOME')} />
                 )}
 
-                <div className="absolute bottom-1 left-0 right-0 flex justify-center pb-2 z-50 pointer-events-none lg:hidden">
-                     <div className="w-32 h-1 bg-white/20 rounded-full"></div>
+                {appMode !== 'HOME' && (
+                <div className="pointer-events-none absolute bottom-1 left-0 right-0 z-50 flex justify-center pb-2 lg:hidden">
+                     <div className="h-1 w-32 rounded-full bg-white/20"></div>
                 </div>
+                )}
             </div>
         </div>
+        {unreadNotes.length > 0 && (
+            <aside className="phn-notes">
+                <h3>Unread</h3>
+                {unreadNotes.map(note => (
+                    <button key={note.id} type="button" className="phn-note" onClick={() => setAppMode('MESSAGES')}>
+                        <b>{note.sender}</b>
+                        <span>{note.subject}</span>
+                    </button>
+                ))}
+            </aside>
+        )}
     </div>
   );
 };

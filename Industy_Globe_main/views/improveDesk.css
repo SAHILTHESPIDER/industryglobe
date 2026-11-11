@@ -1,0 +1,135 @@
+/* Improve desk only. Does not restyle Home or Production. */
+
+.ig-improve {
+    min-width: 0;
+    padding-bottom: 1rem;
+}
+
+.ig-title {
+    margin: 0 0 0.75rem;
+    color: #fff;
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.ig-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0.75rem;
+    padding: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background: #050505;
+}
+
+.ig-tab {
+    min-height: 44px;
+    flex: 1;
+    border-radius: 12px;
+    padding: 8px 4px;
+    color: #a1a1aa;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.ig-tab.is-on {
+    background: #2563eb;
+    color: #fff;
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.45);
+}
+
+.ig-panel { display: none; min-width: 0; }
+.ig-panel.is-on { display: block; }
+.ig-panel-title { display: none; }
+
+.ig-talent,
+.ig-cat,
+.ig-activity,
+.ig-course,
+.ig-genre {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #070707;
+}
+
+.ig-cat.is-on,
+.ig-activity:focus-visible,
+.ig-course:focus-within,
+.ig-genre:focus-visible,
+.ig-tab:focus-visible,
+.ig-improve button:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.ig-cat.is-on {
+    border-color: rgba(96, 165, 250, 0.7);
+    background: rgba(37, 99, 235, 0.14);
+    outline: none;
+}
+
+.ig-activity,
+.ig-course {
+    border-radius: 16px;
+}
+
+.ig-genre-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.ig-genre {
+    min-height: 112px;
+    border-radius: 16px;
+}
+
+.ig-genre.is-master {
+    border-color: rgba(232, 200, 114, 0.55);
+    background: rgba(232, 200, 114, 0.08);
+}
+
+.ig-go {
+    min-height: 36px;
+    border-radius: 999px;
+    background: #2563eb;
+    padding: 0 12px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.ig-go:disabled {
+    background: #18181b;
+    color: #71717a;
+}
+
+@media (min-width: 1100px) {
+    .ig-tabs { display: none; }
+    .ig-improve {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+    }
+    .ig-title { grid-column: 1 / -1; margin-bottom: 0; }
+    .ig-improve .ig-panel { display: block; }
+    .ig-panel {
+        border: 1px solid rgba(59, 130, 246, 0.18);
+        border-radius: 20px;
+        background: #050505;
+        padding: 12px;
+    }
+    .ig-panel-title {
+        display: block;
+        margin: 0 0 10px;
+        color: #e8c872;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+    }
+    .ig-panel-work .xl\:grid-cols-2 { grid-template-columns: 1fr; }
+}
