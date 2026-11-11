@@ -48,6 +48,8 @@ import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFI
 import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
 import { ensureOwnPlatform, migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
+import { normalizeMarketing } from './services/marketing/core';
+import { MarketingPreview } from './views/marketing/MarketingPreview';
 import { syncRegions } from './services/ownPlatform/logic';
 import { purchasePlatform } from './services/ownPlatform/studio';
 import { BuyFinancing } from './services/ownPlatform/valuation';
@@ -898,6 +900,7 @@ export const App: React.FC = () => {
               const migrated = migrateOwnPlatformOnLoad(safePlayer as Player);
               safePlayer.ownPlatform = migrated.ownPlatform;
           }
+          safePlayer.marketing = normalizeMarketing(safePlayer.marketing);
           safePlayer.settings.smoothMode = safePlayer.settings.smoothMode === true;
 
           if (!safePlayer.writerStats) {
@@ -2104,6 +2107,13 @@ export const App: React.FC = () => {
           delete (window as Window & { __aeCommissions?: unknown }).__aeCommissions;
       };
   }, []);
+
+  const marketingPreview = import.meta.env.DEV && typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('marketing')
+      : null;
+  if (marketingPreview) {
+      return <MarketingPreview mode={marketingPreview} />;
+  }
 
   if (isInitializing) {
       return (

@@ -50,9 +50,10 @@ interface ProjectDashboardModalProps {
     onMakeSpinoff?: (project: any) => void;
     onStartStreamingBidding?: (project: any) => void;
     onConfigureRelease?: (project: any) => void;
+    onMarket?: (project: any) => void;
 }
 
-export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ project, player, studio, onClose, onUpdatePlayer, onMakeSequel, onMakeSpinoff, onStartStreamingBidding, onConfigureRelease }) => {
+export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ project, player, studio, onClose, onUpdatePlayer, onMakeSequel, onMakeSpinoff, onStartStreamingBidding, onConfigureRelease, onMarket }) => {
     const [view, setView] = useState<'DETAILS'>('DETAILS');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -495,7 +496,17 @@ export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ pr
                 className="relative z-10 w-full h-full lg:h-[90vh] lg:max-w-6xl lg:rounded-[40px] bg-zinc-950/40 border-0 lg:border lg:border-white/10 flex flex-col overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)]"
             >
                 {/* Header / Close Button */}
-                <div className="absolute top-6 right-6 z-50">
+                <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
+                    {onMarket && (
+                        <button
+                            type="button"
+                            data-testid="market-this-title"
+                            onClick={() => onMarket(project)}
+                            className="px-4 py-3 bg-[#E4B15A] text-black rounded-full text-xs font-black uppercase tracking-wider"
+                        >
+                            Market
+                        </button>
+                    )}
                     <button 
                         onClick={onClose} 
                         className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white rounded-full transition-all border border-white/10 active:scale-90"

@@ -43,6 +43,7 @@ import { Boardroom } from './Boardroom';
 import { ValuationSheet } from './ValuationSheet';
 import { PricingDesk } from './PricingDesk';
 import { headingFont } from './ui';
+import { MarketingDesk } from '../marketing/MarketingDesk';
 import { STREAMING_SCENES, sceneStyle } from '../../services/ownPlatform/scenes';
 import { IdentBumper } from './IdentStage';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
@@ -57,6 +58,8 @@ interface Props {
 export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
     const [desk, setDesk] = useState<Desk>('board');
     const [error, setError] = useState('');
+    const [marketTitle, setMarketTitle] = useState<string | null>(null);
+    const [marketOpen, setMarketOpen] = useState(false);
     const state = player.ownPlatform;
     if (!state) return null;
     const books = state.books;
@@ -89,9 +92,10 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                 ] as [Desk, string][]).map(([id, label]) => (
                     <button key={id} onClick={() => { setDesk(id); setError(''); }} className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider ${desk === id ? 'bg-[#4F3BFF] text-white' : 'bg-white/5 text-zinc-400'}`}>{label}</button>
                 ))}
+                <button type="button" data-testid="open-marketing" onClick={() => { setMarketTitle(null); setMarketOpen(true); }} className="shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#E4B15A] text-black">Marketing</button>
             </div>
             {error && <p className="text-rose-300 text-sm" data-testid="ops-error">{error}</p>}
-            {desk === 'content' && <ContentDesk player={player} onApply={apply} />}
+            {desk === 'content' && <ContentDesk player={player} onApply={apply} onMarket={titleId => { setMarketTitle(titleId); setMarketOpen(true); }} />}
             {desk === 'network' && <NetworkDesk player={player} onPlayer={onPlayer} onError={setError} quoteHouseholds={quote.households} burn={quote.weeklyBurn} />}
             {desk === 'audience' && <AudienceDesk player={player} onPlayer={onPlayer} />}
             {desk === 'board' && (
@@ -104,11 +108,23 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
             {books && desk !== 'board' && (
                 <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {showPct(capSlices(player).seed + capSlices(player).legacy + capSlices(player).holders + capSlices(player).pub)}</p>
             )}
+            {marketOpen && (
+                <MarketingDesk
+                    player={player}
+                    ownerKind="EMPIRE"
+                    ownerId="empire"
+                    ownerName={state.name}
+                    cash={state.books?.cash || 0}
+                    initialTitleId={marketTitle || undefined}
+                    onPlayer={onPlayer}
+                    onBack={() => setMarketOpen(false)}
+                />
+            )}
         </div>
     );
 };
 
-const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player; error?: string }) => void }> = ({ player, onApply }) => {
+const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player; error?: string }) => void; onMarket?: (titleId: string) => void }> = ({ player, onApply, onMarket }) => {
     const state = player.ownPlatform!;
     const [libraryOpen, setLibraryOpen] = useState(false);
     const [catalogueReady, setCatalogueReady] = useState(false);
@@ -204,7 +220,8 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                                 ? `Opens ${releaseWeekLabel(player.currentWeek, detail.releaseWeekOffset)}`
                                 : 'On the service now.'}
                         </p>
-                        <button type="button" onClick={() => setDetail(null)} className="mt-5 w-full rounded-full bg-white text-black py-3 text-xs font-black uppercase tracking-wider">Close</button>
+                        <button type="button" data-testid="market-shelf-title" onClick={() => { setDetail(null); onMarket?.(detail.id); }} className="mt-5 w-full rounded-full bg-[#E4B15A] text-black py-3 text-xs font-black uppercase tracking-wider">Market this title</button>
+                        <button type="button" onClick={() => setDetail(null)} className="mt-2 w-full rounded-full border border-white/20 py-3 text-xs font-black uppercase tracking-wider">Close</button>
                     </div>
                 </div>,
                 document.body,
