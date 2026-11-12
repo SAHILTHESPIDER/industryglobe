@@ -40,6 +40,7 @@ export const BrandStudio: React.FC<Props> = ({ player, onPlayer, onClose }) => {
         }
     };
     return (
+        <div className="empire studio-host" style={{ position: 'fixed', inset: 0, zIndex: 400 }}>
         <div className="studio-scrim" role="dialog" aria-label="Brand studio" data-screen="brand-studio">
             <div className="studio-panel">
                 <div className="between">
@@ -80,6 +81,7 @@ export const BrandStudio: React.FC<Props> = ({ player, onPlayer, onClose }) => {
                     />
                 )}
             </div>
+        </div>
         </div>
     );
 };

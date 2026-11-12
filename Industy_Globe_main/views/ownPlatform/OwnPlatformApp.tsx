@@ -161,6 +161,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 markId={state.brand?.markId}
                 accent={brandAccent(state.brand)}
                 frameId={state.brand?.frameId}
+                typefaceId={state.brand?.typefaceId}
                 onWatchIntro={() => setReplay(true)}
                 onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
                 onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}

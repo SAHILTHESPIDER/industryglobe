@@ -10,9 +10,10 @@ interface Props {
     locked?: boolean;
 }
 
-const shown = (name: string) => {
-    const clean = (name.trim() || 'EMPIRE').toUpperCase();
-    return clean.endsWith('+') ? clean : `${clean}+`;
+const shown = (name: string, script: boolean) => {
+    const clean = (name.trim() || (script ? 'Empire' : 'EMPIRE'));
+    const word = script ? clean : clean.toUpperCase();
+    return word.endsWith('+') ? word : `${word}+`;
 };
 
 /** One of the four lockups, using the chosen mark and typeface. */
@@ -20,7 +21,8 @@ export const BrandLockup: React.FC<Props> = ({ brand, name, size = 'md', locked 
     const mark = markById(brand.markId);
     const face = typefaceById(brand.typefaceId);
     const accent = brandAccent(brand);
-    const label = shown(name);
+    const script = brand.typefaceId === 'script';
+    const label = shown(name, script);
     const markSize = size === 'lg' ? 42 : size === 'sm' ? 18 : 28;
     const fontSize = size === 'lg' ? 40 : size === 'sm' ? 16 : 26;
     const text: React.CSSProperties = {
@@ -28,9 +30,9 @@ export const BrandLockup: React.FC<Props> = ({ brand, name, size = 'md', locked 
         fontWeight: 800,
         fontSize,
         lineHeight: 0.9,
-        letterSpacing: brand.typefaceId === 'mono' ? '-0.04em' : brand.typefaceId === 'script' ? '0' : '0.01em',
-        textTransform: brand.typefaceId === 'script' ? 'none' : 'uppercase',
-        fontStyle: brand.typefaceId === 'script' ? 'italic' : 'normal',
+        letterSpacing: brand.typefaceId === 'mono' ? '-0.04em' : script ? '0' : '0.01em',
+        textTransform: script ? 'none' : 'uppercase',
+        fontStyle: script ? 'italic' : 'normal',
         color: accent,
     };
     const frame = frameById(brand.frameId);

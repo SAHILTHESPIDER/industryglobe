@@ -53,11 +53,12 @@ interface ShellProps {
     markId?: string;
     accent?: string;
     frameId?: 'circle' | 'rounded' | 'none';
+    typefaceId?: string;
 }
 
 export const Shell: React.FC<ShellProps> = ({
     children, onBack, kicker, title, pane, onPane, name, stage, money,
-    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId, accent, frameId,
+    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId, accent, frameId, typefaceId,
 }) => {
     const live = stage === 'LIVE';
     const ink = accent || markById(markId).accent;
@@ -80,7 +81,7 @@ export const Shell: React.FC<ShellProps> = ({
                             <BrandMark id={markById(markId).id} color={ink} size={22} letter={name} />
                         </div>
                         <div>
-                            <div className="nm">{(name || 'EMPIRE+').toUpperCase()}</div>
+                            <div className="nm" style={typefaceId === 'script' ? { textTransform: 'none', fontStyle: 'italic' } : undefined}>{typefaceId === 'script' ? (name || 'Empire+') : (name || 'EMPIRE+').toUpperCase()}</div>
                             <div className="st" style={{ color: live ? 'var(--go)' : undefined }}>{live ? 'On air' : 'Paper company'}</div>
                         </div>
                     </div>
