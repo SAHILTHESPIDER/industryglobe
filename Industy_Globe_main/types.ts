@@ -783,6 +783,53 @@ export enum Page {
       markId: string;
       typefaceId: string;
       lockupId: string;
+      /** Swatch chosen when the service is founded or bought. Missing uses indigo. */
+      colorId?: string;
+  }
+
+  export type ExecRole = 'CFO' | 'COO' | 'CTO' | 'CMO' | 'CONTENT';
+
+  /** Illustrated face. Numbers pick SVG parts. Never a photograph. */
+  export interface CartoonFace {
+      skin: number;
+      hair: number;
+      hairStyle: number;
+      eyes: number;
+      mouth: number;
+      accessory: number;
+      shirt: number;
+  }
+
+  /** An officer hired onto the company. Salary leaves company cash. */
+  export interface CompanyExecutive {
+      id: string;
+      role: ExecRole;
+      name: string;
+      country: string;
+      city: string;
+      skill: number;
+      weeklyFee: number;
+      trait: string;
+      face: CartoonFace;
+      hiredWeek: number;
+      hiredYear: number;
+  }
+
+  export interface ExecCandidate {
+      id: string;
+      role: ExecRole;
+      name: string;
+      country: string;
+      city: string;
+      skill: number;
+      weeklyFee: number;
+      trait: string;
+      face: CartoonFace;
+  }
+
+  /** Hired officers. Missing on older saves, which have an empty table. */
+  export interface BoardTeamState {
+      executives: CompanyExecutive[];
   }
 
   export type AdIntervalMin = 5 | 10 | 15 | 20 | 30;
@@ -1101,6 +1148,8 @@ export enum Page {
       householdsM: number;
       week: number;
       fromStockId?: string;
+      /** Colour picked before the cheque. Missing on older purchases. */
+      brandColorId?: string;
   }
 
   export interface ResolvedCommission {
@@ -1250,6 +1299,10 @@ export enum Page {
       defineLayout?: 1 | 2;
       /** Prologue finished or skipped. Missing on older saves. */
       introSeen?: boolean;
+      /** False until the founder picks a brand colour. Missing on older saves means that step is already done. */
+      colorChosen?: boolean;
+      /** Hired officers around the table. Missing on older saves. */
+      boardTeam?: BoardTeamState;
       defineStep: number;
       buildStep: number;
       selectedCountryIds: string[];

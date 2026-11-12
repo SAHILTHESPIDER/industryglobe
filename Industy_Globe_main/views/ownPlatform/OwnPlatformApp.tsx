@@ -16,6 +16,8 @@ import { Operations } from './Operations';
 import { IdentBumper } from './IdentStage';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
 import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
+import { brandAccent, brandFrom } from '../../services/ownPlatform/brand';
+import { BrandColorStep } from './BrandColorStep';
 
 interface Props {
     player: Player;
@@ -105,8 +107,11 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const pastDefine = state.stage !== 'DEFINE' || state.commissioned;
     const kicker = pane === 'launch'
         ? 'Define the launch'
-        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Kahani khareedo' : pane === 'ops' ? 'Operations' : 'The world';
-    const title = pane === 'launch'
+        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Rights' : pane === 'ops' ? 'Operations' : 'The world';
+    const needsColour = state.colorChosen === false && pane === 'launch';
+    const title = needsColour
+        ? 'Pick the colour'
+        : pane === 'launch'
         ? LAUNCH_TITLES[state.defineStep] || serviceName
         : pane === 'build'
             ? (state.buildStep === 0 ? 'Lay the network' : state.buildStep === 1 ? 'Then find out what it costs' : state.buildStep === 2 ? 'Rehearse opening night' : 'Sign the build')
@@ -152,6 +157,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 buildStep={state.buildStep}
                 pastDefine={pastDefine}
                 markId={state.brand?.markId}
+                accent={brandAccent(state.brand)}
                 onWatchIntro={() => setReplay(true)}
                 onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
                 onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}
@@ -161,7 +167,17 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 )}
                 {state.stage === 'CONSTRUCTING' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
                 {state.stage === 'LIVE' && pane !== 'launch' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}
-                {pane === 'launch' && (
+                {needsColour && (
+                    <div className="body">
+                        <BrandColorStep
+                            name={serviceName}
+                            brand={brandFrom(state.brand)}
+                            onColor={colorId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, colorId }) })}
+                            onContinue={() => setPlatform({ ...state, colorChosen: true, brand: brandFrom(state.brand) })}
+                        />
+                    </div>
+                )}
+                {pane === 'launch' && !needsColour && (
                     <DefineLaunch
                         player={player}
                         onChange={setPlatform}

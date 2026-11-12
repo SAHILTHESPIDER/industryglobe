@@ -15,7 +15,7 @@ import { DEAL_BIDDERS, hashString } from './catalog';
 import { addCompanyCash, readCompanyCash } from './companyCash';
 import { formatCompact } from './logic';
 
-export const STAKE_SALE_LINE = 'Apni company ka hissa becho, buyers offer denge.';
+export const STAKE_SALE_LINE = 'Sell a slice of the company. Buyers make the offers.';
 export const STAKE_CHIPS = [5, 10, 15, 25] as const;
 const CONTROL_FLOOR = 0.51;
 const VETO_USD = 8_000_000;
@@ -63,6 +63,55 @@ export const capSlices = (player: Player) => {
     const pub = listed ? clamp01(1 - (ipo?.founderKeepPct || 0.75)) : 0;
     const founder = Math.max(0, 1 - seed - legacy - holders - pub);
     return { seed, legacy, holders, pub, founder };
+};
+
+export interface OwnershipRow {
+    id: string;
+    label: string;
+    kind: string;
+    /** Fraction after the rows are scaled so they sum to 1. */
+    fraction: number;
+    /** Whole points that sum to 100. */
+    points: number;
+}
+
+/**
+ * Cap table for the ownership board.
+ * Fractions are scaled so the slices sum to 1, then rounded so the points sum to 100.
+ */
+export const ownershipRows = (player: Player): OwnershipRow[] => {
+    const slices = capSlices(player);
+    const books = player.ownPlatform?.books;
+    const draft: { id: string; label: string; kind: string; fraction: number }[] = [];
+    const push = (id: string, label: string, kind: string, fraction: number) => {
+        const safe = clamp01(fraction);
+        if (safe <= 0 && id !== 'founder') return;
+        draft.push({ id, label: label || 'Owner', kind, fraction: safe });
+    };
+    push('founder', player.name || 'Founder', 'Founder', slices.founder);
+    if (slices.seed > 0) push('seed', books?.seedPartner || 'Seed investors', 'Seed', slices.seed);
+    if (slices.legacy > 0) push('equity', books?.pePartner || 'Private equity', 'Private equity', slices.legacy);
+    (books?.shareholders || []).forEach(row => push(row.id, row.name, buyerKindLabel(row.kind), row.pct));
+    if (slices.pub > 0) push('public', 'Public float', 'Listed', slices.pub);
+    const positive = draft.filter(row => row.fraction > 0);
+    const founderRow = draft.find(row => row.id === 'founder');
+    const withFounder = founderRow && founderRow.fraction <= 0 && positive.length ? [founderRow, ...positive] : positive;
+    const rows = withFounder.length ? withFounder : [{ id: 'founder', label: player.name || 'Founder', kind: 'Founder', fraction: 1 }];
+    const sum = rows.reduce((total, row) => total + row.fraction, 0) || 1;
+    const scaled = rows.map(row => ({ ...row, fraction: row.fraction / sum }));
+    const raw = scaled.map(row => row.fraction * 100);
+    const points = raw.map(value => Math.floor(value));
+    let left = 100 - points.reduce((total, value) => total + value, 0);
+    const order = raw
+        .map((value, index) => ({ index, frac: value - points[index] }))
+        .sort((a, b) => b.frac - a.frac || a.index - b.index);
+    for (let step = 0; step < left; step += 1) points[order[step % order.length].index] += 1;
+    const drift = 100 - points.reduce((total, value) => total + value, 0);
+    if (drift !== 0) {
+        const founder = scaled.findIndex(row => row.id === 'founder');
+        points[founder >= 0 ? founder : 0] += drift;
+    }
+    return scaled.map((row, index) => ({ ...row, points: points[index] }));
 };
 
 /** Whole percent the player can still sell. Never above 49, never above what they hold. */

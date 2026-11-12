@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LaunchQuote, formatCompact, formatPeople } from '../../services/ownPlatform/logic';
-import { markById } from '../../services/ownPlatform/brand';
+import { brandVolt, markById } from '../../services/ownPlatform/brand';
 import { BrandMark } from './BrandMark';
 import { LaunchRegionId } from '../../types';
 import { MARKET_COUNTRIES, REGION_CITIES } from '../../services/ownPlatform/catalog';
@@ -51,13 +51,16 @@ interface ShellProps {
     onBuildStep: (step: number) => void;
     onWatchIntro?: () => void;
     markId?: string;
+    accent?: string;
 }
 
 export const Shell: React.FC<ShellProps> = ({
     children, onBack, kicker, title, pane, onPane, name, stage, money,
-    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId,
+    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId, accent,
 }) => {
     const live = stage === 'LIVE';
+    const ink = accent || markById(markId).accent;
+    const volt = brandVolt(ink);
     const stepNo = pane === 'launch'
         ? (defineStep >= 7 ? 'B' : String(defineStep + 1).padStart(2, '0'))
         : pane === 'build' ? String(buildStep + 1).padStart(2, '0') : '';
@@ -68,12 +71,12 @@ export const Shell: React.FC<ShellProps> = ({
     const railIndex = pane === 'build' ? buildStep : pane === 'launch' ? Math.min(defineStep, 6) : pane === 'ops' ? 1 : 0;
 
     return (
-        <div className="empire fixed inset-0 z-[180]" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="empire fixed inset-0 z-[180]" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)', ['--indigo' as string]: ink, ['--volt' as string]: volt, ['--brand' as string]: ink }}>
             <div className="app">
                 <aside className="rail">
                     <div className="brand">
                         <div className="bolt" style={{ background: markById(markId).ink }}>
-                            <BrandMark id={markById(markId).id} color={markById(markId).accent} size={22} letter={name} />
+                            <BrandMark id={markById(markId).id} color={ink} size={22} letter={name} />
                         </div>
                         <div>
                             <div className="nm">{(name || 'EMPIRE+').toUpperCase()}</div>

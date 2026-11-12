@@ -1,7 +1,7 @@
 import React from 'react';
 import { OwnPlatformState, PlatformBrand } from '../../types';
 import { LaunchQuote, formatCompact, formatPeople } from '../../services/ownPlatform/logic';
-import { BRAND_LOCKUPS, BRAND_MARKS, BRAND_TYPEFACES, brandFrom, lockupById, markById, typefaceById } from '../../services/ownPlatform/brand';
+import { BRAND_LOCKUPS, BRAND_MARKS, BRAND_TYPEFACES, brandAccent, brandFrom, lockupById, markById, typefaceById } from '../../services/ownPlatform/brand';
 import { BrandLockup } from './BrandLockup';
 import { BrandMark } from './BrandMark';
 
@@ -19,6 +19,7 @@ export const NameIt: React.FC<Props> = ({ state, locked, quote, onName, onBrand 
     const mark = markById(brand.markId);
     const face = typefaceById(brand.typefaceId);
     const lockup = lockupById(brand.lockupId);
+    const accent = brandAccent(brand);
     const letter = (name.trim() || 'E').slice(0, 1);
     const patch = (next: Partial<PlatformBrand>) => {
         if (locked) return;
@@ -57,7 +58,7 @@ export const NameIt: React.FC<Props> = ({ state, locked, quote, onName, onBrand 
                                 onClick={() => patch({ markId: row.id })}
                                 className={`rounded-2xl border p-2 text-center ${brand.markId === row.id ? 'border-[#4F3BFF] bg-[#4F3BFF]/15' : 'border-white/10 bg-[#12151c]'}`}
                             >
-                                <span className="mx-auto grid place-items-center h-10"><BrandMark id={row.id} color={row.accent} size={28} letter={letter} /></span>
+                                <span className="mx-auto grid place-items-center h-10"><BrandMark id={row.id} color={brand.markId === row.id ? accent : row.accent} size={28} letter={letter} /></span>
                                 <span className="block text-[10px] uppercase tracking-wider mt-1 text-zinc-300">{row.name}</span>
                             </button>
                         ))}
@@ -104,12 +105,12 @@ export const NameIt: React.FC<Props> = ({ state, locked, quote, onName, onBrand 
             </div>
             <aside className="stack lg:sticky lg:top-3 self-start">
                 <div className="lab">Live preview</div>
-                <div className="card" style={{ background: mark.ink, borderColor: mark.accent, minHeight: 120, display: 'flex', alignItems: 'center' }}>
+                <div className="card" style={{ background: mark.ink, borderColor: accent, minHeight: 120, display: 'flex', alignItems: 'center' }}>
                     <BrandLockup brand={brand} name={name} size="md" />
                 </div>
                 <div className="card" style={{ display: 'grid', placeItems: 'center', background: '#15172A' }}>
-                    <div style={{ width: 74, height: 74, borderRadius: 18, background: mark.ink, border: `1px solid ${mark.accent}`, display: 'grid', placeItems: 'center' }}>
-                        <BrandMark id={mark.id} color={mark.accent} size={40} letter={letter} />
+                    <div style={{ width: 74, height: 74, borderRadius: 18, background: mark.ink, border: `1px solid ${accent}`, display: 'grid', placeItems: 'center' }}>
+                        <BrandMark id={mark.id} color={accent} size={40} letter={letter} />
                     </div>
                     <div className="tiny" style={{ marginTop: 8 }}>App icon</div>
                 </div>

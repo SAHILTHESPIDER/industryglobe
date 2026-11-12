@@ -76,9 +76,9 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
         <div className="p-4 lg:p-10 space-y-4" data-screen="rights-floor">
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Apni film becho</div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Sell your film</div>
                     <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>Your films</h2>
-                    <p className="text-sm text-zinc-400 max-w-xl mt-2">Empire+ par lagao puts your film on your own service. The shoot is already paid for, so company cash does not move. Rival ko becho opens the room, and that cheque lands in company cash, not personal cash.</p>
+                    <p className="text-sm text-zinc-400 max-w-xl mt-2">Put it on Empire+ keeps the film on your own service. The shoot is already paid for, so company cash does not move. Sell to a rival opens the room, and that cheque lands in company cash, not personal cash.</p>
                 </div>
             </div>
             <ReleaseCalendar player={player} onPlayer={onPlayer} />
@@ -101,9 +101,9 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
                         <Card>
                             <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
-                                    <div className="text-[11px] uppercase tracking-[0.18em] text-[#8B7BFF]">Empire+ par lagao</div>
+                                    <div className="text-[11px] uppercase tracking-[0.18em] text-[#8B7BFF]">Put it on Empire+</div>
                                     <div className="font-bold">{lot.title}</div>
-                                    <p className="text-sm text-zinc-400">Apni film. Banane ka kharcha ho chuka. Company cash nahi hilta.</p>
+                                    <p className="text-sm text-zinc-400">Your film. The shoot is already paid for. Company cash does not move.</p>
                                 </div>
                                 <button
                                     type="button"
@@ -153,7 +153,7 @@ export const DealRoom: React.FC<Props> = ({ player, onPlayer }) => {
                     )}
                     {choice === 'STREAMING' && !open && (
                         <Card>
-                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Lot on offer · rival ko becho</div>
+                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Lot on offer · sell to a rival</div>
                             <div className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>{lot.title}</div>
                             <p className="text-sm text-zinc-400">{lot.genre} · budget {formatCompact(lot.budget)} · gross so far {formatCompact(lot.gross)}</p>
                             <p className="text-sm text-zinc-400 mt-3">Offers move for 45 seconds. A bidder may improve, go final, or leave. Then the table hard-closes. Walking out kills every offer. The cheque is company cash. Personal cash does not move. Nothing is saved until you take one.</p>
