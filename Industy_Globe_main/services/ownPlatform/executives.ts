@@ -305,16 +305,18 @@ export const releaseExecutive = (player: Player, execId: string): { player: Play
     return { player: next };
 };
 
-/** Later weeks. The hire week was already paid. Never touches personal cash. */
-export const payExecutiveSalaries = (player: Player): { msg: string; type: 'neutral' }[] => {
+/** Later weeks. The hire week was already paid. Never touches personal cash. `paid` is this week's payroll. */
+export const payExecutiveSalaries = (player: Player): { notes: { msg: string; type: 'neutral' }[]; paid: number } => {
     const rows = player.ownPlatform?.boardTeam?.executives || [];
     const notes: { msg: string; type: 'neutral' }[] = [];
+    let paid = 0;
     rows.forEach(exec => {
         if (exec.hiredWeek === player.currentWeek && exec.hiredYear === player.age) return;
         const fee = Math.max(0, Math.round(exec.weeklyFee) || 0);
         if (!fee) return;
         addCompanyCash(player, -fee, `${exec.name} · ${roleLabel(exec.role)} salary`, 'BURN');
+        paid += fee;
         notes.push({ msg: `${exec.name} (${roleLabel(exec.role)}) took ${formatCompact(fee)} from company cash.`, type: 'neutral' });
     });
-    return notes;
+    return { notes, paid };
 };

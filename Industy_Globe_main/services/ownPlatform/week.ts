@@ -245,12 +245,17 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             addCompanyCash(player, -officeRent, `${state.name} country office rent`, 'BURN');
             notes.push({ msg: `Country offices cost ${formatCompact(officeRent)} this week, from company cash.`, type: 'neutral' });
         }
+        state.lastWeeklyBurn = officeRent;
     }
 
-    notes.push(...payExecutiveSalaries(player));
+    const payroll = payExecutiveSalaries(player);
+    notes.push(...payroll.notes);
 
     const rolled = rollWeeklyIncident(player.ownPlatform, weekKey, player.currentWeek, player.age);
     player.ownPlatform = rolled.state;
+    if (payroll.paid > 0 && player.ownPlatform) {
+        player.ownPlatform.lastWeeklyBurn = (player.ownPlatform.lastWeeklyBurn || 0) + payroll.paid;
+    }
     if (rolled.note) notes.push({ msg: rolled.note, type: 'negative' });
 
     notes.push(...tickStreamRights(player, absoluteWeek));

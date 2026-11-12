@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CompanyShareholder, ExecRole, Player } from '../../types';
+import { CartoonFace, CompanyShareholder, ExecRole, Player } from '../../types';
 import { faceFor, flagForCountry } from '../../services/ownPlatform/executives';
 import {
     EXEC_ROLES,
@@ -27,6 +27,8 @@ interface Seat {
     detail: string;
     kind: 'founder' | 'director' | 'investor' | 'executive' | 'empty';
     faceSeed: string;
+    /** Stored portrait. Hired officers keep the face from the slate. */
+    face?: CartoonFace;
     country?: string;
     chips?: string[];
     execId?: string;
@@ -87,6 +89,7 @@ const seatOf = (player: Player): Seat[] => {
             detail: roleEffect(exec.role),
             kind: 'executive',
             faceSeed: exec.id,
+            face: exec.face,
             country: exec.country,
             chips: [`Skill ${exec.skill}`, `${formatCompact(exec.weeklyFee)}/wk`, exec.trait],
             execId: exec.id,
@@ -175,7 +178,7 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer }) => {
                             >
                                 <span className="chair-back" />
                                 {seat.kind === 'empty' ? <span className="plus" aria-hidden="true">+</span> : (
-                                    <CartoonAvatar face={faceFor(seat.faceSeed)} size={56} label={seat.name} />
+                                    <CartoonAvatar face={seat.face || faceFor(seat.faceSeed)} size={56} label={seat.name} />
                                 )}
                                 <span className="who">{seat.name}</span>
                                 <span className="role-tag">{seat.role}</span>
@@ -186,7 +189,7 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer }) => {
             </div>
             {selected && selected.kind !== 'empty' && (
                 <div className="dossier" data-testid="seat-dossier">
-                    <CartoonAvatar face={faceFor(selected.faceSeed)} size={72} label={selected.name} />
+                    <CartoonAvatar face={selected.face || faceFor(selected.faceSeed)} size={72} label={selected.name} />
                     <div>
                         <div className="lab">{selected.role}</div>
                         <div className="h3">{selected.name}</div>
