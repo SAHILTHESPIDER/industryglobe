@@ -104,7 +104,7 @@ export const StakeSale: React.FC<Props> = ({ player, valuation, onClose, onApply
                 inert={closing ? true : undefined}
             >
                 <div className="text-[11px] uppercase tracking-[0.22em] text-[#FFC44D]">Cap table</div>
-                <h3 className="text-4xl sm:text-5xl font-black uppercase leading-none mt-1" style={{ fontFamily: headingFont }}>Stake becho</h3>
+                <h3 className="text-4xl sm:text-5xl font-black uppercase leading-none mt-1" style={{ fontFamily: headingFont }}>Sell a stake</h3>
                 <p className="text-sm text-zinc-300 mt-2">{STAKE_SALE_LINE}</p>
                 {maxPoints < 1 && (
                     <div className="mt-4">

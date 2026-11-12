@@ -16,6 +16,9 @@ import { Operations } from './Operations';
 import { IdentBumper } from './IdentStage';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
 import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
+import { brandAccent, brandFrom } from '../../services/ownPlatform/brand';
+import { BrandColorStep } from './BrandColorStep';
+import { BrandStudio } from './BrandStudio';
 
 interface Props {
     player: Player;
@@ -67,6 +70,7 @@ const CloseButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer, initialPane }) => {
     const [pane, setPane] = useState<EmpirePane>(initialPane || (player.ownPlatform?.stage === 'BUILD' || player.ownPlatform?.stage === 'CONSTRUCTING' || player.ownPlatform?.stage === 'LIVE' ? 'build' : 'launch'));
     const [replay, setReplay] = useState(false);
+    const [studio, setStudio] = useState(false);
     const [showOpenIdent, setShowOpenIdent] = useState(false);
     const playedOpenIdent = useRef(false);
 
@@ -105,8 +109,11 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const pastDefine = state.stage !== 'DEFINE' || state.commissioned;
     const kicker = pane === 'launch'
         ? 'Define the launch'
-        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Kahani khareedo' : pane === 'ops' ? 'Operations' : 'The world';
-    const title = pane === 'launch'
+        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Rights' : pane === 'ops' ? 'Operations' : 'The world';
+    const needsColour = state.colorChosen === false && pane === 'launch';
+    const title = needsColour
+        ? 'Pick the colour'
+        : pane === 'launch'
         ? LAUNCH_TITLES[state.defineStep] || serviceName
         : pane === 'build'
             ? (state.buildStep === 0 ? 'Lay the network' : state.buildStep === 1 ? 'Then find out what it costs' : state.buildStep === 2 ? 'Rehearse opening night' : 'Sign the build')
@@ -152,16 +159,36 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 buildStep={state.buildStep}
                 pastDefine={pastDefine}
                 markId={state.brand?.markId}
+                accent={brandAccent(state.brand)}
+                frameId={state.brand?.frameId}
+                typefaceId={state.brand?.typefaceId}
                 onWatchIntro={() => setReplay(true)}
                 onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
                 onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}
             >
+                <div style={{ padding: '12px 40px 0' }}>
+                    <button type="button" className="btn gho sm" data-testid="open-brand-studio" onClick={() => setStudio(true)}>Brand studio</button>
+                </div>
                 {(state.books?.seedStakePct || 0) > 0 && (
                     <p data-testid="seed-funding-note" style={{ padding: '14px 40px 0', color: '#b7f7d4', fontSize: 14, lineHeight: 1.45 }}>{LAUNCH_SEED_LINE}</p>
                 )}
                 {state.stage === 'CONSTRUCTING' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
                 {state.stage === 'LIVE' && pane !== 'launch' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}
-                {pane === 'launch' && (
+                {needsColour && (
+                    <div className="body">
+                        <BrandColorStep
+                            name={serviceName}
+                            brand={brandFrom(state.brand)}
+                            stepLabel="Step 1 of 8"
+                            onColor={colorId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, colorId }) })}
+                            onMark={markId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, markId }) })}
+                            onFrame={frameId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, frameId }) })}
+                            onTypeface={typefaceId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, typefaceId }) })}
+                            onContinue={() => setPlatform({ ...state, colorChosen: true, brand: brandFrom(state.brand) })}
+                        />
+                    </div>
+                )}
+                {pane === 'launch' && !needsColour && (
                     <DefineLaunch
                         player={player}
                         onChange={setPlatform}
@@ -231,6 +258,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                     </div>
                 )}
             </Shell>
+            {studio && <BrandStudio player={player} onPlayer={onUpdatePlayer} onClose={() => setStudio(false)} />}
             {state.introSeen && !state.hqCityId && !state.hqPromptSeen && pane !== 'rights' && (
                 <HqPrompt player={player} onPlayer={onUpdatePlayer} />
             )}

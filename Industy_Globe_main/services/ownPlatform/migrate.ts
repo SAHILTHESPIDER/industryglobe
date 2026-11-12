@@ -12,7 +12,8 @@ import {
     StudioBooks,
 } from '../../types';
 import { CLOUD_PROVIDERS, IDENTITY_PRESETS, LAUNCH_REGIONS, STOREFRONTS, createRivalRoster, getCountry } from './catalog';
-import { brandFrom, legacyBrand } from './brand';
+import { brandFrom, colorById, legacyBrand } from './brand';
+import { sanitizeBoardTeam } from './executives';
 import { IDENTS, LEGACY_IDENT } from './identEffects';
 import { anchorRates, decorateRival } from './fx';
 import { sanitizeLocalisations, sanitizePasses, sanitizePlan, sanitizeTitleStore } from './commercial';
@@ -57,7 +58,8 @@ export const createOwnPlatform = (player: Player): OwnPlatformState => {
         applications: [],
         identityId: IDENTITY_PRESETS[0].id,
         identId: 'pulse',
-        brand: { markId: 'globe', typefaceId: 'condensed', lockupId: 'beside' },
+        brand: brandFrom({ markId: 'globe', typefaceId: 'condensed', lockupId: 'beside', colorId: 'indigo' }),
+        colorChosen: false,
         storefrontId: STOREFRONTS[0].id,
         catalogue: [],
         plans: [{ ...DEFAULT_PLAN }],
@@ -117,6 +119,8 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         stage: raw.stage === 'BUILD' || raw.stage === 'CONSTRUCTING' || raw.stage === 'LIVE' || raw.stage === 'DEFINE' ? raw.stage : 'DEFINE',
         defineLayout: 2,
         introSeen,
+        colorChosen: raw.colorChosen === false ? false : true,
+        brandLocked: raw.brandLocked === true ? true : raw.brandLocked === false ? false : (raw.stage === 'CONSTRUCTING' || raw.stage === 'LIVE' || Boolean(raw.commissioned)),
         defineStep,
         buildStep: clampStep(raw.buildStep, 3),
         selectedCountryIds,
@@ -184,7 +188,11 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         books: normalizeBooks(raw.books),
         releaseSlot: normalizeSlot(raw.releaseSlot, player),
         ipo: normalizeIpo(raw.ipo, typeof raw.name === 'string' ? raw.name : created.name),
-        ownedStreamers: Array.isArray(raw.ownedStreamers) ? raw.ownedStreamers.filter(row => row && row.name) : [],
+        ownedStreamers: Array.isArray(raw.ownedStreamers) ? raw.ownedStreamers.filter(row => row && row.name).map(row => {
+            const known = typeof row.brandColorId === 'string' && colorById(row.brandColorId).id === row.brandColorId;
+            return known ? row : { ...row, brandColorId: undefined };
+        }) : [],
+        boardTeam: sanitizeBoardTeam(raw.boardTeam),
         resolvedCommissions: Array.isArray(raw.resolvedCommissions) ? raw.resolvedCommissions.filter(row => row && row.id) : [],
         streamRights: sanitizeStreamRights(raw.streamRights),
     };

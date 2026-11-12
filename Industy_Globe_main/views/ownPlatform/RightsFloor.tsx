@@ -95,14 +95,14 @@ export const RightsFloor: React.FC<Props> = ({ player, onPlayer }) => {
             <style>{'@media (prefers-reduced-motion: reduce) { [data-screen="rights-market"] * { animation: none !important; transition: none !important; } }'}</style>
             <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
-                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Kahani khareedo</div>
+                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Buy stories</div>
                     <h2 className="text-4xl lg:text-6xl font-black uppercase leading-none" style={{ fontFamily: headingFont }}>
-                        {desk === 'VAULT' ? 'Contract Vault' : desk === 'SELL' ? 'Apni film becho' : 'Market Floor'}
+                        {desk === 'VAULT' ? 'Contract Vault' : desk === 'SELL' ? 'Sell your film' : 'Market Floor'}
                     </h2>
                     <p className="text-sm text-zinc-400 max-w-xl mt-2">Buy shows for Empire+. Every cheque leaves company cash. Personal cash stays put.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                    {([['FLOOR', 'Market Floor'], ['VAULT', 'Contract Vault'], ['SELL', 'Apni film becho']] as [Desk, string][]).map(([id, label]) => (
+                    {([['FLOOR', 'Market Floor'], ['VAULT', 'Contract Vault'], ['SELL', 'Sell your film']] as [Desk, string][]).map(([id, label]) => (
                         <button key={id} type="button" data-testid={`rights-tab-${id.toLowerCase()}`} onClick={() => setDesk(id)} className={`px-4 py-2 rounded-full text-[11px] font-black uppercase tracking-wider ${desk === id ? 'bg-white text-black' : 'bg-white/10 text-zinc-300'}`}>{label}</button>
                     ))}
                 </div>
@@ -326,7 +326,7 @@ const Vault: React.FC<{ player: Player; onRenew: (id: string) => void; onDrop: (
                         <div key={row.id} data-testid={`vault-card-${row.id}`} className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#1a1730] to-[#12151c] p-4">
                             <div className="flex flex-wrap items-center gap-2">
                                 <Pill tone={badgeTone(row.kind)}>{RIGHT_LINES[row.kind].label}</Pill>
-                                <Pill tone={row.source === 'OWN_FILM' ? 'ok' : 'idle'}>{row.source === 'OWN_FILM' ? 'Apni film' : 'Licensed'}</Pill>
+                                <Pill tone={row.source === 'OWN_FILM' ? 'ok' : 'idle'}>{row.source === 'OWN_FILM' ? 'Your film' : 'Licensed'}</Pill>
                                 {row.kind === 'WINDOW' && <Pill tone={windowOpen(player, row) ? 'warn' : 'idle'}>{windowOpen(player, row) ? 'Window open' : 'Window widened'}</Pill>}
                             </div>
                             <div className="text-3xl font-black uppercase leading-none mt-2" style={{ fontFamily: headingFont }}>{row.title}</div>

@@ -783,6 +783,83 @@ export enum Page {
       markId: string;
       typefaceId: string;
       lockupId: string;
+      /** Swatch chosen when the service is founded or bought. Missing uses indigo. */
+      colorId?: string;
+      /** Shape around the mark. Missing means no extra frame, which is how older lockups were drawn. */
+      frameId?: 'circle' | 'rounded' | 'none';
+  }
+
+  export type ExecRole = 'CFO' | 'COO' | 'CTO' | 'CMO' | 'CONTENT';
+
+  /** Illustrated face. Numbers pick SVG parts. Never a photograph. */
+  export interface CartoonFace {
+      skin: number;
+      hair: number;
+      hairStyle: number;
+      eyes: number;
+      mouth: number;
+      accessory: number;
+      shirt: number;
+  }
+
+  /** One line on an officer's CV. */
+  export interface ExecPosting {
+      company: string;
+      years: number;
+      title: string;
+  }
+
+  /** An officer hired onto the company. Salary leaves company cash. */
+  export interface CompanyExecutive {
+      id: string;
+      role: ExecRole;
+      name: string;
+      country: string;
+      city: string;
+      skill: number;
+      /** Weekly draw. Older saves only have this. New contracts also store the yearly figure. */
+      weeklyFee: number;
+      trait: string;
+      face: CartoonFace;
+      hiredWeek: number;
+      hiredYear: number;
+      /** Yearly pay. Missing uses weeklyFee × 52. */
+      annualSalary?: number;
+      /** Contract length. Missing means 2 years. */
+      termYears?: number;
+      /** Paid once from company cash when the contract is signed. */
+      signingBonus?: number;
+      /** Fraction of the company granted with the contract. Missing means none. */
+      stakePct?: number;
+      /** Absolute week the contract ends. Missing is filled so an old hire is not dropped on load. */
+      endsAbsolute?: number;
+      posts?: ExecPosting[];
+      achievements?: string[];
+      totalYears?: number;
+  }
+
+  export interface ExecCandidate {
+      id: string;
+      role: ExecRole;
+      name: string;
+      country: string;
+      city: string;
+      skill: number;
+      weeklyFee: number;
+      trait: string;
+      face: CartoonFace;
+      /** What they ask per year. */
+      annualAsk: number;
+      /** 0–1. How much they want shares instead of cash. */
+      stakeAppetite: number;
+      posts: ExecPosting[];
+      achievements: string[];
+      totalYears: number;
+  }
+
+  /** Hired officers. Missing on older saves, which have an empty table. */
+  export interface BoardTeamState {
+      executives: CompanyExecutive[];
   }
 
   export type AdIntervalMin = 5 | 10 | 15 | 20 | 30;
@@ -1101,6 +1178,8 @@ export enum Page {
       householdsM: number;
       week: number;
       fromStockId?: string;
+      /** Colour picked before the cheque. Missing on older purchases. */
+      brandColorId?: string;
   }
 
   export interface ResolvedCommission {
@@ -1250,6 +1329,15 @@ export enum Page {
       defineLayout?: 1 | 2;
       /** Prologue finished or skipped. Missing on older saves. */
       introSeen?: boolean;
+      /** False until the founder picks a brand colour. Missing on older saves means that step is already done. */
+      colorChosen?: boolean;
+      /**
+       * Colour, logo, and type cannot change. Missing means locked once the build is signed, open before that.
+       * A rebrand sets this false until the new look is sealed.
+       */
+      brandLocked?: boolean;
+      /** Hired officers around the table. Missing on older saves. */
+      boardTeam?: BoardTeamState;
       defineStep: number;
       buildStep: number;
       selectedCountryIds: string[];

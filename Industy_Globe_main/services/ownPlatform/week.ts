@@ -11,6 +11,7 @@ import { normalizeOwnPlatform } from './migrate';
 import { sportsViewerBump } from './stakeSale';
 import { tickStreamRights } from './streamRights';
 import { settleBooks } from './studio';
+import { executiveModifiers, payExecutiveSalaries, tickExecContracts } from './executives';
 
 export interface PlatformWeekNote {
     msg: string;
@@ -194,29 +195,33 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             const application = state.applications.find(row => row.countryId === country.id);
             return application && (application.status === 'APPROVED' || (application.status === 'CONDITIONS' && application.acceptedConditions));
         });
+        const mods = executiveModifiers(state.boardTeam);
         const piracyRaw = countries.length
             ? countries.reduce((sum, country) => sum + countryPiracy(state, country), 0) / countries.length
             : quote.piracyShare;
-        const piracy = Number.isFinite(piracyRaw) ? piracyRaw : 0;
+        const piracy = clamp((Number.isFinite(piracyRaw) ? piracyRaw : 0) - mods.piracyCut, 0.02, 0.72);
         state.piracyShare = piracy;
-        const pressure = clamp(state.enforcement * 0.45 + piracy * 80, 0, 100);
+        const pressure = clamp(state.enforcement * 0.45 + piracy * 80 - mods.pressureCut, 0, 100);
         state.customerPressure = pressure;
+        if (mods.techCut > 0 && state.uptime != null) {
+            state.uptime = Math.min(100, Math.round(state.uptime + mods.techCut * 20));
+        }
         const marketingPull = Math.max(0, Math.min(0.1, state.marketingDemand || 0));
-        const target = quote.households * (1 - pulse.recession * 0.15) * (pressure > 75 ? 0.9 : 1) * (1 + marketingPull);
+        const target = quote.households * (1 - pulse.recession * 0.15) * (pressure > 75 ? 0.9 : 1) * (1 + marketingPull) * (1 + mods.reach);
         const ident = identById(state.identId);
         const growing = target > state.subscribers;
         const step = growing ? 0.18 : clamp(0.08 / Math.max(0.5, ident.retention), 0.04, 0.14);
         state.subscribers = Math.max(0, Math.round(state.subscribers + (target - state.subscribers) * step));
         state.subscribers += sportsViewerBump(state);
-        const revenueRaw = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0));
-        const burnRaw = Math.round(quote.weeklyBurn);
+        const revenueRaw = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0) * (1 + mods.quality));
+        const burnRaw = Math.round(quote.weeklyBurn * (1 - mods.costCut));
         const revenue = Number.isFinite(revenueRaw) ? revenueRaw : 0;
         const burn = Number.isFinite(burnRaw) ? burnRaw : 0;
+        const officeRent = Math.round(officeWeekly(state) * (1 - mods.costCut));
+        const locBill = Math.round(localisationWeekly(state) * (1 - mods.costCut));
+        const infraBill = Math.max(0, Math.round(Math.max(0, burn - locBill - officeRent) * (1 - mods.techCut)));
         state.lastWeeklyRevenue = revenue;
-        state.lastWeeklyBurn = burn;
-        const officeRent = officeWeekly(state);
-        const locBill = localisationWeekly(state);
-        const infraBill = Math.max(0, burn - locBill - officeRent);
+        state.lastWeeklyBurn = infraBill + locBill + officeRent;
         if (revenue > 0) addCompanyCash(player, revenue, `${state.name} subscriber, ad, pass, and store receipts`, 'RECEIPTS');
         if (infraBill > 0) addCompanyCash(player, -infraBill, `${state.name} server racks and cloud`, 'BURN');
         if (locBill > 0) addCompanyCash(player, -locBill, `${state.name} subtitles and dubs`, 'BURN');
@@ -234,15 +239,24 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     }
 
     if (state.stage !== 'LIVE') {
-        const officeRent = officeWeekly(state);
+        const officeCut = 1 - executiveModifiers(state.boardTeam).costCut;
+        const officeRent = Math.round(officeWeekly(state) * officeCut);
         if (officeRent > 0) {
             addCompanyCash(player, -officeRent, `${state.name} country office rent`, 'BURN');
             notes.push({ msg: `Country offices cost ${formatCompact(officeRent)} this week, from company cash.`, type: 'neutral' });
         }
+        state.lastWeeklyBurn = officeRent;
     }
+
+    notes.push(...tickExecContracts(player));
+    const payroll = payExecutiveSalaries(player);
+    notes.push(...payroll.notes);
 
     const rolled = rollWeeklyIncident(player.ownPlatform, weekKey, player.currentWeek, player.age);
     player.ownPlatform = rolled.state;
+    if (payroll.paid > 0 && player.ownPlatform) {
+        player.ownPlatform.lastWeeklyBurn = (player.ownPlatform.lastWeeklyBurn || 0) + payroll.paid;
+    }
     if (rolled.note) notes.push({ msg: rolled.note, type: 'negative' });
 
     notes.push(...tickStreamRights(player, absoluteWeek));

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LaunchQuote, formatCompact, formatPeople } from '../../services/ownPlatform/logic';
-import { markById } from '../../services/ownPlatform/brand';
+import { brandVolt, markById } from '../../services/ownPlatform/brand';
 import { BrandMark } from './BrandMark';
 import { LaunchRegionId } from '../../types';
 import { MARKET_COUNTRIES, REGION_CITIES } from '../../services/ownPlatform/catalog';
@@ -51,13 +51,18 @@ interface ShellProps {
     onBuildStep: (step: number) => void;
     onWatchIntro?: () => void;
     markId?: string;
+    accent?: string;
+    frameId?: 'circle' | 'rounded' | 'none';
+    typefaceId?: string;
 }
 
 export const Shell: React.FC<ShellProps> = ({
     children, onBack, kicker, title, pane, onPane, name, stage, money,
-    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId,
+    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId, accent, frameId, typefaceId,
 }) => {
     const live = stage === 'LIVE';
+    const ink = accent || markById(markId).accent;
+    const volt = brandVolt(ink);
     const stepNo = pane === 'launch'
         ? (defineStep >= 7 ? 'B' : String(defineStep + 1).padStart(2, '0'))
         : pane === 'build' ? String(buildStep + 1).padStart(2, '0') : '';
@@ -68,15 +73,15 @@ export const Shell: React.FC<ShellProps> = ({
     const railIndex = pane === 'build' ? buildStep : pane === 'launch' ? Math.min(defineStep, 6) : pane === 'ops' ? 1 : 0;
 
     return (
-        <div className="empire fixed inset-0 z-[180]" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="empire fixed inset-0 z-[180]" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)', ['--indigo' as string]: ink, ['--volt' as string]: volt, ['--brand' as string]: ink }}>
             <div className="app">
                 <aside className="rail">
                     <div className="brand">
-                        <div className="bolt" style={{ background: markById(markId).ink }}>
-                            <BrandMark id={markById(markId).id} color={markById(markId).accent} size={22} letter={name} />
+                        <div className="bolt" style={{ background: markById(markId).ink, borderRadius: frameId === 'circle' ? 999 : 10 }}>
+                            <BrandMark id={markById(markId).id} color={ink} size={22} letter={name} />
                         </div>
                         <div>
-                            <div className="nm">{(name || 'EMPIRE+').toUpperCase()}</div>
+                            <div className="nm" style={typefaceId === 'script' ? { textTransform: 'none', fontStyle: 'italic' } : undefined}>{typefaceId === 'script' ? (name || 'Empire+') : (name || 'EMPIRE+').toUpperCase()}</div>
                             <div className="st" style={{ color: live ? 'var(--go)' : undefined }}>{live ? 'On air' : 'Paper company'}</div>
                         </div>
                     </div>

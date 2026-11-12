@@ -29,6 +29,7 @@ import { COUNTRY_SEEDS } from '../../services/ownPlatform/countrySeeds';
 import { MapMarker, WorldMarketMap } from './WorldMarketMap';
 import { IncidentBoard, OfficeBoard } from './PlacePanels';
 import { Card, FooterBar, Stepper, headingFont } from './ui';
+import { IncorporationCertificate } from './IncorporationCertificate';
 
 interface Props {
     player: Player;
@@ -54,6 +55,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
     const [cityId, setCityId] = useState(citiesInRegion(state.regions[0]?.regionId || 'NORTH_AMERICA')[0]?.id || 'lax');
     const [mode, setMode] = useState<TrafficLoad>(state.loadTest?.mode || 'NORMAL');
     const [error, setError] = useState('');
+    const [certificate, setCertificate] = useState(false);
     const [notice, setNotice] = useState('');
     const [plannerOpen, setPlannerOpen] = useState(false);
     const [goal, setGoal] = useState<BuildGoalId>(state.buildGoal || 'BALANCED');
@@ -153,6 +155,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
         }
         setError('');
         onPlayer(result.player);
+        setCertificate(true);
     };
 
     return (
@@ -434,6 +437,7 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                             <div className="lab">Due on signature</div>
                             <div className="big">{formatCompact(quote.dueNow)}</div>
                             <button type="button" onClick={sign} disabled={state.commissioned} className={`btn pri full ${state.commissioned ? 'dis' : ''}`} style={{ marginTop: 18 }}>Sign and commission</button>
+                            {state.commissioned && <button type="button" className="btn gho full" style={{ marginTop: 8 }} onClick={() => setCertificate(true)}>The certificate</button>}
                         </div>
                     </div>
                 )}
@@ -446,6 +450,16 @@ export const BuildPlatform: React.FC<Props> = ({ player, onChange, onPlayer, onL
                 onNext={step < 3 ? () => go(step + 1) : undefined}
                 nextLabel={step === 0 ? 'Next · Money' : step === 1 ? 'Next · Test' : 'Next · Sign'}
             />
+            {certificate && (
+                <IncorporationCertificate
+                    company={state.name}
+                    founder={player.name}
+                    brand={state.brand}
+                    week={player.currentWeek}
+                    year={player.age}
+                    onClose={() => setCertificate(false)}
+                />
+            )}
         </div>
     );
 };

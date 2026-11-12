@@ -1,24 +1,28 @@
 import React from 'react';
 import { PlatformBrand } from '../../types';
-import { markById, typefaceById } from '../../services/ownPlatform/brand';
+import { brandAccent, frameById, markById, typefaceById } from '../../services/ownPlatform/brand';
 import { BrandMark } from './BrandMark';
 
 interface Props {
     brand: PlatformBrand;
     name: string;
     size?: 'sm' | 'md' | 'lg';
+    locked?: boolean;
 }
 
-const shown = (name: string) => {
-    const clean = (name.trim() || 'EMPIRE').toUpperCase();
-    return clean.endsWith('+') ? clean : `${clean}+`;
+const shown = (name: string, script: boolean) => {
+    const clean = (name.trim() || (script ? 'Empire' : 'EMPIRE'));
+    const word = script ? clean : clean.toUpperCase();
+    return word.endsWith('+') ? word : `${word}+`;
 };
 
 /** One of the four lockups, using the chosen mark and typeface. */
-export const BrandLockup: React.FC<Props> = ({ brand, name, size = 'md' }) => {
+export const BrandLockup: React.FC<Props> = ({ brand, name, size = 'md', locked }) => {
     const mark = markById(brand.markId);
     const face = typefaceById(brand.typefaceId);
-    const label = shown(name);
+    const accent = brandAccent(brand);
+    const script = brand.typefaceId === 'script';
+    const label = shown(name, script);
     const markSize = size === 'lg' ? 42 : size === 'sm' ? 18 : 28;
     const fontSize = size === 'lg' ? 40 : size === 'sm' ? 16 : 26;
     const text: React.CSSProperties = {
@@ -26,35 +30,52 @@ export const BrandLockup: React.FC<Props> = ({ brand, name, size = 'md' }) => {
         fontWeight: 800,
         fontSize,
         lineHeight: 0.9,
-        letterSpacing: brand.typefaceId === 'mono' ? '-0.04em' : '0.01em',
-        textTransform: 'uppercase',
-        color: mark.accent,
+        letterSpacing: brand.typefaceId === 'mono' ? '-0.04em' : script ? '0' : '0.01em',
+        textTransform: script ? 'none' : 'uppercase',
+        fontStyle: script ? 'italic' : 'normal',
+        color: accent,
     };
-    const icon = <BrandMark id={mark.id} color={mark.accent} size={markSize} letter={label} />;
+    const frame = frameById(brand.frameId);
+    const glyph = <BrandMark id={mark.id} color={accent} size={markSize} letter={label} />;
+    const icon = frame === 'none' ? glyph : (
+        <span
+            className={`mark-frame ${frame}`}
+            style={{
+                width: markSize + (size === 'sm' ? 8 : 16),
+                height: markSize + (size === 'sm' ? 8 : 16),
+                borderColor: accent,
+                boxShadow: `0 0 16px ${accent}55`,
+            }}
+        >
+            {glyph}
+        </span>
+    );
 
+    const badge = locked ? <span className="lock-badge">Locked at launch</span> : null;
+    const wrap = (node: React.ReactNode) => <div className="lockup-wrap">{node}{badge}</div>;
     if (brand.lockupId === 'word') {
-        return <div style={{ ...text, borderBottom: `3px solid ${mark.accent}`, paddingBottom: 4, display: 'inline-block' }}>{label}</div>;
+        return wrap(<div style={{ ...text, borderBottom: `3px solid ${accent}`, paddingBottom: 4, display: 'inline-block' }}>{label}</div>);
     }
     if (brand.lockupId === 'stacked') {
-        return (
+        return wrap(
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
                 {icon}
                 <div style={text}>{label}</div>
-            </div>
+            </div>,
         );
     }
     if (brand.lockupId === 'badge') {
-        return (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: size === 'sm' ? '4px 8px' : '8px 12px', borderRadius: 999, background: mark.ink, border: `1px solid ${mark.accent}` }}>
+        return wrap(
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: size === 'sm' ? '4px 8px' : '8px 12px', borderRadius: 999, background: mark.ink, border: `1px solid ${accent}` }}>
                 {icon}
                 <div style={{ ...text, fontSize: Math.max(14, fontSize * 0.55) }}>{label}</div>
-            </div>
+            </div>,
         );
     }
-    return (
+    return wrap(
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {icon}
             <div style={text}>{label}</div>
-        </div>
+        </div>,
     );
 };

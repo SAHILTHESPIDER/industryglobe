@@ -46,7 +46,7 @@ export const StakeDealClose: React.FC<Props> = ({ player, offer, onBackToOffers,
     const company = player.ownPlatform?.name || 'The company';
     const seller = player.name || 'Founder';
     const pct = pointsOf(offer.pct);
-    const ticker = `${offer.name} ne company ka ${pct}% kharida`;
+    const ticker = `${offer.name} bought ${pct}% of ${company}`;
 
     useEffect(() => {
         if (!shook) return;

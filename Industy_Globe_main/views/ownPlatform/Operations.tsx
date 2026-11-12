@@ -40,6 +40,10 @@ import { IPO_LINE, draftCanDrop, dropIpoDraft, ipoBlockers, showPct } from '../.
 import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
 import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
+import { BoardTable } from './BoardTable';
+import { OwnershipBoard } from './OwnershipBoard';
+import { BrandColorStep } from './BrandColorStep';
+import { brandFrom, colorById } from '../../services/ownPlatform/brand';
 import { ValuationSheet } from './ValuationSheet';
 import { PricingDesk } from './PricingDesk';
 import { headingFont } from './ui';
@@ -100,6 +104,8 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
             {desk === 'audience' && <AudienceDesk player={player} onPlayer={onPlayer} />}
             {desk === 'board' && (
                 <div className="space-y-8">
+                    <BoardTable player={player} onPlayer={onPlayer} />
+                    <OwnershipBoard player={player} />
                     <FinanceDesk player={player} onApply={apply} valuation={quoteValuation(player)} />
                     <AcquireDesk player={player} onApply={apply} />
                     <Boardroom player={player} onPlayer={onPlayer} />
@@ -293,7 +299,10 @@ const AudienceDesk: React.FC<{ player: Player; onPlayer: (next: Player) => void 
                 <div className="text-xs text-zinc-500 mt-3">Owned services</div>
                 {(state.ownedStreamers || []).length === 0 && <p className="text-sm text-zinc-500">You have not bought another platform.</p>}
                 {(state.ownedStreamers || []).map(row => (
-                    <div key={row.id} className="mt-2 text-sm">{row.name} · {row.householdsM.toFixed(1)}M homes · {formatCompact(row.pricePaid)}</div>
+                    <div key={row.id} className="mt-2 text-sm flex items-center gap-2">
+                        <i className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: colorById(row.brandColorId).hex }} />
+                        <span>{row.name} · {row.householdsM.toFixed(1)}M homes · {formatCompact(row.pricePaid)}</span>
+                    </div>
                 ))}
             </div>
         </div>
@@ -402,7 +411,7 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     <div className="mt-4">
                         {canSell ? (
                             <>
-                                <button type="button" data-testid="stake-becho" onClick={() => setSaleOpen(true)} className="px-4 py-2 rounded-full bg-[#FFC44D] text-black text-[11px] font-black uppercase tracking-wider">Stake becho</button>
+                                <button type="button" data-testid="stake-becho" onClick={() => setSaleOpen(true)} className="px-4 py-2 rounded-full bg-[#FFC44D] text-black text-[11px] font-black uppercase tracking-wider">Sell a stake</button>
                                 <p className="text-sm text-zinc-300 mt-2">{STAKE_SALE_LINE}</p>
                             </>
                         ) : (
@@ -483,9 +492,13 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
 const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player; error?: string }) => void }> = ({ player, onApply }) => {
     const deals = listPlatformDeals(player);
     const [valuingId, setValuingId] = useState<string | null>(null);
+    const [paintFor, setPaintFor] = useState<string | null>(null);
+    const [paintId, setPaintId] = useState('indigo');
+    const painting = deals.find(deal => deal.id === paintFor);
     const file = (dealId: string, financing: BuyFinancing) => {
         setValuingId(null);
-        onApply(purchasePlatform(player, dealId, financing));
+        setPaintFor(null);
+        onApply(purchasePlatform(player, dealId, financing, paintId));
     };
     return (
         <div className="space-y-3">
@@ -500,12 +513,25 @@ const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                         <div className="font-bold text-lg truncate">{deal.name}</div>
                         <div className="text-xs text-zinc-500">{deal.householdsM.toFixed(1)}M homes · {deal.note}</div>
                         <div className="text-2xl font-black mt-2">{formatCompact(deal.price)}</div>
-                        <button onClick={() => setValuingId(deal.id)} className="mt-3 w-full py-2 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider">
-                            Review valuation
+                        <button onClick={() => { setPaintFor(deal.id); setPaintId('indigo'); setValuingId(null); }} className="mt-3 w-full py-2 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider">
+                            Pick a colour
                         </button>
                     </div>
                 ))}
             </div>
+            {painting && !valuingId && (
+                <div className="rounded-3xl border border-white/10 bg-[#07080d] p-4">
+                    <BrandColorStep
+                        name={painting.name}
+                        brand={brandFrom({ markId: player.ownPlatform?.brand?.markId, colorId: paintId })}
+                        hint="This colour belongs to the service you are buying. The valuation and the cheque come next. The money still leaves company cash."
+                        stepLabel="Step 1 of 2"
+                        continueLabel="Next · Valuation"
+                        onColor={setPaintId}
+                        onContinue={() => setValuingId(painting.id)}
+                    />
+                </div>
+            )}
             {valuingId && (
                 <ValuationSheet
                     player={player}

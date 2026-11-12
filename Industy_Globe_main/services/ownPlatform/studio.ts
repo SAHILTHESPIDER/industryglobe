@@ -20,6 +20,8 @@ import { clampReleaseOffset, releaseWeekLabel, releaseWeekParts, RELEASE_HORIZON
 import { publicBrandName } from '../rights/alterName';
 import { addCompanyCash, readCompanyCash } from './companyCash';
 import { stakeBoardSeats, stakeObligationNote, stakeProfitCuts } from './stakeSale';
+import { colorById } from './brand';
+import { executiveModifiers } from './executives';
 import { readValuationParts } from './ipo';
 
 const FACILITY_USD = 4_000_000;
@@ -227,7 +229,7 @@ export const listPlatformDeals = (player: Player): PlatformDeal[] => {
     return [...fromStocks, ...rivals];
 };
 
-export const purchasePlatform = (player: Player, dealId: string, financing?: BuyFinancing): { player: Player; error?: string } => {
+export const purchasePlatform = (player: Player, dealId: string, financing?: BuyFinancing, brandColorId?: string): { player: Player; error?: string } => {
     if (!player.ownPlatform) return { player, error: 'Open Empire+ before you buy another service.' };
     if (!financing) return { player, error: 'Open the valuation and show how the cheque gets paid.' };
     const quote = quoteAcquisition(player, dealId);
@@ -287,6 +289,7 @@ export const purchasePlatform = (player: Player, dealId: string, financing?: Buy
     };
     const state = next.ownPlatform!;
     const price = quote.equityCheque;
+    const picked = brandColorId && colorById(brandColorId).id === brandColorId ? brandColorId : undefined;
     const owned: OwnedStreamer = {
         id: `own_${deal.id}`,
         name: deal.name,
@@ -294,6 +297,7 @@ export const purchasePlatform = (player: Player, dealId: string, financing?: Buy
         householdsM: deal.householdsM,
         week: next.currentWeek,
         fromStockId: deal.stockId,
+        brandColorId: picked,
     };
     state.ownedStreamers = [...(state.ownedStreamers || []), owned];
     if (deal.rivalId) {
@@ -905,7 +909,8 @@ export const settleBooks = (player: Player): { notes: { msg: string; type: 'posi
     const burn = state.lastWeeklyBurn || 0;
     let profit = revenue - burn;
     if (books.debt > 0) {
-        const interest = Math.round(books.debt * (books.facilityRate || FACILITY_RATE) / 52);
+        const rateCut = executiveModifiers(state.boardTeam).financeRateCut;
+        const interest = Math.round(books.debt * (books.facilityRate || FACILITY_RATE) * (1 - rateCut) / 52);
         const principal = Math.min(books.debt, Math.max(25_000, Math.round(books.debt * 0.02)));
         books.debt = Math.max(0, books.debt - principal);
         const due = interest + principal;

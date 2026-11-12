@@ -46,6 +46,12 @@ export const BrandMark: React.FC<Props> = ({ id, color = '#F5C16C', size = 28, l
             return <svg {...common}><rect x="5" y="7" width="22" height="16" rx="2" {...stroke} /><path d="M5 23h22" {...stroke} /></svg>;
         case 'bars':
             return <svg {...common}><path d="M7 22V12M16 22V6M25 22v-7" {...stroke} strokeWidth="3" /></svg>;
+        case 'play':
+            return <svg {...common}><path d="M11 7v18l14-9z" fill={color} /></svg>;
+        case 'crown':
+            return <svg {...common}><path d="M6 22 9 10l7 6 7-6 3 12z" {...stroke} /><path d="M8 25h16" {...stroke} /></svg>;
+        case 'flame':
+            return <svg {...common}><path d="M16 4c2 5-2 7-1 11 3-2 7 1 7 6a6 6 0 0 1-12 0c0-3 2-5 3-8 0 3 2 4 3 2-1-3 0-7 0-11z" fill={color} /></svg>;
         case 'globe':
         default:
             return (
