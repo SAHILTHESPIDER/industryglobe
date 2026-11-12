@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ClosedRightsDeal, Player } from '../../types';
 import { createOwnPlatform } from '../../services/ownPlatform/migrate';
 import { brandAccent, brandFrom, brandVolt } from '../../services/ownPlatform/brand';
@@ -80,6 +80,15 @@ const fixture = (screen: PreviewScreen): Player => {
 /** Local screens for the colour step, the table, and the ownership board. */
 export const EmpirePreview: React.FC<{ screen: PreviewScreen }> = ({ screen }) => {
     const [player, setPlayer] = useState(() => fixture(screen));
+    useEffect(() => {
+        const report = () => {
+            const extra = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+            document.documentElement.setAttribute('data-h-scroll', String(extra));
+        };
+        report();
+        window.addEventListener('resize', report);
+        return () => window.removeEventListener('resize', report);
+    }, [screen]);
     const state = player.ownPlatform!;
     const accent = brandAccent(state.brand);
     return (
@@ -88,7 +97,7 @@ export const EmpirePreview: React.FC<{ screen: PreviewScreen }> = ({ screen }) =
             data-screen={`preview-${screen}`}
             style={{ minHeight: '100vh', ['--indigo' as string]: accent, ['--volt' as string]: brandVolt(accent), ['--brand' as string]: accent }}
         >
-            <div style={{ padding: screen === 'colour' ? 20 : 16, maxWidth: 1440, margin: '0 auto' }}>
+            <div style={{ padding: screen === 'colour' ? 20 : 16, maxWidth: 1440, margin: '0 auto', width: '100%', minWidth: 0 }}>
                 {screen === 'colour' && (
                     <BrandColorStep
                         name={state.name}

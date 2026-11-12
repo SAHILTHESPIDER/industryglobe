@@ -332,24 +332,25 @@
 .empire .skill-meter i{display:block;height:100%;background:linear-gradient(90deg,#4F3BFF,#E4B15A);animation:meter-in .7s ease both}
 .empire .chip.gold{border-color:#E4B15A;color:#E4B15A}
 .empire .chip.off{opacity:.35}
+.empire .own,.empire .room,.empire .papers,.empire .colour-step,.empire .table-floor,.empire .own-grid,.empire .own-grid>*,.empire .tape,.empire .paper-stack,.empire .paper-stack>*,.empire .table-floor>*,.empire .hire-card,.empire .board-stage{min-width:0;max-width:100%}
 .empire .own{margin-top:18px}
-.empire .own-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,.9fr);grid-template-areas:"tape tape" "stakes deals" "bell deals";gap:14px}
+.empire .own-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.9fr);grid-template-areas:"tape tape" "stakes deals" "bell deals";gap:14px}
 .empire .tape-card{grid-area:tape}
 .empire .stakes{grid-area:stakes}
 .empire .bell{grid-area:bell}
 .empire .dealroom{grid-area:deals}
-.empire .ticker-symbol{font-family:var(--h);font-weight:900;font-size:clamp(36px,5vw,72px);line-height:.9;letter-spacing:.06em;white-space:nowrap;overflow:visible}
-.empire .tape{margin-top:8px;overflow:hidden;border-radius:999px;border:1px solid #E4B15A55;background:#07080d}
+.empire .ticker-symbol{font-family:var(--h);font-weight:900;font-size:clamp(28px,12vw,72px);line-height:.9;letter-spacing:.04em;max-width:100%}
+.empire .tape{width:100%;margin-top:8px;overflow:hidden;border-radius:999px;border:1px solid #E4B15A55;background:#07080d}
 .empire .tape-track{display:flex;width:max-content;animation:tape-run 18s linear infinite}
 .empire .tape-track span{padding:8px 32px;white-space:nowrap;font-family:var(--m);font-size:12px;color:#f4f5fa}
 .empire .tape-copy{margin:8px 0 0;font-family:var(--m);font-size:12px;line-height:1.45;color:var(--mute);overflow-wrap:anywhere}
 .empire .total{font-family:var(--h);font-weight:900;font-size:28px;color:var(--warn)}
 .empire .donut-wrap{position:relative;width:180px;height:180px;margin:12px auto}
-.empire .donut{width:180px;height:180px;transform:rotate(-90deg)}
+.empire .donut{width:180px;height:180px;max-width:100%;transform:rotate(-90deg)}
 .empire .donut-track{fill:none;stroke:#ffffff14;stroke-width:14}
-.empire .donut-seg{fill:none;stroke-width:14;stroke-linecap:butt;animation:donut-draw 1s ease both}
+.empire .donut-seg{fill:none;stroke-width:14;stroke-linecap:butt;stroke-dasharray:var(--len) var(--rest);stroke-dashoffset:var(--off);animation:donut-draw 1.1s ease both}
 .empire .donut-hole{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--h);font-weight:900;font-size:32px;color:var(--warn)}
-.empire .holder-chips{display:flex;flex-wrap:wrap;gap:8px}
+.empire .holder-chips,.empire .bell-stops,.empire .chips,.empire .frame-row{display:flex;flex-wrap:wrap;gap:8px;max-width:100%}
 .empire .holder-chip{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 4px;background:#07080d}
 .empire .holder-chip span{font-size:12px;font-weight:700;max-width:120px}
 .empire .holder-chip b{color:var(--warn);font-size:12px}
@@ -408,7 +409,7 @@
 @keyframes seat-pulse{50%{filter:drop-shadow(0 0 8px #e4b15a)}}
 @keyframes face-blink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.12)}}
 @keyframes tape-run{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@keyframes donut-draw{from{opacity:0}to{opacity:1}}
+@keyframes donut-draw{from{stroke-dasharray:0 var(--circ)}}
 @keyframes row-in{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
 @keyframes node-pulse{50%{box-shadow:0 0 0 7px #E4B15A33}}
 @keyframes meter-in{from{transform:scaleX(0);transform-origin:left}}
@@ -425,12 +426,13 @@
   .empire .font-cards,.empire .logo-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
   .empire .table-floor{grid-template-columns:1fr 1fr}
   .empire .paper-stack{grid-template-columns:1fr 1fr}
-  .empire .own-grid{grid-template-columns:1fr 1fr;grid-template-areas:"tape tape" "stakes bell" "deals deals"}
+  .empire .own-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"tape tape" "stakes bell" "deals deals"}
 }
 @container empire (max-width:760px){
   .empire .colour-step,.empire .own-grid,.empire .table-floor,.empire .deal-stats,.empire .room-meters,.empire .paper-stack,.empire .font-cards{grid-template-columns:1fr}
   .empire .logo-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .empire .own-grid{grid-template-areas:"tape" "stakes" "bell" "deals"}
+  .empire{overflow-x:clip}
+  .empire .own-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"tape" "stakes" "bell" "deals"}
   .empire .board-stage{height:540px;min-height:540px}
   .empire .board-wood{left:12%;right:12%;top:20%;bottom:22%}
   .empire .board-seat{width:86px}
@@ -463,5 +465,5 @@
 @media (prefers-reduced-motion: reduce){
   .empire .swatch-btn.on,.empire .board-seat.empty,.empire .cartoon .eyes,.empire .tape-track,.empire .donut-seg,.empire .bell-node.cur,.empire .stake-ledger li,.empire .share-cert,.empire .sign-draw,.empire .cert-sheet,.empire .cert-seal,.empire .mini-seal,.empire .preview-pop,.empire .vault-drawer{animation:none !important;transition:none !important}
   .empire .sign-draw,.empire .sign-name{stroke-dashoffset:0;fill:#1a1408;clip-path:none}
-  .empire .donut-seg{stroke-dashoffset:inherit}
+  .empire .sign-name{fill:#1a1408;clip-path:none}
 }

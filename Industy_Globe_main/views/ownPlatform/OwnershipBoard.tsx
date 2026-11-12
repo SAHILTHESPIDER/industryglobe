@@ -61,7 +61,6 @@ const Donut: React.FC<{ rows: { id: string; points: number }[] }> = ({ rows }) =
             <circle cx="60" cy="60" r={radius} className="donut-track" />
             {rows.map((row, index) => {
                 const len = (row.points / 100) * circ;
-                const dash = `${len} ${circ - len}`;
                 const node = (
                     <circle
                         key={row.id}
@@ -70,8 +69,12 @@ const Donut: React.FC<{ rows: { id: string; points: number }[] }> = ({ rows }) =
                         r={radius}
                         className="donut-seg"
                         stroke={COLOURS[index % COLOURS.length]}
-                        strokeDasharray={dash}
-                        strokeDashoffset={-cursor}
+                        style={{
+                            ['--len' as string]: `${len}`,
+                            ['--rest' as string]: `${circ - len}`,
+                            ['--off' as string]: `${-cursor}`,
+                            ['--circ' as string]: `${circ}`,
+                        }}
                     />
                 );
                 cursor += len;
