@@ -55,6 +55,8 @@ export const sanitizePlan = (plan: PricingPlan): PricingPlan => {
     const introDiscountPct = clampPct(plan.introDiscountPct, 90);
     const introWeeks = Math.max(0, Math.min(13, Math.round(Number(plan.introWeeks) || 0)));
     const benefits = (plan.benefits || []).filter((benefit): benefit is PlanBenefit => BENEFITS.has(benefit));
+    const tiers = new Set(['FREE_ADS', 'BASIC_ADS', 'STANDARD', 'PREMIUM', 'RENT_BUY', 'CUSTOM']);
+    const subscribers = Number(plan.subscribers);
     return {
         ...plan,
         monthlyUsd,
@@ -65,6 +67,10 @@ export const sanitizePlan = (plan: PricingPlan): PricingPlan => {
         introDiscountPct: introDiscountPct || undefined,
         introWeeks: introDiscountPct > 0 ? Math.max(1, introWeeks || 4) : undefined,
         benefits: benefits.length ? benefits : undefined,
+        tier: plan.tier && tiers.has(plan.tier) ? plan.tier : undefined,
+        enabled: plan.enabled === false ? false : undefined,
+        sealedAtLaunch: plan.sealedAtLaunch === true ? true : undefined,
+        subscribers: Number.isFinite(subscribers) && subscribers >= 0 ? Math.round(subscribers) : undefined,
     };
 };
 
@@ -197,6 +203,14 @@ export const rollCommercial = (state: OwnPlatformState, households: number, mont
         priceFactor *= 1 - offs.reduce((sum, off) => sum + off, 0) / paid.length;
         const annual = paid.reduce((sum, plan) => sum + Math.min(50, Math.max(0, plan.annualDiscountPct || 0)), 0) / paid.length / 100;
         priceFactor *= 1 - annual * 0.4;
+        const billing = state.platformDesk?.billing;
+        if (billing?.tuned) {
+            const quarter = Math.min(40, Math.max(0, Number(billing.quarterPct) || 0)) / 100;
+            const half = Math.min(40, Math.max(0, Number(billing.halfPct) || 0)) / 100;
+            const quarterShare = quarter > 0 ? 0.12 : 0;
+            const halfShare = half > 0 ? 0.08 : 0;
+            priceFactor *= 1 - (quarterShare * quarter + halfShare * half);
+        }
     }
     if (free.length && plans.length) {
         factor *= 1 + Math.min(0.65, free.length / plans.length) * 0.28;
@@ -262,6 +276,12 @@ export const fundingPressure = (weeklyRevenue: number, weeklyBurn: number, cash:
             : 'Burn is ahead of receipts. A lower price or a smaller footprint eases the company, not your personal cash.';
     return { score, label, line };
 };
+
+/** 1 is the busiest ad reel. Viewers put off is 1 at a break every 5 minutes. */
+export const adBreakBars = (minutes: AdIntervalMin): { money: number; putOff: number } => ({
+    money: AD_YIELD[minutes] / AD_YIELD[5],
+    putOff: Math.max(0, (1 - AD_STAY[minutes]) / (1 - AD_STAY[5])),
+});
 
 export const adIntervalLine = (minutes: AdIntervalMin): string => {
     if (minutes === 5) return 'An ad every 5 minutes. The most ad money, and the most people who cancel.';

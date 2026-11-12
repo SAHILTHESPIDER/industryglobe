@@ -865,6 +865,86 @@ export enum Page {
   export type AdIntervalMin = 5 | 10 | 15 | 20 | 30;
   export type PlanBenefit = 'PREMIUM' | 'EARLY_ACCESS';
   export type LocalLevel = 'OFF' | 'MAIN' | 'FULL';
+  export type MembershipTier = 'FREE_ADS' | 'BASIC_ADS' | 'STANDARD' | 'PREMIUM' | 'RENT_BUY' | 'CUSTOM';
+  export type PlatformSiteRole = 'EDGE' | 'HUB' | 'CORE';
+
+  /** One lab purchase. The number is the version owned, 1–3. Missing rungs are locked. */
+  export interface PlatformResearchJob {
+      rungId: string;
+      version: number;
+      weeksLeft: number;
+      weeksTotal: number;
+  }
+
+  /** Billing chooser on the offer desk. Missing means the old plan prices stand. */
+  export interface PlatformBilling {
+      quarterPct?: number;
+      halfPct?: number;
+      yearPct?: number;
+      promoMonths?: number;
+      promoPct?: number;
+      /** 0–100. Share of paying households on a yearly bill. */
+      yearlyShare?: number;
+      adBreakMin?: 5 | 10 | 15 | 20;
+      /** True once the player moves a stepper. Untouched saves keep the old forecast. */
+      tuned?: boolean;
+  }
+
+  export interface PlatformProductRow {
+      id: string;
+      released?: boolean;
+      stars?: number;
+      featurePct?: number;
+  }
+
+  export interface PlatformTimelineEvent {
+      id: string;
+      week: number;
+      year: number;
+      cityId?: string;
+      text: string;
+  }
+
+  export interface PlatformFeedNote {
+      id: string;
+      week: number;
+      year: number;
+      text: string;
+      tone: 'ok' | 'warn' | 'bad';
+  }
+
+  export interface PlatformPulseRow {
+      regionId: LaunchRegionId;
+      weeks: number[];
+  }
+
+  /**
+   * Offer, tech, product, and status desk.
+   * Missing on saves from before the platform redesign. Defaults add no forecast change.
+   */
+  export interface PlatformDeskState {
+      /** Rung id to owned version, 1–3. */
+      owned?: Record<string, number>;
+      research?: PlatformResearchJob[];
+      freshUnlocks?: string[];
+      /** 0–100. Higher is worse. Missing means none. */
+      techDebt?: number;
+      researchPoints?: number;
+      billing?: PlatformBilling;
+      products?: PlatformProductRow[];
+      playbackPct?: number;
+      pulses?: PlatformPulseRow[];
+      feed?: PlatformFeedNote[];
+      lastChurn?: number;
+      lastAdRevenue?: number;
+      lastSubRevenue?: number;
+      siteRoles?: Record<string, PlatformSiteRole>;
+      timeline?: PlatformTimelineEvent[];
+      freshSites?: string[];
+      revision?: number;
+      /** When false, the weekly loop only suggests sites. Missing means suggestions, plus one build when the night is overloaded and company cash covers it. */
+      autoBuild?: boolean;
+  }
 
   /** Subtitles and dubs for one open country. Missing means both are off. */
   export interface CountryLocalisation {
@@ -908,6 +988,14 @@ export enum Page {
       introWeeks?: number;
       /** Premium badge or early access. Missing means neither. */
       benefits?: PlanBenefit[];
+      /** Card family. Missing is inferred from price and ads. */
+      tier?: MembershipTier;
+      /** Off plans stay on the shelf and take no subscribers. Missing means on. */
+      enabled?: boolean;
+      /** Written into the launch slate. The platform desk will not edit it until the service is live. */
+      sealedAtLaunch?: boolean;
+      /** Households on this plan. Missing is split from the company total for display. */
+      subscribers?: number;
   }
 
   export interface RegionBuild {
@@ -1410,6 +1498,8 @@ export enum Page {
       streamRights?: StreamRightsDesk;
       /** Live marketing pull on household demand, 0–0.1. Missing means none. */
       marketingDemand?: number;
+      /** Tech, offer, product, and status. Missing on older saves. */
+      platformDesk?: PlatformDeskState;
   }
   
   export interface FuturePotential {
