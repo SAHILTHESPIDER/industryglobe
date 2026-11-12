@@ -32,7 +32,7 @@ import {
     hashString,
 } from './catalog';
 import { addCompanyCash, readCompanyCash } from './companyCash';
-import { adBoostFor, fundingPressure, lanesForBoost, localisationAudience, localisationWeekly, RevenueParts, rollCommercial } from './commercial';
+import { adBoostFor, enabledPlans, fundingPressure, lanesForBoost, localisationAudience, localisationWeekly, RevenueParts, rollCommercial } from './commercial';
 import { planUsdInCountry } from './fx';
 import { identById } from './identEffects';
 import { publicBrandName } from '../rights/alterName';
@@ -193,22 +193,27 @@ export const finiteSticker = (value: unknown): number | undefined => {
 export const planAnchorUsd = (plan: { monthlyUsd?: number } | undefined): number =>
     finiteSticker(plan?.monthlyUsd) ?? STANDARD_PLAN_USD;
 
+/** Plans that still sell. Off plans do not dilute the launch price or the forecast. */
+const offerPlans = (state: OwnPlatformState) => enabledPlans(state.plans);
+
 export const averageUsdInCountry = (state: OwnPlatformState, countryId: string): number => {
-    if (!state.plans.length) return 0;
-    const total = state.plans.reduce((sum, plan) => {
+    const plans = offerPlans(state);
+    if (!plans.length) return 0;
+    const total = plans.reduce((sum, plan) => {
         const usd = planUsdInCountry({ ...plan, monthlyUsd: planAnchorUsd(plan) }, countryId, state.fxRates);
         return sum + (Number.isFinite(usd) ? Math.max(0, usd) : 0);
     }, 0);
-    const average = total / state.plans.length;
+    const average = total / plans.length;
     return Number.isFinite(average) ? average : 0;
 };
 
 /** When an ident favours the expensive plan, revenue uses that mix. Household count still uses the plain average. */
 export const mixUsdInCountry = (state: OwnPlatformState, countryId: string): number => {
+    const plans = offerPlans(state);
     const lift = identById(state.identId).premiumLift;
-    if (!state.plans.length) return 0;
-    if (state.plans.length < 2 || !(lift > 1)) return averageUsdInCountry(state, countryId);
-    const prices = state.plans.map(plan => {
+    if (!plans.length) return 0;
+    if (plans.length < 2 || !(lift > 1)) return averageUsdInCountry(state, countryId);
+    const prices = plans.map(plan => {
         const usd = planUsdInCountry({ ...plan, monthlyUsd: planAnchorUsd(plan) }, countryId, state.fxRates);
         return Number.isFinite(usd) ? Math.max(0, usd) : 0;
     });
@@ -220,8 +225,9 @@ export const mixUsdInCountry = (state: OwnPlatformState, countryId: string): num
 };
 
 export const averagePlanPrice = (state: OwnPlatformState): number => {
-    if (!state.plans.length) return 0;
-    const anchor = state.plans.reduce((sum, plan) => sum + planAnchorUsd(plan), 0) / state.plans.length;
+    const plans = offerPlans(state);
+    if (!plans.length) return 0;
+    const anchor = plans.reduce((sum, plan) => sum + planAnchorUsd(plan), 0) / plans.length;
     const countries = selectedCountries(state);
     if (!countries.length) return finiteNumber(anchor, STANDARD_PLAN_USD);
     const weight = countries.reduce((sum, country) => sum + Math.max(0, finiteNumber(country.audienceM, 0)), 0);

@@ -11,7 +11,7 @@ import {
     PricingPlan,
 } from '../../types';
 import { LAUNCH_REGIONS, SERVER_CLASSES, ServerClass, hashString } from './catalog';
-import { withLane } from './commercial';
+import { enabledPlans, withLane } from './commercial';
 import { addCompanyCash, readCompanyCash } from './companyCash';
 import { addRack, cityBill, effectiveSites, rackCount, roomFits, sitesSteady, sitesWeekly } from './infrastructure';
 import { regionsFromSites } from './logic';
@@ -640,28 +640,66 @@ export const PLAN_TEMPLATES: { tier: MembershipTier; name: string; monthlyUsd: n
     { tier: 'PREMIUM', name: 'Premium', monthlyUsd: 17.99, ads: false, downloads: true, quality: '4K', screens: 4, benefits: ['PREMIUM', 'EARLY_ACCESS'] },
 ];
 
-export const planSubscribers = (state: OwnPlatformState): Record<string, number> => {
-    const active = state.plans.filter(plan => plan.enabled !== false);
-    const stored = active.reduce((sum, plan) => sum + (Number.isFinite(plan.subscribers) ? (plan.subscribers as number) : 0), 0);
-    const close = state.subscribers > 0 && Math.abs(stored - state.subscribers) <= Math.max(5, state.subscribers * 0.02);
-    if (close && active.every(plan => Number.isFinite(plan.subscribers))) {
-        return Object.fromEntries(state.plans.map(plan => [plan.id, plan.enabled === false ? 0 : (plan.subscribers || 0)]));
-    }
-    const weights = active.map(plan => plan.freeWithAds ? 1.4 : Math.max(0.2, 1.3 - (plan.monthlyUsd || 0) / 28));
+const planWeight = (plan: PricingPlan): number =>
+    plan.freeWithAds ? 1.4 : Math.max(0.2, 1.3 - (plan.monthlyUsd || 0) / 28);
+
+/** Split `amount` by price weight. The last plan takes the rounding remainder. */
+const weightShares = (plans: PricingPlan[], amount: number): number[] => {
+    const weights = plans.map(planWeight);
     const total = weights.reduce((sum, weight) => sum + weight, 0) || 1;
-    const out: Record<string, number> = {};
-    let left = state.subscribers;
-    active.forEach((plan, index) => {
-        const count = index === active.length - 1 ? left : Math.round(state.subscribers * weights[index] / total);
-        out[plan.id] = Math.max(0, count);
-        left -= out[plan.id];
+    const shares = plans.map(() => 0);
+    let left = amount;
+    plans.forEach((_, index) => {
+        const slice = index === plans.length - 1 ? left : Math.round(amount * weights[index] / total);
+        shares[index] = slice;
+        left -= slice;
     });
+    return shares;
+};
+
+/**
+ * Keep each plan's households and only move the gap between that sum and the company total.
+ * Growth and churn use the same price weights as a first split. A plan with no stored count starts at 0,
+ * so an old save (no per-plan counts) still splits the whole company the first time.
+ */
+const carryCounts = (plans: PricingPlan[], target: number): number[] => {
+    const counts = plans.map(plan => {
+        const stored = Number(plan.subscribers);
+        return Number.isFinite(stored) && stored > 0 ? Math.round(stored) : 0;
+    });
+    let remaining = target - counts.reduce((sum, count) => sum + count, 0);
+    for (let guard = 0; guard < plans.length + 2 && remaining !== 0; guard += 1) {
+        const pool = plans
+            .map((plan, index) => ({ plan, index }))
+            .filter(row => remaining > 0 || counts[row.index] > 0);
+        if (!pool.length) break;
+        const shares = weightShares(pool.map(row => row.plan), remaining);
+        let unused = 0;
+        pool.forEach((row, slot) => {
+            let slice = shares[slot];
+            if (slice < 0 && counts[row.index] + slice < 0) {
+                unused += counts[row.index] + slice;
+                slice = -counts[row.index];
+            }
+            counts[row.index] += slice;
+        });
+        if (unused === 0) break;
+        remaining = unused;
+    }
+    return counts;
+};
+
+export const planSubscribers = (state: OwnPlatformState): Record<string, number> => {
+    const active = enabledPlans(state.plans);
+    const counts = carryCounts(active, Math.max(0, Math.round(state.subscribers || 0)));
+    const out: Record<string, number> = {};
+    active.forEach((plan, index) => { out[plan.id] = counts[index] || 0; });
     state.plans.forEach(plan => { if (!(plan.id in out)) out[plan.id] = 0; });
     return out;
 };
 
 const stampPlans = (state: OwnPlatformState) => {
-    const split = planSubscribers({ ...state, plans: state.plans.map(plan => ({ ...plan, subscribers: undefined })) });
+    const split = planSubscribers(state);
     state.plans.forEach(plan => { plan.subscribers = split[plan.id] || 0; });
 };
 
@@ -723,13 +761,33 @@ export const setPlanPrice = (state: OwnPlatformState, id: string, monthlyUsd: nu
 export const removePlan = (state: OwnPlatformState, id: string, moveTo: string | 'cancel'): { state: OwnPlatformState; error?: string } => {
     if (state.stage !== 'LIVE') return { state, error: 'Plans set at launch stay locked until launch.' };
     if (state.plans.length < 2) return { state, error: 'Keep at least one plan.' };
+    const enabledLeft = state.plans.filter(plan => plan.enabled !== false && plan.id !== id);
+    if (enabledLeft.length === 0) return { state, error: 'Keep at least one plan on.' };
     const split = planSubscribers(state);
     const moving = split[id] || 0;
     const rest = state.plans.filter(plan => plan.id !== id);
-    if (moveTo !== 'cancel' && !rest.some(plan => plan.id === moveTo)) return { state, error: 'Pick a plan to catch them.' };
+    if (moveTo !== 'cancel' && !rest.some(plan => plan.id === moveTo && plan.enabled !== false)) return { state, error: 'Pick a plan to catch them.' };
     const subscribers = moveTo === 'cancel' ? Math.max(0, state.subscribers - moving) : state.subscribers;
     const plans = rest.map(plan => plan.id === moveTo ? { ...plan, subscribers: (split[plan.id] || 0) + moving } : { ...plan, subscribers: split[plan.id] || 0 });
     return { state: { ...state, subscribers, plans } };
+};
+
+const nextPlanId = (plans: PricingPlan[], tier: MembershipTier): string => {
+    const prefix = `plan-${tier.toLowerCase()}-`;
+    const used = new Set(plans.map(plan => plan.id));
+    let max = 0;
+    used.forEach(id => {
+        if (!id.startsWith(prefix)) return;
+        const suffix = Number(id.slice(prefix.length));
+        if (Number.isInteger(suffix) && suffix > max) max = suffix;
+    });
+    let serial = max + 1;
+    let id = `${prefix}${serial}`;
+    while (used.has(id)) {
+        serial += 1;
+        id = `${prefix}${serial}`;
+    }
+    return id;
 };
 
 export const addPlan = (state: OwnPlatformState, tier: MembershipTier, custom?: { name: string; monthlyUsd: number }): { state: OwnPlatformState; error?: string } => {
@@ -753,7 +811,7 @@ export const addPlan = (state: OwnPlatformState, tier: MembershipTier, custom?: 
     const monthlyUsd = tier === 'CUSTOM' ? Math.round((custom?.monthlyUsd || 9.99) * 100) / 100 : (template?.monthlyUsd || 9.99);
     if (tier === 'CUSTOM' && (monthlyUsd < 0.99 || monthlyUsd > 100)) return { state, error: 'Paid plans stay between $0.99 and $100.' };
     const plan: PricingPlan = {
-        id: `plan-${tier.toLowerCase()}-${state.plans.length + 1}`,
+        id: nextPlanId(state.plans, tier),
         name,
         monthlyUsd: template?.freeWithAds ? 0 : monthlyUsd,
         ads: template?.ads || false,
