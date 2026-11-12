@@ -496,6 +496,11 @@
   clip-path:none !important;
 }
 .empire.settled .sign-name{fill:#1a1408}
+.empire.plat-mode .top{display:none}
+@container empire (max-width:760px){
+  .empire.plat-mode .mtop{display:none}
+  .empire .mtabs{flex-wrap:wrap;overflow:visible}
+}
 @media (prefers-reduced-motion: reduce){
   .empire .swatch-btn.on,.empire .board-seat.empty,.empire .cartoon .eyes,.empire .tape-track,.empire .donut-seg,.empire .bell-node.cur,.empire .stake-ledger li,.empire .share-cert,.empire .sign-draw,.empire .cert-sheet,.empire .cert-seal,.empire .mini-seal,.empire .preview-pop,.empire .vault-drawer{animation:none !important;transition:none !important}
   .empire .sign-draw,.empire .sign-name{stroke-dashoffset:0;fill:#1a1408;clip-path:none}

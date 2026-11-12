@@ -19,6 +19,7 @@ import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
 import { brandAccent, brandFrom } from '../../services/ownPlatform/brand';
 import { BrandColorStep } from './BrandColorStep';
 import { BrandStudio } from './BrandStudio';
+import { PlatformArea } from './platform/PlatformArea';
 
 interface Props {
     player: Player;
@@ -109,7 +110,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const pastDefine = state.stage !== 'DEFINE' || state.commissioned;
     const kicker = pane === 'launch'
         ? 'Define the launch'
-        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Rights' : pane === 'ops' ? 'Operations' : 'The world';
+        : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Rights' : pane === 'platform' ? 'Platform' : pane === 'ops' ? 'Operations' : 'The world';
     const needsColour = state.colorChosen === false && pane === 'launch';
     const title = needsColour
         ? 'Pick the colour'
@@ -121,7 +122,9 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 ? 'Rights'
                 : pane === 'ops'
                     ? 'Run the company'
-                    : 'Forty desks, one audience';
+                    : pane === 'platform'
+                        ? 'Platform'
+                        : 'Forty desks, one audience';
 
     if ((!state.introSeen || replay) && pane !== 'rights') {
         return (
@@ -166,14 +169,16 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
                 onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}
             >
-                <div style={{ padding: '12px 40px 0' }}>
-                    <button type="button" className="btn gho sm" data-testid="open-brand-studio" onClick={() => setStudio(true)}>Brand studio</button>
-                </div>
-                {(state.books?.seedStakePct || 0) > 0 && (
+                {pane !== 'platform' && (
+                    <div style={{ padding: '12px 40px 0' }}>
+                        <button type="button" className="btn gho sm" data-testid="open-brand-studio" onClick={() => setStudio(true)}>Brand studio</button>
+                    </div>
+                )}
+                {(state.books?.seedStakePct || 0) > 0 && pane !== 'platform' && (
                     <p data-testid="seed-funding-note" style={{ padding: '14px 40px 0', color: '#b7f7d4', fontSize: 14, lineHeight: 1.45 }}>{LAUNCH_SEED_LINE}</p>
                 )}
-                {state.stage === 'CONSTRUCTING' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
-                {state.stage === 'LIVE' && pane !== 'launch' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}
+                {state.stage === 'CONSTRUCTING' && pane !== 'platform' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
+                {state.stage === 'LIVE' && pane !== 'launch' && pane !== 'platform' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}
                 {needsColour && (
                     <div className="body">
                         <BrandColorStep
@@ -205,6 +210,14 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 )}
                 {pane === 'rights' && <RightsFloor player={player} onPlayer={onUpdatePlayer} />}
                 {pane === 'ops' && <Operations player={player} onPlayer={onUpdatePlayer} />}
+                {pane === 'platform' && (
+                    <PlatformArea
+                        player={player}
+                        onPlayer={onUpdatePlayer}
+                        onBack={() => setPane('ops')}
+                        onStudio={() => setStudio(true)}
+                    />
+                )}
                 {pane === 'world' && (
                     <div className="body">
                         <div className="grid g-side">

@@ -9,7 +9,7 @@ import './empire.css';
 
 export const headingFont = '"Barlow Condensed", "Arial Narrow", Impact, sans-serif';
 
-export type EmpirePane = 'launch' | 'build' | 'rights' | 'ops' | 'world';
+export type EmpirePane = 'launch' | 'build' | 'rights' | 'ops' | 'platform' | 'world';
 
 const DEFINE_STEPS: [string, string][] = [
     ['Name it', ''],
@@ -26,6 +26,7 @@ const PANES: [EmpirePane, string][] = [
     ['launch', 'Launch'],
     ['build', 'Build'],
     ['rights', 'Rights'],
+    ['platform', 'Platform'],
     ['ops', 'Operations'],
     ['world', 'World'],
 ];
@@ -73,7 +74,7 @@ export const Shell: React.FC<ShellProps> = ({
     const railIndex = pane === 'build' ? buildStep : pane === 'launch' ? Math.min(defineStep, 6) : pane === 'ops' ? 1 : 0;
 
     return (
-        <div className="empire fixed inset-0 z-[180]" data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)', ['--indigo' as string]: ink, ['--volt' as string]: volt, ['--brand' as string]: ink }}>
+        <div className={`empire fixed inset-0 z-[180]${pane === 'platform' ? ' plat-mode' : ''}`} data-screen="own-platform" style={{ paddingTop: 'env(safe-area-inset-top)', ['--indigo' as string]: ink, ['--volt' as string]: volt, ['--brand' as string]: ink }}>
             <div className="app">
                 <aside className="rail">
                     <div className="brand">
@@ -119,6 +120,12 @@ export const Shell: React.FC<ShellProps> = ({
                         </ul>
                         <div className="phase">Run</div>
                         <ul className="steps">
+                            <li className={pane === 'platform' ? 'cur' : ''}>
+                                <button type="button" className="step-link" onClick={() => onPane('platform')}>
+                                    <span className="d">▶</span>
+                                    Platform
+                                </button>
+                            </li>
                             <li className={pane === 'ops' ? 'cur' : live ? 'done' : ''}>
                                 <button type="button" className="step-link" onClick={() => onPane('ops')}>
                                     <span className="d">{live && pane !== 'ops' ? '✓' : '●'}</span>

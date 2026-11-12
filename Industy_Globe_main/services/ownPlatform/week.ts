@@ -12,6 +12,7 @@ import { sportsViewerBump } from './stakeSale';
 import { tickStreamRights } from './streamRights';
 import { settleBooks } from './studio';
 import { executiveModifiers, payExecutiveSalaries, tickExecContracts } from './executives';
+import { factorsAreIdentity, platformFactors, stampPlatformRevenue, techWeeklyBill, tickPlatformDesk } from './platformDesk';
 
 export interface PlatformWeekNote {
     msg: string;
@@ -177,6 +178,8 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         notes.push({ msg: rivalTick.headline, type: 'neutral' });
     }
 
+    notes.push(...tickPlatformDesk(player, absoluteWeek));
+
     if (state.stage === 'CONSTRUCTING') {
         state.constructionWeeksLeft = Math.max(0, state.constructionWeeksLeft - 1);
         if (state.constructionWeeksLeft === 0) {
@@ -207,25 +210,37 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             state.uptime = Math.min(100, Math.round(state.uptime + mods.techCut * 20));
         }
         const marketingPull = Math.max(0, Math.min(0.1, state.marketingDemand || 0));
-        const target = quote.households * (1 - pulse.recession * 0.15) * (pressure > 75 ? 0.9 : 1) * (1 + marketingPull) * (1 + mods.reach);
+        const factors = platformFactors(state);
+        const shaped = !factorsAreIdentity(factors);
+        const target = quote.households * (1 - pulse.recession * 0.15) * (pressure > 75 ? 0.9 : 1) * (1 + marketingPull) * (1 + mods.reach) * (shaped ? factors.demand : 1);
         const ident = identById(state.identId);
+        const beforeSubs = state.subscribers;
         const growing = target > state.subscribers;
-        const step = growing ? 0.18 : clamp(0.08 / Math.max(0.5, ident.retention), 0.04, 0.14);
+        const step = growing
+            ? 0.18 * (shaped ? Math.min(1.15, factors.retention) : 1)
+            : clamp((0.08 / Math.max(0.5, ident.retention)) * (shaped ? (2 - factors.retention) : 1), 0.04, 0.2);
         state.subscribers = Math.max(0, Math.round(state.subscribers + (target - state.subscribers) * step));
         state.subscribers += sportsViewerBump(state);
-        const revenueRaw = Math.round(quote.forecastWeeklyRevenue * (quote.households > 0 ? state.subscribers / quote.households : 0) * (1 + mods.quality));
+        const scale = quote.households > 0 ? state.subscribers / quote.households : 0;
+        const adPart = quote.revenueParts.ads * scale * (shaped ? factors.adBoost : 1);
+        const otherPart = (quote.forecastWeeklyRevenue - quote.revenueParts.ads) * scale;
+        const revenueRaw = Math.round((shaped ? (adPart + otherPart) * factors.quality : quote.forecastWeeklyRevenue * scale) * (1 + mods.quality));
         const burnRaw = Math.round(quote.weeklyBurn * (1 - mods.costCut));
         const revenue = Number.isFinite(revenueRaw) ? revenueRaw : 0;
         const burn = Number.isFinite(burnRaw) ? burnRaw : 0;
         const officeRent = Math.round(officeWeekly(state) * (1 - mods.costCut));
         const locBill = Math.round(localisationWeekly(state) * (1 - mods.costCut));
-        const infraBill = Math.max(0, Math.round(Math.max(0, burn - locBill - officeRent) * (1 - mods.techCut)));
+        const infraBill = Math.max(0, Math.round(Math.max(0, burn - locBill - officeRent) * (1 - mods.techCut) * (shaped ? factors.bandwidth : 1)));
+        const techBill = Math.round(techWeeklyBill(state));
         state.lastWeeklyRevenue = revenue;
         state.lastWeeklyBurn = infraBill + locBill + officeRent;
         if (revenue > 0) addCompanyCash(player, revenue, `${state.name} subscriber, ad, pass, and store receipts`, 'RECEIPTS');
         if (infraBill > 0) addCompanyCash(player, -infraBill, `${state.name} server racks and cloud`, 'BURN');
         if (locBill > 0) addCompanyCash(player, -locBill, `${state.name} subtitles and dubs`, 'BURN');
         if (officeRent > 0) addCompanyCash(player, -officeRent, `${state.name} country office rent`, 'BURN');
+        if (techBill > 0) addCompanyCash(player, -techBill, `${state.name} tech running cost`, 'BURN');
+        state.lastWeeklyBurn += techBill;
+        stampPlatformRevenue(state, state.subscribers, quote.households, quote.revenueParts.ads * (shaped ? factors.adBoost : 1), quote.revenueParts.subscriptions, Math.max(0, beforeSubs - state.subscribers));
         if (state.weeksLive === 1) {
             notes.push({ msg: `${state.name} took its first week of real money. Piracy kept ${Math.round(piracy * 100)}% of viewing off the ledger.`, type: revenue >= burn ? 'positive' : 'neutral' });
             const span = introSpan(state);
