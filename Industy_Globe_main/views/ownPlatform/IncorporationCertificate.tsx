@@ -31,15 +31,17 @@ export const IncorporationCertificate: React.FC<Props> = ({ company, founder, br
                     <div><span>Colour</span><b style={{ color: ink }}>{ink}</b></div>
                 </div>
                 <div className="cert-sign">
-                    <svg viewBox="0 0 360 84" className="sign-svg" aria-label={`Signed by ${who}`}>
-                        <text x="8" y="58" className="sign-draw">{who}</text>
-                    </svg>
-                    <div className="sign-line" />
-                    <div className="sign-caption">Founder · {who}</div>
-                </div>
-                <div className="cert-seal" aria-hidden="true">
-                    <span>Seal</span>
-                    <b>{title.slice(0, 1)}</b>
+                    <div className="sign-block">
+                        <svg viewBox="0 0 420 86" className="sign-svg" aria-label={`Signed by ${who}`}>
+                            <text x="2" y="62" className="sign-name">{who}</text>
+                        </svg>
+                        <div className="sign-line" />
+                        <div className="sign-caption">Founder · {who}</div>
+                    </div>
+                    <div className="cert-seal" aria-hidden="true">
+                        <span>Seal</span>
+                        <b>{title.slice(0, 1)}</b>
+                    </div>
                 </div>
                 {onClose && <button type="button" className="btn pri cert-done" onClick={onClose}>File it</button>}
             </article>

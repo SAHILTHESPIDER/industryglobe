@@ -384,20 +384,22 @@
 .empire .vault-drawer{background:linear-gradient(180deg,#F7F1E4,#E7D7B8);color:#2A2418;border-radius:10px;padding:18px;animation:drawer .45s cubic-bezier(.16,.84,.32,1);position:relative;overflow:hidden}
 .empire .vault-drawer p{margin-top:8px}
 .empire .mini-seal{position:absolute;right:16px;bottom:16px;width:54px;height:54px;border-radius:50%;border:2px solid #E4B15A;display:grid;place-items:center;font-family:var(--h);color:#8a6a22;animation:seal-drop .5s cubic-bezier(.16,.84,.32,1) .35s both}
-.empire .sign-svg{width:min(280px,100%);height:64px;margin-top:8px}
-.empire .sign-draw{font-family:"Instrument Serif",Georgia,serif;font-size:36px;fill:transparent;stroke:#1a1408;stroke-width:1.1;stroke-linejoin:round;stroke-dasharray:320;stroke-dashoffset:320;animation:sign-draw 1.4s ease .4s forwards}
-.empire .sign-line{height:1px;background:#2A241888;margin-top:-6px}
+.empire .sign-svg{width:min(320px,100%);height:78px;display:block}
+.empire .sign-name{font-family:"Instrument Serif",Georgia,serif;font-style:italic;font-size:44px;fill:#1a1408;clip-path:inset(0 100% 0 0);animation:pen-write 1.2s ease .35s forwards}
+.empire .sign-draw{font-family:"Instrument Serif",Georgia,serif;font-size:36px;fill:#1a1408}
+.empire .sign-line{height:1px;background:#2A241888;margin-top:2px}
 .empire .cert-scrim{position:fixed;inset:0;z-index:50;background:#05060Acc;display:grid;place-items:center;padding:16px}
-.empire .cert-sheet{width:min(640px,100%);background:linear-gradient(180deg,#F8F3E8,#E8D8B8);color:#2A2418;border-radius:6px;padding:36px 32px 28px;position:relative;box-shadow:0 30px 80px #000c, inset 0 0 0 1px #c8b48a;animation:unroll .8s cubic-bezier(.16,.84,.32,1) both;overflow:hidden}
+.empire .cert-sheet{width:min(680px,100%);background:linear-gradient(180deg,#fffdf6,#f4e2b8);color:#2A2418;border-radius:8px;border:3px solid #E4B15A;padding:36px 32px 28px;position:relative;box-shadow:0 0 0 7px #fffaf0, 0 0 0 10px #c9a24a, 0 30px 70px #000a;animation:unroll .8s cubic-bezier(.16,.84,.32,1) both}
 .empire .cert-rule{position:absolute;inset:12px;border:1px solid #2A241833;pointer-events:none}
 .empire .cert-kicker{font-family:var(--m);letter-spacing:.22em;text-transform:uppercase;font-size:11px;color:#6B5E44;text-align:center}
 .empire .cert-sheet h2{font-family:var(--s);font-weight:400;font-size:48px;text-align:center;margin:10px 0;color:var(--seal,#4F3BFF)}
 .empire .cert-body{font-family:var(--s);font-size:18px;line-height:1.45;text-align:center}
 .empire .cert-meta{display:flex;justify-content:space-between;gap:12px;margin-top:16px;font-size:13px}
 .empire .cert-meta span{display:block;font-family:var(--m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#6B5E44}
-.empire .cert-sign{margin-top:8px}
+.empire .cert-sign{margin-top:18px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+.empire .sign-block{flex:1;min-width:0}
 .empire .sign-caption{font-family:var(--m);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#6B5E44;margin-top:4px}
-.empire .cert-seal{position:absolute;right:36px;bottom:72px;width:84px;height:84px;border-radius:50%;border:3px solid #E4B15A;display:grid;place-items:center;background:radial-gradient(circle at 40% 35%,#fff6d8,#E4B15A 55%,#8a6a22);color:#5c4312;box-shadow:0 10px 0 #0003;animation:seal-drop .55s cubic-bezier(.16,.84,.32,1) 1.5s both}
+.empire .cert-seal{position:relative;flex:none;width:92px;height:92px;border-radius:50%;border:4px solid #E4B15A;display:grid;place-items:center;background:radial-gradient(circle at 40% 35%,#fff6d8,#E4B15A 46%,#8a6a22);color:#5c4312;box-shadow:inset 0 0 0 3px #fff6d8, 0 8px 0 #0002;animation:seal-drop .55s cubic-bezier(.16,.84,.32,1) 1.15s both}
 .empire .cert-seal span{font-family:var(--m);font-size:9px;letter-spacing:.16em;text-transform:uppercase}
 .empire .cert-seal b{font-family:var(--h);font-size:28px;line-height:1}
 .empire .cert-done{margin-top:18px}
@@ -413,6 +415,7 @@
 @keyframes sheet-in{from{opacity:0;transform:translateY(24px) rotate(0)}to{opacity:1}}
 @keyframes drawer{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
 @keyframes sign-draw{to{stroke-dashoffset:0;fill:#1a1408}}
+@keyframes pen-write{to{clip-path:inset(0 0 0 0)}}
 @keyframes unroll{from{transform:perspective(800px) rotateX(18deg) scaleY(.2);opacity:0}to{transform:none;opacity:1}}
 @keyframes seal-drop{0%{transform:scale(1.6) translateY(-20px);opacity:0}70%{transform:scale(.92);opacity:1}100%{transform:none;opacity:1}}
 @keyframes rebrand-in{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
@@ -431,7 +434,7 @@
   .empire .board-stage{height:540px;min-height:540px}
   .empire .board-wood{left:12%;right:12%;top:20%;bottom:22%}
   .empire .board-seat{width:86px}
-  .empire .board-seat .cartoon{width:64px;height:64px}
+  .empire .board-seat .cartoon{width:72px;height:72px}
   .empire .board-seat .who{font-size:10px;max-width:80px}
   .empire .wood-name{font-size:14px;letter-spacing:.06em}
   .empire .prop{display:none}
@@ -440,10 +443,25 @@
   .empire .hire-card{grid-template-columns:72px minmax(0,1fr)}
   .empire .hire-card .btn{grid-column:1 / -1}
   .empire .cert-sheet h2{font-size:34px}
-  .empire .cert-seal{width:64px;height:64px;right:18px;bottom:64px}
+  .empire .cert-sign{flex-direction:column;align-items:stretch}
+  .empire .cert-seal{width:78px;height:78px;align-self:flex-end}
 }
+.empire.settled .cert-sheet,
+.empire.settled .cert-seal,
+.empire.settled .sign-name,
+.empire.settled .share-cert,
+.empire.settled .vault-drawer,
+.empire.settled .mini-seal,
+.empire.settled .donut-seg,
+.empire.settled .stake-ledger li{
+  animation:none !important;
+  opacity:1 !important;
+  transform:none !important;
+  clip-path:none !important;
+}
+.empire.settled .sign-name{fill:#1a1408}
 @media (prefers-reduced-motion: reduce){
   .empire .swatch-btn.on,.empire .board-seat.empty,.empire .cartoon .eyes,.empire .tape-track,.empire .donut-seg,.empire .bell-node.cur,.empire .stake-ledger li,.empire .share-cert,.empire .sign-draw,.empire .cert-sheet,.empire .cert-seal,.empire .mini-seal,.empire .preview-pop,.empire .vault-drawer{animation:none !important;transition:none !important}
-  .empire .sign-draw{stroke-dashoffset:0;fill:#1a1408}
+  .empire .sign-draw,.empire .sign-name{stroke-dashoffset:0;fill:#1a1408;clip-path:none}
   .empire .donut-seg{stroke-dashoffset:inherit}
 }

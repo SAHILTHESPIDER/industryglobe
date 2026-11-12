@@ -8,10 +8,11 @@ import { BoardTable } from './BoardTable';
 import { OwnershipBoard } from './OwnershipBoard';
 import { IncorporationCertificate } from './IncorporationCertificate';
 import { BrandStudio } from './BrandStudio';
+import { Paperwork } from './Paperwork';
 import './fonts';
 import './empire.css';
 
-export type PreviewScreen = 'colour' | 'team' | 'hire' | 'ownership' | 'certificate' | 'locked';
+export type PreviewScreen = 'colour' | 'team' | 'hire' | 'ownership' | 'papers' | 'certificate' | 'locked';
 
 const closed: ClosedRightsDeal = {
     id: 'preview-closed',
@@ -83,7 +84,7 @@ export const EmpirePreview: React.FC<{ screen: PreviewScreen }> = ({ screen }) =
     const accent = brandAccent(state.brand);
     return (
         <div
-            className="empire"
+            className={`empire${new URLSearchParams(window.location.search).get('settled') === '1' ? ' settled' : ''}`}
             data-screen={`preview-${screen}`}
             style={{ minHeight: '100vh', ['--indigo' as string]: accent, ['--volt' as string]: brandVolt(accent), ['--brand' as string]: accent }}
         >
@@ -103,6 +104,7 @@ export const EmpirePreview: React.FC<{ screen: PreviewScreen }> = ({ screen }) =
                 {screen === 'team' && <BoardTable player={player} onPlayer={setPlayer} />}
                 {screen === 'hire' && <BoardTable player={player} onPlayer={setPlayer} initialHire />}
                 {screen === 'ownership' && <OwnershipBoard player={player} />}
+                {screen === 'papers' && <Paperwork player={player} />}
                 {screen === 'locked' && <BrandStudio player={player} onPlayer={setPlayer} onClose={() => undefined} />}
                 {screen === 'certificate' && (
                     <IncorporationCertificate
