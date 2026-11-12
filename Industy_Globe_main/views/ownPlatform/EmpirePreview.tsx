@@ -6,10 +6,12 @@ import { candidateSlate, hireExecutive } from '../../services/ownPlatform/execut
 import { BrandColorStep } from './BrandColorStep';
 import { BoardTable } from './BoardTable';
 import { OwnershipBoard } from './OwnershipBoard';
+import { IncorporationCertificate } from './IncorporationCertificate';
+import { BrandStudio } from './BrandStudio';
 import './fonts';
 import './empire.css';
 
-export type PreviewScreen = 'colour' | 'team' | 'ownership';
+export type PreviewScreen = 'colour' | 'team' | 'hire' | 'ownership' | 'certificate' | 'locked';
 
 const closed: ClosedRightsDeal = {
     id: 'preview-closed',
@@ -35,6 +37,9 @@ const fixture = (screen: PreviewScreen): Player => {
     const platform = createOwnPlatform(shell);
     platform.name = 'Northlight';
     platform.colorChosen = screen === 'colour' ? false : true;
+    platform.brandLocked = screen === 'locked';
+    platform.commissioned = screen === 'locked';
+    if (screen === 'locked') platform.stage = 'LIVE';
     platform.brand = brandFrom({ ...platform.brand, colorId: screen === 'colour' ? 'indigo' : 'gold' });
     platform.ipo = {
         ...platform.ipo!,
@@ -61,7 +66,7 @@ const fixture = (screen: PreviewScreen): Player => {
     };
     if (screen === 'ownership') platform.closedDeals = [closed];
     let player: Player = { ...shell, ownPlatform: platform };
-    if (screen !== 'colour') {
+    if (screen !== 'colour' && screen !== 'hire') {
         const cfo = candidateSlate(player).find(row => row.role === 'CFO');
         if (cfo) {
             const hired = hireExecutive(player, cfo.id);
@@ -87,12 +92,27 @@ export const EmpirePreview: React.FC<{ screen: PreviewScreen }> = ({ screen }) =
                     <BrandColorStep
                         name={state.name}
                         brand={brandFrom(state.brand)}
+                        stepLabel="Step 1 of 8"
                         onColor={colorId => setPlayer({ ...player, ownPlatform: { ...state, brand: brandFrom({ ...state.brand, colorId }) } })}
+                        onMark={markId => setPlayer({ ...player, ownPlatform: { ...state, brand: brandFrom({ ...state.brand, markId }) } })}
+                        onFrame={frameId => setPlayer({ ...player, ownPlatform: { ...state, brand: brandFrom({ ...state.brand, frameId }) } })}
+                        onTypeface={typefaceId => setPlayer({ ...player, ownPlatform: { ...state, brand: brandFrom({ ...state.brand, typefaceId }) } })}
                         onContinue={() => setPlayer({ ...player, ownPlatform: { ...state, colorChosen: true } })}
                     />
                 )}
                 {screen === 'team' && <BoardTable player={player} onPlayer={setPlayer} />}
+                {screen === 'hire' && <BoardTable player={player} onPlayer={setPlayer} initialHire />}
                 {screen === 'ownership' && <OwnershipBoard player={player} />}
+                {screen === 'locked' && <BrandStudio player={player} onPlayer={setPlayer} onClose={() => undefined} />}
+                {screen === 'certificate' && (
+                    <IncorporationCertificate
+                        company={state.name}
+                        founder={player.name}
+                        brand={state.brand}
+                        week={player.currentWeek}
+                        year={player.age}
+                    />
+                )}
             </div>
         </div>
     );

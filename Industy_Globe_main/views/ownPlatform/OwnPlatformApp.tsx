@@ -18,6 +18,7 @@ import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
 import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
 import { brandAccent, brandFrom } from '../../services/ownPlatform/brand';
 import { BrandColorStep } from './BrandColorStep';
+import { BrandStudio } from './BrandStudio';
 
 interface Props {
     player: Player;
@@ -69,6 +70,7 @@ const CloseButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer, initialPane }) => {
     const [pane, setPane] = useState<EmpirePane>(initialPane || (player.ownPlatform?.stage === 'BUILD' || player.ownPlatform?.stage === 'CONSTRUCTING' || player.ownPlatform?.stage === 'LIVE' ? 'build' : 'launch'));
     const [replay, setReplay] = useState(false);
+    const [studio, setStudio] = useState(false);
     const [showOpenIdent, setShowOpenIdent] = useState(false);
     const playedOpenIdent = useRef(false);
 
@@ -158,10 +160,14 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 pastDefine={pastDefine}
                 markId={state.brand?.markId}
                 accent={brandAccent(state.brand)}
+                frameId={state.brand?.frameId}
                 onWatchIntro={() => setReplay(true)}
                 onDefineStep={step => { setPane('launch'); setPlatform({ ...state, defineStep: step }); }}
                 onBuildStep={step => { setPane('build'); setPlatform({ ...state, buildStep: step }); }}
             >
+                <div style={{ padding: '12px 40px 0' }}>
+                    <button type="button" className="btn gho sm" data-testid="open-brand-studio" onClick={() => setStudio(true)}>Brand studio</button>
+                </div>
                 {(state.books?.seedStakePct || 0) > 0 && (
                     <p data-testid="seed-funding-note" style={{ padding: '14px 40px 0', color: '#b7f7d4', fontSize: 14, lineHeight: 1.45 }}>{LAUNCH_SEED_LINE}</p>
                 )}
@@ -172,7 +178,11 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                         <BrandColorStep
                             name={serviceName}
                             brand={brandFrom(state.brand)}
+                            stepLabel="Step 1 of 8"
                             onColor={colorId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, colorId }) })}
+                            onMark={markId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, markId }) })}
+                            onFrame={frameId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, frameId }) })}
+                            onTypeface={typefaceId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, typefaceId }) })}
                             onContinue={() => setPlatform({ ...state, colorChosen: true, brand: brandFrom(state.brand) })}
                         />
                     </div>
@@ -247,6 +257,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                     </div>
                 )}
             </Shell>
+            {studio && <BrandStudio player={player} onPlayer={onUpdatePlayer} onClose={() => setStudio(false)} />}
             {state.introSeen && !state.hqCityId && !state.hqPromptSeen && pane !== 'rights' && (
                 <HqPrompt player={player} onPlayer={onUpdatePlayer} />
             )}

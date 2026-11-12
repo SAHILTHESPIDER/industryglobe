@@ -524,8 +524,8 @@ const AcquireDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     <BrandColorStep
                         name={painting.name}
                         brand={brandFrom({ markId: player.ownPlatform?.brand?.markId, colorId: paintId })}
-                        kicker="Step 1 · Brand colour"
                         hint="This colour belongs to the service you are buying. The valuation and the cheque come next. The money still leaves company cash."
+                        stepLabel="Step 1 of 2"
                         continueLabel="Next · Valuation"
                         onColor={setPaintId}
                         onContinue={() => setValuingId(painting.id)}

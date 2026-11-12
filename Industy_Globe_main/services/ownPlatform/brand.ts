@@ -1,4 +1,6 @@
-import { PlatformBrand } from '../../types';
+import { PlatformBrand, Player } from '../../types';
+import { addCompanyCash, readCompanyCash } from './companyCash';
+import { formatCompact } from './logic';
 
 /** Thirteen marks, six typefaces, four lockups. Accent comes from the mark. */
 export interface BrandMarkDef {
@@ -36,15 +38,29 @@ export const BRAND_MARKS: BrandMarkDef[] = [
     { id: 'star', name: 'Star', blurb: 'The old promise of a marquee.', accent: '#FDE047', ink: '#1A1604' },
     { id: 'frame', name: 'Frame', blurb: 'A screen with the picture missing.', accent: '#A8A29E', ink: '#0C0A09' },
     { id: 'bars', name: 'Bars', blurb: 'Three pulses, like a meter.', accent: '#FB923C', ink: '#1A0E06' },
+    { id: 'play', name: 'Play', blurb: 'A triangle. The thing people press.', accent: '#8B7BFF', ink: '#07061A' },
+    { id: 'crown', name: 'Crown', blurb: 'The seat at the head of the table.', accent: '#E4B15A', ink: '#1A1408' },
+    { id: 'flame', name: 'Flame', blurb: 'A title that runs hot.', accent: '#F97316', ink: '#1A0E06' },
+];
+
+/** The twelve marks offered when a company is founded. Older marks stay valid. */
+export const STUDIO_MARKS = ['play', 'star', 'crown', 'wave', 'aperture', 'letter', 'flame', 'orbit', 'bolt', 'globe', 'ring', 'bars'];
+
+export const BRAND_FRAMES: { id: 'circle' | 'rounded' | 'none'; name: string }[] = [
+    { id: 'circle', name: 'Circle' },
+    { id: 'rounded', name: 'Rounded square' },
+    { id: 'none', name: 'None' },
 ];
 
 export const BRAND_TYPEFACES: BrandTypefaceDef[] = [
-    { id: 'condensed', name: 'Marquee', blurb: 'Tall condensed caps. Reads across a street.', css: '"Barlow Condensed", "Arial Narrow", Impact, sans-serif' },
-    { id: 'plain', name: 'Plain', blurb: 'The interface face. Easy at small sizes.', css: 'Outfit, Inter, sans-serif' },
-    { id: 'serif', name: 'Credits', blurb: 'A credit roll. Slower, more serious.', css: '"Instrument Serif", Georgia, serif' },
-    { id: 'mono', name: 'Slate', blurb: 'Technical. Looks like a schedule.', css: '"JetBrains Mono", ui-monospace, monospace' },
-    { id: 'prestige', name: 'Prestige', blurb: 'High contrast serif for a small shelf.', css: '"Playfair Display", Georgia, serif' },
-    { id: 'signal', name: 'Signal', blurb: 'Wide geometric caps. Loud on a phone.', css: 'Unbounded, Outfit, sans-serif' },
+    { id: 'condensed', name: 'Bold condensed', blurb: 'Tall caps. The house default.', css: '"Barlow Condensed", "Arial Narrow", Impact, sans-serif' },
+    { id: 'poster', name: 'Poster', blurb: 'A one-word billboard.', css: '"Bebas Neue", "Barlow Condensed", Impact, sans-serif' },
+    { id: 'serif', name: 'Serif cinematic', blurb: 'A credit roll. Slower.', css: '"Instrument Serif", Georgia, serif' },
+    { id: 'prestige', name: 'Prestige', blurb: 'High contrast, for a small shelf.', css: '"Playfair Display", Georgia, serif' },
+    { id: 'plain', name: 'Rounded', blurb: 'Soft geometric. Easy at small sizes.', css: 'Outfit, Inter, sans-serif' },
+    { id: 'signal', name: 'Futuristic', blurb: 'Wide geometric caps.', css: 'Unbounded, Outfit, sans-serif' },
+    { id: 'script', name: 'Script', blurb: 'A signature, written once.', css: '"Instrument Serif", "Segoe Script", cursive' },
+    { id: 'mono', name: 'Mono', blurb: 'A slate. Looks like a schedule.', css: '"JetBrains Mono", ui-monospace, monospace' },
 ];
 
 export const BRAND_LOCKUPS: BrandLockupDef[] = [
@@ -104,11 +120,18 @@ export const mixHex = (from: string, to: string, amount: number): string => {
 /** A lighter highlight of the brand colour, for rings and the current step. */
 export const brandVolt = (hex: string): string => mixHex(hex, '#ffffff', 0.38);
 
+export const frameById = (id?: string | null): 'circle' | 'rounded' | 'none' =>
+    id === 'circle' || id === 'rounded' ? id : 'none';
+
+/** What a rebrand costs. It leaves company cash, never personal cash. */
+export const REBRAND_USD = 250_000;
+
 export const brandFrom = (brand?: Partial<PlatformBrand> | null): PlatformBrand => ({
     markId: markById(brand?.markId).id,
     typefaceId: typefaceById(brand?.typefaceId).id,
     lockupId: lockupById(brand?.lockupId).id,
     colorId: colorById(brand?.colorId).id,
+    frameId: frameById(brand?.frameId),
 });
 
 /** Old identity presets become a mark so those saves still have a face. */
@@ -121,6 +144,44 @@ export const LEGACY_MARK: Record<string, string> = {
     hearth: 'wave',
     voltage: 'bolt',
     linen: 'diamond',
+};
+
+const clonePlatform = (player: Player): Player => {
+    const state = player.ownPlatform!;
+    return {
+        ...player,
+        money: player.money,
+        logs: [...(player.logs || [])],
+        ownPlatform: {
+            ...state,
+            books: state.books ? { ...state.books, lines: [...state.books.lines], history: [...(state.books.history || [])] } : state.books,
+        },
+    };
+};
+
+/** Pays from company cash and opens colour, logo, and type again. */
+export const rebrandPlatform = (player: Player): { player: Player; error?: string } => {
+    if (!player.ownPlatform) return { player, error: 'Open Empire+ first.' };
+    if (!player.ownPlatform.brandLocked) return { player, error: 'The brand is already open.' };
+    if (readCompanyCash(player) < REBRAND_USD) {
+        return { player, error: `Company cash cannot cover ${formatCompact(REBRAND_USD)} for a rebrand. Personal cash stays put.` };
+    }
+    const next = clonePlatform(player);
+    next.ownPlatform!.brandLocked = false;
+    addCompanyCash(next, -REBRAND_USD, `${next.ownPlatform!.name} rebrand`, 'BURN');
+    next.logs = [...(next.logs || []), {
+        week: next.currentWeek,
+        year: next.age,
+        message: `Rebranded ${next.ownPlatform!.name}. ${formatCompact(REBRAND_USD)} left company cash.`,
+        type: 'neutral',
+    }];
+    return { player: next };
+};
+
+/** Seals the current colour, logo, and type. No money moves. */
+export const sealBrand = (player: Player): Player => {
+    if (!player.ownPlatform) return player;
+    return { ...player, ownPlatform: { ...player.ownPlatform, brandLocked: true } };
 };
 
 export const legacyBrand = (identityId?: string): PlatformBrand => brandFrom({

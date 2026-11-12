@@ -785,6 +785,8 @@ export enum Page {
       lockupId: string;
       /** Swatch chosen when the service is founded or bought. Missing uses indigo. */
       colorId?: string;
+      /** Shape around the mark. Missing means no extra frame, which is how older lockups were drawn. */
+      frameId?: 'circle' | 'rounded' | 'none';
   }
 
   export type ExecRole = 'CFO' | 'COO' | 'CTO' | 'CMO' | 'CONTENT';
@@ -1301,6 +1303,11 @@ export enum Page {
       introSeen?: boolean;
       /** False until the founder picks a brand colour. Missing on older saves means that step is already done. */
       colorChosen?: boolean;
+      /**
+       * Colour, logo, and type cannot change. Missing means locked once the build is signed, open before that.
+       * A rebrand sets this false until the new look is sealed.
+       */
+      brandLocked?: boolean;
       /** Hired officers around the table. Missing on older saves. */
       boardTeam?: BoardTeamState;
       defineStep: number;

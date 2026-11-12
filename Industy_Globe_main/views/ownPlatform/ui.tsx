@@ -52,11 +52,12 @@ interface ShellProps {
     onWatchIntro?: () => void;
     markId?: string;
     accent?: string;
+    frameId?: 'circle' | 'rounded' | 'none';
 }
 
 export const Shell: React.FC<ShellProps> = ({
     children, onBack, kicker, title, pane, onPane, name, stage, money,
-    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId, accent,
+    defineStep, buildStep, pastDefine, onDefineStep, onBuildStep, onWatchIntro, markId, accent, frameId,
 }) => {
     const live = stage === 'LIVE';
     const ink = accent || markById(markId).accent;
@@ -75,7 +76,7 @@ export const Shell: React.FC<ShellProps> = ({
             <div className="app">
                 <aside className="rail">
                     <div className="brand">
-                        <div className="bolt" style={{ background: markById(markId).ink }}>
+                        <div className="bolt" style={{ background: markById(markId).ink, borderRadius: frameId === 'circle' ? 999 : 10 }}>
                             <BrandMark id={markById(markId).id} color={ink} size={22} letter={name} />
                         </div>
                         <div>

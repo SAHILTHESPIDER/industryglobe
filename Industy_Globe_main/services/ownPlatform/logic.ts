@@ -622,6 +622,7 @@ export const commissionPlatform = (player: Player): { player: Player; error?: st
                 : undefined,
             stage: 'CONSTRUCTING' as const,
             commissioned: true,
+            brandLocked: true,
             constructionWeeksLeft: BUILD_WEEKS,
             weeklyBurn: quote.weeklyBurn,
         },

@@ -15,7 +15,7 @@ const root = ReactDOM.createRoot(rootElement);
 const params = new URLSearchParams(window.location.search);
 const yt = params.get('yt');
 const empirePreview = params.get('empire');
-const previewScreen: PreviewScreen | null = empirePreview === 'colour' || empirePreview === 'team' || empirePreview === 'ownership' ? empirePreview : null;
+const previewScreen: PreviewScreen | null = empirePreview === 'colour' || empirePreview === 'team' || empirePreview === 'hire' || empirePreview === 'ownership' || empirePreview === 'certificate' || empirePreview === 'locked' ? empirePreview : null;
 root.render(
   <React.StrictMode>
     {previewScreen ? (

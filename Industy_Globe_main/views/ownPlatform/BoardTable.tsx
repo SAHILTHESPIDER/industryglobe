@@ -18,6 +18,8 @@ import { CartoonAvatar } from './CartoonFace';
 interface Props {
     player: Player;
     onPlayer: (next: Player) => void;
+    /** Opens the hire sheet on the CFO list. Used by the phone preview. */
+    initialHire?: boolean;
 }
 
 interface Seat {
@@ -110,12 +112,12 @@ const seatOf = (player: Player): Seat[] => {
     return seats;
 };
 
-export const BoardTable: React.FC<Props> = ({ player, onPlayer }) => {
+export const BoardTable: React.FC<Props> = ({ player, onPlayer, initialHire }) => {
     const state = player.ownPlatform;
     const seats = useMemo(() => seatOf(player), [player]);
-    const [hire, setHire] = useState(false);
-    const [role, setRole] = useState<ExecRole | 'ALL'>('ALL');
-    const [picked, setPicked] = useState<string | null>(null);
+    const [hire, setHire] = useState(Boolean(initialHire));
+    const [role, setRole] = useState<ExecRole | 'ALL'>(initialHire ? 'CFO' : 'ALL');
+    const [picked, setPicked] = useState<string | null>('founder');
     const [error, setError] = useState('');
     if (!state) return null;
     const mods = executiveModifiers(state.boardTeam);
@@ -178,7 +180,7 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer }) => {
                             >
                                 <span className="chair-back" />
                                 {seat.kind === 'empty' ? <span className="plus" aria-hidden="true">+</span> : (
-                                    <CartoonAvatar face={seat.face || faceFor(seat.faceSeed)} size={56} label={seat.name} />
+                                    <CartoonAvatar face={seat.face || faceFor(seat.faceSeed)} size={84} label={seat.name} />
                                 )}
                                 <span className="who">{seat.name}</span>
                                 <span className="role-tag">{seat.role}</span>
@@ -187,24 +189,42 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer }) => {
                     })}
                 </div>
             </div>
-            {selected && selected.kind !== 'empty' && (
-                <div className="dossier" data-testid="seat-dossier">
-                    <CartoonAvatar face={selected.face || faceFor(selected.faceSeed)} size={72} label={selected.name} />
-                    <div>
-                        <div className="lab">{selected.role}</div>
-                        <div className="h3">{selected.name}</div>
-                        <p className="p">{selected.detail}</p>
-                        {selected.chips && (
-                            <div className="chips" style={{ marginTop: 8 }}>
-                                {selected.chips.map(chip => <span key={chip} className="chip">{chip}</span>)}
-                            </div>
+            <div className="table-floor">
+                {selected && selected.kind !== 'empty' ? (
+                    <div className="dossier" data-testid="seat-dossier">
+                        <CartoonAvatar face={selected.face || faceFor(selected.faceSeed)} size={84} label={selected.name} />
+                        <div>
+                            <div className="lab">{selected.role}</div>
+                            <div className="h3">{selected.name}</div>
+                            <p className="p">{selected.detail}</p>
+                            {selected.chips && (
+                                <div className="chips" style={{ marginTop: 8 }}>
+                                    {selected.chips.map(chip => <span key={chip} className="chip">{chip}</span>)}
+                                </div>
+                            )}
+                        </div>
+                        {selected.execId && (
+                            <button type="button" className="btn gho sm" onClick={() => apply(releaseExecutive(player, selected.execId!))}>Release</button>
                         )}
                     </div>
-                    {selected.execId && (
-                        <button type="button" className="btn gho sm" onClick={() => apply(releaseExecutive(player, selected.execId!))}>Release</button>
-                    )}
+                ) : <div className="dossier"><p className="p">Tap a chair. An empty one hires.</p></div>}
+                <div className="effect-board">
+                    <div className="lab">What the officers change</div>
+                    <Effect label="Costs" pct={mods.costCut} />
+                    <Effect label="Interest" pct={mods.financeRateCut} />
+                    <Effect label="Servers" pct={mods.techCut} />
+                    <Effect label="Reach" pct={mods.reach} />
+                    <Effect label="Quality" pct={mods.quality} />
                 </div>
-            )}
+                <div className="decisions">
+                    <div className="lab">Recent board decisions</div>
+                    <p className="small">Listing stage · {(state.ipo?.stage || 'IDLE').toLowerCase()} · {state.ipo?.ticker || 'no ticker yet'}</p>
+                    {(state.books?.lines || []).slice(0, 4).map(line => (
+                        <p key={line.id} className="small decision">{line.label}</p>
+                    ))}
+                    {(state.books?.lines || []).length === 0 && <p className="small">The minute book is empty.</p>}
+                </div>
+            </div>
             {error && <p className="p" style={{ color: 'var(--bad)' }}>{error}</p>}
             {hire && (
                 <div className="hire-sheet" role="dialog" aria-label="Hire an officer">
@@ -228,16 +248,17 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer }) => {
                         <div className="hire-list">
                             {slate.map(candidate => (
                                 <article key={candidate.id} className="hire-card">
-                                    <CartoonAvatar face={candidate.face} size={64} label={candidate.name} />
+                                    <CartoonAvatar face={candidate.face} size={84} label={candidate.name} />
                                     <div className="hire-copy">
                                         <div className="between">
                                             <strong>{candidate.name}</strong>
                                             <span className="tiny">{roleLabel(candidate.role)}</span>
                                         </div>
                                         <div className="small">{flagForCountry(candidate.country)} {candidate.city}, {candidate.country}</div>
+                                        <div className="skill-meter" aria-label={`Skill ${candidate.skill}`}><i style={{ width: `${candidate.skill}%` }} /></div>
                                         <div className="chips" style={{ marginTop: 8 }}>
                                             <span className="chip">Skill {candidate.skill}</span>
-                                            <span className="chip">{formatCompact(candidate.weeklyFee)}/wk</span>
+                                            <span className="chip gold">{formatCompact(candidate.weeklyFee)}/wk</span>
                                             <span className="chip">{candidate.trait}</span>
                                         </div>
                                         <p className="tiny" style={{ marginTop: 6 }}>{roleEffect(candidate.role)}</p>
@@ -253,6 +274,14 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer }) => {
         </section>
     );
 };
+
+const Effect: React.FC<{ label: string; pct: number }> = ({ label, pct }) => (
+    <div className="effect-row">
+        <span>{label}</span>
+        <span className="bar"><i style={{ width: `${Math.round(pct * 100)}%` }} /></span>
+        <b>{pct ? `${Math.round(pct * 100)}%` : '—'}</b>
+    </div>
+);
 
 const Meter: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     <div className="room-meter">
