@@ -1,16 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { CartoonFace, CompanyShareholder, ExecRole, Player } from '../../types';
-import { faceFor, flagForCountry } from '../../services/ownPlatform/executives';
+import { faceFor } from '../../services/ownPlatform/executives';
 import {
-    EXEC_ROLES,
-    candidateSlate,
     executiveModifiers,
-    hireExecutive,
+    RENEW_WEEKS,
     openRoles,
     releaseExecutive,
     roleEffect,
     roleLabel,
+    weeksLeft,
 } from '../../services/ownPlatform/executives';
+import { HireFlow, HirePane } from './HireFlow';
 import { formatCompact } from '../../services/ownPlatform/logic';
 import { readCompanyCash } from '../../services/ownPlatform/companyCash';
 import { CartoonAvatar } from './CartoonFace';
@@ -20,6 +20,7 @@ interface Props {
     onPlayer: (next: Player) => void;
     /** Opens the hire sheet on the CFO list. Used by the phone preview. */
     initialHire?: boolean;
+    initialPane?: HirePane;
 }
 
 interface Seat {
@@ -112,10 +113,11 @@ const seatOf = (player: Player): Seat[] => {
     return seats;
 };
 
-export const BoardTable: React.FC<Props> = ({ player, onPlayer, initialHire }) => {
+export const BoardTable: React.FC<Props> = ({ player, onPlayer, initialHire, initialPane }) => {
     const state = player.ownPlatform;
     const seats = useMemo(() => seatOf(player), [player]);
-    const [hire, setHire] = useState(Boolean(initialHire));
+    const [hire, setHire] = useState(Boolean(initialHire || initialPane));
+    const [hirePane, setHirePane] = useState<HirePane>(initialPane || 'list');
     const [role, setRole] = useState<ExecRole | 'ALL'>(initialHire ? 'CFO' : 'ALL');
     const [picked, setPicked] = useState<string | null>('founder');
     const [error, setError] = useState('');
@@ -123,11 +125,11 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer, initialHire }) =
     const mods = executiveModifiers(state.boardTeam);
     const cash = readCompanyCash(player);
     const roles = openRoles(state.boardTeam);
-    const slate = candidateSlate(player).filter(row => roles.includes(row.role) && (role === 'ALL' || row.role === role));
     const selected = seats.find(seat => seat.id === picked);
     const openHire = (nextRole?: ExecRole) => {
         setError('');
         setRole(nextRole || (roles.length === 1 ? roles[0] : 'ALL'));
+        setHirePane('list');
         setHire(true);
     };
     const apply = (result: { player: Player; error?: string }) => {
@@ -226,48 +228,15 @@ export const BoardTable: React.FC<Props> = ({ player, onPlayer, initialHire }) =
                 </div>
             </div>
             {error && <p className="p" style={{ color: 'var(--bad)' }}>{error}</p>}
+            {(state.boardTeam?.executives || []).filter(exec => weeksLeft(player, exec) <= RENEW_WEEKS).map(exec => (
+                <button key={exec.id} type="button" className="renew-banner" onClick={() => { setHire(true); setHirePane('renew'); }}>
+                    {exec.name} · {Math.max(0, weeksLeft(player, exec))} weeks left on the contract · Renew or let go
+                </button>
+            ))}
             {hire && (
                 <div className="hire-sheet" role="dialog" aria-label="Hire an officer">
                     <div className="hire-panel">
-                        <div className="between">
-                            <div>
-                                <div className="lab">Hire</div>
-                                <div className="h3">Global officers</div>
-                            </div>
-                            <button type="button" className="btn gho sm" onClick={() => setHire(false)}>Close</button>
-                        </div>
-                        <p className="p" style={{ marginTop: 8 }}>Company cash {formatCompact(cash)}. The first week is paid now. Later weeks come out of the same books.</p>
-                        <div className="chips" style={{ marginTop: 12 }}>
-                            <button type="button" className={`chip${role === 'ALL' ? ' on' : ''}`} onClick={() => setRole('ALL')}>All open</button>
-                            {EXEC_ROLES.map(item => (
-                                <button key={item} type="button" className={`chip${!roles.includes(item) ? ' off' : ''}${role === item ? ' on' : ''}`} disabled={!roles.includes(item)} onClick={() => setRole(item)}>
-                                    {roleLabel(item)}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="hire-list">
-                            {slate.map(candidate => (
-                                <article key={candidate.id} className="hire-card">
-                                    <CartoonAvatar face={candidate.face} size={84} label={candidate.name} />
-                                    <div className="hire-copy">
-                                        <div className="between">
-                                            <strong>{candidate.name}</strong>
-                                            <span className="tiny">{roleLabel(candidate.role)}</span>
-                                        </div>
-                                        <div className="small">{flagForCountry(candidate.country)} {candidate.city}, {candidate.country}</div>
-                                        <div className="skill-meter" aria-label={`Skill ${candidate.skill}`}><i style={{ width: `${candidate.skill}%` }} /></div>
-                                        <div className="chips" style={{ marginTop: 8 }}>
-                                            <span className="chip">Skill {candidate.skill}</span>
-                                            <span className="chip gold">{formatCompact(candidate.weeklyFee)}/wk</span>
-                                            <span className="chip">{candidate.trait}</span>
-                                        </div>
-                                        <p className="tiny" style={{ marginTop: 6 }}>{roleEffect(candidate.role)}</p>
-                                    </div>
-                                    <button type="button" className="btn pri sm" onClick={() => apply(hireExecutive(player, candidate.id))}>Hire</button>
-                                </article>
-                            ))}
-                            {slate.length === 0 && <p className="p">Every chair for that role is filled.</p>}
-                        </div>
+                        <HireFlow player={player} onPlayer={onPlayer} pane={hirePane} onPane={setHirePane} onClose={() => setHire(false)} />
                     </div>
                 </div>
             )}

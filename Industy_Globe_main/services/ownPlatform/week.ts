@@ -11,7 +11,7 @@ import { normalizeOwnPlatform } from './migrate';
 import { sportsViewerBump } from './stakeSale';
 import { tickStreamRights } from './streamRights';
 import { settleBooks } from './studio';
-import { executiveModifiers, payExecutiveSalaries } from './executives';
+import { executiveModifiers, payExecutiveSalaries, tickExecContracts } from './executives';
 
 export interface PlatformWeekNote {
     msg: string;
@@ -248,6 +248,7 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         state.lastWeeklyBurn = officeRent;
     }
 
+    notes.push(...tickExecContracts(player));
     const payroll = payExecutiveSalaries(player);
     notes.push(...payroll.notes);
 

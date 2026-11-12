@@ -802,6 +802,13 @@ export enum Page {
       shirt: number;
   }
 
+  /** One line on an officer's CV. */
+  export interface ExecPosting {
+      company: string;
+      years: number;
+      title: string;
+  }
+
   /** An officer hired onto the company. Salary leaves company cash. */
   export interface CompanyExecutive {
       id: string;
@@ -810,11 +817,25 @@ export enum Page {
       country: string;
       city: string;
       skill: number;
+      /** Weekly draw. Older saves only have this. New contracts also store the yearly figure. */
       weeklyFee: number;
       trait: string;
       face: CartoonFace;
       hiredWeek: number;
       hiredYear: number;
+      /** Yearly pay. Missing uses weeklyFee × 52. */
+      annualSalary?: number;
+      /** Contract length. Missing means 2 years. */
+      termYears?: number;
+      /** Paid once from company cash when the contract is signed. */
+      signingBonus?: number;
+      /** Fraction of the company granted with the contract. Missing means none. */
+      stakePct?: number;
+      /** Absolute week the contract ends. Missing is filled so an old hire is not dropped on load. */
+      endsAbsolute?: number;
+      posts?: ExecPosting[];
+      achievements?: string[];
+      totalYears?: number;
   }
 
   export interface ExecCandidate {
@@ -827,6 +848,13 @@ export enum Page {
       weeklyFee: number;
       trait: string;
       face: CartoonFace;
+      /** What they ask per year. */
+      annualAsk: number;
+      /** 0–1. How much they want shares instead of cash. */
+      stakeAppetite: number;
+      posts: ExecPosting[];
+      achievements: string[];
+      totalYears: number;
   }
 
   /** Hired officers. Missing on older saves, which have an empty table. */

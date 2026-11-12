@@ -2,13 +2,17 @@ import {
     BoardTeamState,
     CartoonFace,
     CompanyExecutive,
+    CompanyShareholder,
     ExecCandidate,
+    ExecPosting,
     ExecRole,
     Player,
 } from '../../types';
+import { getAbsoluteWeek } from '../legacyLogic';
 import { hashString } from './catalog';
 import { addCompanyCash, readCompanyCash } from './companyCash';
 import { formatCompact } from './logic';
+import { capSlices } from './stakeSale';
 
 export const EXEC_ROLES: ExecRole[] = ['CFO', 'COO', 'CTO', 'CMO', 'CONTENT'];
 
@@ -103,6 +107,48 @@ const clampSkill = (value: number) => Math.max(40, Math.min(96, Math.round(value
 
 const feeFor = (skill: number) => Math.max(8_000, Math.round((7_500 + skill * 480) / 500) * 500);
 
+const HOUSES = ['Aurora Play', 'Harbor+', 'Kitebox', 'Lumen', 'Red Lantern', 'Paper Saints', 'Marigold', 'Northstream', 'Velvet Circuit', 'Glass Harbor'];
+const POST_TITLES: Record<ExecRole, string[]> = {
+    CFO: ['Finance director', 'VP finance', 'Controller'],
+    COO: ['Operations director', 'VP operations', 'Studio manager'],
+    CTO: ['Head of platform', 'VP technology', 'Infrastructure lead'],
+    CMO: ['Marketing director', 'VP growth', 'Brand lead'],
+    CONTENT: ['Head of originals', 'VP content', 'Commissioning editor'],
+};
+const WINS = [
+    'Opened three new countries without raising the weekly burn.',
+    'Brought a franchise in under the licence cap.',
+    'Cut a cloud bill by a fifth and kept the night from breaking.',
+    'Signed a sports window that lifted weekend viewing.',
+    'Rebuilt the home screen and held more subscribers.',
+    'Closed a slate of originals that travelled outside the home market.',
+];
+
+const postsFor = (role: ExecRole, roll: number): ExecPosting[] => {
+    const titles = POST_TITLES[role];
+    return [0, 1, 2].map(index => ({
+        company: HOUSES[(roll + index * 3) % HOUSES.length],
+        years: 2 + ((roll + index) % 5),
+        title: titles[(roll + index) % titles.length],
+    }));
+};
+
+export const RENEW_WEEKS = 8;
+
+export interface HireTerms {
+    annualSalary: number;
+    termYears: number;
+    signingBonus: number;
+    /** Fraction, such as 0.02 for 2%. */
+    stakePct: number;
+}
+
+export const annualOf = (exec: { annualSalary?: number; weeklyFee: number }) =>
+    Math.max(1_000, Math.round(exec.annualSalary || exec.weeklyFee * 52));
+
+export const weeklyOf = (exec: { annualSalary?: number; weeklyFee: number }) =>
+    Math.max(1_000, Math.round(annualOf(exec) / 52));
+
 const generateSlate = (playerId: string, week: number, year: number): ExecCandidate[] => {
     const used = new Set<string>();
     const rows: ExecCandidate[] = [];
@@ -120,6 +166,8 @@ const generateSlate = (playerId: string, week: number, year: number): ExecCandid
             }
             used.add(name);
             const skill = clampSkill(48 + (roll % 46));
+            const weeklyFee = feeFor(skill);
+            const posts = postsFor(role, roll);
             rows.push({
                 id: `cand_${role}_${slot}_${roll % 100000}`,
                 role,
@@ -127,7 +175,12 @@ const generateSlate = (playerId: string, week: number, year: number): ExecCandid
                 country: place.country,
                 city: place.city,
                 skill,
-                weeklyFee: feeFor(skill),
+                weeklyFee,
+                annualAsk: weeklyFee * 52,
+                stakeAppetite: (30 + (roll % 60)) / 100,
+                posts,
+                achievements: [WINS[roll % WINS.length], WINS[(roll + 3) % WINS.length]],
+                totalYears: posts.reduce((sum, post) => sum + post.years, 0),
                 trait: TRAITS[roll % TRAITS.length],
                 face: faceFrom(roll),
             });
@@ -167,6 +220,21 @@ const sanitizeExec = (raw: Partial<CompanyExecutive> | undefined): CompanyExecut
     const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim().slice(0, 80) : '';
     if (!name) return null;
     const skill = clampSkill(Number(raw.skill) || 60);
+    const weeklyFee = Math.max(1_000, Math.round(Number(raw.weeklyFee) || feeFor(skill)));
+    const hiredWeek = Math.max(1, Math.round(Number(raw.hiredWeek) || 1));
+    const hiredYear = Math.max(1, Math.round(Number(raw.hiredYear) || 18));
+    const termYears = Math.max(1, Math.min(5, Math.round(Number(raw.termYears) || 2)));
+    const annualSalary = Math.max(weeklyFee, Math.round(Number(raw.annualSalary) || weeklyFee * 52));
+    const hiredAbs = getAbsoluteWeek(hiredYear, hiredWeek);
+    const endsAbsolute = Number.isFinite(Number(raw.endsAbsolute))
+        ? Math.round(Number(raw.endsAbsolute))
+        : hiredAbs + termYears * 52;
+    const posts = Array.isArray(raw.posts)
+        ? raw.posts.flatMap(post => {
+            if (!post || typeof post.company !== 'string' || typeof post.title !== 'string') return [];
+            return [{ company: post.company.slice(0, 40), title: post.title.slice(0, 40), years: Math.max(1, Math.min(20, Math.round(Number(post.years) || 1))) }];
+        }).slice(0, 4)
+        : undefined;
     return {
         id: typeof raw.id === 'string' && raw.id.trim() ? raw.id.slice(0, 80) : `exec_${raw.role}_${hashString(name)}`,
         role: raw.role as ExecRole,
@@ -174,11 +242,19 @@ const sanitizeExec = (raw: Partial<CompanyExecutive> | undefined): CompanyExecut
         country: typeof raw.country === 'string' && raw.country.trim() ? raw.country.slice(0, 40) : 'Unknown',
         city: typeof raw.city === 'string' && raw.city.trim() ? raw.city.slice(0, 40) : '',
         skill,
-        weeklyFee: Math.max(1_000, Math.round(Number(raw.weeklyFee) || feeFor(skill))),
+        weeklyFee,
+        annualSalary,
+        termYears,
+        signingBonus: Math.max(0, Math.round(Number(raw.signingBonus) || 0)),
+        stakePct: Math.max(0, Math.min(0.08, Number(raw.stakePct) || 0)),
+        endsAbsolute,
+        posts,
+        achievements: Array.isArray(raw.achievements) ? raw.achievements.filter(line => typeof line === 'string').slice(0, 3) : undefined,
+        totalYears: Number.isFinite(Number(raw.totalYears)) ? Math.round(Number(raw.totalYears)) : posts?.reduce((sum, post) => sum + post.years, 0),
         trait: typeof raw.trait === 'string' && raw.trait.trim() ? raw.trait.slice(0, 40) : 'Steady hand',
         face: sanitizeFace(raw.face, name),
-        hiredWeek: Math.max(1, Math.round(Number(raw.hiredWeek) || 1)),
-        hiredYear: Math.max(1, Math.round(Number(raw.hiredYear) || 18)),
+        hiredWeek,
+        hiredYear,
     };
 };
 
@@ -259,34 +335,131 @@ const cloneForHire = (player: Player): Player => {
     };
 };
 
-/** Pays the first week from company cash. Personal cash is not read or written. */
-export const hireExecutive = (player: Player, candidateId: string): { player: Player; error?: string } => {
+const clamp01 = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+/** How likely they sign, and a counter when the offer is close but short. */
+export const readOffer = (candidate: ExecCandidate, terms: HireTerms): { chance: number; verdict: 'SIGN' | 'COUNTER' | 'WALK'; counter?: HireTerms } => {
+    const ask = Math.max(1, candidate.annualAsk);
+    const salary = clamp01(terms.annualSalary / ask, 0, 1.6);
+    const years = clamp01(terms.termYears, 1, 5);
+    const bonus = clamp01(terms.signingBonus / ask, 0, 1);
+    const stake = clamp01(terms.stakePct, 0, 0.05);
+    const score = salary * 0.72 + (years - 1) * 0.06 + bonus * 0.2 + stake * candidate.stakeAppetite * 5;
+    const chance = Math.round(clamp01((score - 0.22) / 0.7, 0.04, 0.98) * 100) / 100;
+    if (chance >= 0.7) return { chance, verdict: 'SIGN' };
+    if (chance >= 0.38) {
+        return {
+            chance,
+            verdict: 'COUNTER',
+            counter: {
+                annualSalary: Math.round(Math.max(terms.annualSalary, ask * 0.94) / 50_000) * 50_000,
+                termYears: Math.max(years, 2),
+                signingBonus: terms.signingBonus,
+                stakePct: stake,
+            },
+        };
+    }
+    return { chance, verdict: 'WALK' };
+};
+
+export const stakeRoom = (player: Player, execId?: string): number => {
+    const slices = capSlices(player);
+    const held = (player.ownPlatform?.books?.shareholders || [])
+        .filter(row => row.id === `exec-stake-${execId || ''}`)
+        .reduce((sum, row) => sum + row.pct, 0);
+    return Math.max(0, Math.round((slices.founder + held - 0.51) * 1000) / 1000);
+};
+
+const stakeId = (execId: string) => `exec-stake-${execId}`;
+
+const writeStake = (player: Player, exec: { id: string; name: string }, pct: number) => {
+    const state = player.ownPlatform;
+    if (!state) return;
+    const books = state.books;
+    if (!books) return;
+    const rest = (books.shareholders || []).filter(row => row.id !== stakeId(exec.id));
+    if (pct <= 0.0005) {
+        books.shareholders = rest.length ? rest : undefined;
+        return;
+    }
+    const row: CompanyShareholder = {
+        id: stakeId(exec.id),
+        buyerId: exec.id,
+        name: exec.name,
+        kind: 'BUSINESS',
+        pct: Math.round(pct * 1000) / 1000,
+        paid: 0,
+        week: player.currentWeek,
+        year: player.age,
+        conditions: [],
+    };
+    books.shareholders = [...rest, row];
+};
+
+const cleanTerms = (terms: HireTerms, room: number): HireTerms => ({
+    annualSalary: Math.max(50_000, Math.round(terms.annualSalary / 50_000) * 50_000),
+    termYears: Math.max(1, Math.min(5, Math.round(terms.termYears))),
+    signingBonus: Math.max(0, Math.round(terms.signingBonus / 50_000) * 50_000),
+    stakePct: Math.max(0, Math.min(room, Math.round(terms.stakePct * 200) / 200)),
+});
+
+/** Pays the bonus and the first week from company cash. A stake, if offered, comes off the founder's slice. */
+export const signContract = (player: Player, candidateId: string, terms: HireTerms): { player: Player; error?: string } => {
     if (!player.ownPlatform) return { player, error: 'Open Empire+ first.' };
     const candidate = candidateSlate(player).find(row => row.id === candidateId);
     if (!candidate) return { player, error: 'That candidate is not on this week\'s slate.' };
     if ((player.ownPlatform.boardTeam?.executives || []).some(row => row.role === candidate.role)) {
         return { player, error: `The ${roleLabel(candidate.role)} chair is already filled.` };
     }
-    if (readCompanyCash(player) < candidate.weeklyFee) {
-        return { player, error: `Company cash cannot cover ${formatCompact(candidate.weeklyFee)} for the first week. Personal cash stays put.` };
+    const room = stakeRoom(player);
+    const deal = cleanTerms(terms, room);
+    const offer = readOffer(candidate, deal);
+    if (offer.verdict !== 'SIGN') {
+        return { player, error: offer.verdict === 'WALK' ? `${candidate.name} walked. The offer was too thin.` : `${candidate.name} has not accepted. Meet the counter, or improve the terms.` };
+    }
+    const due = deal.signingBonus + Math.round(deal.annualSalary / 52);
+    if (readCompanyCash(player) < due) {
+        return { player, error: `Company cash cannot cover ${formatCompact(due)}. Personal cash stays put.` };
     }
     const next = cloneForHire(player);
     const hired: CompanyExecutive = {
         ...candidate,
         face: { ...candidate.face },
+        posts: candidate.posts.map(post => ({ ...post })),
+        achievements: [...candidate.achievements],
+        weeklyFee: Math.round(deal.annualSalary / 52),
+        annualSalary: deal.annualSalary,
+        termYears: deal.termYears,
+        signingBonus: deal.signingBonus,
+        stakePct: deal.stakePct,
         hiredWeek: next.currentWeek || 1,
         hiredYear: next.age || 18,
+        endsAbsolute: getAbsoluteWeek(next.age || 18, next.currentWeek || 1) + deal.termYears * 52,
     };
     const previous = next.ownPlatform!.boardTeam?.executives || [];
     next.ownPlatform!.boardTeam = { executives: [...previous, hired] };
-    addCompanyCash(next, -candidate.weeklyFee, `${candidate.name} · ${roleLabel(candidate.role)} salary`, 'BURN');
+    if (deal.signingBonus > 0) addCompanyCash(next, -deal.signingBonus, `${candidate.name} signing bonus`, 'BURN');
+    addCompanyCash(next, -hired.weeklyFee, `${candidate.name} · ${roleLabel(candidate.role)} salary`, 'BURN');
+    if (deal.stakePct > 0) writeStake(next, hired, deal.stakePct);
     next.logs = [...(next.logs || []), {
         week: next.currentWeek,
         year: next.age,
-        message: `Hired ${candidate.name} as ${roleLabel(candidate.role)}. ${formatCompact(candidate.weeklyFee)} left company cash.`,
+        message: `Hired ${candidate.name} as ${roleLabel(candidate.role)} for ${deal.termYears} years. ${formatCompact(due)} left company cash.`,
         type: 'neutral',
     }];
     return { player: next };
+};
+
+/** Signs at the candidate's yearly ask for two years. Used when a hire has no negotiated sheet. */
+export const hireExecutive = (player: Player, candidateId: string): { player: Player; error?: string } => {
+    const candidate = candidateSlate(player).find(row => row.id === candidateId);
+    if (!candidate) return { player, error: 'That candidate is not on this week\'s slate.' };
+    return signContract(player, candidateId, {
+        annualSalary: candidate.annualAsk,
+        termYears: 2,
+        signingBonus: 0,
+        stakePct: 0,
+    });
 };
 
 export const releaseExecutive = (player: Player, execId: string): { player: Player; error?: string } => {
@@ -306,14 +479,80 @@ export const releaseExecutive = (player: Player, execId: string): { player: Play
 };
 
 /** Later weeks. The hire week was already paid. Never touches personal cash. `paid` is this week's payroll. */
+export const weeksLeft = (player: Player, exec: CompanyExecutive): number => {
+    if (!Number.isFinite(exec.endsAbsolute)) return 999;
+    return (exec.endsAbsolute as number) - getAbsoluteWeek(player.age, player.currentWeek);
+};
+
+/** New terms for someone already in the chair. Buy-back pays the stake's share of company value from company cash. */
+export const renewContract = (
+    player: Player,
+    execId: string,
+    terms: HireTerms,
+    buyBack: boolean,
+    buyPrice: number,
+): { player: Player; error?: string } => {
+    const exec = player.ownPlatform?.boardTeam?.executives.find(row => row.id === execId);
+    if (!exec || !player.ownPlatform) return { player, error: 'That officer is not at the table.' };
+    const room = stakeRoom(player, execId);
+    const deal = cleanTerms(terms, room);
+    const due = deal.signingBonus + (buyBack && (exec.stakePct || 0) > 0 ? Math.max(0, Math.round(buyPrice)) : 0);
+    if (readCompanyCash(player) < due) {
+        return { player, error: `Company cash cannot cover ${formatCompact(due)}. Personal cash stays put.` };
+    }
+    const next = cloneForHire(player);
+    const team = next.ownPlatform!.boardTeam!.executives.map(row => {
+        if (row.id !== execId) return row;
+        return {
+            ...row,
+            weeklyFee: Math.round(deal.annualSalary / 52),
+            annualSalary: deal.annualSalary,
+            termYears: deal.termYears,
+            signingBonus: deal.signingBonus,
+            stakePct: buyBack ? 0 : deal.stakePct,
+            endsAbsolute: getAbsoluteWeek(next.age, next.currentWeek) + deal.termYears * 52,
+        };
+    });
+    next.ownPlatform!.boardTeam = { executives: team };
+    const seated = team.find(row => row.id === execId)!;
+    if (deal.signingBonus > 0) addCompanyCash(next, -deal.signingBonus, `${seated.name} renewal bonus`, 'BURN');
+    if (buyBack && (exec.stakePct || 0) > 0) {
+        addCompanyCash(next, -Math.max(0, Math.round(buyPrice)), `Bought back ${seated.name}'s stake`, 'EQUITY');
+        writeStake(next, seated, 0);
+    } else {
+        writeStake(next, seated, deal.stakePct);
+    }
+    next.logs = [...(next.logs || []), {
+        week: next.currentWeek,
+        year: next.age,
+        message: `Renewed ${seated.name} for ${deal.termYears} years. The money left company cash.`,
+        type: 'neutral',
+    }];
+    return { player: next };
+};
+
+/** Drops officers whose contract ended. Their stake, if any, stays on the cap table. */
+export const tickExecContracts = (player: Player): { msg: string; type: 'neutral' }[] => {
+    const team = player.ownPlatform?.boardTeam?.executives;
+    if (!team?.length || !player.ownPlatform) return [];
+    const now = getAbsoluteWeek(player.age, player.currentWeek);
+    const kept = team.filter(exec => !Number.isFinite(exec.endsAbsolute) || (exec.endsAbsolute as number) >= now);
+    const gone = team.filter(exec => Number.isFinite(exec.endsAbsolute) && (exec.endsAbsolute as number) < now);
+    if (!gone.length) return [];
+    player.ownPlatform.boardTeam = kept.length ? { executives: kept } : undefined;
+    return gone.map(exec => ({
+        msg: `${exec.name}'s contract ended. The chair is empty. Their stake, if they held one, stays on the books.`,
+        type: 'neutral' as const,
+    }));
+};
+
 export const payExecutiveSalaries = (player: Player): { notes: { msg: string; type: 'neutral' }[]; paid: number } => {
     const rows = player.ownPlatform?.boardTeam?.executives || [];
     const notes: { msg: string; type: 'neutral' }[] = [];
     let paid = 0;
     rows.forEach(exec => {
         if (exec.hiredWeek === player.currentWeek && exec.hiredYear === player.age) return;
-        const fee = Math.max(0, Math.round(exec.weeklyFee) || 0);
-        if (!fee) return;
+        const fee = weeklyOf(exec);
         addCompanyCash(player, -fee, `${exec.name} · ${roleLabel(exec.role)} salary`, 'BURN');
         paid += fee;
         notes.push({ msg: `${exec.name} (${roleLabel(exec.role)}) took ${formatCompact(fee)} from company cash.`, type: 'neutral' });

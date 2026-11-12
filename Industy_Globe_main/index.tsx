@@ -15,7 +15,8 @@ const root = ReactDOM.createRoot(rootElement);
 const params = new URLSearchParams(window.location.search);
 const yt = params.get('yt');
 const empirePreview = params.get('empire');
-const previewScreen: PreviewScreen | null = empirePreview === 'colour' || empirePreview === 'team' || empirePreview === 'hire' || empirePreview === 'ownership' || empirePreview === 'papers' || empirePreview === 'certificate' || empirePreview === 'locked' ? empirePreview : null;
+const previewNames = ['colour', 'team', 'hire', 'ownership', 'papers', 'certificate', 'locked', 'dossier', 'contract', 'renew', 'stake'] as const;
+const previewScreen: PreviewScreen | null = (previewNames as readonly string[]).includes(empirePreview || '') ? empirePreview as PreviewScreen : null;
 root.render(
   <React.StrictMode>
     {previewScreen ? (

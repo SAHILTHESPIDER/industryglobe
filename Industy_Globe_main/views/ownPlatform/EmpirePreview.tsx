@@ -9,10 +9,12 @@ import { OwnershipBoard } from './OwnershipBoard';
 import { IncorporationCertificate } from './IncorporationCertificate';
 import { BrandStudio } from './BrandStudio';
 import { Paperwork } from './Paperwork';
+import { HireFlow } from './HireFlow';
+import { getAbsoluteWeek } from '../../services/legacyLogic';
 import './fonts';
 import './empire.css';
 
-export type PreviewScreen = 'colour' | 'team' | 'hire' | 'ownership' | 'papers' | 'certificate' | 'locked';
+export type PreviewScreen = 'colour' | 'team' | 'hire' | 'ownership' | 'papers' | 'certificate' | 'locked' | 'dossier' | 'contract' | 'renew' | 'stake';
 
 const closed: ClosedRightsDeal = {
     id: 'preview-closed',
@@ -67,11 +69,30 @@ const fixture = (screen: PreviewScreen): Player => {
     };
     if (screen === 'ownership') platform.closedDeals = [closed];
     let player: Player = { ...shell, ownPlatform: platform };
-    if (screen !== 'colour' && screen !== 'hire') {
+    if (screen === 'renew' || (screen !== 'colour' && screen !== 'hire' && screen !== 'dossier' && screen !== 'contract' && screen !== 'stake')) {
         const cfo = candidateSlate(player).find(row => row.role === 'CFO');
         if (cfo) {
             const hired = hireExecutive(player, cfo.id);
             if (!hired.error) player = hired.player;
+        }
+    }
+    if (screen === 'renew' && player.ownPlatform?.boardTeam?.executives[0]) {
+        const exec = player.ownPlatform.boardTeam.executives[0];
+        exec.endsAbsolute = getAbsoluteWeek(player.age, player.currentWeek) + 4;
+        exec.stakePct = 0.02;
+        const books = player.ownPlatform.books;
+        if (books) {
+            books.shareholders = [...(books.shareholders || []), {
+                id: `exec-stake-${exec.id}`,
+                buyerId: exec.id,
+                name: exec.name,
+                kind: 'BUSINESS',
+                pct: 0.02,
+                paid: 0,
+                week: player.currentWeek,
+                year: player.age,
+                conditions: [],
+            }];
         }
     }
     return player;
@@ -112,6 +133,10 @@ export const EmpirePreview: React.FC<{ screen: PreviewScreen }> = ({ screen }) =
                 )}
                 {screen === 'team' && <BoardTable player={player} onPlayer={setPlayer} />}
                 {screen === 'hire' && <BoardTable player={player} onPlayer={setPlayer} initialHire />}
+                {screen === 'dossier' && <HireFlow player={player} onPlayer={setPlayer} pane="dossier" />}
+                {screen === 'contract' && <HireFlow player={player} onPlayer={setPlayer} pane="contract" />}
+                {screen === 'renew' && <HireFlow player={player} onPlayer={setPlayer} pane="renew" />}
+                {screen === 'stake' && <HireFlow player={player} onPlayer={setPlayer} pane="stake" />}
                 {screen === 'ownership' && <OwnershipBoard player={player} />}
                 {screen === 'papers' && <Paperwork player={player} />}
                 {screen === 'locked' && <BrandStudio player={player} onPlayer={setPlayer} onClose={() => undefined} />}
