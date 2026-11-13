@@ -3,7 +3,7 @@ import type { Player } from '../../../types';
 import { createOwnPlatform } from '../../../services/ownPlatform/migrate';
 import { LaunchCampaign } from './LaunchCampaign';
 
-export type LaunchPreviewScreen = 'launch-where' | 'launch-how' | 'launch-creative' | 'launch-budget' | 'launch-review' | 'launch-drone' | 'launch-reveal' | 'launch-results';
+export type LaunchPreviewScreen = 'launch-where' | 'launch-how' | 'launch-creative' | 'launch-budget' | 'launch-review' | 'launch-drone' | 'launch-reveal' | 'launch-light' | 'launch-fest' | 'launch-stunt' | 'launch-results';
 
 const fixture = (): Player => {
     const shell = { id: 'preview-player', name: 'Ava Stone', age: 28, currentWeek: 14, money: 2_000_000, logs: [] } as Player;
@@ -23,7 +23,7 @@ const fixture = (): Player => {
     return { ...shell, ownPlatform: platform };
 };
 
-const setup: Record<LaunchPreviewScreen, { step: number; cities: string[]; channels: string[]; scene?: 'drone' | 'reveal' | 'results' }> = {
+const setup: Record<LaunchPreviewScreen, { step: number; cities: string[]; channels: string[]; scene?: 'drone' | 'reveal' | 'light' | 'fest' | 'stunt' | 'results' }> = {
     'launch-where': { step: 1, cities: ['bom', 'del', 'blr', 'maa', 'ccu', 'hyd', 'dxb', 'lon', 'nyc', 'lax', 'tyo', 'sel', 'sin', 'jkt', 'sao', 'mex', 'par', 'ber', 'los', 'syd'], channels: [] },
     'launch-how': { step: 2, cities: ['bom'], channels: ['social_feed', 'short_video', 'search_ads', 'creators_live'] },
     'launch-creative': { step: 3, cities: ['bom', 'nyc'], channels: ['social_feed', 'drone'] },
@@ -31,6 +31,9 @@ const setup: Record<LaunchPreviewScreen, { step: number; cities: string[]; chann
     'launch-review': { step: 5, cities: ['bom', 'dxb', 'nyc'], channels: ['social_feed', 'city_screens', 'drone', 'building_reveal'] },
     'launch-drone': { step: 2, cities: ['bom', 'del', 'nyc', 'dxb'], channels: ['drone', 'building_reveal', 'social_feed'], scene: 'drone' },
     'launch-reveal': { step: 2, cities: ['bom', 'lon'], channels: ['building_reveal', 'drone'], scene: 'reveal' },
+    'launch-light': { step: 2, cities: ['dxb', 'nyc'], channels: ['landmark_light'], scene: 'light' },
+    'launch-fest': { step: 2, cities: ['bom'], channels: ['fan_fest'], scene: 'fest' },
+    'launch-stunt': { step: 2, cities: ['nyc'], channels: ['stunt'], scene: 'stunt' },
     'launch-results': { step: 2, cities: ['bom', 'del', 'blr', 'nyc'], channels: ['social_feed', 'short_video', 'search_ads', 'creators_live', 'drone', 'building_reveal'], scene: 'results' },
 };
 

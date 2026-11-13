@@ -8,6 +8,7 @@ import { confirmLaunchFlight, quoteLaunchFlight, type LaunchDraft } from '../../
 import { KEY_ARTS, LAUNCH_GROUPS, NIGHT_ORDER, TAGLINES, TRAILER_CUTS, campaignCity, citiesByRegion, flightMoney, launchChannel } from '../../../services/marketing/launchCatalog';
 import { ChannelMock } from './ChannelMock';
 import { LaunchNight, type NightStop } from './LaunchNight';
+import { WorldMap } from './WorldMap';
 import '../../ownPlatform/fonts';
 import './launch.css';
 
@@ -20,7 +21,7 @@ interface Props {
     initialStep?: number;
     initialCities?: string[];
     initialChannels?: string[];
-    scene?: 'drone' | 'reveal' | 'results';
+    scene?: 'drone' | 'reveal' | 'light' | 'fest' | 'stunt' | 'results';
 }
 
 const brandLabel = (name: string, script: boolean) => {
@@ -168,16 +169,11 @@ export const LaunchCampaign: React.FC<Props> = ({
                 {step === 1 && (
                     <>
                         <p style={{ color: '#b7c3da', maxWidth: 760 }}>Every channel is bought in each city you tick. Outdoor screens, billboards, metro, mall and city screens, and opening night are a separate booking per city. The cost index is the one the network already uses.</p>
-                        <div className="map" aria-hidden="true">
-                            <svg viewBox="0 0 360 180">
-                                <ellipse cx="180" cy="96" rx="160" ry="68" fill="#10233f" />
-                                {citiesByRegion().flatMap(region => region.cities).map(city => {
-                                    const x = ((city.lon + 180) / 360) * 360;
-                                    const y = ((90 - city.lat) / 180) * 180;
-                                    return <circle key={city.id} cx={x} cy={y} r={cities.includes(city.id) ? 5 : 3} fill={cities.includes(city.id) ? '#7eb6ff' : '#8aa0c4'} />;
-                                })}
-                            </svg>
-                        </div>
+                        <WorldMap
+                            className="map world-map"
+                            activeId={cities[cities.length - 1]}
+                            pins={citiesByRegion().flatMap(region => region.cities).map(city => ({ id: city.id, lat: city.lat, lon: city.lon, lit: cities.includes(city.id) }))}
+                        />
                         <div className="city-tools">
                             <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Mumbai, Dubai, New York…" aria-label="Search cities" />
                         </div>
