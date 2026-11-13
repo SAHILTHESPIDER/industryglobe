@@ -1,6 +1,6 @@
 import React from 'react';
 import { Player } from '../../../types';
-import { absoluteWeek } from '../../../services/boxOfficeSim';
+import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import '../fonts';
 import './localization.css';
 
@@ -26,7 +26,7 @@ export const ContentFrame: React.FC<Props> = ({ player, tab, onTab, children }) 
     const titles = catalogue.length;
     const originals = catalogue.filter(row => row.source === 'OWNED').length;
     const licensed = catalogue.filter(row => row.source === 'LICENCE').length;
-    const now = absoluteWeek(player.age || 0, player.currentWeek || 1);
+    const now = getAbsoluteWeek(player.age || 1, player.currentWeek || 1);
     const expiring = (state?.streamRights?.holdings || []).filter(row => {
         const left = row.expiresAbsolute - now;
         return left > 0 && left <= 8;

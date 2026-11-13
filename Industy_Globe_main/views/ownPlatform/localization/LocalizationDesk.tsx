@@ -95,7 +95,7 @@ const Flags: React.FC<{ region: LocRegion; count?: number }> = ({ region, count 
     </div>
 );
 
-export const LocalizationDesk: React.FC<Props> = ({ player, onPlayer, initialId = 'southeast-asia', focus = 'detail' }) => {
+export const LocalizationDesk: React.FC<Props> = ({ player, onPlayer, initialId = 'southeast-asia', focus = 'grid' }) => {
     const calm = useCalm();
     const state = player.ownPlatform;
     const [regionId, setRegionId] = useState(initialId);

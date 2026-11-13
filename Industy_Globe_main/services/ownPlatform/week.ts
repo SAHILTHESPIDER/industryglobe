@@ -180,8 +180,6 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     }
 
     notes.push(...tickPlatformDesk(player, absoluteWeek));
-    const languageEnergy = tickLanguageEnergy(player, absoluteWeek);
-    if (languageEnergy) notes.push(languageEnergy);
 
     if (state.stage === 'CONSTRUCTING') {
         state.constructionWeeksLeft = Math.max(0, state.constructionWeeksLeft - 1);
@@ -195,6 +193,8 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     }
 
     if (state.stage === 'LIVE') {
+        const languageEnergy = tickLanguageEnergy(player, absoluteWeek);
+        if (languageEnergy) notes.push(languageEnergy);
         state.weeksLive += 1;
         const quote = quoteLaunch(player);
         const countries = selectedCountries(state).filter(country => {

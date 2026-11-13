@@ -3,7 +3,7 @@ import { Player } from '../../../types';
 import { createOwnPlatform } from '../../../services/ownPlatform/migrate';
 import { syncRegions } from '../../../services/ownPlatform/logic';
 import { energyGrant } from '../../../services/ownPlatform/languageDesk';
-import { absoluteWeek } from '../../../services/boxOfficeSim';
+import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import { ContentFrame, ContentTab } from './ContentFrame';
 import { LocalizationDesk } from './LocalizationDesk';
 import '../fonts';
@@ -66,7 +66,7 @@ const fixture = (screen: LocPreviewScreen): Player => {
     platform.books = { ...platform.books!, cash: 120_000_000 };
     platform = syncRegions(platform);
     const grant = energyGrant(platform);
-    const week = absoluteWeek(shell.age, shell.currentWeek);
+    const week = getAbsoluteWeek(shell.age, shell.currentWeek);
     if (screen === 'loc-levels') {
         platform.languageDesk = {
             energy: grant * 6,
