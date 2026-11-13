@@ -172,14 +172,14 @@ export const deliverLaunchOpening = (player: Player, now: number): string | null
     const subs = Math.max(0, Math.round(flight.subscribers));
     state.subscribers = Math.max(0, Math.round((state.subscribers || 0) + subs));
     const ids = new Set(flight.campaignIds || []);
-    const weeks = Math.max(1, flight.weeks || 1);
     if (player.marketing) {
         player.marketing.campaigns.forEach(campaign => {
             if (!ids.has(campaign.id) || campaign.status === 'COMPLETE') return;
             if (campaign.status === 'SCHEDULED' && campaign.startAbsolute > now) {
+                const span = Math.max(1, Math.round(campaign.target?.durationWeeks || flight.weeks || 1));
                 campaign.startAbsolute = now;
-                campaign.endAbsolute = now + weeks - 1;
-                campaign.target = { ...campaign.target, startOffset: 0, durationWeeks: weeks };
+                campaign.endAbsolute = now + span - 1;
+                campaign.target = { ...campaign.target, startOffset: 0, durationWeeks: span };
             }
         });
     }
@@ -202,16 +202,18 @@ export const releaseHeldLaunch = (player: Player, now: number) => {
     const state = player.ownPlatform;
     if (!flight?.held || !state || state.stage !== 'LIVE' || !player.marketing) return;
     const ids = new Set(flight.campaignIds || []);
-    const weeks = Math.max(1, flight.weeks || 1);
+    let longest = Math.max(1, flight.weeks || 1);
     player.marketing.campaigns.forEach(campaign => {
-        if (!ids.has(campaign.id)) return;
+        if (!ids.has(campaign.id) || campaign.status === 'COMPLETE') return;
+        const span = Math.max(1, Math.round(campaign.target?.durationWeeks || 1));
+        longest = Math.max(longest, span);
         campaign.startAbsolute = now;
-        campaign.endAbsolute = now + weeks - 1;
+        campaign.endAbsolute = now + span - 1;
         campaign.status = 'SCHEDULED';
-        campaign.target = { ...campaign.target, startOffset: 0, durationWeeks: weeks };
+        campaign.target = { ...campaign.target, startOffset: 0, durationWeeks: span };
     });
     flight.held = false;
-    if (flight.demandUntil == null) flight.demandUntil = now + weeks - 1;
+    if (flight.demandUntil == null) flight.demandUntil = now + longest - 1;
 };
 
 const creativeOf = (draft: LaunchDraft): MarketingCreative => ({
@@ -308,28 +310,42 @@ export const confirmLaunchFlight = (player: Player, draft: LaunchDraft): { playe
         ids.push(campaign.id);
     });
     const previous = cleanLaunchFlight(desk.launch);
-    const carried = previous && previous.appliedAbsolute == null ? previous.campaignIds : [];
+    const open = previous && previous.appliedAbsolute == null ? previous : undefined;
+    const unique = (values: string[]) => values.filter((id, index, all) => all.indexOf(id) === index);
+    const cityIds = unique([...(open?.cityIds || []), ...draft.cityIds.filter(id => campaignCity(id))]).slice(0, 48);
+    const channelIds = unique([...(open?.channelIds || []), ...picked.map(row => row.id)]).slice(0, 48);
+    const cityLines = new Map<string, typeof quote.cities[number]>();
+    [...(open?.cities || []), ...quote.cities].forEach(row => {
+        const current = cityLines.get(row.id);
+        if (!current) cityLines.set(row.id, { ...row });
+        else {
+            current.reach += row.reach;
+            current.subscribers += row.subscribers;
+            current.cost += row.cost;
+        }
+    });
+    const weeks = Math.max(quote.weeks, open?.weeks || 0);
     const flight: LaunchFlight = {
         version: 1,
         what: draft.what === 'TITLE' ? 'TITLE' : 'PLATFORM',
         titleId,
         titleName,
-        cityIds: draft.cityIds.filter(id => campaignCity(id)).slice(0, 48),
-        channelIds: picked.map(row => row.id),
+        cityIds,
+        channelIds,
         creativeId: KEY_ARTS.some(art => art.id === draft.creativeId) ? draft.creativeId : 'night',
         trailerId: TRAILER_CUTS.some(cut => cut.id === draft.trailerId) ? draft.trailerId : 'open',
         tagline: creative.tagline,
-        weeks: quote.weeks,
-        weeklyBudget: quote.weekly,
-        openingCost: quote.opening,
-        totalCost: quote.total,
-        reach: quote.reach + (previous && previous.appliedAbsolute == null ? previous.reach : 0),
-        buzz: quote.buzz,
-        subscribers: quote.subscribers + (previous && previous.appliedAbsolute == null ? previous.subscribers : 0),
-        demand: quote.demand,
-        demandUntil: live ? now + quote.weeks - 1 : undefined,
-        cities: quote.cities,
-        campaignIds: [...carried, ...ids].filter((id, index, all) => all.indexOf(id) === index).slice(0, 80),
+        weeks,
+        weeklyBudget: quote.weekly + (open?.weeklyBudget || 0),
+        openingCost: quote.opening + (open?.openingCost || 0),
+        totalCost: quote.total + (open?.totalCost || 0),
+        reach: quote.reach + (open?.reach || 0),
+        buzz: Math.max(quote.buzz, open?.buzz || 0),
+        subscribers: quote.subscribers + (open?.subscribers || 0),
+        demand: Math.max(0, Math.min(0.1, quote.demand + (open?.demand || 0))),
+        demandUntil: live ? now + weeks - 1 : undefined,
+        cities: [...cityLines.values()].slice(0, 48),
+        campaignIds: unique([...(open?.campaignIds || []), ...ids]).slice(0, 80),
         bookedAbsolute: now,
         held: !live,
     };

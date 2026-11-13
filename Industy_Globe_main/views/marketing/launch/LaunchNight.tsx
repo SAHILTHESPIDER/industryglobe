@@ -248,8 +248,8 @@ export const LaunchNight: React.FC<{
     const [index, setIndex] = useState(0);
     const showResults = hold === 'results' || index >= sequence.length;
     useEffect(() => {
-        if (hold || showResults || reduce) return undefined;
-        const timer = window.setTimeout(() => setIndex(value => value + 1), 7000);
+        if (hold || showResults) return undefined;
+        const timer = window.setTimeout(() => setIndex(value => value + 1), reduce ? 1200 : 7000);
         return () => window.clearTimeout(timer);
     }, [index, hold, showResults, reduce]);
     const stop = sequence[Math.min(index, sequence.length - 1)];

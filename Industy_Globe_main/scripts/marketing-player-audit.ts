@@ -227,8 +227,8 @@ const first = confirmLaunchFlight(waiting, {
     tagline: 'Open the door.', weeks: 2, ratio: 1,
 });
 const rebook = confirmLaunchFlight(first.player, {
-    what: 'PLATFORM', cityIds: ['bom'], channelIds: ['short_video'], creativeId: 'night', trailerId: 'open',
-    tagline: 'Open the door.', weeks: 2, ratio: 1,
+    what: 'PLATFORM', cityIds: ['del'], channelIds: ['short_video'], creativeId: 'night', trailerId: 'open',
+    tagline: 'Open the door.', weeks: 1, ratio: 1,
 });
 const firstId = first.player.marketing?.launch?.campaignIds?.[0] || '';
 need(Boolean(firstId) && (rebook.player.marketing?.launch?.campaignIds || []).includes(firstId), 'a second booking keeps the first flight on the books');
@@ -237,6 +237,10 @@ if (rebook.player.ownPlatform) rebook.player.ownPlatform.stage = 'LIVE';
 need(Boolean(deliverLaunchOpening(rebook.player, opening)), 'opening night grants the held subscribers');
 const released = (rebook.player.marketing?.campaigns || []).filter(row => (rebook.player.marketing?.launch?.campaignIds || []).includes(row.id));
 need(released.length >= 2 && released.every(row => row.startAbsolute === opening), 'held campaigns start on opening night');
+const kept = released.find(row => row.id === firstId);
+need(kept?.target.durationWeeks === 2 && kept.endAbsolute === opening + 1, 'the first flight keeps its own two-week run');
+need((rebook.player.marketing?.launch?.cityIds || []).includes('bom') && (rebook.player.marketing?.launch?.cityIds || []).includes('del'), 'a second booking keeps both cities');
+need((rebook.player.marketing?.launch?.channelIds || []).includes('social_feed'), 'a second booking keeps the first channel');
 
 if (process.exitCode) {
     console.error('player marketing checks failed');
