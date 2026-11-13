@@ -13,6 +13,7 @@ import { tickStreamRights } from './streamRights';
 import { settleBooks } from './studio';
 import { executiveModifiers, payExecutiveSalaries, tickExecContracts } from './executives';
 import { factorsAreIdentity, platformFactors, stampPlatformRevenue, techWeeklyBill, tickPlatformDesk } from './platformDesk';
+import { tickLanguageEnergy } from './languageDesk';
 
 export interface PlatformWeekNote {
     msg: string;
@@ -192,6 +193,8 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     }
 
     if (state.stage === 'LIVE') {
+        const languageEnergy = tickLanguageEnergy(player, absoluteWeek);
+        if (languageEnergy) notes.push(languageEnergy);
         state.weeksLive += 1;
         const quote = quoteLaunch(player);
         const countries = selectedCountries(state).filter(country => {

@@ -38,6 +38,8 @@ import { StakeSale } from './StakeSale';
 import { IpoFlow } from './IpoFlow';
 import { IPO_LINE, draftCanDrop, dropIpoDraft, ipoBlockers, showPct } from '../../services/ownPlatform/ipo';
 import { releaseWeekLabel } from '../../services/ownPlatform/weeks';
+import { ContentFrame, ContentTab } from './localization/ContentFrame';
+import { LocalizationDesk } from './localization/LocalizationDesk';
 import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { Boardroom } from './Boardroom';
 import { BoardTable } from './BoardTable';
@@ -133,6 +135,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
 const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player; error?: string }) => void; onMarket?: (titleId: string) => void }> = ({ player, onApply, onMarket }) => {
     const state = player.ownPlatform!;
     const [libraryOpen, setLibraryOpen] = useState(false);
+    const [tab, setTab] = useState<ContentTab>('library');
     const [catalogueReady, setCatalogueReady] = useState(false);
     const [detail, setDetail] = useState<CataloguePick | null>(null);
     const [bumper, setBumper] = useState<CataloguePick | null>(null);
@@ -163,8 +166,10 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
             return Boolean(holding) && (preferredFormat(ip) === 'SERIES' || (ip.seasons || 1) >= 2);
         }).slice(0, 12)
         : [];
+    const holdings = state.streamRights?.holdings || [];
     return (
-        <div className="space-y-4">
+        <ContentFrame player={player} tab={tab} onTab={setTab}>
+            {tab === 'library' && <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-zinc-400 max-w-2xl">Empire+ commissions rival studios from this desk. The same briefs, counters, and signatures run the other way. Owned library titles and public-domain stories can ride along. Inbound platform offers live on the production house.</p>
                 <button data-testid="content-desk-rights" onClick={() => setLibraryOpen(true)} className="shrink-0 px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Rights Library</button>
@@ -199,6 +204,41 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     ))}
                 </div>
             </div>
+            </div>}
+            {tab === 'rights' && (
+                <div className="space-y-3">
+                    <p className="text-sm text-zinc-400 max-w-2xl">Stories the service can buy or already holds. Every cheque leaves company cash. Personal cash stays put.</p>
+                    <button type="button" onClick={() => setLibraryOpen(true)} className="px-4 py-2 rounded-full bg-white text-black text-[11px] font-black uppercase tracking-wider">Open the rights library</button>
+                    {holdings.length === 0 && <p className="text-sm text-zinc-500">Nothing is in the vault yet.</p>}
+                    <div className="grid sm:grid-cols-2 gap-2">
+                        {holdings.map(holding => (
+                            <article key={holding.id} className="rounded-2xl border border-white/10 bg-[#12151c] px-3 py-2">
+                                <div className="font-bold">{holding.title}</div>
+                                <div className="text-[11px] text-zinc-500">{holding.language} · {holding.kind}</div>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            )}
+            {tab === 'slate' && (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {state.catalogue.length === 0 && <p className="text-sm text-zinc-500">The slate is empty. Add a title in the launch catalogue.</p>}
+                    {state.catalogue.map(row => (
+                        <button key={row.id} type="button" onClick={() => openTitle(row)} className="rounded-2xl border border-white/10 px-3 py-2 text-left">
+                            <div className="font-bold">{row.title}</div>
+                            <div className="text-[11px] text-zinc-500">{row.genre} · {row.language} · {row.source === 'OWNED' ? 'Original' : 'Licensed'}</div>
+                            <div className="text-[11px] text-zinc-400 mt-1">
+                                {typeof row.releaseWeekOffset === 'number' && row.releaseWeekOffset > 0
+                                    ? `Opens ${releaseWeekLabel(player.currentWeek, row.releaseWeekOffset)}`
+                                    : 'On the service'}
+                            </div>
+                        </button>
+                    ))}
+                </div>
+            )}
+            {tab === 'localization' && (
+                <LocalizationDesk player={player} onPlayer={next => onApply({ player: next })} />
+            )}
             {libraryOpen && (
                 <RightsLibrary player={player} studio={house} onBack={() => setLibraryOpen(false)} onUpdatePlayer={next => onApply({ player: next })} />
             )}
@@ -232,7 +272,7 @@ const ContentDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                 </div>,
                 document.body,
             )}
-        </div>
+        </ContentFrame>
     );
 };
 

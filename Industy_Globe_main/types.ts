@@ -953,6 +953,40 @@ export enum Page {
       dub: LocalLevel;
   }
 
+  /** One subtitle or dubbing ladder. Level is paid. Sub-levels are filled with company energy. */
+  export interface LanguageTrackState {
+      /** Paid levels, 0–3. 3 means the ladder is finished. */
+      level: number;
+      /** Sub-levels filled on the level being worked, 0–3. */
+      sub: number;
+      /** Energy already spent inside the open sub-level. */
+      energy: number;
+  }
+
+  /** Subtitles and dubbing for one language region. */
+  export interface LanguageRegionState {
+      id: string;
+      setup: boolean;
+      subtitles: LanguageTrackState;
+      dubbing: LanguageTrackState;
+  }
+
+  /**
+   * Language desk. Missing on older saves, which stay at version 1 and behave as if nothing is set up.
+   * Energy here is company energy. It is not player.energy. Cash costs leave books.cash, not player.money.
+   */
+  export interface LanguageDeskState {
+      regions: LanguageRegionState[];
+      /** Spendable company energy for sub-levels. */
+      energy: number;
+      /** Granted on the current game week. */
+      earnedThisWeek: number;
+      /** Unspent energy carried into this week. */
+      banked: number;
+      /** Absolute week of the last grant. */
+      earnedWeek?: number;
+  }
+
   /** One-off skips for ad-supported viewing. 0 means that pass is not sold. */
   export interface AdFreePasses {
       hourUsd: number;
@@ -1500,6 +1534,8 @@ export enum Page {
       marketingDemand?: number;
       /** Tech, offer, product, and status. Missing on older saves. */
       platformDesk?: PlatformDeskState;
+      /** Subtitle and dubbing ladders by language region. Missing on older saves. */
+      languageDesk?: LanguageDeskState;
   }
   
   export interface FuturePotential {

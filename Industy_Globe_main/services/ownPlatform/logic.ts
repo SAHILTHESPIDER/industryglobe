@@ -33,6 +33,7 @@ import {
 } from './catalog';
 import { addCompanyCash, readCompanyCash } from './companyCash';
 import { adBoostFor, enabledPlans, fundingPressure, lanesForBoost, localisationAudience, localisationWeekly, RevenueParts, rollCommercial } from './commercial';
+import { languageScaleFor, locRegionIdFor } from './languageDesk';
 import { planUsdInCountry } from './fx';
 import { identById } from './identEffects';
 import { publicBrandName } from '../rights/alterName';
@@ -104,6 +105,16 @@ export interface LaunchQuote {
     blockers: string[];
     ownSeries: number[];
     rentSeries: number[];
+    /** Households the language desk adds, by language region. Missing means none. */
+    languageReach: LanguageReachRow[];
+}
+
+export interface LanguageReachRow {
+    id: string;
+    viewers: number;
+    households: number;
+    baseHouseholds: number;
+    openAudience: number;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -275,6 +286,8 @@ export const countryPiracy = (state: OwnPlatformState, country: MarketCountry): 
     piracy += rightsGap;
     piracy -= (state.enforcement / 100) * 0.14;
     piracy += identById(state.identId).piracy;
+    const spoken = languageScaleFor(state, country.id);
+    if (spoken > 1) piracy -= Math.min(0.06, (spoken - 1) * 0.15);
     const share = clamp(piracy, 0.02, 0.72);
     return Number.isFinite(share) ? share : 0.06;
 };
@@ -297,7 +310,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         fundingPressure: 0, fundingLabel: 'Calm', fundingLine: 'Receipts cover the week. Company cash is not under pressure.',
         localisationWeekly: 0,
         piracyShare: 0, marketingCeiling: 0, marketingReady: false, regionRows: [],
-        blockers: ['Open the launch first.'], ownSeries: [], rentSeries: [],
+        blockers: ['Open the launch first.'], ownSeries: [], rentSeries: [], languageReach: [],
     };
     if (!state) return empty;
 
@@ -385,10 +398,24 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const countedLanes = lanesForBoost(state);
     const laneBoost = 1 + Math.max(0, countedLanes.length - 1) * 0.04;
     const adBoost = adBoostFor(state);
-    const localScale = (country: MarketCountry) => localisationAudience(
+    const legacyScale = (country: MarketCountry) => localisationAudience(
         state.localisations?.find(row => row.countryId === country.id),
         country.languages[0]?.name === 'English',
     );
+    const localScale = (country: MarketCountry) => legacyScale(country) * languageScaleFor(state, country.id);
+    const languageReach = new Map<string, LanguageReachRow>();
+    const noteLanguage = (country: MarketCountry, viewers: number, homes: number) => {
+        const id = locRegionIdFor(country.id);
+        const scale = localScale(country);
+        const legacy = legacyScale(country);
+        const baseHomes = scale > 0 ? homes * (legacy / scale) : homes;
+        const row = languageReach.get(id) || { id, viewers: 0, households: 0, baseHouseholds: 0, openAudience: 0 };
+        row.viewers += viewers;
+        row.households += homes;
+        row.baseHouseholds += baseHomes;
+        row.openAudience += Math.max(0, country.audienceM) * 1_000_000;
+        languageReach.set(id, row);
+    };
     let reached = 0;
     let paid = 0;
     let piracyWeight = 0;
@@ -417,12 +444,19 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         const usd = averageUsdInCountry(state, country.id);
         const booked = mixUsdInCountry(state, country.id);
         const conversion = conversionFor(usd);
-        households += paying * conversion;
-        monthly += paying * conversion * finiteNumber(booked, 0) * adBoost;
+        const homes = paying * conversion;
+        households += homes;
+        monthly += homes * finiteNumber(booked, 0) * adBoost;
+        noteLanguage(country, viewers, homes);
     });
-    households = Number.isFinite(households) ? Math.round(households) : 0;
-    const rolled = rollCommercial(state, households, Number.isFinite(monthly) ? monthly : 0);
-    households = Number.isFinite(rolled.households) ? rolled.households : households;
+    const bookedHouseholds = Number.isFinite(households) ? Math.round(households) : 0;
+    const rolled = rollCommercial(state, bookedHouseholds, Number.isFinite(monthly) ? monthly : 0);
+    households = Number.isFinite(rolled.households) ? rolled.households : bookedHouseholds;
+    const reachScale = bookedHouseholds > 0 ? households / bookedHouseholds : 1;
+    languageReach.forEach(row => {
+        row.households *= reachScale;
+        row.baseHouseholds *= reachScale;
+    });
     const forecastWeeklyRevenue = rolled.parts.subscriptions + rolled.parts.ads + rolled.parts.passes + rolled.parts.rentals + rolled.parts.purchases;
     const locWeekly = localisationWeekly(state);
     const pressure = fundingPressure(forecastWeeklyRevenue, weeklyOwn + locWeekly + officeRentEarly, companyCash, state.books?.debt || 0);
@@ -472,6 +506,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
         localisationWeekly: locWeekly,
         piracyShare, marketingCeiling, marketingReady,
         regionRows, blockers, ownSeries, rentSeries,
+        languageReach: [...languageReach.values()],
     };
 };
 

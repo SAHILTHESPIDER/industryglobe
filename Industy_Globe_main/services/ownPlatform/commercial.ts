@@ -1,5 +1,6 @@
 import { AdIntervalMin, CountryLocalisation, LocalLevel, OwnPlatformState, PlanBenefit, PricingPlan, RevenueLane } from '../../types';
 import { getCountry } from './catalog';
+import { languageDeskWeekly } from './languageDesk';
 import { titleIsLive } from './weeks';
 
 export const MIN_PLAN_USD = 0.99;
@@ -145,15 +146,16 @@ export const localisationCost = (audienceM: number, row: CountryLocalisation | u
     return Math.round((subtitles + dub) * scale);
 };
 
-/** Weekly localisation bill for countries actually on the slate. */
+/** Weekly localisation bill for countries on the slate, plus language-desk regions that are set up. */
 export const localisationWeekly = (state: OwnPlatformState): number => {
     const open = new Set(state.selectedCountryIds);
-    return (state.localisations || []).reduce((sum, row) => {
+    const countryBill = (state.localisations || []).reduce((sum, row) => {
         if (!open.has(row.countryId)) return sum;
         const country = getCountry(row.countryId);
         if (!country) return sum;
         return sum + localisationCost(country.audienceM, row);
     }, 0);
+    return countryBill + languageDeskWeekly(state);
 };
 
 /** Off plans stay on the shelf. A missing `enabled` means on, so old saves keep every plan. */
