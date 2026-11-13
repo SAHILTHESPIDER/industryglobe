@@ -102,6 +102,7 @@ export const sanitizeTitleStore = (raw: OwnPlatformState['titleStore']): OwnPlat
     return { rentUsd, buyUsd };
 };
 
+/** Timed breaks on a plan that is off still count, so the old flat ad boost does not switch itself back on. */
 const explicitAds = (state: OwnPlatformState) => state.plans.some(plan => plan.ads && isAdInterval(plan.adIntervalMin));
 
 /**
@@ -155,21 +156,39 @@ export const localisationWeekly = (state: OwnPlatformState): number => {
     }, 0);
 };
 
+/** Off plans stay on the shelf. A missing `enabled` means on, so old saves keep every plan. */
+export const enabledPlans = (plans: PricingPlan[]): PricingPlan[] =>
+    plans.filter(plan => plan.enabled !== false);
+
 export const introSpan = (state: OwnPlatformState): number =>
-    state.plans.reduce((max, plan) => (
+    enabledPlans(state.plans).reduce((max, plan) => (
         (plan.introDiscountPct || 0) > 0 ? Math.max(max, plan.introWeeks || 0) : max
     ), 0);
 
 const commercialTouched = (state: OwnPlatformState): boolean => {
     if ((state.passes?.hourUsd || 0) > 0 || (state.passes?.dayUsd || 0) > 0) return true;
     if ((state.titleStore?.rentUsd || 0) > 0 || (state.titleStore?.buyUsd || 0) > 0) return true;
-    return state.plans.some(plan =>
+    return enabledPlans(state.plans).some(plan =>
         plan.freeWithAds
         || isAdInterval(plan.adIntervalMin)
         || (plan.annualDiscountPct || 0) > 0
         || (plan.introDiscountPct || 0) > 0
         || (plan.benefits && plan.benefits.length > 0)
     );
+};
+
+/**
+ * Quarter and half-year cuts. Same shares as the offer card blend.
+ * 1 when the player has not tuned billing, so an old save is unchanged.
+ */
+const billingPriceFactor = (state: OwnPlatformState): number => {
+    const billing = state.platformDesk?.billing;
+    if (!billing?.tuned) return 1;
+    const quarter = Math.min(40, Math.max(0, Number(billing.quarterPct) || 0)) / 100;
+    const half = Math.min(40, Math.max(0, Number(billing.halfPct) || 0)) / 100;
+    const quarterShare = quarter > 0 ? 0.12 : 0;
+    const halfShare = half > 0 ? 0.08 : 0;
+    return 1 - (quarterShare * quarter + halfShare * half);
 };
 
 export interface CommercialRollup {
@@ -181,16 +200,21 @@ export interface CommercialRollup {
 /**
  * Adjusts the subscription book already priced in quoteLaunch.
  * Untouched saves return the same households and the same monthly total.
+ * A tuned quarter or half-year discount still cuts that total, on this path and the one below.
  * Ads, passes, rentals, and buys are added once, not as a second lane percent.
+ * Plans with enabled set to false are left out of price, ads, and demand.
  */
 export const rollCommercial = (state: OwnPlatformState, households: number, monthly: number): CommercialRollup => {
     const weekly = Math.round((Number.isFinite(monthly) ? monthly : 0) / 4.3);
+    const priceCut = billingPriceFactor(state);
     if (!commercialTouched(state)) {
-        return { households, monthly, parts: { ...emptyParts(), subscriptions: weekly } };
+        if (priceCut === 1) return { households, monthly, parts: { ...emptyParts(), subscriptions: weekly } };
+        const adjusted = (Number.isFinite(monthly) ? monthly : 0) * priceCut;
+        return { households, monthly: adjusted, parts: { ...emptyParts(), subscriptions: Math.round(adjusted / 4.3) } };
     }
     let factor = 1;
     let priceFactor = 1;
-    const plans = state.plans;
+    const plans = enabledPlans(state.plans);
     const paid = plans.filter(plan => !plan.freeWithAds);
     const free = plans.filter(plan => plan.freeWithAds);
     if (paid.length) {
@@ -203,14 +227,7 @@ export const rollCommercial = (state: OwnPlatformState, households: number, mont
         priceFactor *= 1 - offs.reduce((sum, off) => sum + off, 0) / paid.length;
         const annual = paid.reduce((sum, plan) => sum + Math.min(50, Math.max(0, plan.annualDiscountPct || 0)), 0) / paid.length / 100;
         priceFactor *= 1 - annual * 0.4;
-        const billing = state.platformDesk?.billing;
-        if (billing?.tuned) {
-            const quarter = Math.min(40, Math.max(0, Number(billing.quarterPct) || 0)) / 100;
-            const half = Math.min(40, Math.max(0, Number(billing.halfPct) || 0)) / 100;
-            const quarterShare = quarter > 0 ? 0.12 : 0;
-            const halfShare = half > 0 ? 0.08 : 0;
-            priceFactor *= 1 - (quarterShare * quarter + halfShare * half);
-        }
+        priceFactor *= priceCut;
     }
     if (free.length && plans.length) {
         factor *= 1 + Math.min(0.65, free.length / plans.length) * 0.28;

@@ -96,7 +96,7 @@ export const OfferTab: React.FC<Props> = ({ player, onPlayer, onStudio, onOpenTe
                         billing={billing}
                         onToggle={on => { const result = togglePlan(state, plan.id, on); commit(result); }}
                         onPrice={price => commit(setPlanPrice(state, plan.id, price))}
-                        onRemove={() => { setRemoveId(plan.id); setMoveTo(state.plans.find(row => row.id !== plan.id)?.id || 'cancel'); }}
+                        onRemove={() => { setRemoveId(plan.id); setMoveTo(state.plans.find(row => row.id !== plan.id && row.enabled !== false)?.id || 'cancel'); }}
                     />
                 ))}
                 <article className="plat-panel">
@@ -190,7 +190,7 @@ export const OfferTab: React.FC<Props> = ({ player, onPlayer, onStudio, onOpenTe
                         <p>{(split[removeId] || 0).toLocaleString('en-US')} subscribers have to go somewhere.</p>
                         <label className="plat-kicker">Move them
                             <select value={moveTo} onChange={event => setMoveTo(event.target.value)} style={{ display: 'block', marginTop: 6, width: '100%', background: '#0c0f18', color: '#fff', borderRadius: 10, padding: 8 }}>
-                                {state.plans.filter(plan => plan.id !== removeId).map(plan => <option key={plan.id} value={plan.id}>Move to {plan.name}</option>)}
+                                {state.plans.filter(plan => plan.id !== removeId && plan.enabled !== false).map(plan => <option key={plan.id} value={plan.id}>Move to {plan.name}</option>)}
                                 <option value="cancel">Cancel their subscriptions</option>
                             </select>
                         </label>
