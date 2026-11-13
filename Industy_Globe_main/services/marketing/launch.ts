@@ -171,6 +171,18 @@ export const deliverLaunchOpening = (player: Player, now: number): string | null
     if (!state || state.stage !== 'LIVE') return null;
     const subs = Math.max(0, Math.round(flight.subscribers));
     state.subscribers = Math.max(0, Math.round((state.subscribers || 0) + subs));
+    const ids = new Set(flight.campaignIds || []);
+    const weeks = Math.max(1, flight.weeks || 1);
+    if (player.marketing) {
+        player.marketing.campaigns.forEach(campaign => {
+            if (!ids.has(campaign.id) || campaign.status === 'COMPLETE') return;
+            if (campaign.status === 'SCHEDULED' && campaign.startAbsolute > now) {
+                campaign.startAbsolute = now;
+                campaign.endAbsolute = now + weeks - 1;
+                campaign.target = { ...campaign.target, startOffset: 0, durationWeeks: weeks };
+            }
+        });
+    }
     flight.appliedAbsolute = now;
     if (flight.demandUntil == null) flight.demandUntil = now + Math.max(1, flight.weeks) - 1;
     flight.held = false;
@@ -296,6 +308,7 @@ export const confirmLaunchFlight = (player: Player, draft: LaunchDraft): { playe
         ids.push(campaign.id);
     });
     const previous = cleanLaunchFlight(desk.launch);
+    const carried = previous && previous.appliedAbsolute == null ? previous.campaignIds : [];
     const flight: LaunchFlight = {
         version: 1,
         what: draft.what === 'TITLE' ? 'TITLE' : 'PLATFORM',
@@ -316,7 +329,7 @@ export const confirmLaunchFlight = (player: Player, draft: LaunchDraft): { playe
         demand: quote.demand,
         demandUntil: live ? now + quote.weeks - 1 : undefined,
         cities: quote.cities,
-        campaignIds: ids,
+        campaignIds: [...carried, ...ids].filter((id, index, all) => all.indexOf(id) === index).slice(0, 80),
         bookedAbsolute: now,
         held: !live,
     };

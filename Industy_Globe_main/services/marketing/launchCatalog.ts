@@ -385,9 +385,11 @@ export const priceFlight = (input: PriceInput): FlightQuote => {
     const selected = rated.filter(row => picked.has(row.row.id) && !row.copy.disabled && (row.weekly > 0 || row.opening > 0));
     const rateTotal = selected.reduce((sum, row) => sum + row.weekly, 0);
     const budget = ratio >= 0.999 ? rateTotal : roundK(rateTotal * ratio);
+    const usingShares = Object.values(input.weights || {}).some(value => value > 0);
     const weightOf = (row: { row: LaunchChannel; weekly: number }) => {
         const custom = input.weights?.[row.row.id];
-        return custom && custom > 0 ? custom : (row.weekly || 1);
+        if (custom && custom > 0) return custom;
+        return usingShares ? 50 : (row.weekly || 1);
     };
     const weeklySelected = selected.filter(row => row.weekly > 0);
     const weightSum = weeklySelected.reduce((sum, row) => sum + weightOf(row), 0) || 1;

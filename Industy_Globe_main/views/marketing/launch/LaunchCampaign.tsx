@@ -262,7 +262,17 @@ export const LaunchCampaign: React.FC<Props> = ({
                             <label key={row.id} className="split">
                                 <span>{row.name}</span>
                                 <b>{flightMoney(row.spend)}</b>
-                                <input type="range" min={1} max={100} value={weights[row.id] || 50} onChange={event => setWeights(current => ({ ...current, [row.id]: Number(event.target.value) }))} style={{ gridColumn: '1 / -1' }} />
+                                <input type="range" min={1} max={100} value={weights[row.id] || 50} onChange={event => {
+                                    const value = Number(event.target.value);
+                                    setWeights(current => {
+                                        const next = { ...current };
+                                        picked.filter(item => item.weekly > 0).forEach(item => {
+                                            if (!next[item.id]) next[item.id] = 50;
+                                        });
+                                        next[row.id] = value;
+                                        return next;
+                                    });
+                                }} style={{ gridColumn: '1 / -1' }} />
                             </label>
                         ))}
                         <p style={{ color: '#b7c3da' }}>Opening night stays on the rate card. Personal cash is not used. Company cash has {formatCompact(cash)}.</p>

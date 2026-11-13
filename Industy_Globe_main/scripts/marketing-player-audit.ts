@@ -6,7 +6,8 @@ import type { Player } from '../types';
 import { confirmMarketing, applyMarketingWeek } from '../services/marketing/engine';
 import { normalizeMarketing } from '../services/marketing/core';
 import { priceFlight } from '../services/marketing/launchCatalog';
-import { confirmLaunchFlight } from '../services/marketing/launch';
+import { confirmLaunchFlight, deliverLaunchOpening } from '../services/marketing/launch';
+import { getAbsoluteWeek } from '../services/legacyLogic';
 
 const need = (condition: unknown, message: string) => {
     if (!condition) {
@@ -210,6 +211,32 @@ need(!booked.error, `launch books from company cash (${booked.error || 'ok'})`);
 need(booked.player.money === 4_000_000, 'launch does not touch personal cash');
 need((booked.player.ownPlatform?.books?.cash || 0) < 5_000_000, 'launch reduces company cash');
 need((booked.player.ownPlatform?.subscribers || 0) > 1000, 'a live flight adds subscribers');
+
+const waiting = player();
+waiting.money = 4_000_000;
+waiting.ownPlatform = {
+    name: 'Sahil',
+    stage: 'BUILD',
+    subscribers: 0,
+    books: { cash: 8_000_000, lines: [], funding: 'OWN', debt: 0, equitySoldPct: 0, facilityRate: 0.09, pePartner: 'Kestrel', history: [] },
+    applications: [],
+    selectedCountryIds: ['IN'],
+} as typeof waiting.ownPlatform;
+const first = confirmLaunchFlight(waiting, {
+    what: 'PLATFORM', cityIds: ['bom'], channelIds: ['social_feed'], creativeId: 'night', trailerId: 'open',
+    tagline: 'Open the door.', weeks: 2, ratio: 1,
+});
+const rebook = confirmLaunchFlight(first.player, {
+    what: 'PLATFORM', cityIds: ['bom'], channelIds: ['short_video'], creativeId: 'night', trailerId: 'open',
+    tagline: 'Open the door.', weeks: 2, ratio: 1,
+});
+const firstId = first.player.marketing?.launch?.campaignIds?.[0] || '';
+need(Boolean(firstId) && (rebook.player.marketing?.launch?.campaignIds || []).includes(firstId), 'a second booking keeps the first flight on the books');
+const opening = getAbsoluteWeek(rebook.player.age, rebook.player.currentWeek);
+if (rebook.player.ownPlatform) rebook.player.ownPlatform.stage = 'LIVE';
+need(Boolean(deliverLaunchOpening(rebook.player, opening)), 'opening night grants the held subscribers');
+const released = (rebook.player.marketing?.campaigns || []).filter(row => (rebook.player.marketing?.launch?.campaignIds || []).includes(row.id));
+need(released.length >= 2 && released.every(row => row.startAbsolute === opening), 'held campaigns start on opening night');
 
 if (process.exitCode) {
     console.error('player marketing checks failed');
