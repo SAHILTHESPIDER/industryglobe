@@ -14,6 +14,7 @@ import { settleBooks } from './studio';
 import { executiveModifiers, payExecutiveSalaries, tickExecContracts } from './executives';
 import { factorsAreIdentity, platformFactors, stampPlatformRevenue, techWeeklyBill, tickPlatformDesk } from './platformDesk';
 import { tickLanguageEnergy } from './languageDesk';
+import { deliverLaunchOpening, launchDemandFloor } from '../marketing/launch';
 
 export interface PlatformWeekNote {
     msg: string;
@@ -212,6 +213,10 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         if (mods.techCut > 0 && state.uptime != null) {
             state.uptime = Math.min(100, Math.round(state.uptime + mods.techCut * 20));
         }
+        const opened = deliverLaunchOpening(player, absoluteWeek);
+        if (opened) notes.push({ msg: opened, type: 'positive' });
+        const floor = launchDemandFloor(player, absoluteWeek);
+        if (floor > 0) state.marketingDemand = Math.max(0, Math.min(0.1, Math.max(state.marketingDemand || 0, floor)));
         const marketingPull = Math.max(0, Math.min(0.1, state.marketingDemand || 0));
         const factors = platformFactors(state);
         const shaped = !factorsAreIdentity(factors);

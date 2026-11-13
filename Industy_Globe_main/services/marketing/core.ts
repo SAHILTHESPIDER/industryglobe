@@ -23,6 +23,7 @@ import type {
     MarketingStatus,
     MarketingTarget,
     MarketingTitleStatus,
+    LaunchFlight,
 } from '../../types';
 
 export interface MarketingTitle {
@@ -216,7 +217,37 @@ const finite = (value: unknown, fallback = 0) => {
     return Number.isFinite(number) ? number : fallback;
 };
 
-export const actionById = (id: string) => ACTIONS.find(action => action.id === id);
+const EXTRA_ACTIONS: {
+    id: string;
+    category: MarketingCategory | string;
+    name: string;
+    blurb: string;
+    base: number;
+    reach: number;
+    hype: number;
+    ticket: number;
+    stream: number;
+    needsCast: boolean;
+    needsCity: boolean;
+}[] = [];
+let placeGuard: (id: string) => { ids: string[]; label: string } | null = () => null;
+let cleanLaunch: (raw: unknown) => LaunchFlight | undefined = () => undefined;
+
+/**
+ * The launch rate card registers itself.
+ * This file does not import that catalogue: the marketing audit loads these rules with no bundler.
+ */
+export const bindLaunchCatalog = (api: {
+    actions: typeof EXTRA_ACTIONS;
+    place: (id: string) => { ids: string[]; label: string } | null;
+    clean: (raw: unknown) => LaunchFlight | undefined;
+}) => {
+    EXTRA_ACTIONS.splice(0, EXTRA_ACTIONS.length, ...api.actions);
+    placeGuard = api.place;
+    cleanLaunch = api.clean;
+};
+
+export const actionById = (id: string) => ACTIONS.find(action => action.id === id) || EXTRA_ACTIONS.find(action => action.id === id);
 export const paletteById = (id: string) => PALETTES.find(row => row.id === id) || PALETTES[0];
 export const sizeById = (id: string) => SIZES.find(row => row.id === id) || SIZES[0];
 export const themeById = (id: string) => STAGE_THEMES.find(row => row.id === id) || STAGE_THEMES[0];
@@ -287,6 +318,7 @@ const cleanTarget = (raw: Partial<MarketingTarget> | undefined): MarketingTarget
         durationWeeks: clamp(Math.round(finite(raw.durationWeeks, base.durationWeeks)), 0, 52),
         startOffset: clamp(Math.round(finite(raw.startOffset, 0)), -1, 80),
         audience,
+        cityIds: Array.isArray(raw.cityIds) ? raw.cityIds.filter((id): id is string => typeof id === 'string').slice(0, 48) : undefined,
     };
 };
 
@@ -456,6 +488,7 @@ export const normalizeMarketing = (raw: unknown): MarketingState => {
         records,
         npcWeek: Number.isFinite(Number(source.npcWeek)) ? Math.round(Number(source.npcWeek)) : undefined,
         exposureWeek: Number.isFinite(Number(source.exposureWeek)) ? Math.round(Number(source.exposureWeek)) : undefined,
+        launch: cleanLaunch(source.launch),
     };
 };
 
@@ -562,6 +595,11 @@ export const validateTarget = (target: MarketingTarget, world: MarketWorld, acti
     }
     if (target.language && (typeof target.language !== 'string' || target.language.length > 40)) return 'That language variant is not usable.';
     if (LOCAL_CITY.has(actionId) && target.regionId !== 'WORLD' && !target.cityId) return 'Pick a city for this buy.';
+    const places = placeGuard(actionId);
+    if (places) {
+        const ids = target.cityIds?.length ? target.cityIds : target.cityId ? [target.cityId] : [];
+        if (!ids.length || ids.some(id => !places.ids.includes(id))) return places.label;
+    }
     return null;
 };
 

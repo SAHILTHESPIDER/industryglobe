@@ -40,6 +40,7 @@ interface Props {
     initialTab?: Tab;
     onPlayer: (player: Player) => void;
     onBack: () => void;
+    onLaunch?: () => void;
 }
 
 const draftKey = (ownerId: string, titleId: string, actionId: string, creative: MarketingCreative, target: MarketingTarget) => (
@@ -47,7 +48,7 @@ const draftKey = (ownerId: string, titleId: string, actionId: string, creative: 
 );
 
 export const MarketingDesk: React.FC<Props> = ({
-    player, ownerKind, ownerId, ownerName, cash, initialTitleId, initialActionId, initialTab, onPlayer, onBack,
+    player, ownerKind, ownerId, ownerName, cash, initialTitleId, initialActionId, initialTab, onPlayer, onBack, onLaunch,
 }) => {
     const [tab, setTab] = useState<Tab>(initialTab || 'build');
     const [titleId, setTitleId] = useState(initialTitleId || '');
@@ -133,6 +134,7 @@ export const MarketingDesk: React.FC<Props> = ({
             <header className="mkt-top">
                 <div>
                     <button type="button" className="mkt-back" onClick={onBack}>Back</button>
+                    {onLaunch && <button type="button" className="mkt-back" onClick={onLaunch}>Launch studio</button>}
                     <div className="mkt-kicker">{ownerKind === 'EMPIRE' ? 'Streaming desk' : 'Production desk'}</div>
                     <h1>Marketing</h1>
                 </div>

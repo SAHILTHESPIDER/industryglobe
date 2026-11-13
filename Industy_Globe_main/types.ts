@@ -3118,6 +3118,8 @@ export enum Page {
       regionId: string;
       countryId?: string;
       cityId?: string;
+      /** Other cities on the same buy. Missing on older saves, which stay single-city. */
+      cityIds?: string[];
       language?: string;
       durationWeeks: number;
       startOffset: number;
@@ -3245,6 +3247,49 @@ export enum Page {
       streamInterest: number;
   }
 
+  export interface LaunchCityResult {
+      id: string;
+      name: string;
+      country: string;
+      reach: number;
+      subscribers: number;
+      cost: number;
+  }
+
+  /**
+   * One Empire+ launch flight. Optional on every older save.
+   * The desk version stays 1. Subscribers are added once, on opening night if the service is not live yet.
+   */
+  export interface LaunchFlight {
+      version: 1;
+      what: 'PLATFORM' | 'TITLE';
+      titleId: string;
+      titleName: string;
+      cityIds: string[];
+      channelIds: string[];
+      creativeId: string;
+      trailerId: string;
+      tagline: string;
+      weeks: number;
+      weeklyBudget: number;
+      openingCost: number;
+      totalCost: number;
+      reach: number;
+      buzz: number;
+      subscribers: number;
+      /** Ongoing household pull, 0–0.1, while the flight is in market. */
+      demand: number;
+      /** Last absolute week the pull applies. Missing until the service is on. */
+      demandUntil?: number;
+      cities: LaunchCityResult[];
+      campaignIds: string[];
+      /** Set once the subscriber grant has been written onto the service. */
+      appliedAbsolute?: number;
+      bookedAbsolute: number;
+      /** True while the buy is paid but the service is not on, so the flight has not started. */
+      held?: boolean;
+  }
+
   /** Optional. Missing on every save from before the marketing desk. Version stays 1. */
   export interface MarketingState {
       version: 1;
@@ -3255,6 +3300,8 @@ export enum Page {
       /** Last absolute week rival desks posted, so a repeat tick does not duplicate them. */
       npcWeek?: number;
       exposureWeek?: number;
+      /** Empire+ launch flight. Missing on older saves. */
+      launch?: LaunchFlight;
   }
 
   /** Optional on saves written before platform commissions. */
