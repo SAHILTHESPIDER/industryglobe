@@ -24,6 +24,7 @@ import {
     type MarketingTitle,
 } from './core';
 import { listMarketingTitles } from './titles';
+import { deliverLaunchOpening, launchDemandFloor, releaseHeldLaunch } from './launch';
 
 export { listMarketingTitles } from './titles';
 export {
@@ -325,6 +326,7 @@ export const applyMarketingWeek = (player: Player): string[] => {
     const now = getAbsoluteWeek(player.age || 18, player.currentWeek || 1);
     const week = player.currentWeek || 1;
     const year = player.age || 18;
+    releaseHeldLaunch(player, now);
     const wave = rivalWave(player, now, week, year);
     const result = advanceMarketing(
         player.marketing,
@@ -339,6 +341,12 @@ export const applyMarketingWeek = (player: Player): string[] => {
     result.effects.hype.forEach(row => applyHype(player, row.titleId, row.points));
     result.effects.posts.forEach(post => mirrorPost(player, post));
     syncLive(player);
+    const opened = deliverLaunchOpening(player, now);
+    if (opened) result.effects.notes.push(opened);
+    const floor = launchDemandFloor(player, now);
+    if (floor > 0 && player.ownPlatform) {
+        player.ownPlatform.marketingDemand = Math.max(0, Math.min(0.1, Math.max(player.ownPlatform.marketingDemand || 0, floor)));
+    }
     return result.effects.notes;
 };
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Player } from '../../../types';
 import { formatCompact, formatPeople } from '../../../services/ownPlatform/logic';
 import { networkStats, readDesk } from '../../../services/ownPlatform/platformDesk';
@@ -6,6 +7,7 @@ import { OfferTab } from './OfferTab';
 import { NetworkTab } from './NetworkTab';
 import { TechTab } from './TechTab';
 import { ProductTab, StatusTab } from './RestTabs';
+import { LaunchCampaign } from '../../marketing/launch/LaunchCampaign';
 import './platform.css';
 
 export type PlatformTab = 'offer' | 'network' | 'tech' | 'product' | 'status';
@@ -47,6 +49,7 @@ const useCount = (value: number, calm: boolean) => {
 export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStudio, initialTab = 'network', focusId, editing, lead, shot }) => {
     const state = player.ownPlatform;
     const [tab, setTab] = useState<PlatformTab>(initialTab);
+    const [launchOpen, setLaunchOpen] = useState(false);
     const [techFocus, setTechFocus] = useState(focusId || '');
     const [calm, setCalm] = useState(() => {
         if (typeof window === 'undefined') return false;
@@ -128,8 +131,10 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
                         ))}
                     </div>
                     <span className={`plat-chip ${live ? 'air' : 'wait'}`}>{live ? `Live · Week ${player.currentWeek || 1} · Year ${player.age || 1}` : 'Before launch'}</span>
+                    <button type="button" className="plat-chip" data-testid="open-launch-campaign" onClick={() => setLaunchOpen(true)} style={{ cursor: 'pointer', background: '#2f6bff', color: '#fff', borderColor: '#6d8bff' }}>Launch campaign</button>
                 </div>
             </header>
+            {launchOpen && createPortal(<LaunchCampaign player={player} onPlayer={onPlayer} onClose={() => setLaunchOpen(false)} />, document.body)}
             <div className="plat-body">
                 {tab === 'offer' && <OfferTab player={player} onPlayer={onPlayer} onStudio={onStudio} editing={editing} lead={lead} onOpenTech={id => { setTechFocus(id); setTab('tech'); }} />}
                 {tab === 'network' && <NetworkTab player={player} onPlayer={onPlayer} />}

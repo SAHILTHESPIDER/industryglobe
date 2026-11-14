@@ -3,6 +3,7 @@ import { LaunchRegionId, Player } from '../../../types';
 import { LAUNCH_REGIONS } from '../../../services/ownPlatform/catalog';
 import { formatCompact } from '../../../services/ownPlatform/logic';
 import { PRODUCT_DEFS, fundFeature, readDesk, shipProduct } from '../../../services/ownPlatform/platformDesk';
+import { SOON_EARN, SOON_SHOWS, SoonArt } from './SoonArt';
 
 const Art: React.FC<{ id: string }> = ({ id }) => (
     <svg viewBox="0 0 120 70" width="100%" height="70" aria-hidden="true">
@@ -27,6 +28,28 @@ export const ProductTab: React.FC<{ player: Player; onPlayer: (next: Player) => 
     return (
         <div data-testid="product-tab">
             {error && <p className="err">{error}</p>}
+            <div className="soon-grid" data-testid="soon-shows">
+                {SOON_SHOWS.map(card => (
+                    <article key={card.id} className="soon-card" data-testid={`soon-${card.id}`}>
+                        <div className="soon-art"><SoonArt id={card.id} /><span className="soon-pill">SOON</span></div>
+                        <h3>{card.name}</h3>
+                        <p>{card.line}</p>
+                        <div className="when">Coming soon</div>
+                    </article>
+                ))}
+            </div>
+            <div className="soon-head"><h3>Earn more</h3><span>Fans, events and things to buy · {SOON_EARN.length}</span></div>
+            <div className="soon-grid" data-testid="soon-earn">
+                {SOON_EARN.map(card => (
+                    <article key={card.id} className="soon-card">
+                        <div className="soon-art"><SoonArt id={card.id} /><span className="soon-pill">SOON</span></div>
+                        <h3>{card.name}</h3>
+                        <p>{card.line}</p>
+                        <div className="when">Coming soon</div>
+                    </article>
+                ))}
+            </div>
+            <div className="soon-head"><h3>On devices</h3><span>Apps you can ship</span></div>
             <div className="product-grid">
                 {PRODUCT_DEFS.map(spec => {
                     const row = (desk.products || []).find(item => item.id === spec.id);

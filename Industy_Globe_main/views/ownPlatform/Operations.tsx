@@ -50,6 +50,7 @@ import { ValuationSheet } from './ValuationSheet';
 import { PricingDesk } from './PricingDesk';
 import { headingFont } from './ui';
 import { MarketingDesk } from '../marketing/MarketingDesk';
+import { LaunchCampaign } from '../marketing/launch/LaunchCampaign';
 import { STREAMING_SCENES, sceneStyle } from '../../services/ownPlatform/scenes';
 import { IdentBumper } from './IdentStage';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
@@ -66,6 +67,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
     const [error, setError] = useState('');
     const [marketTitle, setMarketTitle] = useState<string | null>(null);
     const [marketOpen, setMarketOpen] = useState(false);
+    const [launchOpen, setLaunchOpen] = useState(false);
     const state = player.ownPlatform;
     if (!state) return null;
     const books = state.books;
@@ -99,6 +101,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                     <button key={id} onClick={() => { setDesk(id); setError(''); }} className={`shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider ${desk === id ? 'bg-[#4F3BFF] text-white' : 'bg-white/5 text-zinc-400'}`}>{label}</button>
                 ))}
                 <button type="button" data-testid="open-marketing" onClick={() => { setMarketTitle(null); setMarketOpen(true); }} className="shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#E4B15A] text-black">Marketing</button>
+                <button type="button" data-testid="open-launch-campaign" onClick={() => setLaunchOpen(true)} className="shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#2f6bff] text-white">Launch campaign</button>
             </div>
             {error && <p className="text-rose-300 text-sm" data-testid="ops-error">{error}</p>}
             {desk === 'content' && <ContentDesk player={player} onApply={apply} onMarket={titleId => { setMarketTitle(titleId); setMarketOpen(true); }} />}
@@ -116,6 +119,10 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
             {books && desk !== 'board' && (
                 <p className="text-xs text-zinc-500">Funding {books.funding.toLowerCase()} · debt {formatCompact(books.debt)} · outside owners {showPct(capSlices(player).seed + capSlices(player).legacy + capSlices(player).holders + capSlices(player).pub)}</p>
             )}
+            {launchOpen && createPortal(
+                <LaunchCampaign player={player} onPlayer={onPlayer} onClose={() => setLaunchOpen(false)} />,
+                document.body,
+            )}
             {marketOpen && (
                 <MarketingDesk
                     player={player}
@@ -126,6 +133,7 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                     initialTitleId={marketTitle || undefined}
                     onPlayer={onPlayer}
                     onBack={() => setMarketOpen(false)}
+                    onLaunch={() => { setMarketOpen(false); setLaunchOpen(true); }}
                 />
             )}
         </div>

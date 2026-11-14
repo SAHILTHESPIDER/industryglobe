@@ -5,6 +5,9 @@
 import type { Player } from '../types';
 import { confirmMarketing, applyMarketingWeek } from '../services/marketing/engine';
 import { normalizeMarketing } from '../services/marketing/core';
+import { priceFlight } from '../services/marketing/launchCatalog';
+import { confirmLaunchFlight, deliverLaunchOpening } from '../services/marketing/launch';
+import { getAbsoluteWeek } from '../services/legacyLogic';
 
 const need = (condition: unknown, message: string) => {
     if (!condition) {
@@ -174,6 +177,70 @@ applyMarketingWeek(ticking);
 const after = ticking.commitments[0].projectDetails!.hiddenStats.marketingHypeAdded || 0;
 need(after === before, 'a second tick in the same week does not add hype');
 need(ticking.money === 800_000, 'ticks do not move personal cash');
+
+const mumbai = priceFlight({ cityIds: ['bom'], channelIds: ['social_feed', 'short_video', 'search_ads', 'creators_live'], weeks: 1, ratio: 1 });
+need(mumbai.channels.find(row => row.id === 'social_feed')?.weekly === 178_000, 'Mumbai social feed is $178K');
+need(mumbai.channels.find(row => row.id === 'short_video')?.weekly === 223_000, 'Mumbai short video is $223K');
+need(mumbai.channels.find(row => row.id === 'search_ads')?.weekly === 111_000, 'Mumbai search is $111K');
+need(mumbai.channels.find(row => row.id === 'creators_live')?.weekly === 356_000, 'Mumbai creators are $356K');
+need(mumbai.weekly === 868_000, 'four Mumbai channels sum to $868K a week');
+const twoCities = priceFlight({ cityIds: ['bom', 'del'], channelIds: ['social_feed'], weeks: 1, ratio: 1 });
+need(twoCities.weekly > 178_000, 'a second city raises the social buy');
+const dark = priceFlight({ cityIds: ['chi'], channelIds: ['landmark_light'], weeks: 1, ratio: 1 });
+need(dark.channels.find(row => row.id === 'landmark_light')?.disabled, 'Chicago cannot book a landmark light show');
+const lit = priceFlight({ cityIds: ['nyc', 'dxb'], channelIds: ['landmark_light'], weeks: 1, ratio: 1 });
+need(lit.channels.find(row => row.id === 'landmark_light')?.disabled === false && (lit.channels.find(row => row.id === 'landmark_light')?.opening || 0) > 0, 'Empire State and Burj Khalifa can be lit');
+need(lit.cities.length === 2 && lit.subscribers > 0 && lit.subscribers < 40_000_000, 'launch subscribers stay inside the cities');
+need(priceFlight({ cityIds: ['bom'], channelIds: ['city_screens'], weeks: 1, ratio: 1 }).channels.find(row => row.id === 'city_screens')?.place === 'Mumbai, Lower Parel', 'city screens name the district');
+
+const launchPlayer = player();
+launchPlayer.money = 4_000_000;
+launchPlayer.ownPlatform = {
+    name: 'Sahil',
+    stage: 'LIVE',
+    subscribers: 1000,
+    books: { cash: 5_000_000, lines: [], funding: 'OWN', debt: 0, equitySoldPct: 0, facilityRate: 0.09, pePartner: 'Kestrel', history: [] },
+    applications: [],
+    selectedCountryIds: ['IN'],
+} as typeof launchPlayer.ownPlatform;
+const booked = confirmLaunchFlight(launchPlayer, {
+    what: 'PLATFORM', cityIds: ['bom'], channelIds: ['social_feed'], creativeId: 'night', trailerId: 'open',
+    tagline: 'Open the door.', weeks: 1, ratio: 1,
+});
+need(!booked.error, `launch books from company cash (${booked.error || 'ok'})`);
+need(booked.player.money === 4_000_000, 'launch does not touch personal cash');
+need((booked.player.ownPlatform?.books?.cash || 0) < 5_000_000, 'launch reduces company cash');
+need((booked.player.ownPlatform?.subscribers || 0) > 1000, 'a live flight adds subscribers');
+
+const waiting = player();
+waiting.money = 4_000_000;
+waiting.ownPlatform = {
+    name: 'Sahil',
+    stage: 'BUILD',
+    subscribers: 0,
+    books: { cash: 8_000_000, lines: [], funding: 'OWN', debt: 0, equitySoldPct: 0, facilityRate: 0.09, pePartner: 'Kestrel', history: [] },
+    applications: [],
+    selectedCountryIds: ['IN'],
+} as typeof waiting.ownPlatform;
+const first = confirmLaunchFlight(waiting, {
+    what: 'PLATFORM', cityIds: ['bom'], channelIds: ['social_feed'], creativeId: 'night', trailerId: 'open',
+    tagline: 'Open the door.', weeks: 2, ratio: 1,
+});
+const rebook = confirmLaunchFlight(first.player, {
+    what: 'PLATFORM', cityIds: ['del'], channelIds: ['short_video'], creativeId: 'night', trailerId: 'open',
+    tagline: 'Open the door.', weeks: 1, ratio: 1,
+});
+const firstId = first.player.marketing?.launch?.campaignIds?.[0] || '';
+need(Boolean(firstId) && (rebook.player.marketing?.launch?.campaignIds || []).includes(firstId), 'a second booking keeps the first flight on the books');
+const opening = getAbsoluteWeek(rebook.player.age, rebook.player.currentWeek);
+if (rebook.player.ownPlatform) rebook.player.ownPlatform.stage = 'LIVE';
+need(Boolean(deliverLaunchOpening(rebook.player, opening)), 'opening night grants the held subscribers');
+const released = (rebook.player.marketing?.campaigns || []).filter(row => (rebook.player.marketing?.launch?.campaignIds || []).includes(row.id));
+need(released.length >= 2 && released.every(row => row.startAbsolute === opening), 'held campaigns start on opening night');
+const kept = released.find(row => row.id === firstId);
+need(kept?.target.durationWeeks === 2 && kept.endAbsolute === opening + 1, 'the first flight keeps its own two-week run');
+need((rebook.player.marketing?.launch?.cityIds || []).includes('bom') && (rebook.player.marketing?.launch?.cityIds || []).includes('del'), 'a second booking keeps both cities');
+need((rebook.player.marketing?.launch?.channelIds || []).includes('social_feed'), 'a second booking keeps the first channel');
 
 if (process.exitCode) {
     console.error('player marketing checks failed');
