@@ -116,7 +116,11 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                 {step === 4 && (
                     <StorefrontDesigner player={player} state={state} locked={locked} onChange={onChange} />
                 )}
-                {step > 1 && step !== 3 && step !== 4 && (
+                {step === 6 && (
+                    <PricingDesk player={player} state={state} locked={locked} onChange={onChange} />
+                )}
+
+                {step > 1 && step !== 3 && step !== 4 && step !== 6 && (
                 <div className="grid g-side">
                 <div className="stack">
 
@@ -172,10 +176,6 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
 
                 {step === 5 && (
                     <CatalogueStep player={player} state={state} locked={locked} onChange={onChange} />
-                )}
-
-                {step === 6 && (
-                    <PricingDesk player={player} state={state} locked={locked} onChange={onChange} />
                 )}
 
                 {step === 7 && (

@@ -215,7 +215,10 @@ export const Pill: React.FC<{ tone?: 'ok' | 'warn' | 'bad' | 'run' | 'idle'; chi
 );
 
 export const Toggle: React.FC<{ label: string; on: boolean; onClick: () => void; disabled?: boolean }> = ({ label, on, onClick, disabled }) => (
-    <button type="button" disabled={disabled} onClick={onClick} className={`tog ${on ? 'on' : ''}`}><i />{label}</button>
+    <button type="button" role="switch" aria-checked={on} disabled={disabled} onClick={onClick} className={`tog${on ? ' on' : ''}`}>
+        <i aria-hidden="true" />
+        <span>{label}</span>
+    </button>
 );
 
 export const Segmented: React.FC<{ value: string; options: string[]; onChange: (value: string) => void; disabled?: boolean }> = ({ value, options, onChange, disabled }) => (

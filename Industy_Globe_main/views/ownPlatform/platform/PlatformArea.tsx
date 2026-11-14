@@ -78,34 +78,56 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
                     <button type="button" className="plat-back" aria-label="Back" onClick={onBack}>←</button>
                     <div className="plat-title">
                         <h2>Platform</h2>
-                        <div className="plat-sub">Offer <i /> Network <i /> Technology <i /> Product</div>
+                        <div className="plat-sub">
+                            {([
+                                ['offer', 'Offer'],
+                                ['network', 'Network'],
+                                ['tech', 'Technology'],
+                                ['product', 'Product'],
+                            ] as [PlatformTab, string][]).map(([id, label], index) => (
+                                <React.Fragment key={id}>
+                                    {index > 0 ? <i /> : null}
+                                    <button type="button" className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>{label}</button>
+                                </React.Fragment>
+                            ))}
+                        </div>
                     </div>
-                    <button type="button" className="plat-s" aria-label="Brand studio" onClick={onStudio}>S</button>
-                </div>
-                <div className="plat-meta">
-                    <span className={`plat-chip ${live ? 'live' : 'wait'}`}>{live ? 'Live' : 'Before launch'}</span>
-                    <span className="plat-chip">{formatPeople(state.subscribers)} subs</span>
-                    <span className="plat-chip">{formatCompact(state.books?.cash || 0)} treasury</span>
+                    <button type="button" className="plat-s" aria-label="Brand studio" onClick={onStudio}>$</button>
                 </div>
                 <div className="plat-stats">
-                    <div className="plat-stat"><span>Peak load</span><b>{peakShown}%</b></div>
-                    <div className="plat-stat"><span>Cities</span><b>{citiesShown}</b></div>
-                    <div className="plat-stat"><span>Playback</span><b>{playback == null ? '—' : `${playShown}%`}</b></div>
+                    {live ? (
+                        <>
+                            <div className="plat-stat"><span>Peak load</span><b>{peakShown}%</b></div>
+                            <div className="plat-stat"><span>Cities</span><b>{citiesShown}</b></div>
+                            <div className="plat-stat"><span>Subs</span><b>{formatPeople(state.subscribers)}</b></div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="plat-stat"><span>Status</span><b>Setup</b></div>
+                            <div className="plat-stat"><span>Subs</span><b>{formatPeople(state.subscribers)}</b></div>
+                            <div className="plat-stat"><span>Cities</span><b>{citiesShown} ready</b></div>
+                        </>
+                    )}
+                    <div className="plat-stat"><span>Treasury</span><b>{formatCompact(state.books?.cash || 0)}</b></div>
+                    <div className="plat-stat"><span>Playback</span><b>{!live || playback == null ? '—' : `${playShown}%`}</b></div>
                     <div className="plat-stat"><span>Tech debt</span><b>{debtShown}</b></div>
                 </div>
-                <div className="plat-tabs" role="tablist">
-                    {([
-                        ['offer', 'Offer'],
-                        ['network', 'Network'],
-                        ['tech', 'Tech'],
-                        ['product', 'Product'],
-                        ['status', 'Status'],
-                    ] as [PlatformTab, string][]).map(([id, label]) => (
-                        <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
-                            {label}
-                            {id === 'status' && openIncident ? <i className="dot" /> : null}
-                        </button>
-                    ))}
+                <div className="plat-toolbar">
+                    <div className="plat-tabs" role="tablist">
+                        {([
+                            ['offer', 'Offer'],
+                            ['network', 'Network'],
+                            ['tech', 'Tech'],
+                            ['product', 'Product'],
+                            ['status', 'Status'],
+                        ] as [PlatformTab, string][]).map(([id, label]) => (
+                            <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
+                                {label}
+                                {id === 'status' && openIncident ? <i className="dot" /> : null}
+                            </button>
+                        ))}
+                    </div>
+                    <span className={`plat-chip ${live ? 'air' : 'wait'}`}>{live ? `Live · Week ${player.currentWeek || 1} · Year ${player.age || 1}` : 'Before launch'}</span>
                 </div>
             </header>
             <div className="plat-body">

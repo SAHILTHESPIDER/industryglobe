@@ -302,6 +302,9 @@ export const adBreakBars = (minutes: AdIntervalMin): { money: number; putOff: nu
     putOff: Math.max(0, (1 - AD_STAY[minutes]) / (1 - AD_STAY[5])),
 });
 
+/** Share of viewers an ad gap puts off. 10 minutes is 10, from the stay rate the forecast already uses. */
+export const viewersPutOffPct = (minutes: AdIntervalMin): number => Math.max(0, Math.round((1 - AD_STAY[minutes]) * 100));
+
 export const adIntervalLine = (minutes: AdIntervalMin): string => {
     if (minutes === 5) return 'An ad every 5 minutes. The most ad money, and the most people who cancel.';
     if (minutes === 10) return 'An ad every 10 minutes. Strong ad money, with noticeable cancellations.';
