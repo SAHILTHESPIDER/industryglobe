@@ -2050,6 +2050,8 @@ export enum Page {
       lastDropWeekAbs: number;
       songs?: CampaignSong[];
       songStreams?: number;
+      /** Set when the player pre-books the release from the phone video home. Missing means not booked. */
+      prebooked?: boolean;
   }
 
   export interface OfficialChannel {

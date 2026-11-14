@@ -62,7 +62,7 @@ export const TECH_TRACKS: TrackDef[] = [
         subtitle: 'PICTURE · A SHARPER FRAME ON EVERY SCREEN', slider: 'picture', emptyName: '480p',
         rungs: [
             rung({ id: 'p480', name: '480p', needs: [], needsLabel: '', once: 0, weekly: 0, debt: 0, load: 0, demand: 0, churn: 0, blurb: 'The picture the service opens with.' }),
-            rung({ id: 'p720', name: '720p', needs: ['p480'], needsLabel: 'Needs 480p first.', once: 0, weekly: 0, debt: 0, load: 0, demand: 0, churn: 0, blurb: 'A clean HD-ready frame. Already on the slate.' }),
+            rung({ id: 'p720', name: '720p', needs: ['p480'], needsLabel: 'Needs 480p first.', once: 2_500_000, weekly: 20_000, debt: 1, load: 0.02, demand: 0.02, churn: -0.002, blurb: 'HD. Company cash buys the first step up from 480p.' }),
             rung({ id: 'p1080', name: '1080p', needs: ['p720'], needsLabel: 'Needs 720p first.', once: 6_000_000, weekly: 50_000, debt: 2, load: 0.04, demand: 0.03, churn: -0.004, blurb: 'Full HD. The rung most households notice.' }),
             rung({ id: 'p4k', name: '4K', needs: ['p1080'], needsLabel: 'Needs 1080p first.', once: 12_000_000, weekly: 90_000, debt: 4, load: 0.08, demand: 0.04, churn: -0.005, labWeeks: 4, blurb: 'Four times the frame. Premium plans can promise it.' }),
             rung({ id: 'p8k', name: '8K', needs: ['p4k'], needsLabel: 'Needs 4K first.', once: 22_000_000, weekly: 140_000, debt: 6, load: 0.12, demand: 0.03, churn: -0.003, labWeeks: 6, blurb: 'A showcase rung. Bandwidth feels it.' }),
@@ -195,7 +195,7 @@ export const trackById = (id: string): TrackDef | undefined => TECH_TRACKS.find(
 export const rungById = (id: string): RungDef | undefined => RUNG_INDEX.get(id)?.rung;
 export const trackOfRung = (id: string): TrackDef | undefined => RUNG_INDEX.get(id)?.track;
 
-const FREE_OWNED: Record<string, number> = { p480: 1, p720: 1, c8: 1, stereo: 1, h264: 1 };
+const FREE_OWNED: Record<string, number> = { p480: 1, c8: 1, stereo: 1, h264: 1 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -541,7 +541,8 @@ const TIER_RANK: Record<MembershipTier, number> = {
 
 const owned = (desk: PlatformDeskState, id: string) => (desk.owned?.[id] || 0) >= 1;
 
-const bestPicture = (desk: PlatformDeskState): string => {
+/** Highest picture rung the company has paid for. Everyone starts at 480p. */
+export const companyPicture = (desk: PlatformDeskState): string => {
     const order = ['p24k', 'p16k', 'p12k', 'p8k', 'p4k', 'p1080', 'p720', 'p480'];
     return rungById(order.find(id => owned(desk, id)) || 'p480')?.name || '480p';
 };
@@ -557,12 +558,7 @@ const open = (text: string): CompareCell => ({ text, locked: false });
 
 export const COMPARE_ROWS: { id: string; label: string; cell: (plan: PricingPlan, desk: PlatformDeskState) => CompareCell }[] = [
     { id: 'ads', label: 'Ads', cell: plan => open(plan.ads || plan.freeWithAds ? 'Yes' : 'None') },
-    { id: 'picture', label: 'Picture', cell: (plan, desk) => {
-        const tier = inferTier(plan);
-        const want = tier === 'FREE_ADS' ? 'p480' : tier === 'BASIC_ADS' ? 'p720' : tier === 'STANDARD' || tier === 'CUSTOM' ? 'p1080' : 'p4k';
-        if (!owned(desk, want)) return lock(want);
-        return open(bestPicture(desk));
-    } },
+    { id: 'picture', label: 'Picture', cell: (_plan, desk) => open(companyPicture(desk)) },
     { id: 'hdr', label: 'HDR', cell: (plan, desk) => {
         const tier = inferTier(plan);
         if (TIER_RANK[tier] < 3 && tier !== 'RENT_BUY') return open('No');
@@ -689,12 +685,29 @@ const carryCounts = (plans: PricingPlan[], target: number): number[] => {
     return counts;
 };
 
+const storedHouseholds = (plan: PricingPlan) => {
+    const stored = Number(plan.subscribers);
+    return Number.isFinite(stored) && stored > 0 ? Math.round(stored) : 0;
+};
+
 export const planSubscribers = (state: OwnPlatformState): Record<string, number> => {
     const active = enabledPlans(state.plans);
-    const counts = carryCounts(active, Math.max(0, Math.round(state.subscribers || 0)));
+    const company = Math.max(0, Math.round(state.subscribers || 0));
+    const parked = state.plans.filter(plan => plan.enabled === false);
+    const raw = parked.map(storedHouseholds);
+    const rawSum = raw.reduce((sum, count) => sum + count, 0);
+    const waiting = Math.min(company, rawSum);
+    const counts = carryCounts(active, company - waiting);
     const out: Record<string, number> = {};
     active.forEach((plan, index) => { out[plan.id] = counts[index] || 0; });
-    state.plans.forEach(plan => { if (!(plan.id in out)) out[plan.id] = 0; });
+    let left = waiting;
+    parked.forEach((plan, index) => {
+        const share = index === parked.length - 1
+            ? left
+            : (rawSum > 0 ? Math.min(left, Math.round(waiting * raw[index] / rawSum)) : 0);
+        out[plan.id] = share;
+        left -= share;
+    });
     return out;
 };
 
@@ -741,15 +754,25 @@ export const setBillingField = (state: OwnPlatformState, patch: Partial<Platform
     return { ...state, plans, platformDesk: { ...desk, billing } };
 };
 
-export const togglePlan = (state: OwnPlatformState, id: string, on: boolean): { state: OwnPlatformState; error?: string } => {
-    if (state.stage !== 'LIVE') return { state, error: 'Plans set at launch stay locked until launch.' };
+export const togglePlan = (state: OwnPlatformState, id: string, on: boolean, draft = false): { state: OwnPlatformState; error?: string } => {
+    if (!draft && state.stage !== 'LIVE') return { state, error: 'Plans set at launch stay locked until launch.' };
     const enabled = state.plans.filter(plan => plan.enabled !== false && plan.id !== id);
     if (!on && enabled.length === 0) return { state, error: 'Keep at least one plan on.' };
-    return { state: { ...state, plans: state.plans.map(plan => plan.id === id ? { ...plan, enabled: on ? undefined : false } : plan) } };
+    const split = planSubscribers(state);
+    return {
+        state: {
+            ...state,
+            plans: state.plans.map(plan => {
+                const subscribers = split[plan.id] || 0;
+                if (plan.id !== id) return { ...plan, subscribers };
+                return { ...plan, subscribers, enabled: on ? undefined : false };
+            }),
+        },
+    };
 };
 
-export const setPlanPrice = (state: OwnPlatformState, id: string, monthlyUsd: number): { state: OwnPlatformState; error?: string } => {
-    if (state.stage !== 'LIVE') return { state, error: 'Plans set at launch stay locked until launch.' };
+export const setPlanPrice = (state: OwnPlatformState, id: string, monthlyUsd: number, draft = false): { state: OwnPlatformState; error?: string } => {
+    if (!draft && state.stage !== 'LIVE') return { state, error: 'Plans set at launch stay locked until launch.' };
     const plan = state.plans.find(row => row.id === id);
     if (!plan) return { state, error: 'That plan is gone.' };
     if (plan.freeWithAds) return { state, error: 'Free with ads stays at $0.' };
@@ -790,8 +813,86 @@ const nextPlanId = (plans: PricingPlan[], tier: MembershipTier): string => {
     return id;
 };
 
-export const addPlan = (state: OwnPlatformState, tier: MembershipTier, custom?: { name: string; monthlyUsd: number }): { state: OwnPlatformState; error?: string } => {
-    if (state.stage !== 'LIVE') return { state, error: 'Add a plan after launch. The slate is locked until then.' };
+export interface RemovalOutlook {
+    total: number;
+    moved: number;
+    cancel: number;
+    destinationId?: string;
+    destinationName?: string;
+    destinationPrice: number;
+}
+
+const nearestEnabled = (state: OwnPlatformState, plan: PricingPlan): PricingPlan | undefined => {
+    const rank = TIER_RANK[inferTier(plan)];
+    const others = state.plans.filter(row => row.id !== plan.id && row.enabled !== false);
+    others.sort((a, b) => {
+        const gap = (row: PricingPlan) => {
+            const delta = TIER_RANK[inferTier(row)] - rank;
+            return delta >= 0 ? delta : 8 + Math.abs(delta);
+        };
+        return gap(a) - gap(b);
+    });
+    return others[0];
+};
+
+/** How many households would follow a neighbour plan, and how many would leave. Weights are the same ones the slate already uses. */
+export const removalOutlook = (state: OwnPlatformState, id: string): RemovalOutlook | undefined => {
+    const plan = state.plans.find(row => row.id === id);
+    if (!plan) return undefined;
+    const total = planSubscribers(state)[id] || 0;
+    const dest = nearestEnabled(state, plan);
+    if (!dest || total <= 0) {
+        return {
+            total,
+            moved: 0,
+            cancel: total,
+            destinationId: dest?.id,
+            destinationName: dest?.name,
+            destinationPrice: dest?.monthlyUsd || 0,
+        };
+    }
+    const weight = planWeight(dest);
+    const share = clamp(weight / (weight + 0.45), 0.35, 0.9);
+    const moved = Math.min(total, Math.round(total * share));
+    return {
+        total,
+        moved,
+        cancel: total - moved,
+        destinationId: dest.id,
+        destinationName: dest.name,
+        destinationPrice: dest.monthlyUsd,
+    };
+};
+
+/** Drop a plan. Movers stay on the company total and land on the nearest plan. The rest leave. */
+export const applyRemoval = (state: OwnPlatformState, id: string, draft = false): { state: OwnPlatformState; error?: string } => {
+    if (!draft && state.stage !== 'LIVE') return { state, error: 'Plans set at launch stay locked until launch.' };
+    const outlook = removalOutlook(state, id);
+    if (!outlook) return { state, error: 'That plan is gone.' };
+    const enabledLeft = state.plans.filter(plan => plan.enabled !== false && plan.id !== id);
+    if (state.plans.length < 2) return { state, error: 'Keep at least one plan.' };
+    if (enabledLeft.length === 0) return { state, error: 'Keep at least one plan on.' };
+    if (draft) return { state: { ...state, plans: state.plans.filter(plan => plan.id !== id) } };
+    const split = planSubscribers(state);
+    const company = Math.max(0, Math.round(state.subscribers || 0));
+    const total = Math.min(outlook.total, company);
+    const moved = Math.min(outlook.destinationId ? outlook.moved : 0, total);
+    const cancel = total - moved;
+    const plans = state.plans.filter(plan => plan.id !== id).map(plan => ({
+        ...plan,
+        subscribers: (split[plan.id] || 0) + (plan.id === outlook.destinationId ? moved : 0),
+    }));
+    return {
+        state: {
+            ...state,
+            subscribers: Math.max(0, Math.round((state.subscribers || 0) - cancel)),
+            plans,
+        },
+    };
+};
+
+export const addPlan = (state: OwnPlatformState, tier: MembershipTier, custom?: { name: string; monthlyUsd: number }, draft = false): { state: OwnPlatformState; error?: string } => {
+    if (!draft && state.stage !== 'LIVE') return { state, error: 'Add a plan after launch. The slate is locked until then.' };
     if (tier === 'RENT_BUY') {
         const titleStore = state.titleStore?.rentUsd || state.titleStore?.buyUsd
             ? state.titleStore

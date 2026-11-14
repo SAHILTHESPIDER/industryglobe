@@ -24,7 +24,7 @@ import { useYt } from './state';
 import { badgeFor, creatorFor, dubLine, postedAgo, STILL, stillForType, stillUrl, verifiedAuthor, weeksAgoFor } from './stills';
 import { createFittedThumbnailBlob, Face, MAX_THUMBNAIL_SOURCE_SIZE, ThumbnailFitMode } from './thumb';
 import { ChannelExtras, CreatorScreen, CreatorWatchSubscribe, PeopleSubs, TrophyShelf, bannerBackground } from './features';
-import { AVATAR_PRESETS, lookFor, presetColors } from '../../../services/youtubeCustomize';
+import { AVATAR_PRESETS, channelSwitchAllowed, lookFor, presetColors } from '../../../services/youtubeCustomize';
 import { playButtonLabel } from '../../../services/youtubeAwards';
 import { creatorAudience } from '../../../services/youtubePeople';
 
@@ -98,7 +98,6 @@ const releaseWeekNumber = (api: ReturnType<typeof useYt>, abs: number | null) =>
 export const HomeScreen: React.FC = () => {
     const api = useYt();
     const [chip, setChip] = useState('All');
-    const [booked, setBooked] = useState(false);
     const q = api.query.trim().toLowerCase();
     const pool = api.videos.filter(video => !q || `${video.title} ${video.authorName} ${video.language || ''} ${video.country || ''}`.toLowerCase().includes(q));
     const filtered = chip === 'All' ? pool : pool.filter(video => matchesChip(video, chip));
@@ -177,7 +176,20 @@ export const HomeScreen: React.FC = () => {
                             <div className="acts">
                                 <button className="btn white lg" onClick={() => api.openVideo(hero.id)}>▶ Watch trailer</button>
                                 <button className="btn lg" onClick={() => api.go('hub')}>Marketing Hub</button>
-                                <button className="btn lg ghost" onClick={() => setBooked(true)}>{booked ? 'Pre-booked' : 'Pre-book'}</button>
+                                <button className="btn lg ghost" disabled={!project || Boolean(campaign?.prebooked)} onClick={() => {
+                                    if (!project) return;
+                                    const current = ensureCampaign(api.channel, project.id);
+                                    api.update({
+                                        ...api.player,
+                                        youtube: {
+                                            ...api.channel,
+                                            marketing: {
+                                                ...(api.channel.marketing || {}),
+                                                [project.id]: { ...current, prebooked: true },
+                                            },
+                                        },
+                                    });
+                                }}>{campaign?.prebooked ? 'Pre-booked' : 'Pre-book'}</button>
                             </div>
                         </div>
                     </div>
@@ -304,6 +316,7 @@ export const WatchScreen: React.FC = () => {
                 <button className="backfloat show-m" onClick={() => api.go('home')}>Back</button>
                 <div className="player" onClick={() => setPlaying(value => !value)}>
                     <Face video={video} plain badge={playing ? 'PLAYING' : 'PAUSED'} />
+                    <button type="button" className="playhit" aria-label={playing ? 'Pause' : 'Play'} onClick={event => { event.stopPropagation(); setPlaying(value => !value); }}>{playing ? 'Pause' : 'Play'}</button>
                     <div className="shade" />
                     <div style={{ position: 'absolute', left: 16, right: 16, top: 14 }} className="between">
                         <span className="pill red">{typeLabel(video.type).toUpperCase()}</span>
@@ -317,7 +330,18 @@ export const WatchScreen: React.FC = () => {
                 <h1 className="h2" style={{ fontSize: 20, marginTop: 14, lineHeight: 1.3 }}>{video.title}</h1>
                 <div className="between" style={{ marginTop: 10, flexWrap: 'wrap' }}>
                     <div className="row">
-                        <button type="button" className="row" onClick={() => { if (watchingRival) api.openRival(watchingRival.id); else if (video.creatorChannelId) api.openCreator(video.creatorChannelId); }} style={{ background: 'none' }}>
+                        <button type="button" className="row" onClick={() => {
+                            if (watchingRival) api.openRival(watchingRival.id);
+                            else if (video.creatorChannelId) api.openCreator(video.creatorChannelId);
+                            else if (creatorHit) api.openCreator(creatorHit.id);
+                            else if (video.channelKind === 'studio' || video.channelKind === 'empirePlus') {
+                                api.switchChannel(video.channelKind);
+                                if (channelSwitchAllowed(api.channel, video.channelKind)) api.go('channel');
+                            } else {
+                                api.switchChannel('personal');
+                                api.go('channel');
+                            }
+                        }} style={{ background: 'none' }}>
                         <Av kind={authorKind(video)} label={video.authorName} />
                         <div style={{ textAlign: 'left' }}><b>{video.authorName}</b>{verifiedAuthor(video) ? <span className="vf">✓</span> : null}<div className="dim">{formatCompact(subs)} subs{video.country ? ` · ${video.country}` : ''}</div></div>
                         </button>
