@@ -18,7 +18,7 @@ const DEFINE_STEPS: [string, string][] = [
     ['Ident', ''],
     ['Storefront', ''],
     ['Catalogue', ''],
-    ['Pricing', ''],
+    ['Offer', ''],
     ['Blueprint', 'review'],
 ];
 const BUILD_STEPS = ['Network', 'Cost', 'Rehearsal', 'Commission'];

@@ -35,7 +35,7 @@ const LAUNCH_TITLES = [
     'Choose the sound',
     'Pick a storefront',
     'Assemble the shelf',
-    'Set the price',
+    'Offer',
     'Read the blueprint',
 ];
 
@@ -109,7 +109,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const stingId = state.identId || state.identityId;
     const pastDefine = state.stage !== 'DEFINE' || state.commissioned;
     const kicker = pane === 'launch'
-        ? 'Define the launch'
+        ? (state.defineStep === 6 ? 'Platform' : 'Define the launch')
         : pane === 'build' ? 'Build the platform' : pane === 'rights' ? 'Rights' : pane === 'platform' ? 'Platform' : pane === 'ops' ? 'Operations' : 'The world';
     const needsColour = state.colorChosen === false && pane === 'launch';
     const title = needsColour
