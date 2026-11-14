@@ -139,7 +139,7 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
                 {tab === 'offer' && <OfferTab player={player} onPlayer={onPlayer} onStudio={onStudio} editing={editing} lead={lead} onOpenTech={id => { setTechFocus(id); setTab('tech'); }} />}
                 {tab === 'network' && <NetworkTab player={player} onPlayer={onPlayer} />}
                 {tab === 'tech' && <TechTab player={player} onPlayer={onPlayer} focusId={techFocus} shot={shot} />}
-                {tab === 'product' && <ProductTab player={player} onPlayer={onPlayer} />}
+                {tab === 'product' && <ProductTab player={player} onPlayer={onPlayer} onLaunch={() => setLaunchOpen(true)} />}
                 {tab === 'status' && <StatusTab player={player} />}
             </div>
         </div>

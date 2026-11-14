@@ -25,7 +25,10 @@ import {
 } from '../../services/marketing/engine';
 import { hashString } from '../../services/marketing/core';
 import { LAUNCH_REGIONS, MARKET_COUNTRIES, REGION_CITIES } from '../../services/ownPlatform/catalog';
-import { BillboardScene, FrameCard, PosterThumb, StageScene, TourMap, WireCard } from './art';
+import { FrameCard, PosterThumb, WireCard } from './art';
+import { Surface } from './launch/Surfaces';
+import type { LaunchAnim } from '../../services/marketing/launchCatalog';
+import { DEFAULT_BRAND } from '../../services/ownPlatform/brand';
 
 type Tab = 'build' | 'calendar' | 'history' | 'frame' | 'wire';
 
@@ -42,6 +45,15 @@ interface Props {
     onBack: () => void;
     onLaunch?: () => void;
 }
+
+const ACTION_SCENE: Record<string, LaunchAnim> = {
+    billboard: 'board', digital_screen: 'city', transit: 'train', standee: 'cinema',
+    city_tour: 'taxi', fan_meet: 'fest', college: 'campus', mall: 'mall',
+    announcement: 'press', teaser: 'video', trailer: 'cinema', music: 'music', premiere: 'carpet',
+    reels: 'feed', influencer: 'live', paid_ads: 'search', bts: 'video',
+    interview: 'podcast', presser: 'press', tv_spot: 'tv', podcast: 'podcast',
+    tieup: 'collab', merch: 'jersey', contest: 'mob', giveaway: 'flyers',
+};
 
 const draftKey = (ownerId: string, titleId: string, actionId: string, creative: MarketingCreative, target: MarketingTarget) => (
     hashString(JSON.stringify({ ownerId, titleId, actionId, creative, target })).toString(16)
@@ -134,7 +146,7 @@ export const MarketingDesk: React.FC<Props> = ({
             <header className="mkt-top">
                 <div>
                     <button type="button" className="mkt-back" onClick={onBack}>Back</button>
-                    {onLaunch && <button type="button" className="mkt-back" onClick={onLaunch}>Launch studio</button>}
+                    {onLaunch && <button type="button" className="mkt-launch" data-testid="open-launch-campaign" onClick={onLaunch}>Launch campaign</button>}
                     <div className="mkt-kicker">{ownerKind === 'EMPIRE' ? 'Streaming desk' : 'Production desk'}</div>
                     <h1>Marketing</h1>
                 </div>
@@ -297,17 +309,14 @@ export const MarketingDesk: React.FC<Props> = ({
                                 Preview the buy
                             </button>
                         </div>
-                        <div className="mkt-stage">
-                            {poster && scene === 'board' && <BillboardScene poster={poster} sizeId={creative.sizeId} />}
-                            {poster && scene === 'stage' && <StageScene poster={poster} themeId={creative.stageTheme} />}
-                            {scene === 'tour' && <TourMap stops={stops} />}
-                            {poster && scene === 'frame' && (
-                                <FrameCard post={{
-                                    id: 'preview', campaignId: 'preview', network: 'FRAME', ownerKind, ownerName, handle: `@${ownerName.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 16)}`,
-                                    avatarHue: 36, titleName: poster.title, caption: `${poster.title}. ${poster.tagline}`, format: creative.socialFormat === 'REEL' ? 'REEL' : 'PHOTO',
-                                    likes: quoted.quote?.reach ? Math.round(quoted.quote.reach * 0.004) : 0, comments: 0, shares: 0, reposts: 0, commentList: ['Fans have not seen it yet.'],
-                                    week: player.currentWeek, year: player.age, absoluteWeek: 0, trending: false, poster, rival: false, actionId,
-                                }} />
+                        <div className="mkt-stage" data-testid="marketing-stage">
+                            {poster && (
+                                <Surface
+                                    anim={ACTION_SCENE[actionId] || (scene === 'stage' ? 'fest' : scene === 'frame' ? 'feed' : 'board')}
+                                    brand={player.ownPlatform?.brand || DEFAULT_BRAND}
+                                    name={player.ownPlatform?.name || ownerName}
+                                    title={poster.title}
+                                />
                             )}
                         </div>
                     </div>
@@ -381,7 +390,14 @@ export const MarketingDesk: React.FC<Props> = ({
                     <article>
                         <div className="mkt-kicker">Confirm spend</div>
                         <h2 style={{ fontFamily: '"Bebas Neue", sans-serif', fontSize: 48, margin: '4px 0 12px' }}>{poster.title}</h2>
-                        {scene === 'tour' ? <TourMap stops={stops} /> : scene === 'stage' ? <StageScene poster={poster} themeId={creative.stageTheme} /> : <BillboardScene poster={poster} sizeId={creative.sizeId} />}
+                        <div className="mkt-stage" style={{ position: 'relative', marginBottom: 12 }}>
+                            <Surface
+                                anim={ACTION_SCENE[actionId] || 'board'}
+                                brand={player.ownPlatform?.brand || DEFAULT_BRAND}
+                                name={player.ownPlatform?.name || ownerName}
+                                title={poster.title}
+                            />
+                        </div>
                         <p className="mkt-notes">{quoted.quote.notes[0]}</p>
                         <div className="mkt-quote">
                             <div className="mkt-meter"><span className="mkt-label">Leaves the company</span><b>{formatMoney(quoted.quote.cost)}</b></div>

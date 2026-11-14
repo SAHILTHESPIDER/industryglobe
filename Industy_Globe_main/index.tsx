@@ -7,6 +7,7 @@ import { EmpirePreview, PreviewScreen } from './views/ownPlatform/EmpirePreview'
 import { PlatformPreview, PlatformPreviewScreen } from './views/ownPlatform/platform/PlatformPreview';
 import { LocalizationPreview, LocPreviewScreen } from './views/ownPlatform/localization/LocalizationPreview';
 import { LaunchPreview, LaunchPreviewScreen } from './views/marketing/launch/LaunchPreview';
+import { MarketingPreview } from './views/marketing/MarketingPreview';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Failed to find the root element');
@@ -28,7 +29,9 @@ const locScreen: LocPreviewScreen | null = (locNames as readonly string[]).inclu
 const launchScreen: LaunchPreviewScreen | null = (launchNames as readonly string[]).includes(empirePreview || '') ? empirePreview as LaunchPreviewScreen : null;
 root.render(
   <React.StrictMode>
-    {launchScreen ? (
+    {empirePreview?.startsWith('mkt-') ? (
+      <MarketingPreview mode={empirePreview.slice(4)} />
+    ) : launchScreen ? (
       <LaunchPreview screen={launchScreen} />
     ) : locScreen ? (
       <LocalizationPreview screen={locScreen} />

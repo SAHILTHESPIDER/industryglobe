@@ -368,7 +368,6 @@ export const Surface: React.FC<{ anim: LaunchAnim; brand: PlatformBrand; name: s
     const label = labelFor(name, brand.typefaceId === 'script');
     const props: ArtProps = { brand, label, title, font };
     const kind = LANDMARK_CARD[anim];
-    if (kind) return <LandmarkArt kind={kind} brand={brand} label={label} title={title} />;
     const draw = SCENES[anim as keyof typeof SCENES] || Board;
-    return <>{draw(props)}</>;
+    return <div className="lx">{kind ? <LandmarkArt kind={kind} brand={brand} label={label} title={title} /> : draw(props)}</div>;
 };

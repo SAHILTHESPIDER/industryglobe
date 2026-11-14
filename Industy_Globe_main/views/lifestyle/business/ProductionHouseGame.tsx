@@ -21,7 +21,9 @@ import { IPManagement } from './IPManagement';
 import { RightsLibrary } from './RightsLibrary';
 import { CommissionModal, CommissionSlateCards, CommissionToast, OffersPage, openBriefScreen } from './PlatformCommissions';
 import { deskOf } from '../../../services/commissions/logic';
+import { createPortal } from 'react-dom';
 import { MarketingDesk } from '../../marketing/MarketingDesk';
+import { LaunchCampaign } from '../../marketing/launch/LaunchCampaign';
 import type { CommissionBrief, CommissionProject } from '../../../types';
 import './productionDesk.css';
 
@@ -69,6 +71,7 @@ const ProductionHouseInner: React.FC<{
     onUpdatePlayer: (p: Player) => void;
 }> = ({ player, studio, onBack, onUpdatePlayer }) => {
     const [view, setView] = useState<StudioView>('DASHBOARD');
+    const [campaignOpen, setCampaignOpen] = useState(false);
     const [marketingTitleId, setMarketingTitleId] = useState<string | undefined>(undefined);
     const [commissionFlow, setCommissionFlow] = useState<{ screen: 'sheet' | 'counter' | 'reply' | 'contract' | 'signed' | 'lost' | 'project'; briefId?: string; projectId?: string } | null>(null);
     const [snoozedOffers, setSnoozedOffers] = useState<string[]>([]);
@@ -551,6 +554,7 @@ const ProductionHouseInner: React.FC<{
 
     if (view === 'MARKETING') {
         return (
+            <>
             <MarketingDesk
                 player={player}
                 ownerKind="HOUSE"
@@ -560,7 +564,13 @@ const ProductionHouseInner: React.FC<{
                 initialTitleId={marketingTitleId}
                 onPlayer={onUpdatePlayer}
                 onBack={() => setView('DASHBOARD')}
+                onLaunch={player.ownPlatform ? () => setCampaignOpen(true) : undefined}
             />
+            {campaignOpen && player.ownPlatform && createPortal(
+                <LaunchCampaign player={player} onPlayer={onUpdatePlayer} onClose={() => setCampaignOpen(false)} />,
+                document.body,
+            )}
+            </>
         );
     }
 

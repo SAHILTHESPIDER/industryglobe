@@ -17,7 +17,7 @@ const Art: React.FC<{ id: string }> = ({ id }) => (
     </svg>
 );
 
-export const ProductTab: React.FC<{ player: Player; onPlayer: (next: Player) => void }> = ({ player, onPlayer }) => {
+export const ProductTab: React.FC<{ player: Player; onPlayer: (next: Player) => void; onLaunch?: () => void }> = ({ player, onPlayer, onLaunch }) => {
     const state = player.ownPlatform!;
     const desk = readDesk(state);
     const [error, setError] = React.useState('');
@@ -28,6 +28,11 @@ export const ProductTab: React.FC<{ player: Player; onPlayer: (next: Player) => 
     return (
         <div data-testid="product-tab">
             {error && <p className="err">{error}</p>}
+            {onLaunch && (
+                <button type="button" className="plat-chip" data-testid="open-launch-campaign" onClick={onLaunch} style={{ cursor: 'pointer', background: '#2f6bff', color: '#fff', borderColor: '#6d8bff', margin: '0 0 12px' }}>
+                    Launch campaign
+                </button>
+            )}
             <div className="soon-grid" data-testid="soon-shows">
                 {SOON_SHOWS.map(card => (
                     <article key={card.id} className="soon-card" data-testid={`soon-${card.id}`}>

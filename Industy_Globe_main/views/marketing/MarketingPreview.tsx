@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { INITIAL_PLAYER, Player, ProjectDetails } from '../../types';
 import { createBusiness } from '../../services/businessLogic';
 import { createOwnPlatform } from '../../services/ownPlatform/migrate';
 import { MarketingDesk } from './MarketingDesk';
+import { LaunchCampaign } from './launch/LaunchCampaign';
 import { Operations } from '../ownPlatform/Operations';
 import { ProductionHouseGame } from '../lifestyle/business/ProductionHouseGame';
 
@@ -51,10 +53,10 @@ export const buildPreviewPlayer = (): Player => {
     player.ownPlatform = createOwnPlatform(player);
     player.ownPlatform.stage = 'LIVE';
     player.ownPlatform.introSeen = true;
-    player.ownPlatform.name = 'Lumen Desk';
+    player.ownPlatform.name = 'Empire';
     if (player.ownPlatform.books) player.ownPlatform.books.cash = 12_000_000;
     player.ownPlatform.catalogue = [
-        { id: 'cat-low', source: 'OWNED', title: 'Low Tide Club', genre: 'Comedy', language: 'English', cost: 1_000_000 },
+        { id: 'cat-low', source: 'OWNED', title: 'Opening Night', genre: 'Drama', language: 'English', cost: 1_000_000 },
     ];
     player.commitments = [{
         id: 'glass-hotel',
@@ -72,6 +74,7 @@ export const buildPreviewPlayer = (): Player => {
 
 export const MarketingPreview: React.FC<{ mode: string }> = ({ mode }) => {
     const [player, setPlayer] = useState<Player>(() => buildPreviewPlayer());
+    const [launchOpen, setLaunchOpen] = useState(false);
     const house = player.businesses.find(business => business.type === 'PRODUCTION_HOUSE');
     const empire = player.ownPlatform;
     const desk = useMemo(() => mode, [mode]);
@@ -92,6 +95,7 @@ export const MarketingPreview: React.FC<{ mode: string }> = ({ mode }) => {
     const action = desk.includes('stage') ? 'premiere' : desk.includes('tour') ? 'city_tour' : desk.includes('frame') || desk.includes('reel') ? 'reels' : 'billboard';
     const tab = desk.includes('wire') ? 'wire' : desk.includes('frame') ? 'frame' : desk.includes('cal') ? 'calendar' : 'build';
     return (
+        <>
         <MarketingDesk
             player={player}
             ownerKind={ownerKind}
@@ -103,6 +107,12 @@ export const MarketingPreview: React.FC<{ mode: string }> = ({ mode }) => {
             initialTab={tab}
             onPlayer={setPlayer}
             onBack={() => undefined}
+            onLaunch={empire ? () => setLaunchOpen(true) : undefined}
         />
+        {launchOpen && empire && createPortal(
+            <LaunchCampaign player={player} onPlayer={setPlayer} onClose={() => setLaunchOpen(false)} />,
+            document.body,
+        )}
+        </>
     );
 };
