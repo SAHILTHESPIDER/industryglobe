@@ -83,9 +83,11 @@
 .balloon{animation:floaty 4s ease-in-out infinite}
 .night{position:absolute;inset:0;background:#05070e;overflow:hidden;display:flex;flex-direction:column}
 .night-sky{flex:1;position:relative;min-height:0;overflow:hidden}
-.night-name{position:absolute;left:16px;bottom:16px;z-index:3}
-.night-name b{display:block;font-family:"Barlow Condensed","Arial Narrow",Impact,sans-serif;font-size:clamp(42px,8vw,84px);line-height:.85}
-.night-name span{color:#9eb6ff;letter-spacing:.16em;font-size:12px;text-transform:uppercase}
+.night-caption{flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:8px 14px 10px;background:#05070e;min-width:0}
+.night-name{position:relative;left:auto;bottom:auto;z-index:1;max-width:62%;min-width:0;padding:0;background:none}
+.night-name small{display:block;color:#E4B15A;font-size:13px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.night-name b{display:block;font-family:"Barlow Condensed","Arial Narrow",Impact,sans-serif;font-size:clamp(36px,7vw,72px);line-height:.85}
+.night-name span{display:block;color:#9eb6ff;letter-spacing:.08em;font-size:11px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .night-map{height:168px;flex:none;border-top:1px solid #243049;background:#070c16}
 .sky-tower{position:absolute;bottom:0;width:18%;background:linear-gradient(#1a2744,#0a1020)}
 .results{padding:12px 4px 24px}
@@ -129,7 +131,11 @@
 @keyframes floaty{50%{transform:translateY(-12px)}}
 .scene{position:absolute;inset:0;overflow:hidden;background:#070b14}
 .still,.mover{position:absolute;inset:0}
-.still img,.mover img{width:100%;height:100%;object-fit:cover;display:block}
+.fill{position:absolute;inset:0}
+.still img,.mover img,.fill img{width:100%;height:100%;object-fit:cover;display:block}
+.scene{container-type:size}
+.fit{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);aspect-ratio:16/9;width:min(100%,calc(100cqh * 16 / 9));height:auto}
+.fit img{width:100%;height:100%;object-fit:fill;display:block}
 .mover{width:160%;animation:drive 9s linear infinite}
 .lockspot{position:absolute;z-index:3;display:flex;align-items:center}
 .lockspot-inner{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:8px;background:#05070ecc;font-weight:800;text-shadow:0 2px 8px #000;font-size:13px}
@@ -148,7 +154,7 @@
 .bike{position:absolute;left:8%;bottom:22%;width:34px;height:14px;border-radius:4px;background:#7eb6ff;z-index:4}
 .banner-card{position:absolute;left:34%;top:0;width:22%;height:55%;z-index:4;display:flex;align-items:flex-end;justify-content:center;background:#2f6bff}
 .beam-card{position:absolute;left:46%;top:0;width:10px;height:70%;z-index:4;background:linear-gradient(#9ec5ff,transparent)}
-.crowd-wide{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;align-items:flex-end;justify-content:center}
+.crowd-wide{position:relative;left:auto;right:auto;bottom:auto;flex:none;z-index:1;display:flex;align-items:flex-end;justify-content:flex-end;height:36px;max-width:42%;overflow:hidden;pointer-events:none}
 .world-map,.night-map{position:relative;overflow:hidden;background:#07111e}
 .world-map img,.night-map img,.pin-layer{position:absolute;inset:0;width:100%;height:100%}
 .pin-pulse{fill:#7eb6ff55;transform-box:fill-box;transform-origin:center;animation:pin 1.8s ease-out infinite}
@@ -168,6 +174,26 @@
 @keyframes unroll{0%{transform:scaleY(.04)}28%,78%{transform:scaleY(1)}100%{transform:scaleY(.04)}}
 @keyframes wash{0%,100%{opacity:.25;filter:hue-rotate(0deg)}50%{opacity:.8;filter:hue-rotate(40deg)}}
 @keyframes fall{to{transform:translateY(110vh) rotate(180deg)}}
+.scene[data-anim="board"] .lockspot,.scene[data-anim="bus"] .lockspot{display:flex;align-items:center;justify-content:center;container-type:size}
+.scene[data-anim="board"] .lockspot-inner,.scene[data-anim="bus"] .lockspot-inner{width:100%;height:100%;justify-content:center;background:#f7f4ee;border-radius:2px;box-shadow:inset 0 0 0 2px #E4B15A;font-size:clamp(9px,42cqh,28px);padding:0 4px}
+.landmark{position:absolute;inset:0;background:#071428}
+.sky-bleed{position:absolute;inset:0;width:100%;height:100%;display:block}
+.landmark-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.facade-lock{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-weight:800;font-size:13px;line-height:.85;text-align:center;border:1.5px solid;border-radius:6px;box-sizing:border-box;overflow:hidden}
+.facade-lock.up{writing-mode:vertical-rl;transform:rotate(180deg);flex-direction:row;font-size:16px;letter-spacing:.08em}
+.facade-lock b{line-height:.9}
+.title-card{position:absolute;right:12px;top:56px;z-index:5;width:min(168px,38%);background:#0c1018ee;border:1px solid #E4B15A;border-radius:12px;padding:8px}
+.poster-face{height:78px;border-radius:8px;display:flex;align-items:flex-end;padding:8px;margin-bottom:6px}
+.title-card b{display:block;font-family:"Barlow Condensed",Impact,sans-serif;font-size:22px;line-height:.9}
+.title-card span{color:#E4B15A;font-size:11px}
+.stage-banner{position:absolute;left:50%;top:18%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;padding:8px 12px;border:2px solid;border-radius:12px;background:#05070ee6;font-weight:800;font-size:clamp(16px,3vw,28px)}
+.stage-banner em{font-style:normal;font-size:.7em;color:#fff}
+.tower-win{fill:#E4B15A;animation:flicker 1.8s infinite}
+.light-run,.light-run-x{opacity:.9;transform-box:fill-box;transform-origin:center}
+.light-run{animation:rise 2.8s linear infinite}
+.light-run-x{animation:sweepx 3.2s linear infinite}
+@keyframes rise{from{transform:translateY(160px)}to{transform:translateY(-40px)}}
+@keyframes sweepx{from{transform:translateX(-80px)}to{transform:translateX(220px)}}
 .scene.reduce .mover,.scene.reduce .flicker,.scene.reduce .ad-slide,.scene.reduce .mini-feed,.scene.reduce .heart,.scene.reduce .flyer,.scene.reduce .playbar i,.scene.reduce .vinyl-dot,.scene.reduce .runner,.scene.reduce .bike,.scene.reduce .banner-card,.scene.reduce .beam-card,.scene.reduce .crowd i,.scene.reduce .drone-dot{animation:none !important}
 .night.reduce .spot,.night.reduce .banner-night,.night.reduce .light-wash,.night.reduce .bike-night,.night.reduce .confetti,.night.reduce .sky-reflect,.night.reduce .crowd i,.night.reduce .pin-pulse{animation:none !important}
 @media (prefers-reduced-motion: reduce){

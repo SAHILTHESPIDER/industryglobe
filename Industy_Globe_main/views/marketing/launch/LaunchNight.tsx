@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { PlatformBrand } from '../../../types';
 import { brandAccent, typefaceById } from '../../../services/ownPlatform/brand';
 import { formatPeople } from '../../../services/ownPlatform/logic';
-import { flightMoney, type FlightQuote } from '../../../services/marketing/launchCatalog';
+import { flightMoney, landmarkFor, type FlightQuote } from '../../../services/marketing/launchCatalog';
+import { LandmarkArt } from './Landmarks';
 import { BrandMark } from '../../ownPlatform/BrandMark';
 import { WorldMap } from './WorldMap';
 import mumbai from './art/sky-mumbai.jpg';
@@ -12,7 +13,6 @@ import london from './art/sky-london.jpg';
 import generic from './art/sky-generic.jpg';
 import fest from './art/scene-fest.jpg';
 import stunt from './art/scene-stunt.jpg';
-import reveal from './art/scene-reveal.jpg';
 import './launch.css';
 
 export interface NightStop {
@@ -23,6 +23,7 @@ export interface NightStop {
     lon: number;
     anim: string;
     event: string;
+    title?: string;
 }
 
 const skylineFor = (id: string) => {
@@ -178,39 +179,45 @@ const Fireworks: React.FC<{ reduce: boolean }> = ({ reduce }) => {
 };
 
 const Crowd = () => (
-    <div className="crowd crowd-wide">{Array.from({ length: 42 }, (_, index) => <i key={index} style={{ animationDelay: `${(index % 8) * 0.07}s`, height: 16 + (index % 5) * 6 }} />)}</div>
+    <div className="crowd crowd-wide">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ animationDelay: `${(index % 8) * 0.07}s`, height: 12 + (index % 5) * 5 }} />)}</div>
 );
 
-const Scene: React.FC<{ anim: string; cityId: string; city: string; service: string; brand: PlatformBrand; event: string; reduce: boolean }> = ({ anim, cityId, city, service, brand, event, reduce }) => {
+const Scene: React.FC<{ anim: string; cityId: string; city: string; service: string; brand: PlatformBrand; event: string; title?: string; reduce: boolean }> = ({ anim, cityId, city, service, brand, event, title, reduce }) => {
     const accent = brandAccent(brand);
     const face = typefaceById(brand.typefaceId);
     const word = (service.trim() || 'EMPIRE').toUpperCase();
     const label = word.endsWith('+') ? word : `${word}+`;
-    const sky = anim === 'fest' ? fest : anim === 'stunt' ? stunt : anim === 'reveal' ? reveal : skylineFor(cityId);
-    const showDrones = anim === 'drone' || !['reveal', 'light', 'fest', 'stunt'].includes(anim);
+    const place = landmarkFor(cityId, anim);
+    const onLandmark = anim === 'reveal' || anim === 'light' || anim === 'projection' || anim === 'drone';
+    const sky = anim === 'fest' ? fest : anim === 'stunt' ? stunt : skylineFor(cityId);
     return (
-        <div className="night-sky" data-scene={anim}>
-            <img className="sky-photo" src={sky} alt="" />
-            <img className="sky-reflect" src={sky} alt="" />
+        <>
+        <div className="night-sky" data-scene={anim} data-landmark={place.kind}>
+            {onLandmark ? <LandmarkArt kind={place.kind} brand={brand} label={label} title={title} /> : <img className="sky-photo" src={sky} alt="" />}
+            {!onLandmark && <img className="sky-reflect" src={sky} alt="" />}
             <div className="spot spot-a" />
             <div className="spot spot-b" />
-            {anim === 'reveal' && (
-                <div className="banner banner-night" style={{ background: `linear-gradient(180deg,#fff 0%, ${accent} 16%, ${accent})`, color: '#fff', fontFamily: face.css }}>
-                    <span>{label}</span>
+            {!onLandmark && (
+                <div className="stage-banner" style={{ borderColor: accent, color: accent, fontFamily: face.css }}>
+                    <BrandMark id={brand.markId} color={accent} size={26} letter={label} />
+                    <b>{label}</b>
+                    {title ? <em>{title}</em> : null}
                 </div>
             )}
-            {anim === 'light' && <div className="light-wash" style={{ background: accent }} />}
             {anim === 'stunt' && <i className="jump bike bike-night" style={{ background: accent }} />}
-            {(anim === 'fest' || anim === 'stunt' || anim === 'reveal' || anim === 'light' || anim === 'drone') && <Crowd />}
-            {(anim === 'reveal' || anim === 'stunt' || anim === 'fest') && <Fireworks reduce={reduce} />}
-            {showDrones && anim === 'drone' && <DroneField accent={accent} label={label} reduce={reduce} />}
-            {Array.from({ length: 18 }, (_, index) => <i key={index} className="confetti" style={{ left: `${(index * 17) % 100}%`, animationDelay: `${index * 0.18}s`, background: index % 2 ? accent : '#E4B15A' }} />)}
-            <div className="night-brand" style={{ color: accent, fontFamily: face.css }}>
-                <BrandMark id={brand.markId} color={accent} size={28} letter={label} />
-                <span>{label}</span>
-            </div>
-            <div className="night-name"><span>{event}</span><b>{city}</b></div>
+            {(anim === 'reveal' || anim === 'stunt' || anim === 'fest' || anim === 'light') && <Fireworks reduce={reduce} />}
+            {anim === 'drone' && <DroneField accent={accent} label={label} reduce={reduce} />}
+            {Array.from({ length: 14 }, (_, index) => <i key={index} className="confetti" style={{ left: `${(index * 19) % 100}%`, animationDelay: `${index * 0.18}s`, background: index % 2 ? accent : '#E4B15A' }} />)}
         </div>
+        <div className="night-caption">
+            <div className="night-name">
+                <span>{event}{title ? ` · ${title}` : ''}</span>
+                <b>{city}</b>
+                <small>{place.name}</small>
+            </div>
+            <Crowd />
+        </div>
+        </>
     );
 };
 
@@ -244,7 +251,7 @@ export const LaunchNight: React.FC<{
     onClose: () => void;
 }> = ({ stops, brand, service, quote, live, hold, onClose }) => {
     const reduce = useReduce();
-    const sequence = stops.length ? stops : [{ id: 'bom', name: 'Mumbai', country: 'India', lat: 19.08, lon: 72.88, anim: hold === 'reveal' ? 'reveal' : 'drone', event: hold === 'reveal' ? 'Building reveal' : 'Drone show' }];
+    const sequence = stops.length ? stops : [{ id: 'bom', name: 'Mumbai', country: 'India', lat: 19.08, lon: 72.88, anim: hold === 'reveal' ? 'reveal' : 'drone', event: hold === 'reveal' ? 'Building reveal' : 'Drone show', title: '' }];
     const [index, setIndex] = useState(0);
     const showResults = hold === 'results' || index >= sequence.length;
     useEffect(() => {
@@ -265,7 +272,7 @@ export const LaunchNight: React.FC<{
             {!showResults && (
                 <>
                     <button type="button" className="skip" onClick={() => setIndex(sequence.length)}>Skip to results</button>
-                    <Scene anim={scene} cityId={stop.id} city={stop.name} service={service} brand={brand} event={event} reduce={reduce} />
+                    <Scene anim={scene} cityId={stop.id} city={stop.name} service={service} brand={brand} event={event} title={stop.title} reduce={reduce} />
                     <WorldMap className="night-map" pins={sequence.map(item => ({ ...item, lit: true }))} activeId={stop.id} />
                 </>
             )}

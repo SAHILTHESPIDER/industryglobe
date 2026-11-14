@@ -124,11 +124,11 @@ export const LANDMARK_LIGHT: Record<string, string> = {
     dxb: 'Burj Khalifa',
     par: 'Eiffel Tower',
     sha: 'Shanghai Tower',
-    tyo: 'Tokyo Skytree',
+    tyo: 'Tokyo Tower',
     syd: 'Sydney Opera House',
-    lon: 'The Shard',
+    lon: 'Big Ben',
     sel: 'Lotte World Tower',
-    cai: 'Cairo Tower',
+    cai: 'the Pyramids',
 };
 
 export const LANDMARK_SCREENS: Record<string, string> = {
@@ -141,6 +141,74 @@ export const LANDMARK_SCREENS: Record<string, string> = {
     dxb: 'Sheikh Zayed Road',
     bom: 'Bandra',
     par: 'Champs-Élysées',
+};
+
+export type LandmarkKind =
+    | 'burj' | 'eiffel' | 'empire' | 'bigben' | 'gateway' | 'sealink' | 'indiagate'
+    | 'tokyotower' | 'opera' | 'christ' | 'mbs' | 'cntower' | 'lotte' | 'pyramids'
+    | 'colosseum' | 'generic';
+
+export interface CityLandmark {
+    name: string;
+    kind: LandmarkKind;
+    /** Drone night uses this shape when the city's tower is not the thing in the sky. */
+    droneKind?: LandmarkKind;
+    droneName?: string;
+}
+
+/** The building the opening-night show is drawn on. A missing city falls back to a plain skyline. */
+export const CITY_LANDMARK: Record<string, CityLandmark> = {
+    dxb: { name: 'Burj Khalifa', kind: 'burj' },
+    par: { name: 'Eiffel Tower', kind: 'eiffel' },
+    nyc: { name: 'Empire State Building', kind: 'empire' },
+    lon: { name: 'Big Ben', kind: 'bigben' },
+    bom: { name: 'Gateway of India', kind: 'gateway', droneKind: 'sealink', droneName: 'Bandra-Worli Sea Link' },
+    del: { name: 'India Gate', kind: 'indiagate' },
+    tyo: { name: 'Tokyo Tower', kind: 'tokyotower' },
+    syd: { name: 'Sydney Opera House', kind: 'opera' },
+    rio: { name: 'Christ the Redeemer', kind: 'christ' },
+    sin: { name: 'Marina Bay Sands', kind: 'mbs' },
+    yyz: { name: 'CN Tower', kind: 'cntower' },
+    sel: { name: 'Lotte World Tower', kind: 'lotte' },
+    cai: { name: 'the Pyramids', kind: 'pyramids' },
+    rom: { name: 'the Colosseum', kind: 'colosseum' },
+    sha: { name: 'Shanghai Tower', kind: 'lotte' },
+    ber: { name: 'Brandenburg Gate', kind: 'indiagate' },
+    chi: { name: 'Willis Tower', kind: 'empire' },
+    lax: { name: 'the Hollywood sign', kind: 'generic' },
+    mex: { name: 'the Angel of Independence', kind: 'generic' },
+    hou: { name: 'the Houston skyline', kind: 'generic' },
+    mia: { name: 'the Miami skyline', kind: 'generic' },
+    atl: { name: 'the Atlanta skyline', kind: 'generic' },
+    aus: { name: 'the Austin skyline', kind: 'generic' },
+    bna: { name: 'the Nashville skyline', kind: 'generic' },
+    sao: { name: 'Avenida Paulista', kind: 'generic' },
+    eze: { name: 'the Obelisk', kind: 'generic' },
+    bog: { name: 'Monserrate', kind: 'generic' },
+    fra: { name: 'the Frankfurt skyline', kind: 'generic' },
+    ams: { name: 'the canal houses', kind: 'generic' },
+    mad: { name: 'Puerta de Alcalá', kind: 'indiagate' },
+    lis: { name: 'Belém Tower', kind: 'generic' },
+    sto: { name: 'the Stockholm skyline', kind: 'generic' },
+    rek: { name: 'Hallgrímskirkja', kind: 'generic' },
+    los: { name: 'the Lagos skyline', kind: 'generic' },
+    jnb: { name: 'the Johannesburg skyline', kind: 'generic' },
+    nbo: { name: 'the Nairobi skyline', kind: 'generic' },
+    rak: { name: 'the Koutoubia', kind: 'generic' },
+    blr: { name: 'Vidhana Soudha', kind: 'generic' },
+    jkt: { name: 'the National Monument', kind: 'cntower' },
+    mnl: { name: 'the Manila skyline', kind: 'generic' },
+    akl: { name: 'Sky Tower', kind: 'cntower' },
+    maa: { name: 'the Marina lighthouse', kind: 'generic' },
+    ccu: { name: 'Victoria Memorial', kind: 'generic' },
+    hyd: { name: 'Charminar', kind: 'generic' },
+};
+
+export const landmarkFor = (cityId: string, anim?: string): { name: string; kind: LandmarkKind } => {
+    const row = CITY_LANDMARK[cityId];
+    if (!row) return { name: 'the skyline', kind: 'generic' };
+    if (anim === 'drone' && row.droneKind) return { name: row.droneName || row.name, kind: row.droneKind };
+    return { name: row.name, kind: row.kind };
 };
 
 export const MONUMENTS: Record<string, string> = {

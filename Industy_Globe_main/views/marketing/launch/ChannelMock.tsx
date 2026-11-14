@@ -60,9 +60,9 @@ const SPOT: Record<LaunchAnim, { l: string; t: string; w: string }> = {
     live: { l: '58%', t: '22%', w: '28%' },
     celeb: { l: '30%', t: '18%', w: '40%' },
     tv: { l: '28%', t: '16%', w: '44%' },
-    board: { l: '16%', t: '10%', w: '40%' },
+    board: { l: '24%', t: '20%', w: '34%' },
     train: { l: '22%', t: '34%', w: '34%' },
-    bus: { l: '28%', t: '38%', w: '36%' },
+    bus: { l: '20%', t: '56%', w: '34%' },
     taxi: { l: '18%', t: '42%', w: '30%' },
     shelter: { l: '14%', t: '18%', w: '22%' },
     flyers: { l: '40%', t: '28%', w: '22%' },
@@ -93,6 +93,7 @@ const SPOT: Record<LaunchAnim, { l: string; t: string; w: string }> = {
 };
 
 const SLIDE = new Set<LaunchAnim>(['train', 'bus', 'taxi']);
+const FIT = new Set<LaunchAnim>(['board', 'bus']);
 const CYCLE = new Set<LaunchAnim>(['ctv', 'tv', 'airport', 'mall', 'city', 'times', 'cinema', 'shelter']);
 const CROWD = new Set<LaunchAnim>(['fest', 'stunt', 'mob', 'carpet', 'stadium']);
 
@@ -141,12 +142,12 @@ export const ChannelMock: React.FC<{ anim: LaunchAnim; brand: PlatformBrand; nam
     const spot = SPOT[anim];
     const reduce = useReduce();
     const frame = (
-        <>
+        <div className={FIT.has(anim) ? 'fit' : 'fill'}>
             <img src={PHOTO[anim]} alt="" />
-            <span className={`lockspot ${anim === 'board' || anim === 'stadium' || anim === 'times' ? 'flicker' : ''}`} style={{ left: spot.l, top: spot.t, width: spot.w }}>
+            <span className={`lockspot ${anim === 'board' || anim === 'stadium' || anim === 'times' ? 'flicker' : ''}`} style={{ left: spot.l, top: spot.t, width: spot.w, height: FIT.has(anim) ? (anim === 'board' ? '34%' : '14%') : undefined }}>
                 <Lock brand={brand} name={name} />
             </span>
-        </>
+        </div>
     );
     return (
         <div className={`scene ${reduce ? 'reduce' : ''}`} data-anim={anim}>

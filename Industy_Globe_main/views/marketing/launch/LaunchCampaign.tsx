@@ -94,6 +94,7 @@ export const LaunchCampaign: React.FC<Props> = ({
             lon: city.lon,
             anim: row?.anim || 'drone',
             event: nights.length ? (row?.name || 'Drone show') : 'Campaign live',
+            title: what === 'TITLE' ? (draft.titleName || '') : '',
         }];
     });
 

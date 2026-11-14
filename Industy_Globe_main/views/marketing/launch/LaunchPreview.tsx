@@ -3,7 +3,7 @@ import type { Player } from '../../../types';
 import { createOwnPlatform } from '../../../services/ownPlatform/migrate';
 import { LaunchCampaign } from './LaunchCampaign';
 
-export type LaunchPreviewScreen = 'launch-where' | 'launch-how' | 'launch-creative' | 'launch-budget' | 'launch-review' | 'launch-drone' | 'launch-reveal' | 'launch-light' | 'launch-fest' | 'launch-stunt' | 'launch-results';
+export type LaunchPreviewScreen = 'launch-where' | 'launch-how' | 'launch-creative' | 'launch-budget' | 'launch-review' | 'launch-drone' | 'launch-reveal' | 'launch-eiffel' | 'launch-light' | 'launch-fest' | 'launch-stunt' | 'launch-results';
 
 const fixture = (): Player => {
     const shell = { id: 'preview-player', name: 'Ava Stone', age: 28, currentWeek: 14, money: 2_000_000, logs: [] } as Player;
@@ -31,6 +31,7 @@ const setup: Record<LaunchPreviewScreen, { step: number; cities: string[]; chann
     'launch-review': { step: 5, cities: ['bom', 'dxb', 'nyc'], channels: ['social_feed', 'city_screens', 'drone', 'building_reveal'] },
     'launch-drone': { step: 2, cities: ['bom', 'del', 'nyc', 'dxb'], channels: ['drone', 'building_reveal', 'social_feed'], scene: 'drone' },
     'launch-reveal': { step: 2, cities: ['bom', 'lon'], channels: ['building_reveal', 'drone'], scene: 'reveal' },
+    'launch-eiffel': { step: 2, cities: ['par'], channels: ['building_reveal'], scene: 'reveal' },
     'launch-light': { step: 2, cities: ['dxb', 'nyc'], channels: ['landmark_light'], scene: 'light' },
     'launch-fest': { step: 2, cities: ['bom'], channels: ['fan_fest'], scene: 'fest' },
     'launch-stunt': { step: 2, cities: ['nyc'], channels: ['stunt'], scene: 'stunt' },
