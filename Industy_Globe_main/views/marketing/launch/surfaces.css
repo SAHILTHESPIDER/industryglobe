@@ -136,6 +136,7 @@
 .mall-banner.a{left:10%;animation:sway 4s ease-in-out infinite}
 .mall-banner.b{left:36%;width:34%}
 .mall-banner.c{right:8%;animation:sway 4.4s ease-in-out infinite reverse}
+@keyframes sway{50%{transform:rotate(2.4deg)}}
 .escalator{position:absolute;left:0;right:0;bottom:0;height:22%;background:linear-gradient(#2a241c, #12100c);clip-path:polygon(0 40%, 100% 0, 100% 100%, 0 100%)}
 
 .tower-led{background:linear-gradient(#120818, #07080e)}
