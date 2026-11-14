@@ -82,9 +82,10 @@ const joinNames = (names: string[]) => {
 const pictureFor = (plan: PricingPlan) => {
     const tier = inferTier(plan);
     if (tier === 'FREE_ADS' || plan.quality === 'SD') return '480p';
-    if (tier === 'BASIC_ADS' || (plan.quality === 'HD' && tier !== 'PREMIUM')) return '720p';
+    if (tier === 'BASIC_ADS') return '720p';
     if (plan.quality === '4K') return '4K';
-    return '1080p';
+    if (tier === 'STANDARD' || tier === 'CUSTOM' || tier === 'PREMIUM') return '1080p';
+    return plan.quality === 'HD' ? '720p' : '1080p';
 };
 
 const devicesFor = (text: string) => {

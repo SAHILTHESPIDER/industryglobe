@@ -689,21 +689,28 @@ const carryCounts = (plans: PricingPlan[], target: number): number[] => {
     return counts;
 };
 
+const storedHouseholds = (plan: PricingPlan) => {
+    const stored = Number(plan.subscribers);
+    return Number.isFinite(stored) && stored > 0 ? Math.round(stored) : 0;
+};
+
 export const planSubscribers = (state: OwnPlatformState): Record<string, number> => {
     const active = enabledPlans(state.plans);
     const company = Math.max(0, Math.round(state.subscribers || 0));
-    const waiting = Math.min(company, state.plans.reduce((sum, plan) => {
-        if (plan.enabled !== false) return sum;
-        const stored = Number(plan.subscribers);
-        return sum + (Number.isFinite(stored) && stored > 0 ? Math.round(stored) : 0);
-    }, 0));
+    const parked = state.plans.filter(plan => plan.enabled === false);
+    const raw = parked.map(storedHouseholds);
+    const rawSum = raw.reduce((sum, count) => sum + count, 0);
+    const waiting = Math.min(company, rawSum);
     const counts = carryCounts(active, company - waiting);
     const out: Record<string, number> = {};
     active.forEach((plan, index) => { out[plan.id] = counts[index] || 0; });
-    state.plans.forEach(plan => {
-        if (plan.id in out) return;
-        const stored = Number(plan.subscribers);
-        out[plan.id] = Number.isFinite(stored) && stored > 0 ? Math.round(stored) : 0;
+    let left = waiting;
+    parked.forEach((plan, index) => {
+        const share = index === parked.length - 1
+            ? left
+            : (rawSum > 0 ? Math.min(left, Math.round(waiting * raw[index] / rawSum)) : 0);
+        out[plan.id] = share;
+        left -= share;
     });
     return out;
 };
@@ -867,12 +874,14 @@ export const applyRemoval = (state: OwnPlatformState, id: string, draft = false)
     const outlook = removalOutlook(state, id);
     if (!outlook) return { state, error: 'That plan is gone.' };
     const enabledLeft = state.plans.filter(plan => plan.enabled !== false && plan.id !== id);
-    if (!draft && state.plans.length < 2) return { state, error: 'Keep at least one plan.' };
-    if (!draft && enabledLeft.length === 0) return { state, error: 'Keep at least one plan on.' };
+    if (state.plans.length < 2) return { state, error: 'Keep at least one plan.' };
+    if (enabledLeft.length === 0) return { state, error: 'Keep at least one plan on.' };
     if (draft) return { state: { ...state, plans: state.plans.filter(plan => plan.id !== id) } };
     const split = planSubscribers(state);
-    const moved = outlook.destinationId ? outlook.moved : 0;
-    const cancel = outlook.total - moved;
+    const company = Math.max(0, Math.round(state.subscribers || 0));
+    const total = Math.min(outlook.total, company);
+    const moved = Math.min(outlook.destinationId ? outlook.moved : 0, total);
+    const cancel = total - moved;
     const plans = state.plans.filter(plan => plan.id !== id).map(plan => ({
         ...plan,
         subscribers: (split[plan.id] || 0) + (plan.id === outlook.destinationId ? moved : 0),
