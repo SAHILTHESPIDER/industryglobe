@@ -56,6 +56,7 @@ interface Props {
 export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
     const rootRef = useRef<HTMLDivElement>(null);
     const handoffAt = useRef(Number.POSITIVE_INFINITY);
+    const handoffTimer = useRef<number | undefined>(undefined);
     const finished = useRef(false);
     const { t, tRef, seek, play, reducedMotion } = useTimeline(25.6);
     const rivals = player.ownPlatform?.rivals || [];
@@ -83,9 +84,11 @@ export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
             return;
         }
         if (handoffAt.current === Number.POSITIVE_INFINITY) handoffAt.current = tRef.current;
-        window.setTimeout(() => finish(), 1200);
+        window.clearTimeout(handoffTimer.current);
+        handoffTimer.current = window.setTimeout(() => finish(), 1200);
     };
     const replay = () => {
+        window.clearTimeout(handoffTimer.current);
         finished.current = false;
         handoffAt.current = Number.POSITIVE_INFINITY;
         seek(0);
@@ -97,6 +100,7 @@ export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     });
+    useEffect(() => () => window.clearTimeout(handoffTimer.current), []);
 
     useLayoutEffect(() => {
         if (reducedMotion || !rootRef.current) return;

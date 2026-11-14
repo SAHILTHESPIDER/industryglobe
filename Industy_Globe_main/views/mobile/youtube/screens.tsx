@@ -24,7 +24,7 @@ import { useYt } from './state';
 import { badgeFor, creatorFor, dubLine, postedAgo, STILL, stillForType, stillUrl, verifiedAuthor, weeksAgoFor } from './stills';
 import { createFittedThumbnailBlob, Face, MAX_THUMBNAIL_SOURCE_SIZE, ThumbnailFitMode } from './thumb';
 import { ChannelExtras, CreatorScreen, CreatorWatchSubscribe, PeopleSubs, TrophyShelf, bannerBackground } from './features';
-import { AVATAR_PRESETS, lookFor, presetColors } from '../../../services/youtubeCustomize';
+import { AVATAR_PRESETS, channelSwitchAllowed, lookFor, presetColors } from '../../../services/youtubeCustomize';
 import { playButtonLabel } from '../../../services/youtubeAwards';
 import { creatorAudience } from '../../../services/youtubePeople';
 
@@ -336,8 +336,11 @@ export const WatchScreen: React.FC = () => {
                             else if (creatorHit) api.openCreator(creatorHit.id);
                             else if (video.channelKind === 'studio' || video.channelKind === 'empirePlus') {
                                 api.switchChannel(video.channelKind);
+                                if (channelSwitchAllowed(api.channel, video.channelKind)) api.go('channel');
+                            } else {
+                                api.switchChannel('personal');
                                 api.go('channel');
-                            } else api.go('channel');
+                            }
                         }} style={{ background: 'none' }}>
                         <Av kind={authorKind(video)} label={video.authorName} />
                         <div style={{ textAlign: 'left' }}><b>{video.authorName}</b>{verifiedAuthor(video) ? <span className="vf">✓</span> : null}<div className="dim">{formatCompact(subs)} subs{video.country ? ` · ${video.country}` : ''}</div></div>
