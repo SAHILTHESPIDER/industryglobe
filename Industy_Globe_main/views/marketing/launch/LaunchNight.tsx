@@ -1,18 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { PlatformBrand } from '../../../types';
-import { brandAccent, typefaceById } from '../../../services/ownPlatform/brand';
+import { brandAccent } from '../../../services/ownPlatform/brand';
 import { formatPeople } from '../../../services/ownPlatform/logic';
 import { flightMoney, landmarkFor, type FlightQuote } from '../../../services/marketing/launchCatalog';
 import { LandmarkArt } from './Landmarks';
-import { BrandMark } from '../../ownPlatform/BrandMark';
 import { WorldMap } from './WorldMap';
-import mumbai from './art/sky-mumbai.jpg';
-import dubai from './art/sky-dubai.jpg';
-import nyc from './art/sky-nyc.jpg';
-import london from './art/sky-london.jpg';
-import generic from './art/sky-generic.jpg';
-import fest from './art/scene-fest.jpg';
-import stunt from './art/scene-stunt.jpg';
+import { Surface } from './Surfaces';
+import type { LaunchAnim } from '../../../services/marketing/launchCatalog';
 import './launch.css';
 
 export interface NightStop {
@@ -25,15 +19,6 @@ export interface NightStop {
     event: string;
     title?: string;
 }
-
-const skylineFor = (id: string) => {
-    if (id === 'bom') return mumbai;
-    if (id === 'dxb') return dubai;
-    if (id === 'nyc') return nyc;
-    if (id === 'lon') return london;
-    if (['del', 'blr', 'maa', 'ccu', 'hyd'].includes(id)) return mumbai;
-    return generic;
-};
 
 const useReduce = () => {
     const [reduce, setReduce] = useState(false);
@@ -184,30 +169,19 @@ const Crowd = () => (
 
 const Scene: React.FC<{ anim: string; cityId: string; city: string; service: string; brand: PlatformBrand; event: string; title?: string; reduce: boolean }> = ({ anim, cityId, city, service, brand, event, title, reduce }) => {
     const accent = brandAccent(brand);
-    const face = typefaceById(brand.typefaceId);
     const word = (service.trim() || 'EMPIRE').toUpperCase();
     const label = word.endsWith('+') ? word : `${word}+`;
     const place = landmarkFor(cityId, anim);
     const onLandmark = anim === 'reveal' || anim === 'light' || anim === 'projection' || anim === 'drone';
-    const sky = anim === 'fest' ? fest : anim === 'stunt' ? stunt : skylineFor(cityId);
     return (
         <>
         <div className="night-sky" data-scene={anim} data-landmark={place.kind}>
-            {onLandmark ? <LandmarkArt kind={place.kind} brand={brand} label={label} title={title} /> : <img className="sky-photo" src={sky} alt="" />}
-            {!onLandmark && <img className="sky-reflect" src={sky} alt="" />}
-            <div className="spot spot-a" />
-            <div className="spot spot-b" />
-            {!onLandmark && (
-                <div className="stage-banner" style={{ borderColor: accent, color: accent, fontFamily: face.css }}>
-                    <BrandMark id={brand.markId} color={accent} size={26} letter={label} />
-                    <b>{label}</b>
-                    {title ? <em>{title}</em> : null}
-                </div>
-            )}
-            {anim === 'stunt' && <i className="jump bike bike-night" style={{ background: accent }} />}
+            {onLandmark
+                ? <LandmarkArt kind={place.kind} brand={brand} label={label} title={title} />
+                : <Surface anim={(anim || 'fest') as LaunchAnim} brand={brand} name={service} title={title} />}
             {(anim === 'reveal' || anim === 'stunt' || anim === 'fest' || anim === 'light') && <Fireworks reduce={reduce} />}
             {anim === 'drone' && <DroneField accent={accent} label={label} reduce={reduce} />}
-            {Array.from({ length: 14 }, (_, index) => <i key={index} className="confetti" style={{ left: `${(index * 19) % 100}%`, animationDelay: `${index * 0.18}s`, background: index % 2 ? accent : '#E4B15A' }} />)}
+            {Array.from({ length: 10 }, (_, index) => <i key={index} className="confetti" style={{ left: `${(index * 19) % 100}%`, animationDelay: `${index * 0.18}s`, background: index % 2 ? accent : '#E4B15A' }} />)}
         </div>
         <div className="night-caption">
             <div className="night-name">

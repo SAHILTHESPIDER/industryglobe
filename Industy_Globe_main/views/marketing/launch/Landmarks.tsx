@@ -1,237 +1,164 @@
-import React from 'react';
+import React, { useId } from 'react';
 import type { LandmarkKind } from '../../../services/marketing/launchCatalog';
 import type { PlatformBrand } from '../../../types';
-import { brandAccent, typefaceById } from '../../../services/ownPlatform/brand';
-import { BrandMark } from '../../ownPlatform/BrandMark';
+import { brandAccent, mixHex, typefaceById } from '../../../services/ownPlatform/brand';
+import './surfaces.css';
 
-const FACE: Record<LandmarkKind, { x: number; y: number; w: number; h: number; light: boolean; up?: boolean }> = {
-    burj: { x: 182, y: 200, w: 36, h: 160, light: true, up: true },
-    eiffel: { x: 162, y: 268, w: 76, h: 36, light: true },
-    empire: { x: 178, y: 250, w: 44, h: 120, light: true, up: true },
-    bigben: { x: 176, y: 250, w: 48, h: 110, light: true, up: true },
-    gateway: { x: 155, y: 300, w: 90, h: 70, light: false },
-    sealink: { x: 120, y: 318, w: 160, h: 36, light: true },
-    indiagate: { x: 150, y: 300, w: 100, h: 60, light: false },
-    tokyotower: { x: 182, y: 180, w: 36, h: 140, light: true, up: true },
-    opera: { x: 130, y: 300, w: 140, h: 48, light: false },
-    christ: { x: 150, y: 178, w: 100, h: 36, light: false },
-    mbs: { x: 110, y: 176, w: 180, h: 40, light: false },
-    cntower: { x: 176, y: 200, w: 48, h: 120, light: true, up: true },
-    lotte: { x: 182, y: 160, w: 36, h: 180, light: true, up: true },
-    pyramids: { x: 70, y: 250, w: 120, h: 70, light: false },
-    colosseum: { x: 110, y: 248, w: 180, h: 50, light: false },
-    generic: { x: 150, y: 220, w: 100, h: 70, light: true },
+interface CopyBox { x: string; y: string; w: string; h: string; mode?: 'up' | 'wide' | 'deck' }
+
+const COPY: Record<LandmarkKind, CopyBox> = {
+    burj: { x: '43%', y: '22%', w: '14%', h: '52%', mode: 'up' },
+    eiffel: { x: '30%', y: '46%', w: '40%', h: '14%', mode: 'wide' },
+    empire: { x: '40%', y: '28%', w: '20%', h: '46%', mode: 'up' },
+    bigben: { x: '41%', y: '40%', w: '18%', h: '36%', mode: 'up' },
+    gateway: { x: '22%', y: '28%', w: '56%', h: '22%', mode: 'wide' },
+    sealink: { x: '12%', y: '62%', w: '76%', h: '12%', mode: 'deck' },
+    indiagate: { x: '22%', y: '26%', w: '56%', h: '20%', mode: 'wide' },
+    tokyotower: { x: '32%', y: '40%', w: '36%', h: '16%', mode: 'wide' },
+    opera: { x: '18%', y: '52%', w: '64%', h: '16%', mode: 'wide' },
+    christ: { x: '22%', y: '8%', w: '56%', h: '16%', mode: 'wide' },
+    mbs: { x: '14%', y: '30%', w: '72%', h: '14%', mode: 'deck' },
+    cntower: { x: '30%', y: '28%', w: '40%', h: '14%', mode: 'wide' },
+    lotte: { x: '42%', y: '20%', w: '16%', h: '54%', mode: 'up' },
+    pyramids: { x: '12%', y: '42%', w: '40%', h: '22%', mode: 'wide' },
+    colosseum: { x: '16%', y: '40%', w: '68%', h: '16%', mode: 'wide' },
+    generic: { x: '28%', y: '32%', w: '44%', h: '28%', mode: 'wide' },
 };
 
-const wins = (x: number, y: number, cols: number, rows: number, gapX = 8, gapY = 14) =>
-    Array.from({ length: cols * rows }, (_, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        return <rect key={`${x}-${index}`} className="tower-win" x={x + col * gapX} y={y + row * gapY} width="3.2" height="6" rx="0.4" style={{ animationDelay: `${(row * 0.14) + col * 0.05}s` }} />;
-    });
+const SIL: Record<LandmarkKind, string> = {
+    burj: 'M200 6 L205 48 L212 130 L204 142 L220 230 L210 242 L232 340 L220 352 L244 460 L258 508 L142 508 L156 460 L180 352 L168 340 L190 242 L180 230 L196 142 L188 130 L195 48 Z',
+    eiffel: 'M70 500 L150 310 L178 190 L196 70 L200 36 L204 70 L222 190 L250 310 L330 500 L286 500 L230 330 L214 230 L200 160 L186 230 L170 330 L114 500 Z',
+    empire: 'M156 508 L156 300 L170 300 L170 230 L184 230 L184 160 L194 150 L194 48 L206 48 L206 150 L216 160 L216 230 L230 230 L230 300 L244 300 L244 508 Z',
+    bigben: 'M168 508 L168 150 L200 70 L232 150 L232 508 Z',
+    gateway: 'M60 508 L60 210 L110 210 L110 300 Q200 120 290 300 L290 210 L340 210 L340 508 L270 508 L270 330 Q200 230 130 330 L130 508 Z',
+    sealink: 'M20 360 H380 V392 H20 Z',
+    indiagate: 'M50 200 H350 V240 H320 V508 H270 V320 Q200 230 130 320 V508 H80 V240 H50 Z',
+    tokyotower: 'M120 500 L200 40 L280 500 L245 500 L200 180 L155 500 Z',
+    opera: 'M20 400 Q80 180 140 340 Q180 150 210 330 Q250 140 320 340 Q360 200 390 400 L390 430 L20 430 Z',
+    christ: 'M150 200 H250 L236 280 H164 Z M188 150 H212 V230 H188 Z M120 168 H280 V190 H120 Z',
+    mbs: 'M70 200 Q200 120 330 200 L318 236 Q200 168 82 236 Z',
+    cntower: 'M194 20 H206 L214 500 H186 Z M152 168 H248 V196 H152 Z',
+    lotte: 'M168 508 L186 80 L214 80 L232 508 Z',
+    pyramids: 'M30 430 L150 170 L270 430 Z',
+    colosseum: 'M50 250 H350 V340 Q350 430 200 450 Q50 430 50 340 Z',
+    generic: 'M40 500 V280 H90 V220 H140 V300 H190 V160 H250 V240 H300 V200 H360 V500 Z',
+};
 
-/** A recognisable landmark. The lockup is in SVG space so it stays on the facade as the drawing scales. */
+const Led: React.FC<{ box: CopyBox; label: string; title?: string; font: string; accent: string }> = ({ box, label, title, font, accent }) => (
+    <foreignObject x="0" y="0" width="400" height="520">
+        <div {...{ xmlns: 'http://www.w3.org/1999/xhtml', className: 'led', style: { ['--ink' as string]: accent, ['--lift' as string]: mixHex(accent, '#ffffff', 0.45), fontFamily: font } }}>
+            <div className={`led-copy ${box.mode || ''}`} style={{ left: box.x, top: box.y, width: box.w, height: box.h }}>
+                <b>{label}</b>
+                {box.mode === 'up' ? null : <em>{title || 'NOW SHOWING'}</em>}
+            </div>
+        </div>
+    </foreignObject>
+);
+
+const Spark: React.FC<{ points: Array<[number, number]> }> = ({ points }) => (
+    <g>
+        {points.map(([x, y], index) => <circle key={`${x}-${y}`} className="spark" cx={x} cy={y} r={index % 3 === 0 ? 2.4 : 1.4} style={{ animationDelay: `${(index % 7) * 0.18}s` }} />)}
+    </g>
+);
+
+/** The monument is the screen: LEDs, projection, or a full wrap, clipped to its real outline. */
 export const LandmarkArt: React.FC<{ kind: LandmarkKind; brand: PlatformBrand; label: string; title?: string }> = ({ kind, brand, label, title }) => {
-    const face = FACE[kind];
+    const raw = useId().replace(/:/g, '');
     const accent = brandAccent(brand);
-    const type = typefaceById(brand.typefaceId);
-    const ink = face.light ? '#fff' : '#041018';
+    const font = typefaceById(brand.typefaceId).css;
+    const iron = mixHex(accent, '#f4e2b0', 0.35);
+    const box = COPY[kind];
     return (
         <div className={`landmark kind-${kind}`} data-landmark={kind}>
             <svg className="sky-bleed" viewBox="0 0 1000 400" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
-                    <linearGradient id="nightSky" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id={`sky-${raw}`} x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0" stopColor="#050914" />
-                        <stop offset="0.55" stopColor="#102848" />
+                        <stop offset="0.6" stopColor="#102848" />
                         <stop offset="1" stopColor="#1a4e86" />
                     </linearGradient>
                 </defs>
-                <rect width="1000" height="400" fill="url(#nightSky)" />
-                {Array.from({ length: 28 }, (_, i) => (
-                    <circle key={i} cx={20 + (i * 73) % 980} cy={12 + (i * 41) % 220} r={i % 3 === 0 ? 1.6 : 0.8} fill="#fff" opacity="0.75" />
+                <rect width="1000" height="400" fill={`url(#sky-${raw})`} />
+                {Array.from({ length: 24 }, (_, i) => (
+                    <circle key={i} cx={16 + (i * 79) % 980} cy={14 + (i * 37) % 200} r={i % 4 === 0 ? 1.5 : 0.7} fill="#fff" opacity="0.8" />
                 ))}
             </svg>
             <svg viewBox="0 0 400 520" className="landmark-svg" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
                 <defs>
-                    <linearGradient id="goldBeam" x1="0" y1="1" x2="0" y2="0">
-                        <stop offset="0" stopColor="#E4B15A" stopOpacity="0" />
-                        <stop offset="0.5" stopColor="#fff6d8" stopOpacity="0.95" />
-                        <stop offset="1" stopColor="#9ec5ff" stopOpacity="0" />
-                    </linearGradient>
-                    <clipPath id="beamClip">
-                        <rect x="168" y="40" width="64" height="420" />
-                    </clipPath>
+                    <clipPath id={`sil-${raw}`}><path d={SIL[kind]} /></clipPath>
                 </defs>
+                {!['eiffel', 'tokyotower', 'christ'].includes(kind) && (
+                    <g clipPath={`url(#sil-${raw})`}>
+                        <Led box={box} label={label} title={title} font={font} accent={accent} />
+                    </g>
+                )}
+                {(kind === 'eiffel' || kind === 'tokyotower') && (
+                    <text x="130" y={kind === 'eiffel' ? 292 : 270} textLength="140" lengthAdjust="spacingAndGlyphs" fontSize="32" fill="#fff" fontFamily={font} fontWeight="800" style={{ filter: `drop-shadow(0 0 6px ${accent}) drop-shadow(0 0 16px ${accent})` }}>{label}</text>
+                )}
                 {kind === 'burj' && (
-                    <g>
-                        <polygon points="200,28 206,118 194,118" fill="#f4f7ff" />
-                        <polygon points="186,118 214,118 208,200 192,200" fill="#d5e4f8" />
-                        <polygon points="176,200 224,200 216,290 184,290" fill="#243650" />
-                        <polygon points="164,290 236,290 226,380 174,380" fill="#1c2d48" />
-                        <polygon points="148,380 252,380 236,470 164,470" fill="#16263c" />
-                        <polygon points="132,430 148,400 148,470 120,470" fill="#1a3050" />
-                        <polygon points="268,430 252,400 252,470 280,470" fill="#1a3050" />
-                        {wins(190, 210, 3, 12, 7, 16)}
-                        <g clipPath="url(#beamClip)"><rect className="light-run" x="194" y="160" width="12" height="80" fill="url(#goldBeam)" /></g>
+                    <g fill="none" stroke="#0006" strokeWidth="2">
+                        {[96, 150, 200, 260, 320, 380, 450].map(y => <line key={y} x1={200 - (y / 18)} y1={y} x2={200 + (y / 18)} y2={y} />)}
+                        <polygon points="200,6 204,40 196,40" fill="#f7fbff" stroke="none" />
                     </g>
                 )}
                 {kind === 'eiffel' && (
-                    <g>
-                        <path d="M70 470 L150 300 L175 210 L192 120 L200 42 L208 120 L225 210 L250 300 L330 470 L286 470 L230 320 L214 250 L200 190 L186 250 L170 320 L114 470 Z" fill="#c9a36a" />
-                        <path d="M128 470 L168 340 H232 L272 470 H236 L214 390 H186 L164 470 Z" fill="#07111f" />
-                        <path d="M150 300 H250 M176 210 H224 M192 130 H208" stroke="#E4B15A" strokeWidth="6" />
-                        <path d="M160 360 H240 M184 250 H216" stroke="#7a5a32" strokeWidth="2" />
-                        <circle cx="200" cy="48" r="6" fill="#E4B15A" />
-                        <g clipPath="url(#beamClip)"><rect className="light-run" x="194" y="90" width="12" height="50" fill="url(#goldBeam)" /></g>
+                    <g fill="none" stroke={iron} strokeWidth="2.4" strokeLinejoin="round">
+                        <path d="M78 500 L168 300 L190 170 L200 42 L210 170 L232 300 L322 500" strokeWidth="4" />
+                        <path d="M120 500 L184 320 L200 210 L216 320 L280 500" />
+                        <path d="M146 360 H254 M168 250 H232 M186 160 H214" stroke={accent} strokeWidth="5" />
+                        {Array.from({ length: 8 }, (_, i) => {
+                            const y = 180 + i * 38;
+                            const half = 28 + i * 12;
+                            return <path key={y} d={`M${200 - half} ${y} L200 ${y + 28} L${200 + half} ${y}`} />;
+                        })}
+                        <Spark points={[[200, 48], [168, 250], [232, 250], [150, 360], [250, 360], [120, 460], [280, 460], [190, 160], [210, 160], [184, 320], [216, 320]]} />
                     </g>
                 )}
-                {kind === 'empire' && (
-                    <g fill="#d5e2f4">
-                        <rect x="150" y="300" width="100" height="170" />
-                        <rect x="164" y="230" width="72" height="70" />
-                        <rect x="178" y="170" width="44" height="60" />
-                        <rect x="190" y="110" width="20" height="60" />
-                        <rect x="196" y="36" width="8" height="74" fill="#f4f7ff" />
-                        <polygon points="188,110 212,110 200,78" fill="#E4B15A" />
-                        {wins(168, 250, 4, 10, 10, 16)}
-                        <rect className="light-run" x="194" y="120" width="12" height="60" fill="url(#goldBeam)" />
+                {kind === 'tokyotower' && (
+                    <g fill="none" stroke={mixHex(accent, '#e23d32', 0.4)} strokeWidth="3">
+                        <path d="M130 500 L200 36 L270 500" />
+                        <path d="M160 500 L200 150 L240 500" />
+                        <path d="M150 380 H250 M170 260 H230 M186 160 H214" stroke="#fff" strokeWidth="4" />
+                        <Spark points={[[200, 48], [170, 260], [230, 260], [150, 380], [250, 380], [186, 160], [214, 160]]} />
+                    </g>
+                )}
+                {kind === 'sealink' && (
+                    <g fill="none" stroke="#e7eef8" strokeWidth="3">
+                        <path d="M70 360 V150 M330 360 V150" strokeWidth="7" />
+                        <path d="M70 168 Q200 250 330 168" stroke={accent} strokeWidth="3" />
+                        {Array.from({ length: 10 }, (_, i) => <path key={i} d={`M${86 + i * 16} 352 L70 168`} stroke="#9ec5ff" />)}
+                        {Array.from({ length: 10 }, (_, i) => <path key={`r${i}`} d={`M${150 + i * 16} 352 L330 168`} stroke="#9ec5ff" />)}
+                        <path d="M0 400 Q100 450 200 400 T400 400 V500 H0 Z" fill="#0c3a6e" stroke="none" />
                     </g>
                 )}
                 {kind === 'bigben' && (
                     <g>
-                        <rect x="168" y="150" width="64" height="320" fill="#e6d3b0" />
-                        <polygon points="168,150 200,62 232,150" fill="#d7c4a0" />
-                        <rect x="196" y="40" width="8" height="28" fill="#E4B15A" />
                         <circle cx="200" cy="210" r="22" fill="#07111f" stroke="#E4B15A" strokeWidth="4" />
-                        <path d="M200 210 L200 194 M200 210 L214 218" stroke="#E4B15A" strokeWidth="3" />
-                        <ellipse cx="310" cy="250" rx="52" ry="78" fill="none" stroke="#9ec5ff" strokeWidth="4" />
-                        {Array.from({ length: 8 }, (_, i) => <line key={i} x1="310" y1="250" x2={310 + Math.cos(i) * 46} y2={250 + Math.sin(i) * 70} stroke="#9ec5ff" strokeWidth="1.5" />)}
-                        <circle cx="310" cy="250" r="8" fill="#E4B15A" />
+                        <path d="M200 210 V194 M200 210 L214 218" stroke="#E4B15A" strokeWidth="2" />
+                        <ellipse cx="310" cy="250" rx="48" ry="72" fill="none" stroke="#9ec5ff" strokeWidth="3" />
+                        <Spark points={Array.from({ length: 8 }, (_, i) => [310 + Math.cos(i) * 36, 250 + Math.sin(i) * 52] as [number, number])} />
                     </g>
                 )}
-                {kind === 'gateway' && (
-                    <g fill="#f0e2c4">
-                        <path d="M70 470 V210 H120 V280 Q200 90 280 280 V210 H330 V470 H270 V300 Q200 200 130 300 V470 Z" />
-                        <circle cx="95" cy="198" r="16" />
-                        <circle cx="305" cy="198" r="16" />
-                        <rect x="176" y="150" width="48" height="22" />
-                        <path d="M40 430 Q200 390 360 430" fill="none" stroke="#1a4e86" strokeWidth="16" />
-                    </g>
-                )}
-                {kind === 'sealink' && (
-                    <g>
-                        <path d="M0 360 H400" stroke="#d7e6ff" strokeWidth="10" />
-                        <path d="M70 360 V150 M300 360 V150" stroke="#f4f7ff" strokeWidth="8" />
-                        <path d="M70 170 Q185 280 300 170" fill="none" stroke="#E4B15A" strokeWidth="3" />
-                        {Array.from({ length: 12 }, (_, i) => <path key={i} d={`M${80 + i * 18} 352 L70 170`} stroke="#9ec5ff" strokeWidth="1.2" />)}
-                        {Array.from({ length: 12 }, (_, i) => <path key={`r${i}`} d={`M${90 + i * 18} 352 L300 170`} stroke="#9ec5ff" strokeWidth="1.2" />)}
-                        <path d="M0 400 Q100 450 200 400 T400 400 V470 H0 Z" fill="#0c3a6e" />
-                        <rect className="light-run-x" x="40" y="348" width="80" height="8" fill="url(#goldBeam)" />
-                    </g>
-                )}
-                {kind === 'indiagate' && (
-                    <g fill="#f3e6c8">
-                        <rect x="60" y="175" width="280" height="36" />
-                        <rect x="80" y="211" width="46" height="259" />
-                        <rect x="274" y="211" width="46" height="259" />
-                        <path d="M126 470 V280 Q200 150 274 280 V470 H230 V310 Q200 250 170 310 V470 Z" />
-                        <circle cx="200" cy="158" r="18" />
-                        <rect x="186" y="112" width="28" height="28" />
-                    </g>
-                )}
-                {kind === 'tokyotower' && (
-                    <g fill="none" stroke="#e23d32" strokeWidth="4">
-                        <path d="M120 470 L200 48 L280 470" />
-                        <path d="M155 470 L200 150 L245 470" />
-                        <path d="M145 360 H255 M165 250 H235 M182 150 H218" stroke="#fff" strokeWidth="5" />
-                        <rect x="184" y="28" width="32" height="28" fill="#fff" stroke="#e23d32" />
-                        <rect className="light-run" x="194" y="90" width="12" height="48" fill="url(#goldBeam)" stroke="none" />
-                    </g>
-                )}
-                {kind === 'opera' && (
-                    <g>
-                        <path d="M20 390 Q70 180 130 340 Q175 150 210 330 Q255 120 310 340 Q350 200 385 390 Z" fill="#f7f4ee" />
-                        <path d="M20 390 Q70 250 130 360 Q175 230 210 350 Q255 210 310 360 Q350 270 385 390" fill="none" stroke="#d9c7a2" strokeWidth="3" />
-                        <path d="M0 400 H400 V470 H0 Z" fill="#0c3a6e" />
-                    </g>
-                )}
+                {kind === 'opera' && <path d="M30 390 Q90 230 150 350 Q190 200 220 345 Q260 190 330 350 Q370 250 385 390" fill="none" stroke="#f7f4ee" strokeWidth="3" />}
                 {kind === 'christ' && (
-                    <g>
-                        <path d="M60 470 L200 250 L340 470 Z" fill="#163528" />
-                        <circle cx="200" cy="150" r="18" fill="#f7f4ee" />
-                        <rect x="188" y="168" width="24" height="78" fill="#f7f4ee" />
-                        <rect x="112" y="188" width="176" height="18" rx="4" fill="#f7f4ee" />
-                        <path d="M150 250 H250 L236 300 H164 Z" fill="#c9b48a" />
+                    <g fill="#f7f4ee">
+                        <circle cx="200" cy="132" r="16" />
+                        <rect x="188" y="148" width="24" height="70" />
+                        <rect x="118" y="176" width="164" height="16" rx="4" />
+                        <path d="M70 500 L200 250 L330 500 Z" fill="#143224" />
                     </g>
                 )}
-                {kind === 'mbs' && (
-                    <g>
-                        <rect x="78" y="230" width="40" height="240" fill="#d5e4f5" />
-                        <rect x="180" y="190" width="40" height="280" fill="#e7eef8" />
-                        <rect x="282" y="230" width="40" height="240" fill="#d5e4f5" />
-                        {wins(88, 250, 3, 8, 10, 22)}
-                        <path d="M50 210 Q200 120 350 210 L336 246 Q200 170 64 246 Z" fill="#E4B15A" />
-                    </g>
-                )}
-                {kind === 'cntower' && (
-                    <g fill="#e7eef8">
-                        <polygon points="194,28 206,28 214,470 186,470" />
-                        <ellipse cx="200" cy="168" rx="48" ry="18" fill="#9ec5ff" />
-                        <ellipse cx="200" cy="168" rx="22" ry="8" fill="#07111f" />
-                        <rect x="197" y="8" width="6" height="28" fill="#E4B15A" />
-                        <rect className="light-run" x="196" y="40" width="8" height="50" fill="url(#goldBeam)" />
-                    </g>
-                )}
-                {kind === 'lotte' && (
-                    <g fill="#d5e2f4">
-                        <polygon points="168,470 232,470 214,90 186,90" />
-                        <polygon points="192,90 208,90 204,36 196,36" fill="#f4f7ff" />
-                        {wins(192, 120, 2, 14, 10, 18)}
-                        <rect className="light-run" x="194" y="70" width="12" height="60" fill="url(#goldBeam)" />
-                    </g>
-                )}
-                {kind === 'pyramids' && (
-                    <g>
-                        <polygon points="30,420 150,160 270,420" fill="#e6c98a" />
-                        <polygon points="150,160 190,230 110,230" fill="#f3e0b0" />
-                        <polygon points="170,420 280,200 390,420" fill="#d4b06a" />
-                        <polygon points="110,420 190,250 270,420" fill="#c9a15a" />
-                        <path d="M300 360 Q330 330 355 360 L340 390 H315 Z" fill="#efe4c8" />
-                    </g>
-                )}
-                {kind === 'colosseum' && (
-                    <g>
-                        <ellipse cx="200" cy="340" rx="150" ry="55" fill="#e7d7be" />
-                        <path d="M50 330 V210 H350 V330" fill="#f3e6d0" />
-                        <ellipse cx="200" cy="210" rx="150" ry="28" fill="#f7efe2" />
-                        {Array.from({ length: 8 }, (_, i) => <rect key={i} x={78 + i * 32} y="236" width="16" height="48" rx="8" fill="#07111f" />)}
-                        {Array.from({ length: 8 }, (_, i) => <rect key={`b${i}`} x={78 + i * 32} y="296" width="16" height="34" fill="#07111f" />)}
-                    </g>
-                )}
-                {kind === 'generic' && (
-                    <g fill="#16304e">
-                        {[30, 80, 140, 200, 250, 310].map((x, i) => (
-                            <rect key={x} x={x} y={250 - (i % 3) * 50} width="46" height={220 + (i % 3) * 50} />
-                        ))}
-                        {wins(214, 180, 3, 10, 10, 18)}
-                    </g>
-                )}
-                <foreignObject x={face.x} y={face.y} width={face.w} height={face.h}>
-                    <div {...{ xmlns: 'http://www.w3.org/1999/xhtml', className: `facade-lock${face.up ? ' up' : ''}`, style: { color: ink, fontFamily: type.css, background: face.light ? '#041018cc' : '#f7f4eecc', borderColor: accent } }}>
-                        <BrandMark id={brand.markId} color={face.light ? '#fff' : accent} size={18} letter={label} />
-                        <b style={{ color: face.light ? '#fff' : accent }}>{label}</b>
-                    </div>
-                </foreignObject>
+                {kind === 'cntower' && <ellipse cx="200" cy="180" rx="46" ry="16" fill="none" stroke="#d7e6ff" strokeWidth="3" />}
+                {kind === 'gateway' && <path d="M40 470 Q200 420 360 470" fill="none" stroke="#1a4e86" strokeWidth="14" />}
+                {kind !== 'christ' && <path d={SIL[kind]} fill="none" stroke="#ffffff22" strokeWidth="1.2" />}
             </svg>
-            {title ? (
-                <div className="title-card" style={{ borderColor: accent }}>
-                    <div className="poster-face" style={{ background: accent }}>
-                        <BrandMark id={brand.markId} color="#fff" size={28} letter={label} />
-                    </div>
-                    <b style={{ fontFamily: type.css }}>{title}</b>
-                    <span>Now on {label}</span>
-                </div>
-            ) : null}
+            {kind === 'christ' && <div className="sky-title" style={{ fontFamily: font, ['--glow' as string]: accent }}>{title || label}</div>}
+            {(kind === 'burj' || kind === 'empire' || kind === 'lotte' || kind === 'cntower') && (
+                <>
+                    <i className="spot spot-a" />
+                    <i className="spot spot-b" />
+                </>
+            )}
         </div>
     );
 };

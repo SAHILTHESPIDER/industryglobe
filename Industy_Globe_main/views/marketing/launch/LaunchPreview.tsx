@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import type { Player } from '../../../types';
 import { createOwnPlatform } from '../../../services/ownPlatform/migrate';
+import type { LaunchAnim } from '../../../services/marketing/launchCatalog';
 import { LaunchCampaign } from './LaunchCampaign';
+import { Surface } from './Surfaces';
 
-export type LaunchPreviewScreen = 'launch-where' | 'launch-how' | 'launch-creative' | 'launch-budget' | 'launch-review' | 'launch-drone' | 'launch-reveal' | 'launch-eiffel' | 'launch-light' | 'launch-fest' | 'launch-stunt' | 'launch-results';
+export type LaunchPreviewScreen = 'launch-where' | 'launch-how' | 'launch-creative' | 'launch-budget' | 'launch-review' | 'launch-drone' | 'launch-reveal' | 'launch-eiffel' | 'launch-light' | 'launch-fest' | 'launch-stunt' | 'launch-results' | 'launch-metro' | 'launch-bus' | 'launch-board' | 'launch-feed' | 'launch-cinema' | 'launch-live' | 'launch-stadium' | 'launch-airport';
 
 const fixture = (): Player => {
     const shell = { id: 'preview-player', name: 'Ava Stone', age: 28, currentWeek: 14, money: 2_000_000, logs: [] } as Player;
@@ -23,7 +25,7 @@ const fixture = (): Player => {
     return { ...shell, ownPlatform: platform };
 };
 
-const setup: Record<LaunchPreviewScreen, { step: number; cities: string[]; channels: string[]; scene?: 'drone' | 'reveal' | 'light' | 'fest' | 'stunt' | 'results' }> = {
+const setup: Record<LaunchPreviewScreen, { step: number; cities: string[]; channels: string[]; scene?: 'drone' | 'reveal' | 'light' | 'fest' | 'stunt' | 'results'; focus?: LaunchAnim }> = {
     'launch-where': { step: 1, cities: ['bom', 'del', 'blr', 'maa', 'ccu', 'hyd', 'dxb', 'lon', 'nyc', 'lax', 'tyo', 'sel', 'sin', 'jkt', 'sao', 'mex', 'par', 'ber', 'los', 'syd'], channels: [] },
     'launch-how': { step: 2, cities: ['bom'], channels: ['social_feed', 'short_video', 'search_ads', 'creators_live'] },
     'launch-creative': { step: 3, cities: ['bom', 'nyc'], channels: ['social_feed', 'drone'] },
@@ -36,6 +38,14 @@ const setup: Record<LaunchPreviewScreen, { step: number; cities: string[]; chann
     'launch-fest': { step: 2, cities: ['bom'], channels: ['fan_fest'], scene: 'fest' },
     'launch-stunt': { step: 2, cities: ['nyc'], channels: ['stunt'], scene: 'stunt' },
     'launch-results': { step: 2, cities: ['bom', 'del', 'blr', 'nyc'], channels: ['social_feed', 'short_video', 'search_ads', 'creators_live', 'drone', 'building_reveal'], scene: 'results' },
+    'launch-metro': { step: 2, cities: ['del'], channels: ['metro_wrap'], focus: 'train' },
+    'launch-bus': { step: 2, cities: ['bom'], channels: ['bus_wrap'], focus: 'bus' },
+    'launch-board': { step: 2, cities: ['bom'], channels: ['billboards'], focus: 'board' },
+    'launch-feed': { step: 2, cities: ['bom'], channels: ['social_feed'], focus: 'feed' },
+    'launch-cinema': { step: 2, cities: ['bom'], channels: ['cinema'], focus: 'cinema' },
+    'launch-live': { step: 2, cities: ['bom'], channels: ['creators_live'], focus: 'live' },
+    'launch-stadium': { step: 2, cities: ['bom'], channels: ['stadium'], focus: 'stadium' },
+    'launch-airport': { step: 2, cities: ['bom'], channels: ['airport_screens'], focus: 'airport' },
 };
 
 export const LaunchPreview: React.FC<{ screen: LaunchPreviewScreen }> = ({ screen }) => {
@@ -47,6 +57,15 @@ export const LaunchPreview: React.FC<{ screen: LaunchPreviewScreen }> = ({ scree
         window.addEventListener('resize', report);
         return () => window.removeEventListener('resize', report);
     }, [screen]);
+    if (plan.focus && player.ownPlatform) {
+        return (
+            <div className="launch" data-screen={`launch-${plan.focus}`}>
+                <div className="surface-stage">
+                    <Surface anim={plan.focus} brand={player.ownPlatform.brand} name={player.ownPlatform.name} title="Opening Night" />
+                </div>
+            </div>
+        );
+    }
     return (
         <LaunchCampaign
             player={player}
