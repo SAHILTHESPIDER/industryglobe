@@ -62,7 +62,7 @@ export const TECH_TRACKS: TrackDef[] = [
         subtitle: 'PICTURE · A SHARPER FRAME ON EVERY SCREEN', slider: 'picture', emptyName: '480p',
         rungs: [
             rung({ id: 'p480', name: '480p', needs: [], needsLabel: '', once: 0, weekly: 0, debt: 0, load: 0, demand: 0, churn: 0, blurb: 'The picture the service opens with.' }),
-            rung({ id: 'p720', name: '720p', needs: ['p480'], needsLabel: 'Needs 480p first.', once: 0, weekly: 0, debt: 0, load: 0, demand: 0, churn: 0, blurb: 'A clean HD-ready frame. Already on the slate.' }),
+            rung({ id: 'p720', name: '720p', needs: ['p480'], needsLabel: 'Needs 480p first.', once: 2_500_000, weekly: 20_000, debt: 1, load: 0.02, demand: 0.02, churn: -0.002, blurb: 'HD. Company cash buys the first step up from 480p.' }),
             rung({ id: 'p1080', name: '1080p', needs: ['p720'], needsLabel: 'Needs 720p first.', once: 6_000_000, weekly: 50_000, debt: 2, load: 0.04, demand: 0.03, churn: -0.004, blurb: 'Full HD. The rung most households notice.' }),
             rung({ id: 'p4k', name: '4K', needs: ['p1080'], needsLabel: 'Needs 1080p first.', once: 12_000_000, weekly: 90_000, debt: 4, load: 0.08, demand: 0.04, churn: -0.005, labWeeks: 4, blurb: 'Four times the frame. Premium plans can promise it.' }),
             rung({ id: 'p8k', name: '8K', needs: ['p4k'], needsLabel: 'Needs 4K first.', once: 22_000_000, weekly: 140_000, debt: 6, load: 0.12, demand: 0.03, churn: -0.003, labWeeks: 6, blurb: 'A showcase rung. Bandwidth feels it.' }),
@@ -195,7 +195,7 @@ export const trackById = (id: string): TrackDef | undefined => TECH_TRACKS.find(
 export const rungById = (id: string): RungDef | undefined => RUNG_INDEX.get(id)?.rung;
 export const trackOfRung = (id: string): TrackDef | undefined => RUNG_INDEX.get(id)?.track;
 
-const FREE_OWNED: Record<string, number> = { p480: 1, p720: 1, c8: 1, stereo: 1, h264: 1 };
+const FREE_OWNED: Record<string, number> = { p480: 1, c8: 1, stereo: 1, h264: 1 };
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -541,7 +541,8 @@ const TIER_RANK: Record<MembershipTier, number> = {
 
 const owned = (desk: PlatformDeskState, id: string) => (desk.owned?.[id] || 0) >= 1;
 
-const bestPicture = (desk: PlatformDeskState): string => {
+/** Highest picture rung the company has paid for. Everyone starts at 480p. */
+export const companyPicture = (desk: PlatformDeskState): string => {
     const order = ['p24k', 'p16k', 'p12k', 'p8k', 'p4k', 'p1080', 'p720', 'p480'];
     return rungById(order.find(id => owned(desk, id)) || 'p480')?.name || '480p';
 };
@@ -557,12 +558,7 @@ const open = (text: string): CompareCell => ({ text, locked: false });
 
 export const COMPARE_ROWS: { id: string; label: string; cell: (plan: PricingPlan, desk: PlatformDeskState) => CompareCell }[] = [
     { id: 'ads', label: 'Ads', cell: plan => open(plan.ads || plan.freeWithAds ? 'Yes' : 'None') },
-    { id: 'picture', label: 'Picture', cell: (plan, desk) => {
-        const tier = inferTier(plan);
-        const want = tier === 'FREE_ADS' ? 'p480' : tier === 'BASIC_ADS' ? 'p720' : tier === 'STANDARD' || tier === 'CUSTOM' ? 'p1080' : 'p4k';
-        if (!owned(desk, want)) return lock(want);
-        return open(bestPicture(desk));
-    } },
+    { id: 'picture', label: 'Picture', cell: (_plan, desk) => open(companyPicture(desk)) },
     { id: 'hdr', label: 'HDR', cell: (plan, desk) => {
         const tier = inferTier(plan);
         if (TIER_RANK[tier] < 3 && tier !== 'RENT_BUY') return open('No');

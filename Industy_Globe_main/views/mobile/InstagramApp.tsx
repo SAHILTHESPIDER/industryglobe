@@ -1083,7 +1083,10 @@ export const InstagramApp: React.FC<InstagramAppProps> = ({ player, onBack, onPo
             <div className="flex-1 overflow-y-auto bg-black custom-scrollbar animate-in slide-in-from-right duration-300 pb-10">
                 <div className="px-4 pt-3">
                     <div className="flex items-center gap-6">
-                        <StoryRing src={selectedNPC.avatar} size="w-[86px] h-[86px]" onClick={() => {}} />
+                        <StoryRing src={selectedNPC.avatar} size="w-[86px] h-[86px]" onClick={() => {
+                            const latest = selectedNpcProfilePosts[0];
+                            if (latest) openPostDetail(latest);
+                        }} />
                         <div className="flex flex-1 justify-around text-center">
                             <div><div className="font-bold text-[17px]">{formatFollowers(selectedNpcPostCount)}</div><div className="text-[13px]">posts</div></div>
                             <div><div className="font-bold text-[17px]">{formatFollowers(selectedNPC.followers)}</div><div className="text-[13px]">followers</div></div>

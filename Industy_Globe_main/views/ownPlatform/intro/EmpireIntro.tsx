@@ -83,6 +83,7 @@ export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
             return;
         }
         if (handoffAt.current === Number.POSITIVE_INFINITY) handoffAt.current = tRef.current;
+        window.setTimeout(() => finish(), 1200);
     };
     const replay = () => {
         finished.current = false;

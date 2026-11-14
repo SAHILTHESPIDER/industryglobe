@@ -10,6 +10,7 @@ import {
     PLAN_TEMPLATES,
     addPlan,
     applyRemoval,
+    companyPicture,
     effectiveMonthly,
     inferTier,
     planSubscribers,
@@ -79,14 +80,9 @@ const joinNames = (names: string[]) => {
     return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 };
 
-const pictureFor = (plan: PricingPlan) => {
-    const tier = inferTier(plan);
-    if (tier === 'FREE_ADS' || plan.quality === 'SD') return '480p';
-    if (tier === 'BASIC_ADS') return '720p';
-    if (plan.quality === '4K') return '4K';
-    if (tier === 'STANDARD' || tier === 'CUSTOM' || tier === 'PREMIUM') return '1080p';
-    return plan.quality === 'HD' ? '720p' : '1080p';
-};
+const pictureClass = (label: string) => (
+    label === '480p' ? 'p480' : label === '720p' ? 'p720' : label === '1080p' ? 'p1080' : 'p4k'
+);
 
 const devicesFor = (text: string) => {
     const count = Number(text);
@@ -96,14 +92,14 @@ const devicesFor = (text: string) => {
     return 'Phone, web, TV';
 };
 
-const blurbFor = (plan: PricingPlan, ad: number) => {
+const blurbFor = (plan: PricingPlan, ad: number, picture: string) => {
     const tier = inferTier(plan);
-    if (plan.freeWithAds || tier === 'FREE_ADS' || plan.ads || tier === 'BASIC_ADS') {
-        return `a break every ${plan.adIntervalMin || ad} min`;
-    }
-    if (tier === 'PREMIUM') return 'best picture and sound';
     const screens = plan.screens === 1 ? 'one screen' : plan.screens === 2 ? 'two screens' : `${plan.screens} screens`;
-    return `${pictureFor(plan)} on ${screens}`;
+    if (plan.freeWithAds || tier === 'FREE_ADS' || plan.ads || tier === 'BASIC_ADS') {
+        return `${picture} · a break every ${plan.adIntervalMin || ad} min`;
+    }
+    if (tier === 'PREMIUM') return `${picture} · best picture and sound`;
+    return `${picture} on ${screens}`;
 };
 
 const barColor = (plan: PricingPlan) => {
@@ -166,6 +162,7 @@ export const OfferBoard: React.FC<Props> = ({ player, mode, frozen = false, edit
     const adShown = useCount(adMoney);
     const homesShown = useCount(quote.households);
     const revShown = useCount(quote.forecastWeeklyRevenue);
+    const picture = companyPicture(desk);
     const priced = selectedPlan && !selectedPlan.freeWithAds ? selectedPlan : columns.find(plan => !plan.freeWithAds) || selectedPlan;
     const prices = effectiveMonthly(priced?.monthlyUsd || 0, billing);
     const outlook = removeId ? removalOutlook(state, removeId) : undefined;
@@ -244,7 +241,7 @@ export const OfferBoard: React.FC<Props> = ({ player, mode, frozen = false, edit
                             <div className="offer-ico" style={{ background: barColor(plan), color: inkFor(plan) }}><TierGlyph plan={plan} /></div>
                             <div className="offer-name">{plan.name}</div>
                             <div className="offer-price">{plan.freeWithAds ? '$0' : money2(plan.monthlyUsd)}<small>a month</small></div>
-                            <div className="offer-blurb">{blurbFor(plan, ad)}</div>
+                            <div className="offer-blurb">{blurbFor(plan, ad, picture)}</div>
                             {frozen && <div className="offer-lock">Locked until launch</div>}
                             {controls && (
                                 <div className="offer-switchline" onClick={event => event.stopPropagation()}>
@@ -290,7 +287,7 @@ export const OfferBoard: React.FC<Props> = ({ player, mode, frozen = false, edit
                         </div>
                     )}
                 </article>
-                <article id="offer-add" className="offer-card add" data-testid="add-plan-card" onClick={() => { if (controls) setMenu(value => !value); }}>
+                <article id="offer-add" className={`offer-card add${menu ? ' open' : ''}`} data-testid="add-plan-card" onClick={() => { if (controls) setMenu(value => !value); }}>
                     <div className="offer-ico" style={{ background: '#2f5bff', color: '#fff' }}><Plus /></div>
                     <div className="offer-name">+ Add plan</div>
                     <div className="offer-blurb">Free with ads, Basic, Standard, Premium, or a custom plan</div>
@@ -379,8 +376,7 @@ export const OfferBoard: React.FC<Props> = ({ player, mode, frozen = false, edit
                                         return <td key={plan.id} className={sel}>{ads ? <span className="offer-pill p720">Every {plan.adIntervalMin || ad} min</span> : <span className="offer-dash">No ads</span>}</td>;
                                     }
                                     if (row.id === 'picture') {
-                                        const label = pictureFor(plan);
-                                        return <td key={plan.id} className={sel}><span className={`offer-pill ${label === '480p' ? 'p480' : label === '720p' ? 'p720' : label === '1080p' ? 'p1080' : 'p4k'}`}>{label}</span></td>;
+                                        return <td key={plan.id} className={sel}><span className={`offer-pill ${pictureClass(cell.text)}`}>{cell.text}</span></td>;
                                     }
                                     if (row.id === 'devices') return <td key={plan.id} className={sel}>{devicesFor(cell.text)}</td>;
                                     if (row.id === 'screens') return <td key={plan.id} className={sel}><b>{plan.screens}</b></td>;

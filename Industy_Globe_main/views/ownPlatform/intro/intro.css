@@ -67,7 +67,7 @@
 #empire-intro .w-peacock:before{display:none}
 #empire-intro .w-crunchy{font-family:Unbounded,var(--b);font-weight:700;color:#F47521;font-size:28px;letter-spacing:-.03em}
 /* YOU tile */
-#empire-intro #you{position:absolute;z-index:40;border-radius:22px;overflow:hidden;background:radial-gradient(120% 120% at 20% 0%,#7B6CFF 0%,#4F3BFF 40%,#1A1260 100%);box-shadow:0 0 0 1px #8B7BFF,0 20px 80px #4F3BFF66;opacity:0}
+#empire-intro #you{position:absolute;z-index:40;border-radius:22px;overflow:hidden;background:radial-gradient(120% 120% at 20% 0%,#7B6CFF 0%,#4F3BFF 40%,#1A1260 100%);box-shadow:0 0 0 1px #8B7BFF,0 20px 80px #4F3BFF66;opacity:0;pointer-events:none}
 #empire-intro #you .big, #empire-intro #you .sm{position:absolute;inset:0;padding:22px 26px;display:flex;flex-direction:column;justify-content:space-between}
 #empire-intro #you .nm{font-family:var(--h);font-weight:900;text-transform:uppercase;color:#fff;line-height:.9;display:flex;align-items:center;gap:14px}
 #empire-intro #you .big .nm{font-size:64px}
@@ -78,7 +78,7 @@
 #empire-intro #you svg.b{flex:none}
 #empire-intro #s3head{position:absolute;left:50%;top:92px;width:min(1200px,90vw);transform:translateX(-50%)}
 #empire-intro #s3head .hd{font-size:64px}
-#empire-intro #strike{position:absolute;left:50%;top:0;height:100%;transform:translateX(-50%);z-index:45;opacity:0;filter:drop-shadow(0 0 24px #C9F2FF) drop-shadow(0 0 60px #4F3BFF)}
+#empire-intro #strike{position:absolute;left:50%;top:0;height:100%;transform:translateX(-50%);z-index:45;opacity:0;pointer-events:none;filter:drop-shadow(0 0 24px #C9F2FF) drop-shadow(0 0 60px #4F3BFF)}
 /* S4 */
 #empire-intro #s4head{position:absolute;left:50%;top:92px;width:min(1200px,90vw);transform:translateX(-50%);display:flex;justify-content:space-between;align-items:flex-end}
 #empire-intro #s4head .hd{font-size:64px}
@@ -137,13 +137,14 @@
 #empire-intro .st.zero .v{color:#fff}
 /* S6 */
 #empire-intro #s6{display:grid;place-items:center;text-align:center}
+#empire-intro #s6.on{z-index:48}
 #empire-intro #s6 .wrap{display:flex;flex-direction:column;align-items:center}
 #empire-intro #s6 .hd{font-size:clamp(56px,7.4vw,112px);max-width:1100px}
 #empire-intro #s6 .chips{display:flex;gap:10px;margin-top:26px}
 #empire-intro #s6 .chips span{font-family:var(--m);font-size:11px;letter-spacing:.2em;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:8px 14px}
 #empire-intro #cta{margin-top:40px;font-family:var(--h);font-weight:900;font-size:30px;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:linear-gradient(180deg,#6A58FF,#4F3BFF);border:0;border-radius:999px;padding:22px 46px;cursor:pointer;box-shadow:0 0 0 1px #8B7BFF,0 18px 60px #4F3BFF88;display:flex;gap:16px;align-items:center}
 #empire-intro #s6 .next{margin-top:18px;font-family:var(--m);font-size:11px;letter-spacing:.24em;color:var(--dim)}
-#empire-intro #s6 .bgb{position:absolute;left:50%;top:50%;width:900px;transform:translate(-50%,-50%);opacity:.05}
+#empire-intro #s6 .bgb{position:absolute;left:50%;top:50%;width:900px;transform:translate(-50%,-50%);opacity:.05;pointer-events:none}
 /* handoff */
 #empire-intro #wipe{position:absolute;inset:0;z-index:70;background:var(--indigo);pointer-events:none;display:none}
 #empire-intro #wipe svg{position:absolute;top:50%;left:50%;width:240px;transform:translate(-50%,-50%)}
