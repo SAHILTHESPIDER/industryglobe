@@ -96,10 +96,15 @@
 .empire .stepper{display:inline-flex;align-items:center;gap:0;border:1px solid var(--line2);border-radius:999px;overflow:hidden}
 .empire .stepper b{width:30px;height:30px;display:grid;place-items:center;color:var(--mute);font-weight:400;font-size:16px}
 .empire .stepper span{min-width:34px;text-align:center;font-family:var(--m);font-weight:700;font-size:14px}
-.empire .tog{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--mute)}
-.empire .tog i{width:30px;height:18px;border-radius:999px;background:#ffffff18;position:relative}
-.empire .tog i:after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#9ca0b5}
-.empire .tog.on{color:#fff}.empire .tog.on i{background:var(--go)}.empire .tog.on i:after{left:14px;background:#05060A}
+.empire .tog{display:inline-flex;align-items:center;gap:8px;width:auto;height:auto;min-height:32px;padding:2px 2px 2px 0;border:0;border-radius:999px;background:transparent;color:#C8CBDA;font-size:13px;font-weight:700;letter-spacing:0;text-transform:none;cursor:pointer;position:relative;overflow:visible}
+.empire .tog i{position:relative;top:auto;left:auto;flex:none;width:44px;height:26px;border-radius:999px;background:#2a3148;box-shadow:inset 0 0 0 1px #ffffff22;transform:none;transition:background .2s ease, box-shadow .2s ease}
+.empire .tog i:after{content:'';position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#e8ebf5;box-shadow:0 2px 6px #0008;transform:translateX(0);transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.empire .tog span{white-space:nowrap}
+.empire .tog.on{color:#fff}
+.empire .tog.on i{background:linear-gradient(90deg,#4F3BFF,#E4B15A);box-shadow:0 0 14px #4F3BFF99;transform:none}
+.empire .tog.on i:after{left:3px;transform:translateX(18px);background:#fff}
+.empire .tog:disabled{opacity:.45;cursor:not-allowed}
+.empire .tog:focus-visible{outline:2px solid #E4B15A;outline-offset:2px}
 .empire .seg{display:inline-flex;border:1px solid var(--line2);border-radius:999px;padding:2px}
 .empire .seg span{padding:4px 10px;border-radius:999px;font-family:var(--m);font-size:11px;color:var(--mute)}
 .empire .seg span.on{background:var(--text);color:var(--void)}
