@@ -18,7 +18,7 @@ export const WhatsNewNotes: React.FC = () => {
                 <div className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-amber-300">What&apos;s New</div>
                 <h3 className="text-2xl font-black text-white">Version {APP_DISPLAY_VERSION}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                    Empire+ can list, buy stories, and close a stake. Home, the production house, training, lifestyle, and phone are easier to read.
+                    Empire+ can speak more languages, sell memberships, and launch in a lot of cities at once.
                 </p>
             </div>
             <div className="space-y-3 text-sm">
@@ -26,20 +26,26 @@ export const WhatsNewNotes: React.FC = () => {
                     tone="gold"
                     kicker="This update"
                     items={[
-                        'Home keeps your portrait, personal cash, energy, and week together. Casting, Studio, Empire+, News, Bank, and Stocks are the same shortcuts. Condition, skills, and the live feed use your real numbers.',
-                        'Self Improvement keeps Wellbeing, Workshops, and Genre Lab. On a wide screen they sit side by side. On a phone you still switch tabs. Prices, weeks, and energy are the real courses.',
-                        'Lifestyle opens on your personal cash. Equity is the value of your companies, not money you can spend. Production, Assets, Business Empire, and Empire+ are the same doors.',
-                        'The phone keeps every app, and each one fits the phone frame instead of stretching to the desktop window. Unread notes show only when a real message is waiting.',
+                        'Localization sits on the Content desk. Each region card has a setup cost and a weekly cost. Subtitles and Dubbing each have 3 levels, and each level has 3 steps that spend company energy. Names show in the local script.',
+                        'A plan that is switched off no longer changes the price, the ads, or the forecast. The last live plan stays on.',
+                        'The Offer desk has membership cards, a compare table, add and remove, ad breaks, and billing periods. It stays locked until the service launches.',
+                        'Every plan starts at 480p. A sharper picture is a paid step up the ladder.',
+                        'Launch Campaign is six steps, across many cities and many channels. The brand wraps the metro, the bus, the billboards, and the screens.',
+                        'Opening night plays on the real landmark. Burj Khalifa wears the lights, Paris gets the Eiffel Tower, Mumbai gets a drone show, plus a fan festival and a stunt show. Results come back city by city.',
+                        'Brand studio, the boardroom table, and the ownership papers are in. Colour, logo, and type lock when you launch.',
+                        'The marketing desk works for Empire+ and the production house. On a wide screen the phone uses the full desk. A narrow window stays compact.',
                     ]}
                 />
                 <Note
                     tone="blue"
-                    kicker="Where to find it"
+                    kicker="Fixes"
                     items={[
-                        'Production House: Lifestyle, then your studio. Gold is studio valuation. Blue is studio capital, the company cash.',
-                        'IPO: Phone, Empire+, Operations, then IPO · List company. Eight steps: board meeting, bank, valuation, roadshow, order book, documents, listing day, and the first trading day. The cheque is company cash. Personal cash does not move.',
-                        'Rights: Phone, Empire+, the rights floor. Market Floor is where you bid and sit at the negotiation table. Contract Vault holds a title you signed, and how many weeks are left.',
-                        'Selling a stake: the same Operations desk. The close is an offer letter, a handshake, the terms, a lawyer stamp, and a final signature. The handshake itself does not move money.',
+                        'Found your streamer can be tapped again.',
+                        'Add plan no longer sits underneath the compare table.',
+                        'The phone video channel button opens the right channel.',
+                        'Play and pause work on a video.',
+                        'Pre-book is saved, not forgotten when you leave.',
+                        'An Instagram profile ring opens that person\'s latest post.',
                     ]}
                 />
                 <button
@@ -49,12 +55,13 @@ export const WhatsNewNotes: React.FC = () => {
                 >
                     <span>
                         <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-zinc-300">Earlier notes</span>
-                        <span className="mt-1 block text-xs text-zinc-500">1.1.30 and before</span>
+                        <span className="mt-1 block text-xs text-zinc-500">1.2.0 and before</span>
                     </span>
                     <span className="text-lg text-zinc-400">{showEarlier ? '−' : '+'}</span>
                 </button>
                 {showEarlier && (
                     <ul className="space-y-2 rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm leading-relaxed text-zinc-400">
+                        <li>• 1.2.0 tidied Home, training, Lifestyle, and the phone, and kept Empire+ listing, rights, and stake sales on company cash.</li>
                         <li>• 1.1.30 added YouTube play buttons, channel looks, careers that start with no subscribers, and the Partner Program.</li>
                         <li>• 1.1.28 added critic scores, test screenings, and the festival circuit.</li>
                         <li>• 1.1.27 fixed the streaming plan price, filled the weekend Top 10, and tied your X location to the city you live in.</li>
