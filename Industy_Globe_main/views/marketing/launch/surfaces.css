@@ -1,7 +1,7 @@
 /* Full-surface advertising. The brand is the medium, not a sticker on it. Scoped under .lx so it does not restyle the film desk. */
 .lx{position:absolute;inset:0;overflow:hidden}
 .lx .place{position:absolute;inset:0;overflow:hidden;background:#070910;color:#fff}
-.lx .poster{position:absolute;inset:0;overflow:hidden;container-type:inline-size;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:7% 6%;box-sizing:border-box;text-align:center;
+.lx .poster{position:absolute;inset:0;min-height:0;height:auto;overflow:hidden;container-type:inline-size;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;padding:7% 6%;box-sizing:border-box;text-align:center;
   background:
     radial-gradient(80% 60% at 18% 0%, color-mix(in srgb, var(--ink) 40%, #fff) 0%, transparent 42%),
     radial-gradient(70% 80% at 100% 100%, #E4B15Aaa 0%, transparent 46%),
