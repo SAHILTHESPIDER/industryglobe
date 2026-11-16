@@ -1,7 +1,7 @@
 
 import { WorldState, IndustryProject, StudioId, BudgetTier, Genre, Player, NPCActor, NewsItem, UniverseId, Universe, Festival, TargetAudience } from '../types';
 import { STUDIO_CATALOG } from './studioLogic';
-import { NPC_DATABASE, applyNpcEconomy, calculateProjectFameMultiplier, captureNpcEconomy } from './npcLogic';
+import { NPC_DATABASE, calculateProjectFameMultiplier, captureNpcEconomy, syncNpcRoster } from './npcLogic';
 import { generateProjectTitle, getEstimatedBudget, generateProjectDetails, sanitizeGross } from './roleLogic';
 import { initUniverses, normalizeUniverseMap, processUniverseTurn } from './universeLogic';
 import { processNpcVentures, syncNpcVenturesToStudios } from './npcVentureLogic';
@@ -120,7 +120,7 @@ export const generateIndustryProject = (
 
 // 2. Process World Turn (Runs Weekly)
 export const processWorldTurn = (player: Player): { world: WorldState, news: NewsItem[], logs: string[] } => {
-    applyNpcEconomy(player.world?.npcEconomy);
+    syncNpcRoster(player.world?.npcEconomy ?? null);
     let newWorld = { ...player.world };
     const news: NewsItem[] = [];
     const logs: string[] = [];

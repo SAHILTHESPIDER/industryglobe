@@ -7,6 +7,7 @@ import { generateDirectEntryOffer, normalizeUniverseForSave } from '../services/
 import { generateLifeEvent } from '../services/lifeEventLogic';
 import { getAbsoluteWeek } from '../services/legacyLogic';
 import { getGenderedAvatar, MALE_AVATAR_SEEDS, FEMALE_AVATAR_SEEDS, NPC_DATABASE } from '../services/npcLogic';
+import { assignScheduledEvents } from '../services/gameLoop';
 import { createBusiness } from '../services/businessLogic';
 import { calculateYoutubeCreatorScore, generateYoutubeBrandDeal, generateYoutubeCollabOffer, getYoutubePublicImageLabel } from '../services/youtubeLogic';
 import { ALL_GENRES, formatGenreLabel } from '../services/genreCatalog';
@@ -402,9 +403,12 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
           }
       };
 
+      const assigned = assignScheduledEvents(player.pendingEvent, player.pendingEventQueue, player.pendingEvents, [eventData]);
       onUpdatePlayer({
           ...player,
-          pendingEvent: eventData
+          pendingEvent: assigned.pendingEvent,
+          pendingEventQueue: assigned.pendingEventQueue,
+          pendingEvents: assigned.pendingEvents,
       });
       setActiveCheatMenu('NONE');
   };

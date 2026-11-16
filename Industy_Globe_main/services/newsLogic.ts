@@ -1,6 +1,6 @@
 
 import { GameLanguage, Player, NewsItem, NewsCategory, ActiveRelease, Commitment, ProjectType, BudgetTier } from '../types';
-import { NPC_DATABASE } from './npcLogic';
+import { NPC_DATABASE, syncNpcRoster } from './npcLogic';
 import { STUDIO_CATALOG } from './studioLogic';
 import { AWARD_GOSSIP_TEMPLATES, SNUB_TEMPLATES } from './awardLogic'; // Import templates
 import { normalizeUniverseMap } from './universeLogic';
@@ -785,6 +785,7 @@ const generateUniverseNews = (player: Player): NewsItem[] => {
 };
 
 export const generateWeeklyNews = (player: Player): NewsItem[] => {
+    syncNpcRoster(player.world?.npcEconomy ?? null);
     const topStories = generateTopStories(player);
     const industry = generateIndustryNews(player);
     const personal = generatePersonalNews(player);
