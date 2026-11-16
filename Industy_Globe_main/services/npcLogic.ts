@@ -747,6 +747,12 @@ export const applyNpcEconomy = (snapshot?: Record<string, NpcEconomyEntry> | nul
     });
 };
 
+/** Point the shared roster at one save before casting, Forbes, news, or the world sim read it. */
+export const syncNpcRoster = (economy?: Record<string, NpcEconomyEntry> | null): NPCActor[] => {
+    applyNpcEconomy(economy);
+    return NPC_DATABASE;
+};
+
 // --- TALENT AVAILABILITY LOGIC ---
 
 // --- TALENT REFRESH LOGIC ---
@@ -793,7 +799,13 @@ export const updateNPCLives = (npcs: NPCActor[]): NPCActor[] => {
     });
 };
 
-export const getAvailableTalent = (currentWeek: number, occupation: 'ACTOR' | 'DIRECTOR', extraNPCs: NPCActor[] = []): NPCActor[] => {
+export const getAvailableTalent = (
+    currentWeek: number,
+    occupation: 'ACTOR' | 'DIRECTOR',
+    extraNPCs: NPCActor[] = [],
+    economy?: Record<string, NpcEconomyEntry> | null
+): NPCActor[] => {
+    if (economy !== undefined) syncNpcRoster(economy);
     // 1. Seed based on 3-week rotation
     const rotationSeed = Math.floor(currentWeek / 3);
     

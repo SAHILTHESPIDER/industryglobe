@@ -62,8 +62,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
     const extraNPCs = player.flags.extraNPCs || [];
 
     const rawMarket = useMemo(
-        () => getAvailableTalent(player.currentWeek, 'ACTOR', extraNPCs).filter(npc => !allSignedNpcIds.has(npc.id)),
-        [player.currentWeek, extraNPCs, allSignedNpcIds]
+        () => getAvailableTalent(player.currentWeek, 'ACTOR', extraNPCs, player.world?.npcEconomy ?? null).filter(npc => !allSignedNpcIds.has(npc.id)),
+        [player.currentWeek, extraNPCs, allSignedNpcIds, player.world?.npcEconomy]
     );
 
     const market = useMemo(() => {

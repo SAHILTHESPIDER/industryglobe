@@ -6,7 +6,7 @@ import { Business, Player } from '../../types';
 
 import { formatMoney } from '../../services/formatUtils';
 
-import { NPC_DATABASE } from '../../services/npcLogic';
+import { syncNpcRoster } from '../../services/npcLogic';
 
 import { getEnabledGlobalCreatorSocialProfiles } from '../../services/youtubeLogic';
 
@@ -54,7 +54,7 @@ export const ForbesApp: React.FC<ForbesAppProps> = ({ player, onBack, onUpdatePl
 
   const actorPool = [
 
-      ...NPC_DATABASE,
+      ...syncNpcRoster(player.world?.npcEconomy ?? null),
 
       ...(Array.isArray(player.flags?.extraNPCs) ? player.flags.extraNPCs : []),
 
