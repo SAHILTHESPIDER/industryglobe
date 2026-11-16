@@ -248,7 +248,7 @@
 
 @media (max-width: 860px) {
     .mkt-build { grid-template-columns: 1fr; }
-    .mkt-stage { position: static; order: -1; }
+    .mkt-stage { position: relative; top: auto; order: -1; }
     .mkt-quote { grid-template-columns: 1fr 1fr; }
     .mkt-top h1 { font-size: 40px; }
     .board-frame { margin-top: 16px; }
