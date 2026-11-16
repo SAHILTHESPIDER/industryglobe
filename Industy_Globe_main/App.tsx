@@ -968,6 +968,8 @@ export const App: React.FC = () => {
           });
           applyNpcEconomy(safePlayer.world.npcEconomy);
           if (!Array.isArray(safePlayer.pendingEvents)) safePlayer.pendingEvents = [];
+          if (!Array.isArray(safePlayer.pendingEventQueue)) safePlayer.pendingEventQueue = [];
+          if (!safePlayer.pendingEvent || typeof safePlayer.pendingEvent !== 'object') safePlayer.pendingEvent = null;
           if (!Array.isArray(safePlayer.logs)) safePlayer.logs = [];
           if (!safePlayer.weeklyOpportunities || !Array.isArray(safePlayer.weeklyOpportunities.auditions) || !Array.isArray(safePlayer.weeklyOpportunities.jobs)) {
               safePlayer.weeklyOpportunities = { auditions: [], jobs: [] };
@@ -1716,6 +1718,7 @@ export const App: React.FC = () => {
           x: { ...INITIAL_PLAYER.x, handle: handle, followers: 0 },
           youtube: { ...INITIAL_PLAYER.youtube, handle: handle }
       };
+      applyNpcEconomy(null);
       if (currentSlot) {
           setSaveSlots(prev => ({ ...prev, [currentSlot]: newPlayer }));
       }

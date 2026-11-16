@@ -14,10 +14,12 @@ import { INITIAL_PLAYER } from '${root}types.ts';
 import { getPlayerLanguage } from '${root}services/i18n.ts';
 import { PLATFORMS, genreBiasMatches } from '${root}services/streamingLogic.ts';
 import { STUDIO_CATALOG } from '${root}services/studioLogic.ts';
-import { NPC_DATABASE, applyNpcEconomy, captureNpcEconomy } from '${root}services/npcLogic.ts';
-import { getEstimatedBudget, calculateWeeklyBoxOffice, sanitizeGross } from '${root}services/roleLogic.ts';
+import { NPC_DATABASE, applyNpcEconomy, captureNpcEconomy, getAvailableTalent, syncNpcRoster } from '${root}services/npcLogic.ts';
+import { getEstimatedBudget, calculateWeeklyBoxOffice, sanitizeGross, checkAuditionPass } from '${root}services/roleLogic.ts';
 import { assignScheduledEvents, promotePendingEvent } from '${root}services/gameLoop.ts';
 import { processWorldTurn } from '${root}services/worldLogic.ts';
+import { queuePendingPremiere } from '${root}services/releaseGauntlet.ts';
+import { generateWeeklyNews } from '${root}services/newsLogic.ts';
 
 const failures: { scope: string; item: string; error: string }[] = [];
 let checks = 0;
@@ -134,6 +136,67 @@ record('npc', 'economy_is_per_save', () => {
   assert(Math.abs(resultB.world.npcEconomy[npc.id].netWorth - 1_000_000_000_000) < 20_000_000_000, 'slot B should keep its own wealth');
   applyNpcEconomy(resultA.world.npcEconomy);
   assert(npc.netWorth === storedA, 'reloading slot A should restore its snapshot');
+  applyNpcEconomy(null);
+});
+
+record('events', 'premiere_does_not_replace_ceremony', () => {
+  const ceremony = { id: 'globes', week: 2, type: 'AWARD_CEREMONY', title: 'Golden Globes', data: { nominations: [{ category: 'Best Actor' }] } };
+  const premiere = { id: 'premiere_film', week: 2, type: 'PREMIERE', title: 'Premiere', data: { projectId: 'film' } };
+  const queued = queuePendingPremiere({ pendingEvent: ceremony, pendingEventQueue: [], money: 50 }, premiere);
+  assert(queued.pendingEvent?.id === 'globes', 'the ceremony already on screen should stay');
+  assert(queued.pendingEventQueue.map(event => event.id).join(',') === 'premiere_film', 'the premiere should wait behind it');
+  assert(queued.money === 50, 'queueing a premiere should not touch money');
+});
+
+record('events', 'old_pending_event_is_kept', () => {
+  const legacy = { pendingEvent: { id: 'legacy', week: 4, type: 'PREMIERE', title: 'Legacy premiere' }, pendingEvents: [] };
+  const assigned = assignScheduledEvents(legacy.pendingEvent, undefined, legacy.pendingEvents, [
+    { id: 'second', week: 4, type: 'FESTIVAL_PREMIERE', title: 'Festival' },
+  ]);
+  assert(assigned.pendingEvent?.id === 'legacy', 'a save that only has pendingEvent should keep it');
+  assert(assigned.pendingEventQueue.map(event => event.id).join(',') === 'second', 'the second event should queue behind the saved one');
+  const promoted = promotePendingEvent({ pendingEvent: null, pendingEventQueue: assigned.pendingEventQueue });
+  assert(promoted.pendingEvent?.id === 'second', 'closing the saved event should open the queued one');
+});
+
+record('npc', 'readers_use_the_save_roster', () => {
+  applyNpcEconomy(null);
+  const base = captureNpcEconomy();
+  const npc = NPC_DATABASE[0];
+  const slotA = { [npc.id]: { fame: 11, netWorth: 888_000 } };
+  const slotB = { [npc.id]: { fame: 22, netWorth: 42 } };
+  const playerA = clone(INITIAL_PLAYER);
+  playerA.world.npcEconomy = slotA;
+  playerA.money = 123456;
+  playerA.awards = [{ id: 'kept-award', year: playerA.age, category: 'Best Actor', type: 'OSCAR', outcome: 'NOMINATED', projectId: 'p', projectName: 'Kept' }];
+  const studios = JSON.stringify(playerA.world.studios);
+  const youtube = JSON.stringify(playerA.youtube);
+  applyNpcEconomy(slotB);
+  syncNpcRoster(playerA.world.npcEconomy);
+  assert(npc.netWorth === 888_000 && npc.stats?.fame === 11, 'syncing Forbes to slot A should replace slot B');
+  getAvailableTalent(playerA.currentWeek, 'ACTOR', [], playerA.world.npcEconomy);
+  assert(npc.netWorth === 888_000, 'casting should read slot A');
+  checkAuditionPass(playerA, {
+    roleType: 'LEAD',
+    auditionPerformance: 40,
+    projectDetails: { genre: 'DRAMA', isFamous: false, hiddenStats: { qualityScore: 60 } },
+  });
+  assert(npc.netWorth === 888_000, 'auditions should read slot A');
+  generateWeeklyNews(playerA);
+  assert(npc.netWorth === 888_000 && npc.stats?.fame === 11, 'weekly news should read slot A');
+  assert(playerA.money === 123456, 'reading NPC state should not change money');
+  assert(playerA.awards[0].id === 'kept-award', 'reading NPC state should not change awards');
+  assert(JSON.stringify(playerA.world.studios) === studios, 'reading NPC state should not change studios');
+  assert(JSON.stringify(playerA.youtube) === youtube, 'reading NPC state should not change YouTube data');
+  applyNpcEconomy(slotB);
+  const rivalWeek = processWorldTurn(playerA);
+  assert(rivalWeek.world.npcEconomy[npc.id].netWorth !== slotB[npc.id].netWorth, 'the world sim should not continue from the other save');
+  const untouched = clone(INITIAL_PLAYER);
+  delete untouched.world.npcEconomy;
+  const before = JSON.stringify({ money: untouched.money, awards: untouched.awards, studios: untouched.world.studios, youtube: untouched.youtube });
+  syncNpcRoster(null);
+  assert(JSON.stringify({ money: untouched.money, awards: untouched.awards, studios: untouched.world.studios, youtube: untouched.youtube }) === before, 'an old save with no NPC snapshot should keep its money, awards, studios, and YouTube data');
+  assert(npc.netWorth === base[npc.id].netWorth, 'a missing snapshot should read the base roster');
   applyNpcEconomy(null);
 });
 

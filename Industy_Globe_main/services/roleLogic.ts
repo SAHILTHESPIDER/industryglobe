@@ -8,7 +8,7 @@ import {
     NPCActor, StudioId, PressInteraction, Genre, IndustryProject, WriterStats, DirectorStats, TargetAudience, ProjectFormat
 } from '../types';
 import { selectStudioForProject } from './studioLogic';
-import { NPC_DATABASE } from './npcLogic';
+import { NPC_DATABASE, syncNpcRoster } from './npcLogic';
 import { generateFamousMovieOpportunity, generateFamousSeriesOpportunity } from './famousMovieLogic';
 import { ALL_GENRES } from './genreCatalog';
 
@@ -240,6 +240,7 @@ export const getPhaseDuration = (phase: string): number => {
 };
 
 export const checkAuditionPass = (player: Player, commitment: Commitment): { passed: boolean; reason: string; rivalWinner?: NPCActor } => {
+    syncNpcRoster(player.world?.npcEconomy ?? null);
     if (!commitment.roleType || !commitment.projectDetails) return { passed: false, reason: "Invalid role." };
     const role = ROLE_DEFINITIONS[commitment.roleType];
     const isFamous = commitment.projectDetails.isFamous || false;
@@ -504,6 +505,7 @@ export const generateAudition = (
 };
 
 export const generateAuditions = (player: Player, usedTitles: string[]): AuditionOpportunity[] => {
+    syncNpcRoster(player.world?.npcEconomy ?? null);
     const count = 3 + Math.floor(Math.random() * 3);
     const opps: AuditionOpportunity[] = [];
     
@@ -591,6 +593,7 @@ export const generatePartTimeJobs = (): Commitment[] => {
 };
 
 export const generateCastList = (player: Player, project: ProjectDetails, playerRole: RoleType): CastMember[] => {
+    syncNpcRoster(player.world?.npcEconomy ?? null);
     const cast: CastMember[] = [];
     cast.push({
         id: 'player',

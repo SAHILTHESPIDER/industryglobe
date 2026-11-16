@@ -49,7 +49,7 @@ import {
 } from './newsLogic';
 import { generateWeeklyEvent } from './geminiService';
 import { generateLifeEvent, generateLegalHearing, generateLuxeLifeEvent, hasEligibleLuxeEventTarget } from './lifeEventLogic';
-import { generateWeeklyFeed, NPC_DATABASE, calculateProjectFameMultiplier, generateNewUnknowns, updateNPCLives } from './npcLogic';
+import { generateWeeklyFeed, NPC_DATABASE, calculateProjectFameMultiplier, generateNewUnknowns, updateNPCLives, syncNpcRoster } from './npcLogic';
 import { generateAgentOffers, generateManagerOffer, generateDirectOffer, getRandomAgents, getRandomManagers, getRandomTrainers, getRandomStylists, getRandomTherapists, getRandomPublicists, getRandomWellness, sanitizeTeamPools } from './teamLogic';
 import { processStockMarket, calculatePortfolioValue, getDividendPayout, initializeStocks, normalizeListedStocks, empireFundamentals } from './stockLogic';
 import { serviceWeeklyLoans } from './loanLogic';
@@ -947,6 +947,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             data: event.data && typeof event.data === 'object' ? event.data : {}
         }))
         .filter(event => typeof event.id === 'string' && typeof event.type === 'string');
+    if (!Array.isArray(nextPlayer.pendingEventQueue)) nextPlayer.pendingEventQueue = [];
+    if (!nextPlayer.pendingEvent || typeof nextPlayer.pendingEvent !== 'object') nextPlayer.pendingEvent = null;
     nextPlayer.portfolio = ensureObjectArray(nextPlayer.portfolio).map((holding: any) => ({
         ...holding,
         shares: ensureFiniteNumber(holding.shares)
@@ -1173,6 +1175,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     } catch (error) {
         console.error('World turn failed during week processing:', error);
     }
+    syncNpcRoster(nextPlayer.world?.npcEconomy ?? null);
 
     // --- 2. STOCK MARKET UPDATE ---
     const marketUpdate = processStockMarket(nextPlayer.stocks, {

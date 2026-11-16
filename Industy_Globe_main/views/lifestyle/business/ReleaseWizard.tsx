@@ -6,7 +6,7 @@ import { FESTIVALS, CALENDAR_EVENTS } from '../../../services/worldLogic';
 import { mergeUniverseRosterWithProject, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
-import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, releaseBeforeFestival, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
+import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, queuePendingPremiere, releaseBeforeFestival, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -762,7 +762,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                 description: `The grand red carpet premiere for your latest film, ${project.name}.`,
                 data: { projectId: project.id }
             };
-            updatedPlayer.pendingEvent = premiereEvent;
+            updatedPlayer = queuePendingPremiere(updatedPlayer, premiereEvent);
         }
 
         if (commitmentIndex !== -1) {

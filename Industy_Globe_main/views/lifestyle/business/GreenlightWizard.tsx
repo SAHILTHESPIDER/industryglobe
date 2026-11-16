@@ -1271,7 +1271,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
     const availableDirectors = useMemo(() => {
         // Refresh every 3 weeks
         const seedWeek = Math.floor(player.currentWeek / 3);
-        const talent = getAvailableTalent(player.currentWeek, 'DIRECTOR', player.flags.extraNPCs || []);
+        const talent = getAvailableTalent(player.currentWeek, 'DIRECTOR', player.flags.extraNPCs || [], player.world?.npcEconomy ?? null);
         const lastInstallment = previousFranchiseInstallments[0];
         const lastDetails = lastInstallment ? (lastInstallment.projectDetails || lastInstallment) : null;
         const returningDirector = currentReturningTalent.find(talentEntry => talentEntry.role === 'DIRECTOR');
@@ -1317,11 +1317,11 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
 
             return { ...t, salary, stats: { ...t.stats, fame: currentFame, talent: currentTalent } };
         });
-    }, [Math.floor(player.currentWeek / 3), player.flags.extraNPCs, selectedCrew.director, previousFranchiseInstallments, currentReturningTalent]);
+    }, [Math.floor(player.currentWeek / 3), player.flags.extraNPCs, player.world?.npcEconomy, selectedCrew.director, previousFranchiseInstallments, currentReturningTalent]);
 
     const availableActors = useMemo(() => {
         const seedWeek = Math.floor(player.currentWeek / 3);
-        const talent = getAvailableTalent(player.currentWeek, 'ACTOR', player.flags.extraNPCs || []);
+        const talent = getAvailableTalent(player.currentWeek, 'ACTOR', player.flags.extraNPCs || [], player.world?.npcEconomy ?? null);
 
         // Ensure all selected actors are in the list
         const selectedActorIds = castList.map(c => c.actorId).filter(id => id && id !== 'PLAYER_SELF');
@@ -1361,7 +1361,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
 
             return { ...t, salary, stats: { ...t.stats, fame: currentFame, talent: currentTalent } };
         });
-    }, [Math.floor(player.currentWeek / 3), castList, player.studio?.talentRoster, player.flags.extraNPCs]);
+    }, [Math.floor(player.currentWeek / 3), castList, player.studio?.talentRoster, player.flags.extraNPCs, player.world?.npcEconomy]);
 
     const contractedActors = useMemo(() => {
         return Array.from(contractedTalentIds)
