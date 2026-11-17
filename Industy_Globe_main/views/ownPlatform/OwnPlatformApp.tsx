@@ -17,8 +17,7 @@ import { IdentBumper } from './IdentStage';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
 import { LAUNCH_REGIONS } from '../../services/ownPlatform/catalog';
 import { brandAccent, brandFrom } from '../../services/ownPlatform/brand';
-import { streamFilingFee } from '../../services/brand/founding';
-import { BrandFoundry } from '../brand/BrandFoundry';
+import { BrandColorStep } from './BrandColorStep';
 import { BrandStudio } from './BrandStudio';
 import { PlatformArea } from './platform/PlatformArea';
 
@@ -181,24 +180,18 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                 {state.stage === 'CONSTRUCTING' && pane !== 'platform' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
                 {state.stage === 'LIVE' && pane !== 'launch' && pane !== 'platform' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}
                 {needsColour && (
-                    <BrandFoundry
-                        founder={player.name}
-                        cash={player.money}
-                        fee={streamFilingFee(player)}
-                        kind="stream"
-                        initialName={serviceName === 'Empire+' ? '' : serviceName}
-                        onCancel={onBack}
-                        onFile={(draft, filed) => {
-                            const fee = streamFilingFee(player);
-                            if (player.money < fee) return `Personal cash is short ${formatCompact(fee - player.money)}.`;
-                            onUpdatePlayer({
-                                ...player,
-                                money: player.money - fee,
-                                ownPlatform: { ...state, name: draft.name, brand: filed, colorChosen: true, identityFiled: true },
-                                logs: [...(player.logs || []), { week: player.currentWeek, year: player.age, message: `Filed ${draft.name}. ${formatCompact(fee)} left personal cash.`, type: 'neutral' }],
-                            });
-                        }}
-                    />
+                    <div className="body">
+                        <BrandColorStep
+                            name={serviceName}
+                            brand={brandFrom(state.brand)}
+                            stepLabel="Step 1 of 8"
+                            onColor={colorId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, colorId }) })}
+                            onMark={markId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, markId }) })}
+                            onFrame={frameId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, frameId }) })}
+                            onTypeface={typefaceId => setPlatform({ ...state, brand: brandFrom({ ...state.brand, typefaceId }) })}
+                            onContinue={() => setPlatform({ ...state, colorChosen: true, brand: brandFrom(state.brand) })}
+                        />
+                    </div>
                 )}
                 {pane === 'launch' && !needsColour && (
                     <DefineLaunch

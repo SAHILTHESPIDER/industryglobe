@@ -6,7 +6,6 @@
 import type { OpeningNightRecord, OpeningPeakPlan, Player } from '../../types';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { cleanLaunchFlight } from '../marketing/launchCatalog';
-import { promiseLean } from '../brand/founding';
 import { addCompanyCash, readCompanyCash } from './companyCash';
 import { BUILD_WEEKS, formatPeople, quoteLaunch, rehearseOpeningNight } from './logic';
 import { CLOUD_PROVIDERS, getCountry } from './catalog';
@@ -190,9 +189,8 @@ export const simulateOpening = (player: Player, plan: OpeningPeakPlan): OpeningS
     const state = player.ownPlatform;
     const picked = choice(player, plan);
     const rehearsal = state ? rehearseOpeningNight(state, plan === 'STAGGER' ? 'LIKELY' : 'SURGE') : null;
-    const lean = promiseLean(player.ownPlatform?.brand?.promiseId);
-    const peak = Math.round((rehearsal?.peak || 0) * picked.peakScale * lean.peak);
-    const capacity = Math.round(((rehearsal?.capacity || 0) + picked.capacityBonus) * lean.capacity);
+    const peak = Math.round((rehearsal?.peak || 0) * picked.peakScale);
+    const capacity = Math.round((rehearsal?.capacity || 0) + picked.capacityBonus);
     const held = capacity > 0 && peak <= capacity * 1.02;
     const flight = cleanLaunchFlight(player.marketing?.launch);
     let households = 0;
@@ -200,18 +198,16 @@ export const simulateOpening = (player: Player, plan: OpeningPeakPlan): OpeningS
     const grant = flight && flight.appliedAbsolute == null ? flight.subscribers : 0;
     const turnout = plan === 'STAGGER' ? 0.045 : plan === 'BURST' ? 0.08 : 0.1;
     const wave = Math.round(households * turnout);
-    const joined = Math.round(Math.max(grant, wave) * (held ? 1 : 0.48) * (plan === 'STAGGER' ? 0.86 : 1) * lean.joined);
+    const joined = Math.round(Math.max(grant, wave) * (held ? 1 : 0.48) * (plan === 'STAGGER' ? 0.86 : 1));
     const already = state?.subscribers || 0;
     const subscribers = already + (flight?.appliedAbsolute == null ? joined : Math.round(joined * 0.15));
     const ready = titlesReady(player);
-    const playedFirstPct = ready <= 0 ? 0 : Math.round(clamp(36 + ready * 4 + (held ? 14 : -16) + (plan === 'STAGGER' ? -6 : 0) + lean.first, 4, 96));
+    const playedFirstPct = ready <= 0 ? 0 : Math.round(clamp(36 + ready * 4 + (held ? 14 : -16) + (plan === 'STAGGER' ? -6 : 0), 4, 96));
     const social = Math.round(joined * 0.08 + ready * 40 + (held ? 800 : 200));
     const service = state?.name?.trim() || 'Empire+';
     const title = flight?.what === 'TITLE' ? flight.titleName : (state?.catalogue?.[0]?.title || service);
     const places = (rehearsal?.countries || []).slice(0, 4);
-    const charter = player.ownPlatform?.brand?.manifesto?.trim();
     const posts = [
-        { handle: '@charter', text: charter || (held ? `${service} did not blink. ${title} is on.` : `${service} coughed in the first minute. ${title} spun.`) },
         { handle: '@nightbus', text: held ? `${service} did not blink. ${title} is on.` : `${service} coughed in the first minute. ${title} spun.` },
         { handle: '@aisle4', text: places[0] ? `${places[0].flag} ${places[0].name} is in.` : 'Waiting on a city.' },
         { handle: '@lastrow', text: held ? 'Stream held. I am on the sofa.' : 'Buffering on the title card. Rude.' },

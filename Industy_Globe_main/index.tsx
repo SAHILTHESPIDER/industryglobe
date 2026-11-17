@@ -8,8 +8,6 @@ import { PlatformPreview, PlatformPreviewScreen } from './views/ownPlatform/plat
 import { LocalizationPreview, LocPreviewScreen } from './views/ownPlatform/localization/LocalizationPreview';
 import { LaunchPreview, LaunchPreviewScreen } from './views/marketing/launch/LaunchPreview';
 import { RunPreview, RunPreviewScreen } from './views/marketing/run/RunPreview';
-import { BrandFoundry } from './views/brand/BrandFoundry';
-import { streamFilingFee } from './services/brand/founding';
 import { MarketingPreview } from './views/marketing/MarketingPreview';
 
 const rootElement = document.getElementById('root');
@@ -34,19 +32,7 @@ const launchScreen: LaunchPreviewScreen | null = (launchNames as readonly string
 const runScreen: RunPreviewScreen | null = (runNames as readonly string[]).includes(empirePreview || '') ? empirePreview as RunPreviewScreen : null;
 root.render(
   <React.StrictMode>
-    {empirePreview?.startsWith('brand-') ? (
-      <BrandFoundry
-        founder="Asha Venn"
-        cash={3_750_000_000}
-        fee={streamFilingFee({ money: 3_750_000_000 } as never)}
-        kind="stream"
-        initialName="SHADOW"
-        initialStep={Math.max(0, Math.min(6, Number(empirePreview.slice(6)) - 1))}
-        hold
-        onCancel={() => undefined}
-        onFile={() => undefined}
-      />
-    ) : runScreen ? (
+    {runScreen ? (
       <RunPreview screen={runScreen} beat={Number(params.get('beat') || 2)} />
     ) : empirePreview?.startsWith('mkt-') ? (
       <MarketingPreview mode={empirePreview.slice(4)} />

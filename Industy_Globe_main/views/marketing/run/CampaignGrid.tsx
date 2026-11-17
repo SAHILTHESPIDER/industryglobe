@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import type { PlatformBrand, Player } from '../../../types';
 import { brandAccent, brandFrom } from '../../../services/ownPlatform/brand';
-import { wornIdentity } from '../../../services/brand/founding';
 import { extendRun, formatRunMoney, readRunBoard, stopRun } from '../../../services/marketing/campaignRun';
 import type { RunCard } from '../../../services/marketing/campaignRun';
 import { BrandMark } from '../../ownPlatform/BrandMark';
@@ -23,17 +22,11 @@ interface Props {
 
 export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titleId, poster, onPlayer, onClose, onBook }) => {
     const board = readRunBoard(player, ownerKind, ownerId, titleId);
-    const house = ownerKind === 'HOUSE' ? (player.businesses || []).find(row => row.id === ownerId) : undefined;
-    const brand: PlatformBrand | undefined = ownerKind === 'EMPIRE'
-        ? brandFrom(player.ownPlatform?.brand)
-        : house?.brand ? brandFrom(house.brand) : undefined;
-    const worn = ownerKind === 'EMPIRE' ? wornIdentity(player) : null;
-    const accent = worn?.accent || brandAccent(brand);
-    const letter = worn?.letter || (board.titleName || 'S').slice(0, 1);
-    const markId = worn?.markId || brand?.markId;
-    const customMark = worn?.customMark || brand?.customMark;
-    const lockupId = worn?.lockupId;
-    const line = worn?.manifesto;
+    const brand: PlatformBrand | undefined = ownerKind === 'EMPIRE' ? brandFrom(player.ownPlatform?.brand) : undefined;
+    const accent = brandAccent(brand);
+    const letter = (board.titleName || 'S').slice(0, 1);
+    const markId = brand?.markId;
+    const lockupId = brand?.lockupId;
     const [live, setLive] = useState<RunCard | null>(null);
     const [error, setError] = useState('');
     const act = (run: () => { player: Player; error?: string }) => {
@@ -53,8 +46,6 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                     {onBook && <button type="button" className="run-book" onClick={onBook}>Book</button>}
                     <h1>{board.titleName || 'CAMPAIGN'}</h1>
                     <p className="run-status">{board.statusLine}</p>
-                    {worn?.manifesto && <p className="run-note">{worn.manifesto}</p>}
-                    {worn?.promise && <p className="run-note">{worn.promise} · {worn.strategy}</p>}
                 </div>
                 <div className="run-logo" aria-hidden="true">
                     {markId ? <BrandMark id={markId} color={accent} size={28} letter={letter} /> : <b>{board.logo || 'H'}</b>}
@@ -65,7 +56,7 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                 <div className="run-grid">
                     {board.cards.map(card => (
                         <button key={card.formatId} type="button" className="run-card" onClick={() => { tap('LIGHT'); setLive(card); }}>
-                            <div className="run-thumb"><SceneStage scene={card.scene} title={board.titleName} poster={poster} accent={accent} markId={markId} letter={letter} customMark={customMark} lockupId={lockupId} line={line} /></div>
+                            <div className="run-thumb"><SceneStage scene={card.scene} title={board.titleName} poster={poster} accent={accent} markId={markId} letter={letter} lockupId={lockupId} /></div>
                             <div>
                                 <b>{card.title}</b>
                                 <small>{card.subtitle}</small>
@@ -102,9 +93,7 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                     accent={accent}
                     markId={markId}
                     letter={letter}
-                    customMark={customMark}
                     lockupId={lockupId}
-                    line={line}
                     onClose={() => setLive(null)}
                 />
             )}

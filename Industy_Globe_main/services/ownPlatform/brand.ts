@@ -99,29 +99,7 @@ export const lockupById = (id?: string): BrandLockupDef => BRAND_LOCKUPS.find(ro
 
 export const colorById = (id?: string | null): BrandColorDef => BRAND_COLORS.find(row => row.id === id) || BRAND_COLORS[0];
 
-const hslToHex = (hue: number, saturation: number, lightness: number): string => {
-    const s = saturation / 100;
-    const l = lightness / 100;
-    const c = (1 - Math.abs(2 * l - 1)) * s;
-    const hp = (((hue % 360) + 360) % 360) / 60;
-    const x = c * (1 - Math.abs((hp % 2) - 1));
-    const table = [
-        [c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x],
-    ][Math.floor(hp)] || [0, 0, 0];
-    const m = l - c / 2;
-    const hex = (value: number) => Math.round((value + m) * 255).toString(16).padStart(2, '0');
-    return `#${hex(table[0])}${hex(table[1])}${hex(table[2])}`;
-};
-
-/** Named swatch, unless the founder moved the hue slider. */
-export const brandAccent = (brand?: Partial<PlatformBrand> | null): string => {
-    if (brand && Number.isFinite(Number(brand.hue))) {
-        const hue = Number(brand.hue);
-        const intensity = Math.max(0, Math.min(100, Number(brand.intensity ?? 95)));
-        return hslToHex(hue, 12 + intensity * 0.83, 58);
-    }
-    return colorById(brand?.colorId).hex;
-};
+export const brandAccent = (brand?: Partial<PlatformBrand> | null): string => colorById(brand?.colorId).hex;
 
 const channel = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
 
@@ -148,23 +126,13 @@ export const frameById = (id?: string | null): 'circle' | 'rounded' | 'none' =>
 /** What a rebrand costs. It leaves company cash, never personal cash. */
 export const REBRAND_USD = 250_000;
 
-export const brandFrom = (brand?: Partial<PlatformBrand> | null): PlatformBrand => {
-    const next: PlatformBrand = {
-        markId: markById(brand?.markId).id,
-        typefaceId: typefaceById(brand?.typefaceId).id,
-        lockupId: lockupById(brand?.lockupId).id,
-        colorId: colorById(brand?.colorId).id,
-        frameId: frameById(brand?.frameId),
-    };
-    if (brand && Number.isFinite(Number(brand.hue))) next.hue = ((Number(brand.hue) % 360) + 360) % 360;
-    if (brand && Number.isFinite(Number(brand.intensity))) next.intensity = Math.max(0, Math.min(100, Math.round(Number(brand.intensity))));
-    if (typeof brand?.manifesto === 'string' && brand.manifesto.trim()) next.manifesto = brand.manifesto.trim().slice(0, 160);
-    if (typeof brand?.promiseId === 'string' && brand.promiseId) next.promiseId = brand.promiseId.slice(0, 40);
-    if (typeof brand?.customMark === 'string' && brand.customMark.startsWith('data:image/') && brand.customMark.length < 80_000) {
-        next.customMark = brand.customMark;
-    }
-    return next;
-};
+export const brandFrom = (brand?: Partial<PlatformBrand> | null): PlatformBrand => ({
+    markId: markById(brand?.markId).id,
+    typefaceId: typefaceById(brand?.typefaceId).id,
+    lockupId: lockupById(brand?.lockupId).id,
+    colorId: colorById(brand?.colorId).id,
+    frameId: frameById(brand?.frameId),
+});
 
 /** Old identity presets become a mark so those saves still have a face. */
 export const LEGACY_MARK: Record<string, string> = {

@@ -23,11 +23,9 @@ export const LiveScene: React.FC<{
     accent?: string;
     markId?: string;
     letter?: string;
-    customMark?: string;
     lockupId?: string;
-    line?: string;
     onClose: () => void;
-}> = ({ scene, title, logo, brand, poster, cities = [], accent = '#E4B15A', markId, letter, customMark, lockupId, line, onClose }) => {
+}> = ({ scene, title, logo, brand, poster, cities = [], accent = '#E4B15A', markId, letter, lockupId, onClose }) => {
     const [cityId, setCityId] = useState(scene.cityId);
     const [replay, setReplay] = useState(0);
     const current = sceneFor(scene.formatId, cityId) || scene;
@@ -55,7 +53,7 @@ export const LiveScene: React.FC<{
                     })}
                 </div>
             )}
-            <SceneStage scene={current} title={title} poster={poster} replayKey={replay} accent={accent} markId={markId || brand?.markId} letter={letter || logo} customMark={customMark || brand?.customMark} lockupId={lockupId || brand?.lockupId} line={line || brand?.manifesto} />
+            <SceneStage scene={current} title={title} poster={poster} replayKey={replay} accent={accent} markId={markId || brand?.markId} letter={letter || logo} lockupId={lockupId || brand?.lockupId} />
             <footer className="live-foot">
                 <span>{madeFor(current)}</span>
                 <button type="button" onClick={() => { tap('LIGHT'); setReplay(value => value + 1); }}>REPLAY</button>

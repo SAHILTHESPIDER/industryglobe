@@ -787,16 +787,6 @@ export enum Page {
       colorId?: string;
       /** Shape around the mark. Missing means no extra frame, which is how older lockups were drawn. */
       frameId?: 'circle' | 'rounded' | 'none';
-      /** Slider hue. Missing means the named swatch is the colour. */
-      hue?: number;
-      /** 0–100. Missing means a full brand colour. */
-      intensity?: number;
-      /** Public charter line. Missing on older saves. */
-      manifesto?: string;
-      /** Gameplay promise id. Missing means no extra lean. */
-      promiseId?: string;
-      /** Player-uploaded mark. Dropped if it is not a short data URL. */
-      customMark?: string;
   }
 
   export type ExecRole = 'CFO' | 'COO' | 'CTO' | 'CMO' | 'CONTENT';
@@ -1548,8 +1538,6 @@ export enum Page {
       languageDesk?: LanguageDeskState;
       /** Opening-night ceremony. Missing until the desks run it, including on older live saves. */
       openingNight?: OpeningNightRecord;
-      /** True once the founding wizard has been signed. Missing means the old define flow already passed it. */
-      identityFiled?: boolean;
   }
 
   /** How opening night spends the peak. Gates are free. */
@@ -2278,8 +2266,6 @@ export enum Page {
       lastHiringRefreshWeek: number;
       history: { week: number, profit: number }[];
       studioState?: StudioState;
-      /** Founding mark and colour. Missing on houses opened before the shared wizard. */
-      brand?: PlatformBrand;
   }
   
   export interface Agent {
