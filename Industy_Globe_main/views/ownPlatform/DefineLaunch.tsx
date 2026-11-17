@@ -23,7 +23,7 @@ import { NameIt } from './NameIt';
 import { PricingDesk } from './PricingDesk';
 import { BillStrip, Card, FooterBar, Pill, PreviewPanel, headingFont } from './ui';
 
-const STEPS = ['Name it', 'Markets', 'Clearance', 'Ident', 'Storefront', 'Catalogue', 'Pricing', 'Blueprint'];
+const STEPS = ['Name it', 'Markets', 'Clearance', 'Ident', 'Storefront', 'Catalogue', 'Offer', 'Blueprint'];
 const HINTS = [
     '',
     '',
