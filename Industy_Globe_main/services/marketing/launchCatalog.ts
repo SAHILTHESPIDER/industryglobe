@@ -84,7 +84,8 @@ const DISTRICT: Record<string, string> = {
     los: 'Victoria Island', jnb: 'Sandton', cai: 'Zamalek', nbo: 'Westlands', rak: 'Gueliz',
     bom: 'Lower Parel', del: 'Connaught Place', blr: 'MG Road', maa: 'T. Nagar', ccu: 'Park Street', hyd: 'Banjara Hills',
     tyo: 'Shibuya', sel: 'Gangnam', sha: 'the Bund', sin: 'Orchard', dxb: 'Downtown',
-    jkt: 'Sudirman', mnl: 'Makati', syd: 'Circular Quay', akl: 'Britomart',
+    jkt: 'Sudirman', mnl: 'Makati', syd: 'Circular Quay',     akl: 'Britomart',
+    prg: 'Old Town',
 };
 
 const fromServer = (row: ServerCity): CampaignCity => ({
@@ -109,6 +110,17 @@ export const CAMPAIGN_CITIES: CampaignCity[] = [
     extra('maa', 'Chennai', 'IN', 13.08, 80.27, 0.86, 11.5, 'T. Nagar'),
     extra('ccu', 'Kolkata', 'IN', 22.57, 88.36, 0.84, 15.1, 'Park Street'),
     extra('hyd', 'Hyderabad', 'IN', 17.39, 78.49, 0.87, 10.5, 'Banjara Hills'),
+    {
+        id: 'prg',
+        name: 'Prague',
+        countryId: 'CZ',
+        regionId: 'EUROPE',
+        lat: 50.08,
+        lon: 14.44,
+        costIndex: 0.93,
+        metroM: 2.7,
+        district: 'Old Town',
+    },
 ];
 
 const CITY_BY_ID = new Map(CAMPAIGN_CITIES.map(row => [row.id, row]));
@@ -202,6 +214,7 @@ export const CITY_LANDMARK: Record<string, CityLandmark> = {
     maa: { name: 'the Marina lighthouse', kind: 'generic' },
     ccu: { name: 'Victoria Memorial', kind: 'generic' },
     hyd: { name: 'Charminar', kind: 'generic' },
+    prg: { name: 'the Powder Tower', kind: 'generic' },
 };
 
 export const landmarkFor = (cityId: string, anim?: string): { name: string; kind: LandmarkKind } => {
@@ -340,7 +353,8 @@ export const flightMoney = (value: number): string => {
     return `${sign}$${n}`;
 };
 
-const countryName = (id: string) => getCountry(id)?.name || id;
+const COUNTRY_ALIAS: Record<string, string> = { CZ: 'Czechia' };
+const countryName = (id: string) => getCountry(id)?.name || COUNTRY_ALIAS[id] || id;
 const joinNames = (names: string[]) => (names.length <= 3 ? names.join(', ') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`);
 
 export interface PlaceCopy {
@@ -366,14 +380,31 @@ export const describePlace = (row: LaunchChannel, cities: CampaignCity[]): Place
                     : 'Only at a monument the show can cover';
             return { disabled: true, reason, place: reason, country, eligible: [] };
         }
-        return { disabled: false, reason: '', place: joinNames(eligible.map(city => map[city.id])), country, eligible };
+        return {
+            disabled: false,
+            reason: '',
+            place: joinNames(eligible.map(city => `${map[city.id]} · ${city.name}`)),
+            country,
+            eligible,
+        };
     }
     if (row.id === 'city_screens') {
         const place = cities.length === 1 ? `${cities[0].name}, ${cities[0].district}` : joinNames(cities.map(city => city.name));
         return { disabled: false, reason: '', place, country, eligible: cities };
     }
-    if (row.group === 'night') return { disabled: false, reason: '', place: country, country, eligible: cities };
+    if (row.group === 'night') {
+        const place = cities.length === 1 ? cities[0].name : joinNames(cities.map(city => city.name));
+        return { disabled: false, reason: '', place, country, eligible: cities };
+    }
     return { disabled: false, reason: '', place: '', country, eligible: cities };
+};
+
+/** Cities a format can actually run in. A landmark never inherits a city that does not have it. */
+export const citiesForChannel = (channelId: string, cityIds: string[]): string[] => {
+    const channel = launchChannel(channelId);
+    const cities = cityIds.map(campaignCity).filter((row): row is CampaignCity => Boolean(row));
+    if (!channel) return cities.map(city => city.id);
+    return describePlace(channel, cities).eligible.map(city => city.id);
 };
 
 export interface FlightChannelLine {
@@ -585,7 +616,7 @@ export const cleanLaunchFlight = (raw: unknown): LaunchFlight | undefined => {
         creativeId: KEY_ARTS.some(art => art.id === row.creativeId) ? row.creativeId! : 'night',
         trailerId: TRAILER_CUTS.some(cut => cut.id === row.trailerId) ? row.trailerId! : 'open',
         tagline: typeof row.tagline === 'string' ? row.tagline.slice(0, 90) : TAGLINES[0],
-        weeks: clamp(Math.round(finite(row.weeks, 1)), 1, 8),
+        weeks: clamp(Math.round(finite(row.weeks, 1)), 1, 520),
         weeklyBudget: Math.max(0, finite(row.weeklyBudget)),
         openingCost: Math.max(0, finite(row.openingCost)),
         totalCost: Math.max(0, finite(row.totalCost)),
@@ -598,8 +629,23 @@ export const cleanLaunchFlight = (raw: unknown): LaunchFlight | undefined => {
         campaignIds: Array.isArray(row.campaignIds) ? row.campaignIds.filter((id): id is string => typeof id === 'string').slice(0, 80) : [],
         appliedAbsolute: Number.isFinite(Number(row.appliedAbsolute)) ? Math.round(Number(row.appliedAbsolute)) : undefined,
         bookedAbsolute: Math.round(finite(row.bookedAbsolute)),
+        airedAbsolute: Number.isFinite(Number(row.airedAbsolute)) ? Math.round(Number(row.airedAbsolute)) : undefined,
         held: Boolean(row.held),
+        extensions: Math.max(0, Math.round(finite(row.extensions))),
+        stoppedAbsolute: Number.isFinite(Number(row.stoppedAbsolute)) ? Math.round(Number(row.stoppedAbsolute)) : undefined,
+        channelCities: cleanChannelCities(row.channelCities),
     };
+};
+
+const cleanChannelCities = (raw: unknown): Record<string, string[]> | undefined => {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const next: Record<string, string[]> = {};
+    Object.entries(raw as Record<string, unknown>).forEach(([id, value]) => {
+        if (!launchChannel(id) || !Array.isArray(value)) return;
+        const ids = value.filter((cityId): cityId is string => typeof cityId === 'string' && Boolean(campaignCity(cityId))).slice(0, 48);
+        if (ids.length) next[id] = ids;
+    });
+    return Object.keys(next).length ? next : undefined;
 };
 
 bindLaunchCatalog({

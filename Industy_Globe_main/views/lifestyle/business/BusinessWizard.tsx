@@ -210,15 +210,14 @@ export const BusinessWizard: React.FC<BusinessWizardProps> = ({ player, onCancel
                     <div className="flex flex-col space-y-8">
                         <div>
                             <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 pl-2">Brand Name</h3>
-                            <input 
-                                type="text" 
-                                value={wizName} 
-                                onChange={(e) => setWizName(e.target.value)} 
-                                placeholder="e.g. Luxe & Co." 
+                            <input
+                                type="text"
+                                value={wizName}
+                                onChange={(e) => setWizName(e.target.value)}
+                                placeholder="e.g. Luxe & Co."
                                 className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-5 text-white text-lg font-bold focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-zinc-700"
                             />
                         </div>
-
                         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
                             <div className="text-[10px] text-zinc-500 leading-relaxed mb-3">
                                 Summary includes {wizConfig.amenities?.length || 0} additional facilities and {wizConfig.theme ? 'custom interior' : 'standard setup'}.

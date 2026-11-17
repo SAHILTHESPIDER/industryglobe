@@ -23,7 +23,7 @@ import { CommissionModal, CommissionSlateCards, CommissionToast, OffersPage, ope
 import { deskOf } from '../../../services/commissions/logic';
 import { createPortal } from 'react-dom';
 import { MarketingDesk } from '../../marketing/MarketingDesk';
-import { LaunchCampaign } from '../../marketing/launch/LaunchCampaign';
+import { CampaignGrid } from '../../marketing/run/CampaignGrid';
 import type { CommissionBrief, CommissionProject } from '../../../types';
 import './productionDesk.css';
 
@@ -564,10 +564,17 @@ const ProductionHouseInner: React.FC<{
                 initialTitleId={marketingTitleId}
                 onPlayer={onUpdatePlayer}
                 onBack={() => setView('DASHBOARD')}
-                onLaunch={player.ownPlatform ? () => setCampaignOpen(true) : undefined}
+                onLaunch={() => setCampaignOpen(true)}
             />
-            {campaignOpen && player.ownPlatform && createPortal(
-                <LaunchCampaign player={player} onPlayer={onUpdatePlayer} onClose={() => setCampaignOpen(false)} />,
+            {campaignOpen && createPortal(
+                <CampaignGrid
+                    player={player}
+                    ownerKind="HOUSE"
+                    ownerId={studio.id}
+                    titleId={marketingTitleId}
+                    onPlayer={onUpdatePlayer}
+                    onClose={() => setCampaignOpen(false)}
+                />,
                 document.body,
             )}
             </>

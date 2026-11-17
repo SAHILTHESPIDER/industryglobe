@@ -13,7 +13,7 @@ interface ProductionWizardProps {
 
 export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCancel, onUpdatePlayer, onComplete }) => {
     // Start at Step 0 (The Gate) instead of 1
-    const [step, setStep] = useState(0); 
+    const [step, setStep] = useState(0);
     const [name, setName] = useState('');
     const [headOfProd, setHeadOfProd] = useState<string | null>(null);
     const [isAnimating, setIsAnimating] = useState(false);
@@ -166,11 +166,11 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
         setIsAnimating(true);
 
         setTimeout(() => {
-            const newBiz = createBusiness(name, 'PRODUCTION_HOUSE', 'MAJOR_STUDIO', { 
-                quality: 'LUXURY', 
-                pricing: 'HIGH', 
-                marketing: 'HIGH', 
-                headOfProductionId: headOfProd 
+            const newBiz = createBusiness(name, 'PRODUCTION_HOUSE', 'MAJOR_STUDIO', {
+                quality: 'LUXURY',
+                pricing: 'HIGH',
+                marketing: 'HIGH',
+                headOfProductionId: headOfProd,
             }, '🎬', player.currentWeek);
 
             const hopName = HEAD_OF_PRODUCTION_CANDIDATES.find(h => h.id === headOfProd)?.name;

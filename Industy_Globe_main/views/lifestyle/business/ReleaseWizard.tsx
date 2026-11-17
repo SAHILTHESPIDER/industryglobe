@@ -7,6 +7,8 @@ import { mergeUniverseRosterWithProject, normalizeUniverseMap } from '../../../s
 import { getAbsoluteWeek } from '../../../services/legacyLogic';
 import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
 import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, queuePendingPremiere, releaseBeforeFestival, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
+import { createPortal } from 'react-dom';
+import { CampaignGrid } from '../../marketing/run/CampaignGrid';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -272,6 +274,7 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
     );
     const [screeningStrategy, setScreeningStrategy] = useState<ScreeningStrategy | null>(null);
     const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
+    const [boardsOpen, setBoardsOpen] = useState(false);
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
     const [festivalPremiere, setFestivalPremiere] = useState<string | null>(null);
     const [lockError, setLockError] = useState('');
@@ -1130,6 +1133,11 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     <p className="text-lg text-white/50 font-light tracking-wide">Build buzz and anticipation.</p>
                                 </div>
 
+                                <div className="flex justify-center">
+                                    <button type="button" onClick={() => setBoardsOpen(true)} className="px-8 py-4 bg-white text-black rounded-full font-bold tracking-widest uppercase text-xs">
+                                        Open the boards
+                                    </button>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {CAMPAIGN_OPTIONS.map(option => {
                                         const isSelected = selectedCampaigns.includes(option.id);
@@ -1416,6 +1424,18 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                         )}
                     </AnimatePresence>
                 </div>
+                {boardsOpen && createPortal(
+                    <CampaignGrid
+                        player={player}
+                        ownerKind="HOUSE"
+                        ownerId={String(studio?.id || project.projectDetails?.studioId || '')}
+                        titleId={String(project.id)}
+                        poster={project.projectDetails?.image || project.image}
+                        onPlayer={onUpdatePlayer}
+                        onClose={() => setBoardsOpen(false)}
+                    />,
+                    document.body,
+                )}
             </div>
         </div>
     );
