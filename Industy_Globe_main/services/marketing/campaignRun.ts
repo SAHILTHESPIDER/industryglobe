@@ -79,6 +79,23 @@ const activeCampaigns = (player: Player, ownerKind: 'EMPIRE' | 'HOUSE', ownerId:
     });
 };
 
+/** A one-night show has an opening price and no weekly rate. Extensions and refunds leave it alone. */
+const openingOnly = (campaign: MarketingCampaign): boolean => {
+    const channel = launchChannel(campaign.actionId);
+    return Boolean(channel && !(channel.weekly > 0) && channel.opening > 0);
+};
+
+const weeklyShare = (campaign: MarketingCampaign): number => {
+    if (openingOnly(campaign)) return 0;
+    return campaign.chargeAmount / Math.max(1, campaign.target.durationWeeks || 1);
+};
+
+const citiesOf = (campaign: MarketingCampaign): string[] => (
+    campaign.target.cityIds?.length
+        ? campaign.target.cityIds
+        : (campaign.target.cityId ? [campaign.target.cityId] : [])
+);
+
 const cardFor = (formatId: string, cityIds: string[], fallbackCity: string): RunCard | null => {
     const format = runFormat(formatId);
     const cities = cityIds.filter(id => sceneFor(formatId, id));
@@ -161,13 +178,13 @@ export const readRunBoard = (
     const start = Math.min(...rows.map(row => row.startAbsolute));
     const held = start > now;
     const elapsed = held ? 0 : Math.max(1, Math.min(bookedWeeks, now - start + 1));
-    const weekly = rows.reduce((sum, row) => sum + (row.chargeAmount / Math.max(1, row.target.durationWeeks || 1)), 0);
+    const weekly = rows.reduce((sum, row) => sum + weeklyShare(row), 0);
     const extensions = Math.max(...rows.map(row => row.extensions || 0));
-    const cityIds = rows.flatMap(row => row.target.cityIds?.length ? row.target.cityIds : (row.target.cityId ? [row.target.cityId] : []));
-    const uniqueCities = cityIds.filter((id, index) => cityIds.indexOf(id) === index);
     const formats = RUN_FORMATS.map(row => row.id).filter(id => rows.some(row => row.actionId === id));
     const cards = (formats.length ? formats : ['billboards']).flatMap(id => {
-        const card = cardFor(id, uniqueCities.length ? uniqueCities : ['bom'], uniqueCities[0] || 'bom');
+        const cityIds = rows.filter(row => row.actionId === id).flatMap(citiesOf);
+        const unique = cityIds.filter((city, index) => cityIds.indexOf(city) === index);
+        const card = cardFor(id, unique.length ? unique : ['bom'], unique[0] || 'bom');
         return card ? [card] : [];
     });
     const logo = (sample.ownerName || sample.titleName).trim().slice(0, 1).toUpperCase() || 'H';
@@ -296,8 +313,14 @@ export const extendRun = (
             campaign.ownerKind === ownerKind && campaign.ownerId === ownerId && campaign.status !== 'COMPLETE'
             && (!titleId || campaign.titleId === titleId)
         ));
-        const share = Math.round(priced / Math.max(1, rows.length));
-        rows.forEach(campaign => touchCampaign(campaign, span, share));
+        const media = rows.filter(row => !openingOnly(row));
+        const share = Math.round(priced / Math.max(1, media.length));
+        media.forEach(campaign => touchCampaign(campaign, span, share));
+        rows.filter(openingOnly).forEach(campaign => {
+            campaign.target = { ...campaign.target, durationWeeks: Math.max(1, (campaign.target.durationWeeks || 1) + span) };
+            campaign.endAbsolute += span;
+            campaign.extensions = (campaign.extensions || 0) + span;
+        });
         if (ownerKind === 'HOUSE' && board.titleId) {
             const extensions = Math.max(0, ...rows.map(row => row.extensions || 0));
             const factor = fatigueFactor(extensions, Math.max(1, board.week + span));
@@ -446,7 +469,9 @@ export const bookFilmRun = (player: Player, ownerId: string, titleId: string): {
     picked.forEach(row => {
         const cities = citiesForChannel(row.id, FILM_CITIES[row.id] || []);
         if (!cities.length) return;
-        const share = Math.max(1000, Math.round(row.spend * quote.weeks + row.opening));
+        const weeklyCharge = Math.max(0, Math.round(row.spend * quote.weeks));
+        const openingCharge = Math.max(0, Math.round(row.opening));
+        const share = row.weekly > 0 ? Math.max(1000, weeklyCharge) : Math.max(1000, openingCharge);
         desk.campaigns.unshift({
             id: `film-${film.id}-${row.id}`.slice(0, 80),
             key: `film-${film.id}-${row.id}`,

@@ -3,7 +3,7 @@
  * A landmark never borrows another city's name.
  * Extra weeks drain cash and return less. They are not refused for being week 13.
  */
-import { CAMPAIGN_CITIES, campaignCity, citiesForChannel, landmarkFor } from '../services/marketing/launchCatalog.ts';
+import { CAMPAIGN_CITIES, campaignCity, citiesForChannel, landmarkFor, priceFlight } from '../services/marketing/launchCatalog.ts';
 import { RUN_FORMATS, allCampaignScenes, labelMatchesCity, placeLine, sceneFor } from '../services/marketing/sceneRegistry.ts';
 import { bookFilmRun, extendCost, extendRun, fatigueFactor, readRunBoard, refundForStop, stopRun } from '../services/marketing/campaignRun.ts';
 import type { Player } from '../types';
@@ -198,7 +198,22 @@ const hypeB = stretched.player.commitments[0].projectDetails.hiddenStats.marketi
 const third = extendRun(stretched.player, 'HOUSE', 'house-1', 1, 'shadow');
 const hypeC = third.player.commitments[0].projectDetails.hiddenStats.marketingHypeAdded - stretched.player.commitments[0].projectDetails.hiddenStats.marketingHypeAdded;
 need(hypeC < hypeB, 'another week buys less hype');
-need(readRunBoard(bookedFilm.player, 'HOUSE', 'house-1', 'shadow').titleName === 'SHADOW', 'the film board uses the movie title');
+const filmBoard = readRunBoard(bookedFilm.player, 'HOUSE', 'house-1', 'shadow');
+need(filmBoard.titleName === 'SHADOW', 'the film board uses the movie title');
+const filmCard = (id) => filmBoard.cards.find(card => card.formatId === id);
+need(filmCard('landmark_light').cities.join(',') === 'dxb' && filmCard('landmark_light').place === 'Burj Khalifa', 'the light show stays on the Burj');
+need(filmCard('stunt').cities.join(',') === 'mad', 'the stunt stays in Madrid');
+need(filmCard('building_reveal').cities.join(',') === 'prg', 'the reveal stays in Prague');
+need(filmCard('drone').cities.join(',') === 'par', 'the drones stay over Paris');
+need(filmCard('fan_fest').cities.join(',') === 'bom', 'the festival stays in Mumbai');
+const filmQuote = priceFlight({
+    cityIds: ['bom', 'nyc', 'lon', 'par', 'dxb', 'mad', 'ber', 'prg'],
+    channelIds: ['airport_screens', 'mall_screens', 'city_screens', 'stunt', 'fan_fest', 'drone', 'building_reveal', 'landmark_light', 'billboards'],
+    weeks: 4,
+    ratio: 1,
+});
+need(filmQuote.opening > 0 && filmBoard.weekly > 0 && filmBoard.weekly <= filmQuote.weekly + 1, 'one-night shows are not billed as weekly media');
+need(filmBoard.extend1 === extendCost(filmBoard.weekly, 1, 0), 'an extra week prices only the weekly media');
 
 if (failed) {
     console.error(`${failed} scene checks failed`);
