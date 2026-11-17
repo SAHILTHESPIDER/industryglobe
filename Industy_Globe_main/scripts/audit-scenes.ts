@@ -8,6 +8,7 @@ import { RUN_FORMATS, allCampaignScenes, labelMatchesCity, placeLine, sceneFor }
 import { extendCost, extendRun, fatigueFactor, readRunBoard, refundForStop, stopRun } from '../services/marketing/campaignRun.ts';
 import type { Player } from '../types';
 import { getAbsoluteWeek } from '../services/legacyLogic.ts';
+import { houseFilingFee, streamFilingFee } from '../services/brand/founding.ts';
 
 let failed = 0;
 const need = (condition, message) => {
@@ -156,6 +157,12 @@ need(stopped.player.money === personal, 'a refund does not touch personal cash')
 need(stopped.refund === refundForStop(2_000_000, 16, 1, false), 'the refund is the unspent weeks');
 need(stopped.player.ownPlatform.books.cash > extended.player.ownPlatform.books.cash, 'the house of the company gets the refund');
 need(campaignCity('prg')?.name === 'Prague', 'Prague is on the campaign map');
+
+const rich = streamFilingFee({ money: 3_750_000_000 } as Player);
+const poor = streamFilingFee({ money: 10_000 } as Player);
+need(rich !== poor && rich === 150_000_000, 'a rich founder files four percent, not a fixed cheque');
+need(poor < rich && poor > 0, 'a smaller fortune files a smaller fee');
+need(houseFilingFee() === 50_000_000, 'a production house files the blueprint price');
 
 if (failed) {
     console.error(`${failed} scene checks failed`);

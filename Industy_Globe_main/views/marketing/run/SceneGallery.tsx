@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { PlatformBrand } from '../../../types';
 import { CAMPAIGN_CITIES } from '../../../services/marketing/launchCatalog';
 import { RUN_FORMATS, sceneFor } from '../../../services/marketing/sceneRegistry';
+import { brandAccent } from '../../../services/ownPlatform/brand';
 import { BrandMark } from '../../ownPlatform/BrandMark';
 import { LiveScene } from './LiveScene';
 import { SceneStage } from './SceneStage';
@@ -47,7 +48,7 @@ export const SceneGallery: React.FC<{ brand?: PlatformBrand; service?: string; o
                 <button type="button" onClick={() => setPlaying(true)} disabled={!scene}>PLAY LAUNCH</button>
             </div>
             <div className="run-scroll" style={{ display: 'flex', flexDirection: 'column', paddingBottom: 16 }}>
-                {scene && <SceneStage scene={scene} title={service} poster={poster} />}
+                {scene && <SceneStage scene={scene} title={service} poster={poster} accent={brand ? brandAccent(brand) : undefined} markId={brand?.markId} letter={service.slice(0, 1)} customMark={brand?.customMark} />}
             </div>
             {playing && scene && (
                 <LiveScene scene={scene} title={service} logo={service.slice(0, 1)} brand={brand} poster={poster} cities={CAMPAIGN_CITIES.map(city => city.id)} onClose={() => setPlaying(false)} />

@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
 import { BusinessBlueprint, BUSINESS_BLUEPRINTS, BUSINESS_THEMES, BUSINESS_AMENITIES, BUSINESS_PRODUCTION_TYPES, calculateSetupCost, createBusiness } from '../../../services/businessLogic';
+import { BrandFoundry } from '../../brand/BrandFoundry';
+import { formatCompact } from '../../../services/ownPlatform/logic';
 import { BusinessType, BusinessSubtype, BusinessConfig, Player } from '../../../types';
 import { ArrowLeft, Plus, Check } from 'lucide-react';
 
@@ -205,32 +207,27 @@ export const BusinessWizard: React.FC<BusinessWizardProps> = ({ player, onCancel
                 </>
             )}
 
-            {wizStep === 4 && (
-                <>
-                    <div className="flex flex-col space-y-8">
-                        <div>
-                            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 pl-2">Brand Name</h3>
-                            <input 
-                                type="text" 
-                                value={wizName} 
-                                onChange={(e) => setWizName(e.target.value)} 
-                                placeholder="e.g. Luxe & Co." 
-                                className="w-full bg-zinc-900 border border-zinc-800 rounded-2xl p-5 text-white text-lg font-bold focus:outline-none focus:border-indigo-500 transition-colors placeholder:text-zinc-700"
-                            />
-                        </div>
-
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
-                            <div className="text-[10px] text-zinc-500 leading-relaxed mb-3">
-                                Summary includes {wizConfig.amenities?.length || 0} additional facilities and {wizConfig.theme ? 'custom interior' : 'standard setup'}.
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                {wizSubtype && <span className="bg-zinc-800 text-zinc-300 text-[10px] px-2 py-1 rounded font-bold uppercase">{wizSubtype.replace(/_/g, ' ')}</span>}
-                                {wizConfig.theme && <span className="bg-zinc-800 text-zinc-300 text-[10px] px-2 py-1 rounded font-bold uppercase">{BUSINESS_THEMES.find(t => t.id === wizConfig.theme)?.label}</span>}
-                            </div>
-                        </div>
-                    </div>
-                    <WizardFooter disabled={!wizName} label="Launch Venture" onClick={handleLaunch} />
-                </>
+            {wizStep === 4 && wizType && wizSubtype && (
+                <BrandFoundry
+                    founder={player.name}
+                    cash={player.money}
+                    fee={currentCost}
+                    kind="venture"
+                    initialName={wizName}
+                    onCancel={() => setWizStep(3)}
+                    onFile={(draft, brand) => {
+                        if (player.money < currentCost) return `Personal cash is short ${formatCompact(currentCost - player.money)}.`;
+                        const emoji = activeBlueprint?.emojis[0] || '◆';
+                        const newBiz = { ...createBusiness(draft.name, wizType, wizSubtype, wizConfig, emoji, player.currentWeek), brand };
+                        onUpdatePlayer({
+                            ...player,
+                            money: player.money - currentCost,
+                            businesses: [...player.businesses, newBiz],
+                            logs: [...player.logs, { week: player.currentWeek, year: player.age, message: `Founded ${newBiz.name}. ${formatCompact(currentCost)} left personal cash.`, type: 'positive' }],
+                        });
+                        onComplete();
+                    }}
+                />
             )}
         </div>
     );

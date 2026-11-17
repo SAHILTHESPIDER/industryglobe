@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { PlatformBrand, Player } from '../../../types';
-import { brandFrom } from '../../../services/ownPlatform/brand';
+import { brandAccent, brandFrom } from '../../../services/ownPlatform/brand';
 import { extendRun, formatRunMoney, readRunBoard, stopRun } from '../../../services/marketing/campaignRun';
 import type { RunCard } from '../../../services/marketing/campaignRun';
 import { BrandMark } from '../../ownPlatform/BrandMark';
@@ -22,7 +22,12 @@ interface Props {
 
 export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titleId, poster, onPlayer, onClose, onBook }) => {
     const board = readRunBoard(player, ownerKind, ownerId, titleId);
-    const brand: PlatformBrand | undefined = ownerKind === 'EMPIRE' ? brandFrom(player.ownPlatform?.brand) : undefined;
+    const house = ownerKind === 'HOUSE' ? (player.businesses || []).find(row => row.id === ownerId) : undefined;
+    const brand: PlatformBrand | undefined = ownerKind === 'EMPIRE'
+        ? brandFrom(player.ownPlatform?.brand)
+        : house?.brand ? brandFrom(house.brand) : undefined;
+    const accent = brandAccent(brand);
+    const letter = (board.titleName || brand?.markId || 'S').slice(0, 1);
     const [live, setLive] = useState<RunCard | null>(null);
     const [error, setError] = useState('');
     const act = (run: () => { player: Player; error?: string }) => {
@@ -44,7 +49,7 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                     <p className="run-status">{board.statusLine}</p>
                 </div>
                 <div className="run-logo" aria-hidden="true">
-                    {brand ? <BrandMark id={brand.markId} color="#E4B15A" size={28} letter={board.logo || 'E'} /> : <b>{board.logo || 'H'}</b>}
+                    {brand ? <BrandMark id={brand.markId} color={accent} size={28} letter={letter} /> : <b>{board.logo || 'H'}</b>}
                 </div>
             </header>
             <div className="run-scroll">
@@ -52,7 +57,7 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                 <div className="run-grid">
                     {board.cards.map(card => (
                         <button key={card.formatId} type="button" className="run-card" onClick={() => { tap('LIGHT'); setLive(card); }}>
-                            <div className="run-thumb"><SceneStage scene={card.scene} title={board.titleName} poster={poster} /></div>
+                            <div className="run-thumb"><SceneStage scene={card.scene} title={board.titleName} poster={poster} accent={accent} markId={brand?.markId} letter={letter} customMark={brand?.customMark} /></div>
                             <div>
                                 <b>{card.title}</b>
                                 <small>{card.subtitle}</small>
@@ -86,6 +91,10 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                     brand={brand}
                     poster={poster}
                     cities={live.cities}
+                    accent={accent}
+                    markId={brand?.markId}
+                    letter={letter}
+                    customMark={brand?.customMark}
                     onClose={() => setLive(null)}
                 />
             )}

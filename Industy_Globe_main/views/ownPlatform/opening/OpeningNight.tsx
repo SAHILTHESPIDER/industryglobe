@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import type { OpeningPeakPlan, Player } from '../../../types';
-import { brandFrom } from '../../../services/ownPlatform/brand';
+import { brandAccent, brandFrom } from '../../../services/ownPlatform/brand';
 import { formatCompact, formatPeople } from '../../../services/ownPlatform/logic';
 import { launchChannel } from '../../../services/marketing/launchCatalog';
 import { commitOpening, openingBrief, openingIsReplay, simulateOpening, type OpeningSim } from '../../../services/ownPlatform/openingNight';
@@ -162,7 +162,7 @@ export const OpeningNight: React.FC<{
                                 <i className="person" style={{ left: '30%', height: 58 }} />
                                 <i className="sofa" />
                             </div>
-                            <div className="note"><small>{brief.service}</small><b>{brief.title} is streaming</b><span>Tap to watch</span></div>
+                            <div className="note" style={{ borderLeft: `4px solid ${brandAccent(brand)}` }}><small>{brief.service}</small><b>{brief.title} is streaming</b><span>Tap to watch</span></div>
                         </>
                     )}
                     {beat === 5 && (

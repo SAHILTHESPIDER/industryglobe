@@ -200,6 +200,7 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         platformDesk: sanitizePlatformDesk(raw.platformDesk),
         languageDesk: sanitizeLanguageDesk(raw.languageDesk),
         openingNight: cleanOpening(raw.openingNight),
+        identityFiled: raw.identityFiled === true || pastDefine || defineStep > 0 ? true : undefined,
     };
     return syncRegions(merged);
 };

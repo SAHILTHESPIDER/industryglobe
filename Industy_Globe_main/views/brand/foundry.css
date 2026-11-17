@@ -1,0 +1,52 @@
+.foundry{position:fixed;inset:0;z-index:420;background:#070b18;color:#f4f7ff;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+.foundry *{box-sizing:border-box}
+.foundry button,.foundry input,.foundry textarea{font:inherit;color:inherit}
+.fy-top{display:flex;gap:10px;align-items:flex-start;padding:max(12px,env(safe-area-inset-top)) 14px 8px}
+.fy-back{width:40px;height:40px;border-radius:12px;border:1px solid #243056;background:#10182c;cursor:pointer;flex:none}
+.fy-top h1{margin:0;font-family:"Barlow Condensed",Impact,sans-serif;font-size:clamp(32px,8vw,48px);line-height:.9}
+.fy-top p{margin:4px 0 0;color:#9aa8c7;font-size:13px}
+.fy-count{margin-left:auto;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;letter-spacing:.14em;color:#8eb0ff}
+.fy-slider{height:4px;margin:0 14px 8px;background:#1c2744;border-radius:99px;overflow:hidden}
+.fy-slider i{display:block;height:100%;background:#2f6bff}
+.fy-scroll{flex:1;overflow:auto;padding:0 14px 110px;width:min(1100px,100%);margin:0 auto}
+.fy-board{position:sticky;top:0;z-index:2;background:#f6f7fb;color:#12141c;border-radius:18px;padding:10px;margin-bottom:12px;box-shadow:0 12px 30px #0006}
+.fy-kicker{font-size:10px;letter-spacing:.16em;color:#5c6780;font-weight:700}
+.fy-tiles{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:6px;margin-top:8px}
+.fy-tile{background:#fff;border-radius:12px;padding:8px;min-height:64px;box-shadow:inset 0 0 0 1px #e6e8f0;overflow:hidden}
+.fy-tile b{display:block;font-size:13px;line-height:1}
+.fy-tile small{color:#667;font-size:10px}
+.fy-word{grid-column:1 / -1;display:flex;align-items:center;gap:8px;min-height:54px}
+.fy-icon{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;position:relative;color:#fff}
+.fy-badge{position:absolute;top:-4px;right:-4px;background:#ff2d3a;color:#fff;border-radius:99px;font-size:10px;padding:1px 4px}
+.fy-seal{width:58px;height:58px;border-radius:50%;border:2px solid currentColor;display:grid;place-items:center;text-align:center;font-size:8px;letter-spacing:.08em;margin:0 auto}
+.fy-swatches{display:flex;gap:6px;margin-top:8px}
+.fy-swatches i{width:28px;height:18px;border-radius:4px;display:block}
+.fy-section{margin:14px 0 6px;font-size:11px;letter-spacing:.16em;color:#8ea0c8}
+.fy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fy-grid button,.fy-lock button,.fy-chips button{border:1px solid #243056;background:#10182c;border-radius:14px;padding:8px;cursor:pointer;text-align:center}
+.fy-grid button.on,.fy-lock button.on,.fy-chips button.on{border-color:#6d93ff;background:#18284d}
+.fy-grid span{display:block;font-size:11px;margin-top:4px;color:#c5d0e6}
+.fy-lock{display:grid;gap:8px}
+.fy-note{color:#9aa8c7;font-size:12px;line-height:1.4}
+.fy-colour{height:120px;border-radius:18px;display:grid;place-items:end start;padding:12px;color:#fff;font-family:"JetBrains Mono",ui-monospace,monospace}
+.fy-colour input,.foundry input[type=range]{width:100%;accent-color:#2f6bff}
+.fy-presets{display:flex;gap:8px;flex-wrap:wrap}
+.fy-presets button{width:36px;height:36px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+.fy-presets button.on{border-color:#fff}
+.fy-quote{font-family:"Instrument Serif",Georgia,serif;font-size:22px;line-height:1.25;background:transparent;border:0;width:100%;resize:none;min-height:96px}
+.fy-row{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#9aa8c7}
+.fy-forgive{color:#8dcea8}.fy-punish{color:#ff8d96}
+.fy-chips{display:flex;gap:6px;flex-wrap:wrap}
+.fy-paper{background:#f4efe4;color:#231c12;border-radius:8px;padding:16px;box-shadow:0 16px 40px #0008}
+.fy-paper h2{font-family:"Instrument Serif",Georgia,serif;margin:8px 0;font-size:32px}
+.fy-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px}
+.fy-meta span{display:block;letter-spacing:.12em;font-size:10px;color:#6d6254}
+.fy-sign{margin-top:16px;border-top:1px solid #c8b89a;padding-top:8px;font-family:"Instrument Serif",Georgia,serif;font-size:28px}
+.fy-go{position:sticky;bottom:0;padding:10px 14px max(12px,env(safe-area-inset-bottom));background:linear-gradient(transparent,#070b18 30%)}
+.fy-go button{width:min(1100px,100%);margin:0 auto;display:block;border:0;border-radius:14px;background:#2f6bff;color:#fff;padding:14px;font-size:18px;font-weight:800;cursor:pointer}
+.fy-go button:disabled{opacity:.45}
+.fy-error{color:#ffb4c0;font-size:13px;margin:0 0 8px}
+@media (min-width:900px){
+  .fy-scroll{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}
+  .fy-board{position:sticky;top:8px}
+}
