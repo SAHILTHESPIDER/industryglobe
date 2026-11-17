@@ -7,8 +7,8 @@ import type { MarketingCampaign, Player } from '../../types';
 import { getAbsoluteWeek } from '../legacyLogic';
 import { addCompanyCash, readCompanyCash } from '../ownPlatform/companyCash';
 import { contentVeto } from '../ownPlatform/stakeSale';
-import { normalizeMarketing } from './core';
-import { citiesForChannel, cleanLaunchFlight, flightMoney, launchChannel } from './launchCatalog';
+import { buildPoster, defaultCreative, normalizeMarketing } from './core';
+import { citiesForChannel, cleanLaunchFlight, flightMoney, launchChannel, priceFlight } from './launchCatalog';
 import { placeLine, runFormat, sceneFor, RUN_FORMATS, type CampaignScene } from './sceneRegistry';
 
 const roundK = (value: number) => Math.round(value / 1000) * 1000;
@@ -298,6 +298,14 @@ export const extendRun = (
         ));
         const share = Math.round(priced / Math.max(1, rows.length));
         rows.forEach(campaign => touchCampaign(campaign, span, share));
+        if (ownerKind === 'HOUSE' && board.titleId) {
+            const extensions = Math.max(0, ...rows.map(row => row.extensions || 0));
+            const factor = fatigueFactor(extensions, Math.max(1, board.week + span));
+            rows.forEach(campaign => {
+                campaign.resolvedHype = Math.min(18, (campaign.resolvedHype || 0) + 1.2 * factor);
+            });
+            liftFilm(next, board.titleId, priced, extensions, Math.max(1, board.week));
+        }
     }
     next.money = personal;
     return { player: next };
@@ -347,6 +355,138 @@ export const stopRun = (
     }
     next.money = personal;
     return { player: next, refund };
+};
+
+const FILM_CITIES: Record<string, string[]> = {
+    airport_screens: ['bom', 'nyc', 'lon', 'par', 'dxb'],
+    mall_screens: ['dxb'],
+    city_screens: ['ber'],
+    stunt: ['mad'],
+    fan_fest: ['bom'],
+    drone: ['par'],
+    building_reveal: ['prg'],
+    landmark_light: ['dxb'],
+    billboards: ['nyc'],
+};
+
+const filmCityPool = () => [...new Set(Object.values(FILM_CITIES).flat())];
+
+/** What the street costs a film before anyone is charged. */
+export const filmStreetPrice = (): number => priceFlight({
+    cityIds: filmCityPool(),
+    channelIds: Object.keys(FILM_CITIES),
+    weeks: 4,
+    ratio: 1,
+}).total;
+
+const findFilm = (player: Player, titleId: string) => {
+    const rows = [...(player.commitments || []), ...(player.activeReleases || [])];
+    const row = rows.find(item => item.id === titleId);
+    if (!row) return undefined;
+    const details = row.projectDetails;
+    return {
+        id: titleId,
+        name: details?.title || row.name || 'Untitled',
+        image: (details as { image?: string } | undefined)?.image,
+        row,
+    };
+};
+
+/** Spend buys hype, then less. The cap is the one the weekly desk already uses. */
+const liftFilm = (player: Player, titleId: string, spend: number, extensions: number, week: number) => {
+    const factor = fatigueFactor(extensions, Math.max(1, week));
+    const points = Math.round(Math.min(6, Math.log10(Math.max(10, spend)) * 0.42 * factor) * 10) / 10;
+    const touch = (hidden: { rawHype?: number; marketingHypeAdded?: number; marketingLegs?: number } | undefined, buzz: number | undefined) => {
+        if (!hidden) return buzz;
+        const already = hidden.marketingHypeAdded || 0;
+        const nextAdded = Math.min(24, already + points);
+        const delta = nextAdded - already;
+        hidden.marketingHypeAdded = nextAdded;
+        hidden.rawHype = Math.max(0, Math.min(100, (hidden.rawHype ?? 50) + delta));
+        hidden.marketingLegs = Math.min(1.12, 1 + Math.min(0.12, (nextAdded / 24) * factor));
+        return Math.max(-20, Math.min(45, (buzz || 0) + delta));
+    };
+    (player.commitments || []).forEach(commitment => {
+        if (commitment.id !== titleId) return;
+        commitment.promotionalBuzz = touch(commitment.projectDetails?.hiddenStats, commitment.promotionalBuzz);
+    });
+    (player.activeReleases || []).forEach(release => {
+        if (release.id !== titleId) return;
+        release.promotionalBuzz = touch(release.projectDetails?.hiddenStats, release.promotionalBuzz);
+    });
+};
+
+/** Puts a movie on the same street formats the streaming flight uses. The house pays. */
+export const bookFilmRun = (player: Player, ownerId: string, titleId: string): { player: Player; error?: string } => {
+    const house = houseOf(player, ownerId);
+    if (!house) return { player, error: 'This production house is not on the books.' };
+    const film = findFilm(player, titleId);
+    if (!film) return { player, error: 'That film is not on the lot.' };
+    const open = readRunBoard(player, 'HOUSE', ownerId, titleId);
+    if (open.status === 'RUNNING' || open.status === 'HELD') return { player, error: 'This film is already on the boards.' };
+    const quote = priceFlight({ cityIds: filmCityPool(), channelIds: Object.keys(FILM_CITIES), weeks: 4, ratio: 1 });
+    if (quote.total <= 0) return { player, error: 'This flight has no price.' };
+    const next = JSON.parse(JSON.stringify(player)) as Player;
+    const personal = next.money;
+    const fund = houseOf(next, ownerId)?.studioState?.productionFund;
+    const error = chargeHouse(next, ownerId, quote.total, `Campaign · ${film.name}`);
+    if (error) return { player, error };
+    const booked = houseOf(next, ownerId);
+    if (booked?.studioState && fund !== undefined) booked.studioState.productionFund = fund;
+    next.money = personal;
+    const now = nowOf(next);
+    const creative = { ...defaultCreative(), tagline: film.name };
+    const title = {
+        id: film.id, name: film.name, genre: 'DRAMA', language: 'English', cast: [], director: '',
+        banner: house.name, statusLine: 'Coming Soon' as const, ownerKind: 'HOUSE' as const, ownerId,
+    };
+    const poster = { ...buildPoster(title, creative), title: film.name, image: film.image };
+    const desk = normalizeMarketing(next.marketing);
+    const picked = quote.channels.filter(row => Object.prototype.hasOwnProperty.call(FILM_CITIES, row.id) && (row.spend > 0 || row.opening > 0));
+    picked.forEach(row => {
+        const cities = citiesForChannel(row.id, FILM_CITIES[row.id] || []);
+        if (!cities.length) return;
+        const share = Math.max(1000, Math.round(row.spend * quote.weeks + row.opening));
+        desk.campaigns.unshift({
+            id: `film-${film.id}-${row.id}`.slice(0, 80),
+            key: `film-${film.id}-${row.id}`,
+            ownerKind: 'HOUSE',
+            ownerId,
+            ownerName: house.name.slice(0, 40),
+            titleId: film.id,
+            titleName: film.name.slice(0, 80),
+            actionId: row.id,
+            category: 'OUTDOOR',
+            status: 'LIVE',
+            startAbsolute: now,
+            endAbsolute: now + quote.weeks - 1,
+            charged: true,
+            chargeAmount: share,
+            creative,
+            target: { regionId: 'WORLD', cityId: cities[0], cityIds: cities, durationWeeks: quote.weeks, startOffset: 0, audience: 'MASS' },
+            quote: {
+                cost: share, castFee: 0, reach: row.reach, reachLow: Math.round(row.reach * 0.74), reachHigh: Math.round(row.reach * 1.16),
+                hype: 6, ticketInterest: 4, streamInterest: 2, competition: 0.1, saturation: 0, overexposed: false, notes: [],
+            },
+            roll: 1,
+            resolvedReach: row.reach,
+            resolvedHype: 4,
+            resolvedTicket: 3,
+            resolvedStream: 2,
+            outcome: {
+                reach: 0, hype: 0, ticketInterest: 0, streamInterest: 0, appliedWeeks: 0, overexposed: false, note: '',
+                regions: [], channels: [],
+            },
+            castNames: [],
+            poster,
+            feedPostIds: [],
+            rival: false,
+        });
+    });
+    next.marketing = normalizeMarketing(desk);
+    liftFilm(next, film.id, quote.total, 0, 1);
+    next.money = personal;
+    return { player: next };
 };
 
 export const formatRunMoney = (value: number) => flightMoney(value);

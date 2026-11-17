@@ -5,7 +5,7 @@
  */
 import { CAMPAIGN_CITIES, campaignCity, citiesForChannel, landmarkFor } from '../services/marketing/launchCatalog.ts';
 import { RUN_FORMATS, allCampaignScenes, labelMatchesCity, placeLine, sceneFor } from '../services/marketing/sceneRegistry.ts';
-import { extendCost, extendRun, fatigueFactor, readRunBoard, refundForStop, stopRun } from '../services/marketing/campaignRun.ts';
+import { bookFilmRun, extendCost, extendRun, fatigueFactor, readRunBoard, refundForStop, stopRun } from '../services/marketing/campaignRun.ts';
 import type { Player } from '../types';
 import { getAbsoluteWeek } from '../services/legacyLogic.ts';
 
@@ -166,6 +166,39 @@ const heldBoard = readRunBoard({
     },
 } as Player, 'EMPIRE', 'empire', 'shadow');
 need(heldBoard.status === 'HELD' && heldBoard.week === 0, 'a held flight does not age during construction');
+
+const film = player();
+film.money = 900_000;
+film.businesses = [{
+    id: 'house-1', name: 'Northglass', type: 'PRODUCTION_HOUSE', subtype: 'INDIE_STUDIO', logo: 'NG', color: 'bg-zinc-800',
+    foundedWeek: 1, balance: 400_000_000, isActive: true,
+    config: { quality: 'STANDARD', pricing: 'MARKET', marketing: 'MEDIUM' },
+    stats: { weeklyRevenue: 0, weeklyExpenses: 0, weeklyProfit: 0, lifetimeRevenue: 0, valuation: 1, brandHealth: 50, customerSatisfaction: 50, riskLevel: 1, hype: 1 },
+    staff: [], products: [], hiringPool: [], lastHiringRefreshWeek: 1, history: [],
+    studioState: { scripts: [], concepts: [], writers: [], ipMarket: [], lastMarketRefreshWeek: 1, lastWriterRefreshWeek: 1, financeLedger: [], productionFund: 9_000_000 },
+}];
+film.commitments = [{
+    id: 'shadow', name: 'SHADOW', type: 'ACTING_GIG', energyCost: 0, income: 0, payoutType: 'LUMPSUM', promotionalBuzz: 0,
+    projectDetails: {
+        title: 'SHADOW', type: 'MOVIE', description: '', studioId: 'house-1', subtype: 'STANDALONE', genre: 'DRAMA',
+        budgetTier: 'MID', estimatedBudget: 1, visibleHype: 'MID',
+        hiddenStats: { scriptQuality: 60, directorQuality: 60, castingStrength: 60, distributionPower: 50, rawHype: 40, qualityScore: 60, prestigeBonus: 0, marketingHypeAdded: 0 },
+        directorName: 'Idris Cole', visibleDirectorTier: 'AUTEUR', visibleScriptBuzz: 'Warm', visibleCastStrength: 'Strong', castList: [], releaseDate: 18,
+    },
+}];
+const bookedFilm = bookFilmRun(film, 'house-1', 'shadow');
+need(!bookedFilm.error, bookedFilm.error || 'a film can buy the street');
+need(bookedFilm.player.money === 900_000, 'a film campaign does not spend personal cash');
+need(bookedFilm.player.businesses[0].balance < 400_000_000, 'the house pays for the street');
+need(bookedFilm.player.businesses[0].studioState.productionFund === 9_000_000, 'the production fund stays put');
+const hypeA = bookedFilm.player.commitments[0].projectDetails.hiddenStats.marketingHypeAdded;
+need(hypeA > 0 && (bookedFilm.player.commitments[0].promotionalBuzz || 0) > 0, 'the buy reaches the film hype');
+const stretched = extendRun(bookedFilm.player, 'HOUSE', 'house-1', 1, 'shadow');
+const hypeB = stretched.player.commitments[0].projectDetails.hiddenStats.marketingHypeAdded - hypeA;
+const third = extendRun(stretched.player, 'HOUSE', 'house-1', 1, 'shadow');
+const hypeC = third.player.commitments[0].projectDetails.hiddenStats.marketingHypeAdded - stretched.player.commitments[0].projectDetails.hiddenStats.marketingHypeAdded;
+need(hypeC < hypeB, 'another week buys less hype');
+need(readRunBoard(bookedFilm.player, 'HOUSE', 'house-1', 'shadow').titleName === 'SHADOW', 'the film board uses the movie title');
 
 if (failed) {
     console.error(`${failed} scene checks failed`);

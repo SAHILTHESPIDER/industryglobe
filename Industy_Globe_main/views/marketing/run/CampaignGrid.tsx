@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { PlatformBrand, Player } from '../../../types';
 import { brandAccent, brandFrom } from '../../../services/ownPlatform/brand';
-import { extendRun, formatRunMoney, readRunBoard, stopRun } from '../../../services/marketing/campaignRun';
+import { bookFilmRun, extendRun, filmStreetPrice, formatRunMoney, readRunBoard, stopRun } from '../../../services/marketing/campaignRun';
 import type { RunCard } from '../../../services/marketing/campaignRun';
 import { BrandMark } from '../../ownPlatform/BrandMark';
 import { tap } from '../../../components/motion';
@@ -23,6 +23,7 @@ interface Props {
 export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titleId, poster, onPlayer, onClose, onBook }) => {
     const board = readRunBoard(player, ownerKind, ownerId, titleId);
     const brand: PlatformBrand | undefined = ownerKind === 'EMPIRE' ? brandFrom(player.ownPlatform?.brand) : undefined;
+    const scenePoster = poster || (player.marketing?.campaigns || []).find(row => row.titleId === (titleId || board.titleId) && row.poster?.image)?.poster.image;
     const accent = brandAccent(brand);
     const letter = (board.titleName || 'S').slice(0, 1);
     const markId = brand?.markId;
@@ -52,11 +53,20 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                 </div>
             </header>
             <div className="run-scroll">
-                {board.cards.length === 0 && <p className="run-note">No formats are on the street yet. Book a flight, then the boards fill in.</p>}
+                {board.cards.length === 0 && (
+                    <div className="run-note">
+                        <p>No formats are on the street yet. Book a flight, then the boards fill in.</p>
+                        {ownerKind === 'HOUSE' && titleId && (
+                            <button type="button" className="run-book" onClick={() => act(() => bookFilmRun(player, ownerId, titleId))}>
+                                Book the street · {formatRunMoney(filmStreetPrice())}
+                            </button>
+                        )}
+                    </div>
+                )}
                 <div className="run-grid">
                     {board.cards.map(card => (
                         <button key={card.formatId} type="button" className="run-card" onClick={() => { tap('LIGHT'); setLive(card); }}>
-                            <div className="run-thumb"><SceneStage scene={card.scene} title={board.titleName} poster={poster} accent={accent} markId={markId} letter={letter} lockupId={lockupId} /></div>
+                            <div className="run-thumb"><SceneStage scene={card.scene} title={board.titleName} poster={scenePoster} accent={accent} markId={markId} letter={letter} lockupId={lockupId} /></div>
                             <div>
                                 <b>{card.title}</b>
                                 <small>{card.subtitle}</small>
@@ -88,7 +98,7 @@ export const CampaignGrid: React.FC<Props> = ({ player, ownerKind, ownerId, titl
                     title={board.titleName}
                     logo={board.logo || 'E'}
                     brand={brand}
-                    poster={poster}
+                    poster={scenePoster}
                     cities={live.cities}
                     accent={accent}
                     markId={markId}
