@@ -315,7 +315,7 @@ const cleanTarget = (raw: Partial<MarketingTarget> | undefined): MarketingTarget
         countryId: typeof raw.countryId === 'string' ? raw.countryId : undefined,
         cityId: typeof raw.cityId === 'string' ? raw.cityId : undefined,
         language: typeof raw.language === 'string' ? raw.language.slice(0, 40) : undefined,
-        durationWeeks: clamp(Math.round(finite(raw.durationWeeks, base.durationWeeks)), 0, 52),
+        durationWeeks: clamp(Math.round(finite(raw.durationWeeks, base.durationWeeks)), 0, 520),
         startOffset: clamp(Math.round(finite(raw.startOffset, 0)), -1, 80),
         audience,
         cityIds: Array.isArray(raw.cityIds) ? raw.cityIds.filter((id): id is string => typeof id === 'string').slice(0, 48) : undefined,
@@ -422,6 +422,7 @@ export const normalizeMarketing = (raw: unknown): MarketingState => {
             poster: cleanPoster(item.poster, item.titleName),
             feedPostIds: Array.isArray(item.feedPostIds) ? item.feedPostIds.filter(id => typeof id === 'string').slice(0, 8) : [],
             rival: Boolean(item.rival) || asOwner(item.ownerKind) === 'RIVAL_PLATFORM' || asOwner(item.ownerKind) === 'RIVAL_HOUSE',
+            extensions: Math.max(0, Math.round(finite(item.extensions))) || undefined,
         };
         return [campaign];
     }).slice(0, 80) : [];

@@ -51,6 +51,8 @@ import { PricingDesk } from './PricingDesk';
 import { headingFont } from './ui';
 import { MarketingDesk } from '../marketing/MarketingDesk';
 import { LaunchCampaign } from '../marketing/launch/LaunchCampaign';
+import { CampaignGrid } from '../marketing/run/CampaignGrid';
+import { OpeningNight } from './opening/OpeningNight';
 import { STREAMING_SCENES, sceneStyle } from '../../services/ownPlatform/scenes';
 import { IdentBumper } from './IdentStage';
 import { armPlatformIdent } from '../../services/ownPlatform/identAudio';
@@ -68,6 +70,8 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
     const [marketTitle, setMarketTitle] = useState<string | null>(null);
     const [marketOpen, setMarketOpen] = useState(false);
     const [launchOpen, setLaunchOpen] = useState(false);
+    const [boardsOpen, setBoardsOpen] = useState(false);
+    const [openingOpen, setOpeningOpen] = useState(false);
     const state = player.ownPlatform;
     if (!state) return null;
     const books = state.books;
@@ -102,6 +106,8 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
                 ))}
                 <button type="button" data-testid="open-marketing" onClick={() => { setMarketTitle(null); setMarketOpen(true); }} className="shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#E4B15A] text-black">Marketing</button>
                 <button type="button" data-testid="open-launch-campaign" onClick={() => setLaunchOpen(true)} className="shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#2f6bff] text-white">Launch campaign</button>
+                <button type="button" data-testid="open-running-board" onClick={() => setBoardsOpen(true)} className="shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#1c1814] text-[#E4B15A]">Boards</button>
+                <button type="button" data-testid="open-opening-night" onClick={() => setOpeningOpen(true)} className="shrink-0 px-4 py-2 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#ff2d3a] text-white">Opening night</button>
             </div>
             {error && <p className="text-rose-300 text-sm" data-testid="ops-error">{error}</p>}
             {desk === 'content' && <ContentDesk player={player} onApply={apply} onMarket={titleId => { setMarketTitle(titleId); setMarketOpen(true); }} />}
@@ -121,6 +127,14 @@ export const Operations: React.FC<Props> = ({ player, onPlayer }) => {
             )}
             {launchOpen && createPortal(
                 <LaunchCampaign player={player} onPlayer={onPlayer} onClose={() => setLaunchOpen(false)} />,
+                document.body,
+            )}
+            {boardsOpen && createPortal(
+                <CampaignGrid player={player} ownerKind="EMPIRE" ownerId="empire" onPlayer={onPlayer} onClose={() => setBoardsOpen(false)} />,
+                document.body,
+            )}
+            {openingOpen && createPortal(
+                <OpeningNight player={player} onPlayer={onPlayer} onClose={() => setOpeningOpen(false)} />,
                 document.body,
             )}
             {marketOpen && (

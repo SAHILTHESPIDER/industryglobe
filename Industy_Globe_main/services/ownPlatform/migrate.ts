@@ -199,6 +199,7 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         streamRights: sanitizeStreamRights(raw.streamRights),
         platformDesk: sanitizePlatformDesk(raw.platformDesk),
         languageDesk: sanitizeLanguageDesk(raw.languageDesk),
+        openingNight: cleanOpening(raw.openingNight),
     };
     return syncRegions(merged);
 };
@@ -284,6 +285,22 @@ const normalizeBrand = (raw: PlatformBrand | undefined, identityId?: string): Pl
     if (raw && typeof raw === 'object' && raw.markId) return brandFrom(raw);
     if (identityId) return legacyBrand(identityId);
     return brandFrom(undefined);
+};
+
+const cleanOpening = (raw: OwnPlatformState['openingNight']): OwnPlatformState['openingNight'] => {
+    if (!raw || typeof raw !== 'object') return undefined;
+    const plan = raw.plan === 'BURST' || raw.plan === 'STAGGER' || raw.plan === 'GATES' ? raw.plan : 'GATES';
+    return {
+        version: 1,
+        played: raw.played !== false,
+        plan,
+        held: Boolean(raw.held),
+        subscribers: Math.max(0, Math.round(Number(raw.subscribers) || 0)),
+        peak: Math.max(0, Math.round(Number(raw.peak) || 0)),
+        playedFirstPct: Math.max(0, Math.min(100, Math.round(Number(raw.playedFirstPct) || 0))),
+        joined: Math.max(0, Math.round(Number(raw.joined) || 0)),
+        at: Math.round(Number(raw.at) || 0),
+    };
 };
 
 const clampStep = (value: unknown, max: number) => {

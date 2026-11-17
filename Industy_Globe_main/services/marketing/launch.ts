@@ -193,8 +193,12 @@ export const deliverLaunchOpening = (player: Player, now: number): string | null
 
 export const launchDemandFloor = (player: Player, now: number): number => {
     const flight = player.marketing?.launch;
-    if (!flight || flight.demandUntil == null || now > flight.demandUntil) return 0;
-    return Math.max(0, Math.min(0.1, flight.demand || 0));
+    if (!flight || flight.demandUntil == null || now > flight.demandUntil || flight.stoppedAbsolute != null) return 0;
+    const start = flight.bookedAbsolute;
+    const elapsed = start > 0 ? Math.max(1, Math.min(flight.weeks || 1, now - start + 1)) : 1;
+    const worn = Math.max(0, flight.extensions || 0) + Math.max(0, elapsed - 1) * 0.35;
+    const factor = 1 / (1 + worn * 0.42);
+    return Math.max(0, Math.min(0.1, (flight.demand || 0) * factor));
 };
 
 export const releaseHeldLaunch = (player: Player, now: number) => {

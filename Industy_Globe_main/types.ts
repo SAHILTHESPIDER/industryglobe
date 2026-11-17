@@ -1536,6 +1536,24 @@ export enum Page {
       platformDesk?: PlatformDeskState;
       /** Subtitle and dubbing ladders by language region. Missing on older saves. */
       languageDesk?: LanguageDeskState;
+      /** Opening-night ceremony. Missing until the desks run it, including on older live saves. */
+      openingNight?: OpeningNightRecord;
+  }
+
+  /** How opening night spends the peak. Gates are free. */
+  export type OpeningPeakPlan = 'GATES' | 'BURST' | 'STAGGER';
+
+  /** Written once the ceremony is committed. Older saves omit it and keep working. */
+  export interface OpeningNightRecord {
+      version: 1;
+      played: boolean;
+      plan: OpeningPeakPlan;
+      held: boolean;
+      subscribers: number;
+      peak: number;
+      playedFirstPct: number;
+      joined: number;
+      at: number;
   }
   
   export interface FuturePotential {
@@ -3202,6 +3220,11 @@ export enum Page {
       poster: MarketingPoster;
       feedPostIds: string[];
       rival: boolean;
+      /**
+       * Extra weeks bought after the original flight. Missing on older saves.
+       * Reach falls as this climbs. There is no week cap in the buy itself.
+       */
+      extensions?: number;
   }
 
   export interface MarketingFeedPost {
@@ -3290,6 +3313,12 @@ export enum Page {
       bookedAbsolute: number;
       /** True while the buy is paid but the service is not on, so the flight has not started. */
       held?: boolean;
+      /** Weeks added from the running board. Missing on older saves means none. */
+      extensions?: number;
+      /** Cities a format actually runs in. Missing means every city on the flight. */
+      channelCities?: Record<string, string[]>;
+      /** Set when the board is stopped and the unspent weeks are refunded. */
+      stoppedAbsolute?: number;
   }
 
   /** Optional. Missing on every save from before the marketing desk. Version stays 1. */

@@ -27,6 +27,7 @@ import { hashString } from '../../services/marketing/core';
 import { LAUNCH_REGIONS, MARKET_COUNTRIES, REGION_CITIES } from '../../services/ownPlatform/catalog';
 import { FrameCard, PosterThumb, WireCard } from './art';
 import { Surface } from './launch/Surfaces';
+import { CampaignGrid } from './run/CampaignGrid';
 import type { LaunchAnim } from '../../services/marketing/launchCatalog';
 import { DEFAULT_BRAND } from '../../services/ownPlatform/brand';
 
@@ -71,6 +72,7 @@ export const MarketingDesk: React.FC<Props> = ({
     const [confirming, setConfirming] = useState(false);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState<'ALL' | 'OURS' | 'RIVALS'>('ALL');
+    const [running, setRunning] = useState(false);
 
     useEffect(() => {
         const next = wakeMarketing(player);
@@ -143,10 +145,21 @@ export const MarketingDesk: React.FC<Props> = ({
 
     return (
         <div className="mkt" data-screen="marketing-desk" data-owner={ownerKind}>
+            {running && (
+                <CampaignGrid
+                    player={player}
+                    ownerKind={ownerKind === 'EMPIRE' ? 'EMPIRE' : 'HOUSE'}
+                    ownerId={ownerId}
+                    titleId={titleId || undefined}
+                    onPlayer={onPlayer}
+                    onClose={() => setRunning(false)}
+                />
+            )}
             <header className="mkt-top">
                 <div>
                     <button type="button" className="mkt-back" onClick={onBack}>Back</button>
                     {onLaunch && <button type="button" className="mkt-launch" data-testid="open-launch-campaign" onClick={onLaunch}>Launch campaign</button>}
+                    <button type="button" className="mkt-launch" data-testid="open-running-board" onClick={() => setRunning(true)}>Running</button>
                     <div className="mkt-kicker">{ownerKind === 'EMPIRE' ? 'Streaming desk' : 'Production desk'}</div>
                     <h1>Marketing</h1>
                 </div>

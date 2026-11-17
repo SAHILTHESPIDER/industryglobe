@@ -9,6 +9,7 @@ import { KEY_ARTS, LAUNCH_GROUPS, NIGHT_ORDER, TAGLINES, TRAILER_CUTS, campaignC
 import { ChannelMock } from './ChannelMock';
 import { LaunchNight, type NightStop } from './LaunchNight';
 import { WorldMap } from './WorldMap';
+import { CampaignGrid } from '../run/CampaignGrid';
 import '../../ownPlatform/fonts';
 import './launch.css';
 
@@ -51,6 +52,7 @@ export const LaunchCampaign: React.FC<Props> = ({
     const [query, setQuery] = useState('');
     const [error, setError] = useState('');
     const [night, setNight] = useState(Boolean(scene));
+    const [boards, setBoards] = useState(Boolean(player.marketing?.launch) && !scene && initialStep === 0);
     const titles = useMemo(() => (state ? listMarketingTitles(player, 'EMPIRE', 'empire') : []), [player, state]);
     const title = titles.find(row => row.id === (titleId || titles[0]?.id));
     const draft: LaunchDraft = {
@@ -117,6 +119,19 @@ export const LaunchCampaign: React.FC<Props> = ({
         else launch();
     };
 
+    if (boards && !night) {
+        return (
+            <CampaignGrid
+                player={player}
+                ownerKind="EMPIRE"
+                ownerId="empire"
+                onPlayer={onPlayer}
+                onClose={onClose}
+                onBook={() => setBoards(false)}
+            />
+        );
+    }
+
     if (night) {
         return (
             <div className="launch" data-screen="launch-campaign">
@@ -142,6 +157,7 @@ export const LaunchCampaign: React.FC<Props> = ({
                     <div className="launch-kicker">Step {step + 1} of 6 · {live ? 'On air' : 'Before opening'}</div>
                 </div>
                 <div className="launch-cash"><span>Company cash</span><b>{formatCompact(cash)}</b></div>
+                {player.marketing?.launch && <button type="button" className="launch-back" onClick={() => setBoards(true)} aria-label="Running boards">▣</button>}
             </header>
             <div className="launch-steps">
                 {STEPS.map((label, index) => (
