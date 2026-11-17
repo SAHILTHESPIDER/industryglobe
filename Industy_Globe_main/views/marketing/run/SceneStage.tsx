@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { useReducedMotion } from 'motion/react';
 import type { CampaignScene } from '../../../services/marketing/sceneRegistry';
 import { landmarkFor, type LandmarkKind } from '../../../services/marketing/launchCatalog';
@@ -211,7 +211,7 @@ const surfacesFor = (scene: CampaignScene, kind: LandmarkKind): Box[] => {
     ];
 };
 
-const uidOf = (scene: CampaignScene) => scene.id.replace(/[^a-z0-9]/gi, '');
+const uidOf = (scene: CampaignScene, instance: string) => `${instance}${scene.id}`.replace(/[^a-z0-9]/gi, '');
 
 const SkyDefs: React.FC<{ uid: string; accent: string }> = ({ uid, accent }) => (
     <defs>
@@ -623,8 +623,8 @@ const Rooftop: React.FC<{ uid: string; accent: string; kind: LandmarkKind; cityI
     </g>
 );
 
-const PlaceSvg: React.FC<{ scene: CampaignScene; accent: string; kind: LandmarkKind }> = ({ scene, accent, kind }) => {
-    const uid = uidOf(scene);
+const PlaceSvg: React.FC<{ scene: CampaignScene; accent: string; kind: LandmarkKind; instance: string }> = ({ scene, accent, kind, instance }) => {
+    const uid = uidOf(scene, instance);
     let body: React.ReactNode;
     if (scene.formatId === 'airport_screens') body = <Airport uid={uid} accent={accent} kind={kind} cityId={scene.cityId} />;
     else if (scene.formatId === 'mall_screens') body = <Mall uid={uid} accent={accent} />;
@@ -661,6 +661,7 @@ const PlaceSvg: React.FC<{ scene: CampaignScene; accent: string; kind: LandmarkK
 };
 
 export const SceneStage: React.FC<{ scene: CampaignScene; title: string; poster?: string; replayKey?: number; accent?: string; markId?: string; letter?: string; lockupId?: string }> = ({ scene, title, poster, replayKey = 0, accent = '#E4B15A', markId, letter = 'S', lockupId }) => {
+    const instance = useId();
     const reduce = useReducedMotion();
     const posed = typeof navigator !== 'undefined' && (navigator.webdriver || new URLSearchParams(window.location.search).get('still') === '1');
     const word = (title || 'TITLE').toUpperCase();
@@ -669,7 +670,7 @@ export const SceneStage: React.FC<{ scene: CampaignScene; title: string; poster?
     const moving = !reduce && !posed;
     return (
         <div className="stage" data-effect={scene.effect} data-city={scene.cityId} data-place={kind} data-photo-slot={scene.backdrop ? 'filled' : 'empty'} key={replayKey}>
-            <PlaceSvg scene={scene} accent={accent} kind={kind} />
+            <PlaceSvg scene={scene} accent={accent} kind={kind} instance={instance} />
             {scene.backdrop ? <div className="scene-photo" style={{ backgroundImage: `url(${scene.backdrop})` }} /> : null}
             {scene.effect === 'drone' && <Drones label={word} mark={markId || 'play'} letter={letter} reduce={!moving} accent={accent} />}
             {scene.effect === 'stunt' && moving && <i className="streak" />}
