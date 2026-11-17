@@ -9,9 +9,10 @@
 .run-scroll{flex:1;overflow:auto;padding:8px 14px 132px}
 .run-grid{display:grid;gap:12px;width:min(1100px,100%);margin:0 auto}
 .run-card{display:grid;grid-template-columns:112px minmax(0,1fr) 52px;gap:12px;align-items:center;text-align:left;border:0;border-radius:18px;padding:10px;background:linear-gradient(180deg,#16130f,#0c0b0a);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);cursor:pointer;min-width:0}
-.run-thumb{height:84px;border-radius:12px;overflow:hidden;position:relative;background:#05060a}
+.run-thumb{height:112px;border-radius:12px;overflow:hidden;position:relative;background:#05060a}
 .run-thumb .stage{position:absolute;inset:0;height:100%}
-.run-card b{display:block;font-family:"Barlow Condensed",Impact,sans-serif;font-size:26px;line-height:.9;font-weight:800}
+.run-thumb .mirror{display:none}
+.run-card b{display:block;font-family:"Barlow Condensed",Impact,sans-serif;font-size:22px;line-height:.95;font-weight:800;overflow-wrap:anywhere}
 .run-card small,.run-card em{display:block;color:#cbbfaa;font-style:normal;font-size:13px;margin-top:3px}
 .run-card em{color:#f3e6cf}
 .play-btn{width:40px;height:40px;border-radius:50%;border:0;background:var(--red);color:#fff;font-size:16px;cursor:pointer;display:grid;place-items:center}
@@ -49,30 +50,34 @@
 .sky.harbour{background:linear-gradient(#071018,#163040 48%,#0c1218)}
 .sky.tropical{background:linear-gradient(#140818,#402030 40%,#1a140c)}
 .sky.tower{background:linear-gradient(#070814,#201838 46%,#101018)}
-.scene-photo{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.72}
-.skyline{position:absolute;left:0;right:0;bottom:0;height:58%}
-.skyline i{position:absolute;bottom:0;display:block;background:#05060a;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
-.ground{position:absolute;left:0;right:0;bottom:0;height:18%;background:linear-gradient(#14110e,#050403)}
-.surface{position:absolute;overflow:hidden;transform-style:preserve-3d;box-shadow:0 18px 40px #000a}
-.surface .art{width:100%;height:100%;display:grid;place-items:center;background:linear-gradient(160deg,#1a120c,#3a2414 40%,#0c0c10);color:#f6e7c8;text-align:center;padding:8px}
-.surface .art b{font-family:"Bebas Neue",Impact,sans-serif;font-size:clamp(28px,6vw,64px);letter-spacing:.06em;line-height:.85}
-.surface .art small{display:block;font-size:11px;letter-spacing:.04em;opacity:.85}
-.surface .art.lock-stacked{display:flex;flex-direction:column}
-.surface .art.lock-beside,.surface .art.lock-word{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
-.surface .art img{width:100%;height:100%;object-fit:cover}
-.surface.ratio-1-9 .art b{writing-mode:vertical-rl;transform:rotate(180deg);font-size:clamp(18px,3.2vh,34px)}
-.led-tower{position:absolute;bottom:8%;width:18%;height:84%;background:linear-gradient(#1a1e28,#0a0c12);clip-path:polygon(22% 0,78% 0,100% 100%,0 100%)}
-.led-scan{position:absolute;left:0;right:0;height:18%;background:linear-gradient(transparent,#fff6,transparent);animation:scan-up 2.8s linear infinite}
-.lamps{position:absolute;bottom:16%;height:8px;background:radial-gradient(closest-side,#ffd089,transparent)}
-.placeholder{position:absolute;inset:0;background:repeating-linear-gradient(45deg,#2a241c 0 8px,#14110e 8px 16px);animation:fade-hold 2.4s ease forwards}
-.crowd{position:absolute;left:0;right:0;bottom:8%;height:22%;display:flex;align-items:flex-end;gap:4px;padding:0 8%}
-.crowd i{flex:1;border-radius:40px 40px 6px 6px;background:#07080c;min-height:20%}
-.ramp{position:absolute;left:8%;bottom:16%;width:46%;height:8px;background:#c8b8a0;transform:rotate(-12deg);transform-origin:left center}
-.streak{position:absolute;width:54px;height:8px;border-radius:8px;background:linear-gradient(90deg,transparent,#fff);animation:jump 2.2s ease-in-out infinite}
-.banner-drop{animation:drop 1.6s cubic-bezier(.16,.84,.32,1) both}
-.drone-canvas{position:absolute;inset:0;width:100%;height:100%}
-.win{position:absolute;background:#0c1018;box-shadow:inset 0 0 0 1px rgba(255,220,160,.25)}
-.win.on{background:#f2d7a2;box-shadow:0 0 12px #f2d7a288}
+.scene-photo{position:absolute;inset:0;background-size:cover;background-position:center;z-index:1}
+.place-svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.surface-rig{position:absolute;z-index:2}
+.tilt{position:relative;width:100%;height:100%;container-type:size;transform-style:preserve-3d;filter:drop-shadow(0 12px 16px rgba(0,0,0,.55))}
+.tilt .art{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center;gap:6%;overflow:hidden;color:#f6e7c8;text-align:center;padding:7%;box-shadow:inset 0 0 0 1px rgba(255,255,255,.28), 0 0 18px var(--glow, #E4B15A)}
+.tilt .art b{font-family:"Bebas Neue",Impact,sans-serif;letter-spacing:.04em;line-height:.82;max-width:100%;white-space:nowrap;text-shadow:0 0 10px var(--glow, #E4B15A), 0 0 22px var(--glow, #E4B15A)}
+.tilt .art .mark{width:20cqmin;height:20cqmin;flex:none;display:grid}
+.tilt .art .mark svg{width:100%;height:100%}
+.tilt .art.lock-stacked{flex-direction:column}
+.tilt .art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tilt.ratio-1-9 .art{flex-direction:column;padding:8% 0;background:#05070d}
+.tilt.ratio-1-9 .bloom{opacity:.22;filter:blur(3px);inset:0}
+.tilt.ratio-1-9{overflow:hidden}
+.tilt.ratio-1-9 .art{overflow:hidden}
+.tilt.ratio-1-9 .art b{writing-mode:vertical-rl;transform:rotate(180deg);max-width:none;line-height:1}
+.tilt .glass{position:absolute;inset:0;background:linear-gradient(118deg, rgba(255,255,255,.42), transparent 36%, rgba(255,255,255,.08) 62%, transparent 80%);mix-blend-mode:screen;pointer-events:none}
+.tilt .bloom{position:absolute;inset:-12%;opacity:.42;mix-blend-mode:screen;filter:blur(10px);pointer-events:none}
+.tilt .sheen{position:absolute;top:-30%;bottom:-30%;width:28%;background:linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);animation:sheen 3.6s ease-in-out infinite;pointer-events:none}
+.led-scan{position:absolute;left:0;right:0;height:22%;mix-blend-mode:screen;animation:scan-up 2.6s linear infinite;pointer-events:none}
+.mirror{position:absolute;left:0;right:0;top:100%;height:46%;transform:scaleY(-1);opacity:.32;-webkit-mask-image:linear-gradient(#000, transparent 78%);mask-image:linear-gradient(#000, transparent 78%);pointer-events:none}
+.streak{position:absolute;z-index:3;width:18%;height:1.6%;border-radius:99px;background:linear-gradient(90deg, transparent, #fff);box-shadow:0 0 12px #fff;animation:jump 2.2s ease-in-out infinite}
+.banner-drop{animation:drop 1.7s cubic-bezier(.16,.84,.32,1) both}
+.drone-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:2}
+.place-svg .flicker{animation:twinkle 1.8s ease-in-out infinite}
+.place-svg .esc{animation:steps 1.1s linear infinite}
+@keyframes sheen{from{transform:translateX(-160%)}to{transform:translateX(460%)}}
+@keyframes twinkle{50%{opacity:.25}}
+@keyframes steps{to{stroke-dashoffset:-12}}
 @keyframes live-pulse{50%{opacity:.35}}
 @keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 @keyframes scan-up{from{bottom:-20%}to{bottom:110%}}
@@ -81,8 +86,8 @@
 @keyframes jump{0%{left:12%;bottom:18%}50%{left:48%;bottom:46%}100%{left:70%;bottom:20%}}
 @media (min-width:900px){
   .run-grid{grid-template-columns:1fr 1fr}
-  .run-card{grid-template-columns:180px minmax(0,1fr) 64px}
-  .run-thumb{height:110px}
+  .run-card{grid-template-columns:200px minmax(0,1fr) 64px}
+  .run-thumb{height:132px}
   .run-top,.live-top{padding-left:28px;padding-right:28px}
 }
 @media (max-width:420px){
