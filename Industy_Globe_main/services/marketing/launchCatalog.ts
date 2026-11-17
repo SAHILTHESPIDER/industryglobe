@@ -399,6 +399,14 @@ export const describePlace = (row: LaunchChannel, cities: CampaignCity[]): Place
     return { disabled: false, reason: '', place: '', country, eligible: cities };
 };
 
+/** Cities a format can actually run in. A landmark never inherits a city that does not have it. */
+export const citiesForChannel = (channelId: string, cityIds: string[]): string[] => {
+    const channel = launchChannel(channelId);
+    const cities = cityIds.map(campaignCity).filter((row): row is CampaignCity => Boolean(row));
+    if (!channel) return cities.map(city => city.id);
+    return describePlace(channel, cities).eligible.map(city => city.id);
+};
+
 export interface FlightChannelLine {
     id: string;
     name: string;
@@ -621,6 +629,7 @@ export const cleanLaunchFlight = (raw: unknown): LaunchFlight | undefined => {
         campaignIds: Array.isArray(row.campaignIds) ? row.campaignIds.filter((id): id is string => typeof id === 'string').slice(0, 80) : [],
         appliedAbsolute: Number.isFinite(Number(row.appliedAbsolute)) ? Math.round(Number(row.appliedAbsolute)) : undefined,
         bookedAbsolute: Math.round(finite(row.bookedAbsolute)),
+        airedAbsolute: Number.isFinite(Number(row.airedAbsolute)) ? Math.round(Number(row.airedAbsolute)) : undefined,
         held: Boolean(row.held),
         extensions: Math.max(0, Math.round(finite(row.extensions))),
         stoppedAbsolute: Number.isFinite(Number(row.stoppedAbsolute)) ? Math.round(Number(row.stoppedAbsolute)) : undefined,

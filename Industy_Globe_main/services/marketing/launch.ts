@@ -25,6 +25,7 @@ import {
     TAGLINES,
     TRAILER_CUTS,
     campaignCity,
+    citiesForChannel,
     cleanLaunchFlight,
     creativeFactor,
     launchChannel,
@@ -166,7 +167,7 @@ const mirrorPost = (player: Player, post: MarketingFeedPost) => {
 
 export const deliverLaunchOpening = (player: Player, now: number): string | null => {
     const flight = cleanLaunchFlight(player.marketing?.launch);
-    if (!flight || flight.appliedAbsolute != null) return null;
+    if (!flight || flight.appliedAbsolute != null || flight.stoppedAbsolute != null) return null;
     const state = player.ownPlatform;
     if (!state || state.stage !== 'LIVE') return null;
     const subs = Math.max(0, Math.round(flight.subscribers));
@@ -186,6 +187,7 @@ export const deliverLaunchOpening = (player: Player, now: number): string | null
     flight.appliedAbsolute = now;
     if (flight.demandUntil == null) flight.demandUntil = now + Math.max(1, flight.weeks) - 1;
     flight.held = false;
+    if (!flight.airedAbsolute) flight.airedAbsolute = now;
     if (player.marketing) player.marketing.launch = flight;
     state.marketingDemand = Math.max(0, Math.min(0.1, Math.max(state.marketingDemand || 0, flight.demand || 0)));
     return `${state.name} campaign brought ${subs.toLocaleString('en-US')} subscribers.`;
@@ -194,7 +196,7 @@ export const deliverLaunchOpening = (player: Player, now: number): string | null
 export const launchDemandFloor = (player: Player, now: number): number => {
     const flight = player.marketing?.launch;
     if (!flight || flight.demandUntil == null || now > flight.demandUntil || flight.stoppedAbsolute != null) return 0;
-    const start = flight.bookedAbsolute;
+    const start = flight.held ? 0 : (flight.airedAbsolute || flight.bookedAbsolute || 0);
     const elapsed = start > 0 ? Math.max(1, Math.min(flight.weeks || 1, now - start + 1)) : 1;
     const worn = Math.max(0, flight.extensions || 0) + Math.max(0, elapsed - 1) * 0.35;
     const factor = 1 / (1 + worn * 0.42);
@@ -204,7 +206,7 @@ export const launchDemandFloor = (player: Player, now: number): number => {
 export const releaseHeldLaunch = (player: Player, now: number) => {
     const flight = player.marketing?.launch;
     const state = player.ownPlatform;
-    if (!flight?.held || !state || state.stage !== 'LIVE' || !player.marketing) return;
+    if (!flight?.held || flight.stoppedAbsolute != null || !state || state.stage !== 'LIVE' || !player.marketing) return;
     const ids = new Set(flight.campaignIds || []);
     let longest = Math.max(1, flight.weeks || 1);
     player.marketing.campaigns.forEach(campaign => {
@@ -217,7 +219,18 @@ export const releaseHeldLaunch = (player: Player, now: number) => {
         campaign.target = { ...campaign.target, startOffset: 0, durationWeeks: span };
     });
     flight.held = false;
-    if (flight.demandUntil == null) flight.demandUntil = now + longest - 1;
+    flight.airedAbsolute = now;
+    flight.demandUntil = now + longest - 1;
+};
+
+const channelMap = (channelIds: string[], cityIds: string[], previous?: Record<string, string[]>): Record<string, string[]> => {
+    const next: Record<string, string[]> = {};
+    channelIds.forEach(id => {
+        const pool = [...(previous?.[id] || []), ...cityIds].filter((cityId, index, all) => all.indexOf(cityId) === index);
+        const kept = citiesForChannel(id, pool);
+        if (kept.length) next[id] = kept.slice(0, 48);
+    });
+    return next;
 };
 
 const creativeOf = (draft: LaunchDraft): MarketingCreative => ({
@@ -350,8 +363,10 @@ export const confirmLaunchFlight = (player: Player, draft: LaunchDraft): { playe
         demandUntil: live ? now + weeks - 1 : undefined,
         cities: [...cityLines.values()].slice(0, 48),
         campaignIds: unique([...(open?.campaignIds || []), ...ids]).slice(0, 80),
-        bookedAbsolute: now,
+        bookedAbsolute: open?.bookedAbsolute || now,
+        airedAbsolute: live ? (open?.airedAbsolute || now) : open?.airedAbsolute,
         held: !live,
+        channelCities: channelMap(unique([...(open?.channelIds || []), ...picked.map(row => row.id)]), cityIds, open?.channelCities),
     };
     desk.launch = flight;
     next.marketing = desk;

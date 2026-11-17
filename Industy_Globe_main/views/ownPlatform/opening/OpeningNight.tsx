@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import type { OpeningPeakPlan, Player } from '../../../types';
-import { brandAccent, brandFrom } from '../../../services/ownPlatform/brand';
+import { wornIdentity } from '../../../services/brand/founding';
 import { formatCompact, formatPeople } from '../../../services/ownPlatform/logic';
 import { launchChannel } from '../../../services/marketing/launchCatalog';
 import { commitOpening, openingBrief, openingIsReplay, simulateOpening, type OpeningSim } from '../../../services/ownPlatform/openingNight';
@@ -32,7 +32,7 @@ export const OpeningNight: React.FC<{
     const [beat, setBeat] = useState(initialBeat);
     const [count, setCount] = useState(hold ? 3 : 10);
     const forecast = useMemo(() => simulateOpening(player, plan), [player, plan]);
-    const brand = brandFrom(player.ownPlatform?.brand);
+    const worn = wornIdentity(player);
     const formats = (player.marketing?.launch?.channelIds || []).slice(0, 4).map(id => launchChannel(id)?.name || id);
 
     useEffect(() => {
@@ -118,7 +118,7 @@ export const OpeningNight: React.FC<{
             )}
             {phase === 'go' && sim && (
                 <motion.div className="beat" key={beat} initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-                    <BrandMark id={brand.markId} color="#E4B15A" size={28} letter={brief.service} />
+                    <BrandMark id={worn.markId} color={worn.accent} size={28} letter={worn.letter} />
                     {beat === 0 && (
                         <>
                             <div className="particles" aria-hidden="true">{Array.from({ length: 18 }, (_, index) => <i key={index} style={{ left: `${(index * 19) % 100}%`, top: `${20 + (index % 6) * 10}%` }} />)}</div>
@@ -162,7 +162,11 @@ export const OpeningNight: React.FC<{
                                 <i className="person" style={{ left: '30%', height: 58 }} />
                                 <i className="sofa" />
                             </div>
-                            <div className="note" style={{ borderLeft: `4px solid ${brandAccent(brand)}` }}><small>{brief.service}</small><b>{brief.title} is streaming</b><span>Tap to watch</span></div>
+                            <div className="note" style={{ borderLeft: `4px solid ${worn.accent}` }}>
+                                <small>{worn.name}</small>
+                                <b>{brief.title} is streaming</b>
+                                <span>{worn.manifesto || 'Tap to watch'}</span>
+                            </div>
                         </>
                     )}
                     {beat === 5 && (
@@ -185,6 +189,8 @@ export const OpeningNight: React.FC<{
                     {beat >= 7 && (
                         <>
                             <h1>TONIGHT</h1>
+                            {worn.manifesto && <p>{worn.manifesto}</p>}
+                            <p>{worn.promise} · {worn.strategy}</p>
                             <div className="panels">
                                 <article className="panel"><small>SUBSCRIBERS</small><b><CountUp value={sim.subscribers} format={formatPeople} /></b></article>
                                 <article className="panel"><small>PEAK AT ONCE</small><b><CountUp value={sim.peak} format={formatPeople} /></b></article>

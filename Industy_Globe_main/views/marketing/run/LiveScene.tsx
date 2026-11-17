@@ -24,12 +24,14 @@ export const LiveScene: React.FC<{
     markId?: string;
     letter?: string;
     customMark?: string;
+    lockupId?: string;
+    line?: string;
     onClose: () => void;
-}> = ({ scene, title, logo, brand, poster, cities = [], accent = '#E4B15A', markId, letter, customMark, onClose }) => {
+}> = ({ scene, title, logo, brand, poster, cities = [], accent = '#E4B15A', markId, letter, customMark, lockupId, line, onClose }) => {
     const [cityId, setCityId] = useState(scene.cityId);
     const [replay, setReplay] = useState(0);
     const current = sceneFor(scene.formatId, cityId) || scene;
-    const line = `${current.marquee} · ${current.marquee}`;
+    const ticker = `${current.marquee} · ${current.marquee}`;
     return (
         <div className="live-scene" role="dialog" aria-label={`${current.formatName} live`} data-screen="campaign-live" data-scene={current.id}>
             <header className="live-top">
@@ -39,7 +41,7 @@ export const LiveScene: React.FC<{
                 </div>
                 <button type="button" className="live-x" aria-label="Close" onClick={onClose}>×</button>
             </header>
-            <div className="marquee" aria-hidden="true"><span>{line}</span></div>
+            <div className="marquee" aria-hidden="true"><span>{ticker}</span></div>
             {cities.length > 1 && (
                 <div className="live-cities">
                     {cities.map(id => {
@@ -53,7 +55,7 @@ export const LiveScene: React.FC<{
                     })}
                 </div>
             )}
-            <SceneStage scene={current} title={title} poster={poster} replayKey={replay} accent={accent} markId={markId || brand?.markId} letter={letter || logo} customMark={customMark || brand?.customMark} />
+            <SceneStage scene={current} title={title} poster={poster} replayKey={replay} accent={accent} markId={markId || brand?.markId} letter={letter || logo} customMark={customMark || brand?.customMark} lockupId={lockupId || brand?.lockupId} line={line || brand?.manifesto} />
             <footer className="live-foot">
                 <span>{madeFor(current)}</span>
                 <button type="button" onClick={() => { tap('LIGHT'); setReplay(value => value + 1); }}>REPLAY</button>

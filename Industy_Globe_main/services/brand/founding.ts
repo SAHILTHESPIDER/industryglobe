@@ -4,7 +4,7 @@
  */
 import type { PlatformBrand, Player } from '../../types';
 import { BUSINESS_BLUEPRINTS, calculateSetupCost } from '../businessLogic';
-import { REBRAND_USD, brandAccent, brandFrom, mixHex } from '../ownPlatform/brand';
+import { REBRAND_USD, brandAccent, brandFrom, mixHex, typefaceById } from '../ownPlatform/brand';
 import type { BusinessConfig, BusinessSubtype, BusinessType } from '../../types';
 
 export interface BrandPromise {
@@ -28,6 +28,19 @@ export const BRAND_PROMISES: BrandPromise[] = [
 ];
 
 export const promiseById = (id?: string): BrandPromise => BRAND_PROMISES.find(row => row.id === id) || BRAND_PROMISES[4];
+
+/** How a signed promise leans on opening night. Missing promise is a flat night. */
+export const promiseLean = (id?: string): { peak: number; capacity: number; first: number; joined: number } => {
+    switch (id) {
+        case 'tech': return { peak: 1, capacity: 1.06, first: 0, joined: 1 };
+        case 'event': return { peak: 1.08, capacity: 1, first: -4, joined: 1.04 };
+        case 'binge': return { peak: 0.96, capacity: 1, first: 6, joined: 1 };
+        case 'critics': return { peak: 0.9, capacity: 1, first: 5, joined: 0.92 };
+        case 'world': return { peak: 1.04, capacity: 1, first: 0, joined: 1.08 };
+        case 'fandom': return { peak: 1, capacity: 1, first: 2, joined: 1.03 };
+        default: return { peak: 1, capacity: 1, first: 0, joined: 1 };
+    }
+};
 
 export const COLOUR_PRESETS: { name: string; hue: number; intensity: number }[] = [
     { name: 'Red', hue: 4, intensity: 92 },
@@ -75,6 +88,39 @@ export const draftToBrand = (draft: FoundingDraft): PlatformBrand => brandFrom({
     promiseId: draft.promiseId,
     customMark: draft.customMark,
 });
+
+export interface WornIdentity {
+    name: string;
+    accent: string;
+    markId: string;
+    lockupId: string;
+    font: string;
+    letter: string;
+    customMark?: string;
+    manifesto: string;
+    promise: string;
+    strategy: string;
+}
+
+/** The identity the player signed, worn by every later screen. */
+export const wornIdentity = (player: Player): WornIdentity => {
+    const state = player.ownPlatform;
+    const brand = brandFrom(state?.brand);
+    const promise = promiseById(brand.promiseId);
+    const name = (state?.name || 'Empire+').trim() || 'Empire+';
+    return {
+        name,
+        accent: brandAccent(brand),
+        markId: brand.markId,
+        lockupId: brand.lockupId || 'beside',
+        font: typefaceById(brand.typefaceId).css,
+        letter: name.slice(0, 1).toUpperCase(),
+        customMark: brand.customMark,
+        manifesto: brand.manifesto || '',
+        promise: promise.name,
+        strategy: promise.strategy,
+    };
+};
 
 export const swatchRow = (brand: PlatformBrand): string[] => {
     const base = brandAccent(brand);

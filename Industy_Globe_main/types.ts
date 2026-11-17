@@ -3325,6 +3325,8 @@ export enum Page {
       /** Set once the subscriber grant has been written onto the service. */
       appliedAbsolute?: number;
       bookedAbsolute: number;
+      /** Absolute week the ads actually start. Missing on a held flight means they have not aired. */
+      airedAbsolute?: number;
       /** True while the buy is paid but the service is not on, so the flight has not started. */
       held?: boolean;
       /** Weeks added from the running board. Missing on older saves means none. */

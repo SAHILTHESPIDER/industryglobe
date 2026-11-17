@@ -3,7 +3,7 @@
  * A landmark never borrows another city's name.
  * Extra weeks drain cash and return less. They are not refused for being week 13.
  */
-import { CAMPAIGN_CITIES, campaignCity, landmarkFor } from '../services/marketing/launchCatalog.ts';
+import { CAMPAIGN_CITIES, campaignCity, citiesForChannel, landmarkFor } from '../services/marketing/launchCatalog.ts';
 import { RUN_FORMATS, allCampaignScenes, labelMatchesCity, placeLine, sceneFor } from '../services/marketing/sceneRegistry.ts';
 import { extendCost, extendRun, fatigueFactor, readRunBoard, refundForStop, stopRun } from '../services/marketing/campaignRun.ts';
 import type { Player } from '../types';
@@ -163,6 +163,15 @@ const poor = streamFilingFee({ money: 10_000 } as Player);
 need(rich !== poor && rich === 150_000_000, 'a rich founder files four percent, not a fixed cheque');
 need(poor < rich && poor > 0, 'a smaller fortune files a smaller fee');
 need(houseFilingFee() === 50_000_000, 'a production house files the blueprint price');
+need(citiesForChannel('landmark_light', ['bom', 'dxb']).join(',') === 'dxb', 'Burj Khalifa is only booked in Dubai');
+const heldBoard = readRunBoard({
+    ...player(),
+    marketing: {
+        ...player().marketing!,
+        launch: { ...player().marketing!.launch!, held: true, bookedAbsolute: now - 20, airedAbsolute: undefined },
+    },
+} as Player, 'EMPIRE', 'empire', 'shadow');
+need(heldBoard.status === 'HELD' && heldBoard.week === 0, 'a held flight does not age during construction');
 
 if (failed) {
     console.error(`${failed} scene checks failed`);

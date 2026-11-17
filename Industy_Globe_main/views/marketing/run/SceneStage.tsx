@@ -72,12 +72,13 @@ const Drones: React.FC<{ label: string; reduce: boolean; accent: string }> = ({ 
     return <canvas ref={ref} className="drone-canvas" />;
 };
 
-const Art: React.FC<{ title: string; poster?: string; frame: string; accent: string; markId?: string; letter: string; customMark?: string }> = ({ title, poster, frame, accent, markId, letter, customMark }) => (
-    <div className={`art ${frame === '1:9' ? 'ratio-tall' : ''}`} style={{ background: `linear-gradient(160deg, #120c08, ${accent} 42%, #0c0c10)` }}>
+const Art: React.FC<{ title: string; poster?: string; frame: string; accent: string; markId?: string; letter: string; customMark?: string; lockupId?: string; line?: string }> = ({ title, poster, frame, accent, markId, letter, customMark, lockupId = 'beside', line }) => (
+    <div className={`art lock-${lockupId} ${frame === '1:9' ? 'ratio-tall' : ''}`} style={{ background: `linear-gradient(160deg, #120c08, ${accent} 42%, #0c0c10)` }}>
         {poster ? <img src={poster} alt="" /> : (
             <>
-                {customMark ? <img src={customMark} alt="" width={28} height={28} /> : markId ? <BrandMark id={markId} color="#fff" size={frame === '1:9' ? 18 : 28} letter={letter} /> : null}
+                {lockupId !== 'word' && (customMark ? <img src={customMark} alt="" width={28} height={28} /> : markId ? <BrandMark id={markId} color="#fff" size={frame === '1:9' ? 18 : 28} letter={letter} /> : null)}
                 <b>{title}</b>
+                {line ? <small>{line}</small> : null}
             </>
         )}
     </div>
@@ -91,7 +92,7 @@ const Blocks: React.FC<{ count: number; skyline: string }> = ({ count }) => (
     </div>
 );
 
-export const SceneStage: React.FC<{ scene: CampaignScene; title: string; poster?: string; replayKey?: number; accent?: string; markId?: string; letter?: string; customMark?: string }> = ({ scene, title, poster, replayKey = 0, accent = '#E4B15A', markId, letter = 'S', customMark }) => {
+export const SceneStage: React.FC<{ scene: CampaignScene; title: string; poster?: string; replayKey?: number; accent?: string; markId?: string; letter?: string; customMark?: string; lockupId?: string; line?: string }> = ({ scene, title, poster, replayKey = 0, accent = '#E4B15A', markId, letter = 'S', customMark, lockupId, line }) => {
     const reduce = useReducedMotion();
     const word = (title || 'TITLE').toUpperCase();
     const quad = scene.quad;
@@ -135,7 +136,7 @@ export const SceneStage: React.FC<{ scene: CampaignScene; title: string; poster?
             {scene.effect === 'drone' && <Drones label={word} reduce={Boolean(reduce)} accent={accent} />}
             <div className={`surface ${scene.effect === 'banner' && !reduce ? 'banner-drop' : ''} ${scene.frame === '1:9' ? 'ratio-1-9' : ''}`} style={surfaceStyle}>
                 {scene.effect === 'billboard' && <i className="placeholder" />}
-                <Art title={word} poster={poster} frame={scene.frame} accent={accent} markId={markId} letter={letter} customMark={customMark} />
+                <Art title={word} poster={poster} frame={scene.frame} accent={accent} markId={markId} letter={letter} customMark={customMark} lockupId={lockupId} line={line} />
             </div>
             <div className="ground" />
         </div>

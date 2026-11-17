@@ -2,10 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { Player } from '../../../types';
 import { createBusiness, HEAD_OF_PRODUCTION_CANDIDATES } from '../../../services/businessLogic';
-import type { PlatformBrand } from '../../../types';
-import { houseFilingFee } from '../../../services/brand/founding';
-import { formatCompact } from '../../../services/ownPlatform/logic';
-import { BrandFoundry } from '../../brand/BrandFoundry';
 import { ArrowLeft, ArrowRight, Camera, Check, Clapperboard, Star, Users, Zap, Lock, DollarSign, TrendingUp, ShieldCheck, Crown, Sparkles, X, AlertTriangle, ChevronRight, PenTool } from 'lucide-react';
 
 interface ProductionWizardProps {
@@ -19,8 +15,6 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
     // Start at Step 0 (The Gate) instead of 1
     const [step, setStep] = useState(0);
     const [name, setName] = useState('');
-    const [houseBrand, setHouseBrand] = useState<PlatformBrand | null>(null);
-    const filingFee = houseFilingFee();
     const [headOfProd, setHeadOfProd] = useState<string | null>(null);
     const [isAnimating, setIsAnimating] = useState(false);
     
@@ -148,7 +142,7 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
         }, 13500);
     };
 
-    const COST = filingFee;
+    const COST = 50000000;
 
     const handleFinalRatify = () => {
         if (!name || !headOfProd) return;
@@ -172,21 +166,18 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
         setIsAnimating(true);
 
         setTimeout(() => {
-            const newBiz = {
-                ...createBusiness(name, 'PRODUCTION_HOUSE', 'MAJOR_STUDIO', {
-                    quality: 'LUXURY',
-                    pricing: 'HIGH',
-                    marketing: 'HIGH',
-                    headOfProductionId: headOfProd,
-                }, '🎬', player.currentWeek),
-                brand: houseBrand || undefined,
-            };
+            const newBiz = createBusiness(name, 'PRODUCTION_HOUSE', 'MAJOR_STUDIO', {
+                quality: 'LUXURY',
+                pricing: 'HIGH',
+                marketing: 'HIGH',
+                headOfProductionId: headOfProd,
+            }, '🎬', player.currentWeek);
 
             const hopName = HEAD_OF_PRODUCTION_CANDIDATES.find(h => h.id === headOfProd)?.name;
 
             onUpdatePlayer({
                 ...player,
-                money: houseBrand ? player.money : player.money - COST,
+                money: player.money - COST,
                 businesses: [...player.businesses, newBiz],
                 logs: [...player.logs, { 
                     week: player.currentWeek, 
@@ -196,7 +187,7 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
                 }],
                 news: [{
                     id: `news_studio_launch_${Date.now()}`,
-                    headline: `${player.name} launches ${name} Studios with ${formatCompact(COST)} investment.`,
+                    headline: `${player.name} launches ${name} Studios with $50M investment.`,
                     subtext: "Industry experts call it a bold move.",
                     category: 'TOP_STORY',
                     week: player.currentWeek,
@@ -239,29 +230,6 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
                 </div>
                 {flash && <div className="absolute inset-0 bg-white animate-out fade-out duration-[1500ms] pointer-events-none"></div>}
             </div>
-        );
-    }
-
-    if (!houseBrand && !isAnimating && !playCutscene) {
-        return (
-            <BrandFoundry
-                founder={player.name}
-                cash={player.money}
-                fee={filingFee}
-                kind="house"
-                onCancel={onCancel}
-                onFile={(draft, brand) => {
-                    if (player.money < filingFee) return `Personal cash is short ${formatCompact(filingFee - player.money)}.`;
-                    onUpdatePlayer({
-                        ...player,
-                        money: player.money - filingFee,
-                        logs: [...player.logs, { week: player.currentWeek, year: player.age, message: `Filed ${draft.name}. ${formatCompact(filingFee)} left personal cash.`, type: 'neutral' }],
-                    });
-                    setName(draft.name);
-                    setHouseBrand(brand);
-                    setStep(2);
-                }}
-            />
         );
     }
 

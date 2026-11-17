@@ -8,7 +8,7 @@ import { getAbsoluteWeek } from '../legacyLogic';
 import { addCompanyCash, readCompanyCash } from '../ownPlatform/companyCash';
 import { contentVeto } from '../ownPlatform/stakeSale';
 import { normalizeMarketing } from './core';
-import { cleanLaunchFlight, flightMoney, launchChannel } from './launchCatalog';
+import { citiesForChannel, cleanLaunchFlight, flightMoney, launchChannel } from './launchCatalog';
 import { placeLine, runFormat, sceneFor, RUN_FORMATS, type CampaignScene } from './sceneRegistry';
 
 const roundK = (value: number) => Math.round(value / 1000) * 1000;
@@ -125,13 +125,14 @@ export const readRunBoard = (
             const now = nowOf(player);
             const held = Boolean(flight.held) && flight.stoppedAbsolute == null;
             const stopped = flight.stoppedAbsolute != null;
-            const raw = held || !(flight.bookedAbsolute > 0) ? 0 : Math.max(1, now - flight.bookedAbsolute + 1);
+            const airStart = held ? 0 : (flight.airedAbsolute || flight.bookedAbsolute || 0);
+            const raw = airStart <= 0 ? 0 : Math.max(1, now - airStart + 1);
             const elapsed = Math.min(flight.weeks, raw);
             const week = held ? 0 : elapsed;
             const status = stopped ? 'STOPPED' : held ? 'HELD' : raw > flight.weeks ? 'COMPLETE' : 'RUNNING';
             const formats = RUN_FORMATS.map(row => row.id).filter(id => flight.channelIds.includes(id));
             const cards = formats.flatMap(id => {
-                const cities = flight.channelCities?.[id]?.length ? flight.channelCities[id] : flight.cityIds;
+                const cities = citiesForChannel(id, flight.channelCities?.[id]?.length ? flight.channelCities[id] : flight.cityIds);
                 const card = cardFor(id, cities, cities[0] || flight.cityIds[0] || 'bom');
                 return card ? [card] : [];
             });
@@ -321,7 +322,9 @@ export const stopRun = (
         const flight = cleanLaunchFlight(next.marketing?.launch);
         if (flight) {
             flight.stoppedAbsolute = now;
+            flight.held = false;
             flight.demandUntil = now - 1;
+            if (flight.appliedAbsolute == null) flight.appliedAbsolute = now;
             const ids = new Set(flight.campaignIds);
             next.marketing = normalizeMarketing(next.marketing);
             next.marketing.campaigns.forEach(campaign => {
