@@ -69,7 +69,7 @@ export const LandmarkArt: React.FC<{ kind: LandmarkKind; brand: PlatformBrand; l
     const iron = mixHex(accent, '#f4e2b0', 0.35);
     const box = COPY[kind];
     return (
-        <div className={`landmark kind-${kind}`} data-landmark={kind}>
+        <div className={`lx landmark kind-${kind}`} data-landmark={kind}>
             <svg className="sky-bleed" viewBox="0 0 1000 400" preserveAspectRatio="none" aria-hidden="true">
                 <defs>
                     <linearGradient id={`sky-${raw}`} x1="0" y1="0" x2="0" y2="1">

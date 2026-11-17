@@ -1,4 +1,4 @@
-.launch{--gold:#E4B15A;--blue:#2f6bff;--ink:#070910;--mute:#93a0bb;position:fixed;inset:0;z-index:80;background:radial-gradient(120% 80% at 10% -10%,#14203c 0%,var(--ink) 42%);color:#f4f6fb;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box}
+.launch{--gold:#E4B15A;--blue:#2f6bff;--ink:#070910;--mute:#93a0bb;position:fixed;inset:0;z-index:290;background:radial-gradient(120% 80% at 10% -10%,#14203c 0%,var(--ink) 42%);color:#f4f6fb;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;width:100%;max-width:100%;overflow:hidden;box-sizing:border-box}
 .launch *,.launch *::before,.launch *::after{box-sizing:border-box}
 .launch button,.launch input{font:inherit;color:inherit}
 .launch-top{display:flex;align-items:flex-start;gap:12px;padding:14px 16px 0;min-width:0}
@@ -76,7 +76,7 @@
 .wave{animation:wave 1.6s ease-in-out infinite}
 .vinyl{animation:spin 3.2s linear infinite}
 .beam{transform-origin:top center;animation:sweep 3s ease-in-out infinite}
-.banner{animation:drop 3.4s ease-in-out infinite}
+.launch .banner,.lx .banner{animation:drop 3.4s ease-in-out infinite}
 .drone-dot{position:absolute;width:5px;height:5px;border-radius:50%;background:#d7e6ff;animation:form 3.6s ease-in-out infinite}
 .crowd i{display:inline-block;width:8px;height:14px;margin:0 1px;background:#1d3a68;border-radius:4px 4px 0 0;animation:bob 1.2s ease-in-out infinite}
 .jump{animation:jump 2.4s ease-in-out infinite}
@@ -161,7 +161,7 @@
 .sky-photo{position:absolute;inset:0;width:100%;height:78%;object-fit:cover}
 .sky-reflect{position:absolute;left:0;right:0;bottom:0;height:28%;width:100%;object-fit:cover;transform:scaleY(-1);opacity:.35;mask-image:linear-gradient(#000,transparent);animation:floaty 5s ease-in-out infinite}
 .drone-canvas,.fx-canvas{position:absolute;inset:0;width:100%;height:100%;z-index:3}
-.spot{position:absolute;top:-10%;width:18%;height:90%;z-index:2;background:linear-gradient(rgba(158,197,255,.55),transparent);transform-origin:top center;mix-blend-mode:screen}
+.launch .spot,.lx .spot{position:absolute;top:-10%;width:18%;height:90%;z-index:2;background:linear-gradient(rgba(158,197,255,.55),transparent);transform-origin:top center;mix-blend-mode:screen}
 .spot-a{left:18%;animation:sweep 3.4s ease-in-out infinite}
 .spot-b{left:62%;animation:sweep 3.4s ease-in-out infinite reverse;background:linear-gradient(rgba(228,177,90,.5),transparent)}
 .banner-night{position:absolute;left:36%;top:0;width:16%;height:68%;z-index:3;transform-origin:top center;display:flex;align-items:center;justify-content:center;writing-mode:vertical-rl;font-weight:800;font-size:clamp(28px,5vw,64px);letter-spacing:.12em;animation:unroll 6s ease-in-out infinite;box-shadow:0 18px 40px #000a}
