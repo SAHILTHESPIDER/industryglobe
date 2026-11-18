@@ -17,6 +17,7 @@
     "audit:marketing": "node --experimental-strip-types scripts/audit-marketing.mjs && node scripts/audit-marketing-player.mjs",
     "audit:scenes": "node scripts/audit-scenes.mjs",
     "audit:opening": "node scripts/audit-opening.mjs",
+    "audit:script-desk": "node scripts/audit-script-desk.mjs",
     "lint": "tsc --noEmit",
     "cap:patch:ios": "node ./scripts/patch-ios-plugins.mjs",
     "cap:sync:ios": "npx cap sync ios && node ./scripts/patch-ios-plugins.mjs"

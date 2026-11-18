@@ -190,6 +190,166 @@ export enum Page {
       action?: number;
       originality?: number;
   }
+
+  /** Film industry the player's house is working in. Missing on older saves. */
+  export type FilmIndustryId =
+      | 'HOLLYWOOD'
+      | 'BOLLYWOOD'
+      | 'TOLLYWOOD'
+      | 'KOLLYWOOD'
+      | 'MOLLYWOOD'
+      | 'NOLLYWOOD'
+      | 'KOREAN'
+      | 'BRITISH'
+      | 'CHINESE'
+      | 'LATIN'
+      | 'JAPANESE';
+
+  export type IdeaSource = 'ORIGINAL' | 'BOOK' | 'REMAKE' | 'TRUE_STORY';
+  export type ScriptStage = 'IDEA' | 'TREATMENT' | 'FIRST_DRAFT' | 'REWRITES' | 'LOCKED';
+  export type CoverageVerdict = 'PASS' | 'CONSIDER' | 'RECOMMEND';
+  export type BookSplit = 'SINGLE' | 'TWO_PART' | 'TRILOGY' | 'WEB_SERIES';
+  export type CharacterRoleSize = 'LEAD' | 'SUPPORTING' | 'CAMEO';
+
+  export interface ScriptCharacter {
+      id: string;
+      name: string;
+      role: string;
+      size: CharacterRoleSize;
+      gender?: 'MALE' | 'FEMALE' | 'ANY';
+      actorId?: string | null;
+      actorName?: string;
+  }
+
+  export interface PlotTwistOffer {
+      id: string;
+      label: string;
+      detail: string;
+      risk: string;
+      reward: string;
+      audience: number;
+      critics: number;
+      /** Added to the weekly leak chance while the draft is alive. */
+      leak: number;
+      linkedRole?: string;
+  }
+
+  export interface CoverageReport {
+      plot: number;
+      dialogue: number;
+      characters: number;
+      market: number;
+      verdict: CoverageVerdict;
+      note: string;
+      week: number;
+  }
+
+  export interface ScriptLeakState {
+      leaked: boolean;
+      risk: number;
+      week?: number;
+      rivalStudio?: string;
+      rivalTitle?: string;
+      /** Audience heat stolen by the leak or the rival rush. */
+      heat: number;
+  }
+
+  export interface BookSagaState {
+      id: string;
+      title: string;
+      author: string;
+      popularity: number;
+      rightsCost: number;
+      rightsOwned: boolean;
+      split: BookSplit;
+      totalParts: number;
+      partsMade: number;
+      partScores: { part: number; title: string; score: number }[];
+      /** Multiplier applied to returning cast asks on later parts. */
+      castPremium: number;
+  }
+
+  /**
+   * Writers' room record. Optional on Script so saves from before the script desk still load.
+   * `legacy` marks a block inferred for an older script; those drafts keep the old week clock.
+   */
+  export interface ScriptCraft {
+      legacy?: boolean;
+      industry: FilmIndustryId;
+      source: IdeaSource;
+      toneId?: string;
+      toneLabel?: string;
+      hookId?: string;
+      hookLabel?: string;
+      climaxId?: string;
+      climaxLabel?: string;
+      songs: number;
+      songStyle?: string;
+      twistId?: string;
+      twist?: PlotTwistOffer;
+      twistOffers?: PlotTwistOffer[];
+      stage: ScriptStage;
+      rewrites: number;
+      freshness: number;
+      audienceAppeal: number;
+      criticAppeal: number;
+      /** Production-budget change from songs, scale, and the ensemble. Rights and fees are paid up front. */
+      budgetDelta: number;
+      characters: ScriptCharacter[];
+      coverage?: CoverageReport;
+      leak?: ScriptLeakState;
+      book?: BookSagaState;
+      remake?: { title: string; year: number; popularity: number; rightsCost: number; rightsOwned: boolean; publicDomain?: boolean };
+      trueStory?: { subject: string; sensitivity: number; popularity: number; rightsCost: number; rightsOwned: boolean; unauthorized?: boolean };
+      writerIds?: string[];
+      writerNames?: string[];
+      weeksAtStage?: number;
+      slipWeeks?: number;
+      slipRisk?: number;
+      rewriteWeeksLeft?: number;
+      pages?: string;
+      partIndex?: number;
+      sagaId?: string;
+  }
+
+  export interface BookListing {
+      id: string;
+      title: string;
+      author: string;
+      genre: Genre;
+      popularity: number;
+      pages: number;
+      publicDomain?: boolean;
+      blurb: string;
+      industry: FilmIndustryId;
+      owned?: boolean;
+      paid?: number;
+  }
+
+  export interface RemakeListing {
+      id: string;
+      title: string;
+      year: number;
+      genre: Genre;
+      popularity: number;
+      blurb: string;
+      industry: FilmIndustryId;
+      publicDomain?: boolean;
+      owned?: boolean;
+      paid?: number;
+  }
+
+  export interface TrueStoryListing {
+      id: string;
+      subject: string;
+      kind: string;
+      popularity: number;
+      sensitivity: number;
+      blurb: string;
+      industry: FilmIndustryId;
+      owned?: boolean;
+      paid?: number;
+  }
   
   export interface Script {
       id: string;
@@ -259,6 +419,8 @@ export enum Page {
           accepted: boolean;
           attemptsLeft?: number;
       }[];
+      /** Writers' room, rights, twists, and draft stages. Missing on saves from before the script desk. */
+      craft?: ScriptCraft;
   }
   
   export type WriterTier = 'ASPIRING' | 'COMMON' | 'A_LIST';
@@ -271,6 +433,13 @@ export enum Page {
       speed: number;
       tier: WriterTier;
       stats: WriterStats;
+      /** Genres where this writer is actually good. Missing on older writers. */
+      genreStrengths?: Genre[];
+      /** Chance a development week slips, from 0 to 1. */
+      slipRisk?: number;
+      /** Weeks they want for a draft. Bigger names take longer. */
+      scheduleWeeks?: number;
+      industry?: FilmIndustryId;
   }
   
   export interface ProjectConcept {
@@ -340,6 +509,12 @@ export enum Page {
       /** Worldwide book and life-rights market. Missing on saves from before the Rights Library. */
       rightsLibrary?: RightsLibraryState;
       universes?: Record<string, any>;
+      /** Film industry this house writes for. Missing means Hollywood until the player picks one. */
+      filmIndustry?: FilmIndustryId;
+      bookShelf?: BookListing[];
+      remakeShelf?: RemakeListing[];
+      trueStoryShelf?: TrueStoryListing[];
+      bookSagas?: BookSagaState[];
   }
 
   export type RightsRegionId =

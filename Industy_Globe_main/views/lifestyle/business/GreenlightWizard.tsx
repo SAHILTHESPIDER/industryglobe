@@ -10,6 +10,7 @@ import { showAd } from '../../../services/adLogic';
 import { hasNoAds } from '../../../services/premiumLogic';
 import { formatProjectFormatLabel } from '../../../services/genreCatalog';
 import { applyUnauthorizedShoot, rightsGreenlightBlock, rightsHiddenFromScript } from '../../../services/rights/logic';
+import { castFitBonus, markSagaProduced, productionBudgetDelta, releaseHypeBonus, rolesForGreenlight, smallRolePremium } from '../../../services/scriptDesk/logic';
 import { addBreadcrumb, markGameCheckpoint, markTraceAction, setCrashContext, startPerformanceTrace, stopPerformanceTrace, trackGameEvent } from '../../../services/firebaseService';
 
 type ConnectedProjectIntent = 'AUTO' | 'SOLO' | 'CROSSOVER' | 'EVENT' | 'REBOOT';
@@ -1068,10 +1069,10 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                     lineProducer: null,
                     vfx: null
                 });
-                setCastList(existingConcept.castList || [
+                setCastList(existingConcept.castList?.length ? existingConcept.castList : (rolesForGreenlight(selectedScript) || [
                     { id: 'lead_1', role: 'Lead Actor', roleType: 'LEAD', actorId: null },
                     { id: 'supp_1', role: 'Supporting Actor', roleType: 'SUPPORTING', actorId: null }
-                ]);
+                ]));
                 setSelectedLocations(existingConcept.selectedLocations || []);
                 setEquipmentChoices(existingConcept.equipmentChoices || {
                     cameras: 'TIER_3',
@@ -1102,7 +1103,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                     lineProducer: null,
                     vfx: null
                 });
-                setCastList([
+                setCastList(rolesForGreenlight(selectedScript) || [
                     { id: 'lead_1', role: 'Lead Actor', roleType: 'LEAD', actorId: null },
                     { id: 'supp_1', role: 'Supporting Actor', roleType: 'SUPPORTING', actorId: null }
                 ]);
@@ -1684,7 +1685,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
             discount = Math.min(0.7, (closeness - 50) / 100 + 0.2); // Up to 70% discount
         }
 
-        return Math.floor(base * (1 - discount));
+        return Math.floor(base * (1 - discount) * smallRolePremium(actor.tier, roleType));
     };
 
     const estimateLinkedCharacterSalary = (character: any, roleType: string) => {
@@ -1851,6 +1852,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
 
         const scriptCost = selectedScript?.developmentCost || 0;
         estimatedBudget += scriptCost;
+        estimatedBudget += productionBudgetDelta(selectedScript);
 
         const directorData = getCrewData('director');
         const dpData = getCrewData('cinematographer');
@@ -2494,7 +2496,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                  // Another Industry Account
                 author = 'Deadline';
                 handle = '@Deadline';
-                content = `EXCLUSIVE: ${studio.name} moves forward with ${selectedScript.genres[0]} project "${selectedScript.title}". Budget estimated at $${(estimatedBudget/1000000).toFixed(0)}M.`;
+                content = `EXCLUSIVE: ${studio.name} moves forward with ${selectedScript.genres[0]} project "${selectedScript.title}". Budget estimated at $${(estimatedBudget/1000000).toFixed(0)}M.${selectedScript.craft?.leak?.rivalTitle ? ` Rival rush: "${selectedScript.craft.leak.rivalTitle}".` : ''}`;
             } else {
                 // Random User
                 const users = [
@@ -2641,7 +2643,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
             businesses: player.businesses.map(b => b.id === studio.id ? {
                 ...b,
                 balance: newStudioBalance,
-                studioState: {
+                studioState: markSagaProduced({
                     ...studio.studioState!,
                     scripts: updatedScripts,
                     concepts: updatedConcepts,
@@ -2659,7 +2661,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                             : `${newCommitment.name} greenlight spend`,
                         projectId: newCommitment.id
                     }, ...((studio.studioState?.financeLedger || []))].slice(0, 200)
-                }
+                }, selectedScript!)
             } : b)
         };
         onUpdatePlayer(selectedScript?.unauthorizedLife ? applyUnauthorizedShoot(greenlitPlayer, selectedScript, studio.id) : greenlitPlayer);
@@ -2703,6 +2705,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         if (selectedScript) {
             buzz += selectedScript.hype || 20;
             if (selectedScript.sourceMaterial === 'SEQUEL') buzz += 20;
+            buzz += releaseHypeBonus(selectedScript);
         }
 
         // Add Director Fame
@@ -2763,14 +2766,23 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         const completenessRatio = Math.min(1, assignedCast.length / requiredCastCount);
         const completenessPenalty = (1 - completenessRatio) * 18;
         const ensembleBonus = assignedCast.length >= requiredCastCount ? Math.min(6, (assignedCast.length - requiredCastCount) * 1.5) : 0;
+        const fit = castFitBonus(assignedCast.map(c => {
+            if (c.actorId === 'PLAYER_SELF') return { roleType: c.roleType, actorId: c.actorId, talent: player.stats.talent || 50, fame: player.stats.fame || 0 };
+            if (c.actorId === 'STUDIO_STAFF') return { roleType: c.roleType, actorId: c.actorId, talent: getInHouseQuality('ACTOR') || 40, fame: getInHouseFame('ACTOR') || 10 };
+            const actor = availableActors.find(a => a.id === c.actorId);
+            return { roleType: c.roleType, actorId: c.actorId, talent: actor?.stats?.talent || 50, fame: actor?.stats?.fame || 10 };
+        }));
 
-        return Math.round(clampStat(weightedAverage - completenessPenalty + ensembleBonus, 20, 98));
+        return Math.round(clampStat(weightedAverage - completenessPenalty + ensembleBonus + fit, 20, 98));
     }, [castList, availableActors, player, selectedScript, currentEstimatedBudget, studio]);
 
     const currentEstimatedQuality = useMemo(() => {
         let score = 50;
         // Script
         if (selectedScript) score += ((selectedScript.quality || 50) - 50) * 0.5;
+        if (selectedScript?.craft && !selectedScript.craft.legacy) {
+            score += ((selectedScript.craft.criticAppeal || 50) - 50) * 0.08;
+        }
         // Director
         const dirData = getCrewData('director');
         score += ((dirData.quality || 50) - 50) * 0.4;
