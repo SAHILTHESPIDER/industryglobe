@@ -1156,6 +1156,20 @@ export const markSagaProduced = (state: StudioState, script: Script): StudioStat
     return { ...state, bookSagas: sagas };
 };
 
+/** Prefer the part the script desk stored. Greenlight's franchise counter can still say 1 if the earlier part has not opened. */
+export const partNumberForRelease = (
+    scripts: { title?: string; name?: string; franchiseId?: string; installmentNumber?: number; craft?: { sagaId?: string; partIndex?: number } }[],
+    sagaId: string,
+    title: string,
+    fallback?: number,
+): number => {
+    const match = scripts.find(script =>
+        (script.franchiseId === sagaId || script.craft?.sagaId === sagaId)
+        && (script.title === title || script.name === title)
+    );
+    return match?.craft?.partIndex || match?.installmentNumber || fallback || 1;
+};
+
 export const recordSagaScore = (state: StudioState, sagaId: string, part: number, title: string, score: number): StudioState => {
     const sagas = (state.bookSagas || []).map(saga => {
         if (saga.id !== sagaId) return saga;

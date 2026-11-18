@@ -2282,7 +2282,9 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                     : selectedScript.universePhaseName || ((selectedUniverseId && selectedUniverseId !== 'NEW') ? String(normalizedWorldUniverses[selectedUniverseId]?.currentPhaseName || normalizedWorldUniverses[selectedUniverseId]?.currentPhase || 'Phase 1') : undefined),
                 newUniverseName: isCreatingNewUniverse ? newUniverseName.trim() : undefined,
                 franchiseId: selectedFranchiseId === 'NEW' ? `fran_${Date.now()}` : (selectedFranchiseId || undefined),
-                installmentNumber: (selectedFranchiseId && selectedFranchiseId !== 'NEW') ? (studioFranchises.find(f => f.id === selectedFranchiseId)?.lastInstallment || 0) + 1 : 1,
+                installmentNumber: selectedScript.craft?.partIndex
+                    || selectedScript.installmentNumber
+                    || ((selectedFranchiseId && selectedFranchiseId !== 'NEW') ? (studioFranchises.find(f => f.id === selectedFranchiseId)?.lastInstallment || 0) + 1 : 1),
                 genre: selectedScript.genres[0],
                 rightsIpId: selectedScript.rightsIpId,
                 subjectName: selectedScript.subjectName,
