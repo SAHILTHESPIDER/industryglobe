@@ -305,11 +305,15 @@ export enum Page {
       writerNames?: string[];
       weeksAtStage?: number;
       slipWeeks?: number;
+      /** Weeks still owed after a slip. Those weeks do not advance the draft. */
+      slipHold?: number;
       slipRisk?: number;
+      /** Set when an earlier part's score is already inside audienceAppeal. */
       rewriteWeeksLeft?: number;
       pages?: string;
       partIndex?: number;
       sagaId?: string;
+      priorScore?: number;
   }
 
   export interface BookListing {

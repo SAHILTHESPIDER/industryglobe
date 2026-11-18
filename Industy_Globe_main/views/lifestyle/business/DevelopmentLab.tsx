@@ -317,11 +317,14 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
         if (currentBlock > lastBlock || !studio.studioState) {
             void loadRightsShelf(player, player.currentWeek, studioState.purchasedIPTitles || []).then(newMarket => {
                 if (cancelled) return;
-                const newWriters = generateIndustryWriters(10, isFilmIndustry(studioState.filmIndustry) ? studioState.filmIndustry : 'HOLLYWOOD', `${studio.id}-${player.currentWeek}`);
+                const industryId = isFilmIndustry(studioState.filmIndustry) ? studioState.filmIndustry : 'HOLLYWOOD';
+                const busy = new Set(studioState.scripts.filter(script => script.status === 'IN_DEVELOPMENT').flatMap(script => [script.writerId, ...(script.craft?.writerIds || [])].filter((id): id is string => Boolean(id))));
+                const kept = studioState.writers.filter(writer => busy.has(writer.id));
+                const fresh = generateIndustryWriters(10, industryId, `${studio.id}-${player.currentWeek}`).filter(writer => !busy.has(writer.id));
                 Object.assign(updatedState, {
                     ipMarket: newMarket,
                     marketTrends: createMarketTrends(player.currentWeek),
-                    writers: newWriters,
+                    writers: [...kept, ...fresh].slice(0, 14),
                     lastMarketRefreshWeek: player.currentWeek,
                     lastWriterRefreshWeek: player.currentWeek
                 });

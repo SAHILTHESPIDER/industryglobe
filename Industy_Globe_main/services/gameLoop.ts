@@ -66,6 +66,7 @@ import { chargeYoutubeWallet, settleYoutubePartnerWeek } from './youtubePartner'
 import { getInstagramPostComments, pickInstagramMicroBrand } from './instagramLogic';
 import { checkForDirectorDecision, checkForProductionCrisis } from './productionService';
 import { processBusinessWeek } from './businessLogic';
+import { recordSagaScore } from './scriptDesk/logic';
 import { getAbsoluteWeek, getRelationshipAge, inferStreamingStartWeekAbsolute } from './legacyLogic';
 import { tickOwnPlatform } from './ownPlatform/week';
 import { applyMarketingWeek } from './marketing/engine';
@@ -2841,6 +2842,12 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         const lockedScores = lockReleaseScores(updatedC.projectDetails, nextPlayer.world.critics || [], nextPlayer.name);
                         updatedC.projectDetails.hiddenStats.criticScore = lockedScores.criticScore;
                         updatedC.projectDetails.hiddenStats.audienceScore = lockedScores.audienceScore;
+                        const sagaId = updatedC.projectDetails.franchiseId;
+                        if (sagaId) {
+                            nextPlayer.businesses = nextPlayer.businesses.map(business => business.studioState?.bookSagas?.some(saga => saga.id === sagaId)
+                                ? { ...business, studioState: recordSagaScore(business.studioState, sagaId, updatedC.projectDetails?.installmentNumber || 1, updatedC.name, lockedScores.audienceScore) }
+                                : business);
+                        }
                         updatedC.projectDetails.reviews = lockedScores.reviews.length
                             ? lockedScores.reviews
                             : generateReviews(

@@ -825,8 +825,8 @@ export const processBusinessWeek = (business: Business, playerFame: number, week
             const industry = isFilmIndustry(b.studioState.filmIndustry) ? b.studioState.filmIndustry : 'HOLLYWOOD';
             const busy = new Set(
                 b.studioState.scripts
-                    .filter(script => script.status === 'IN_DEVELOPMENT' && script.writerId)
-                    .map(script => script.writerId as string)
+                    .filter(script => script.status === 'IN_DEVELOPMENT')
+                    .flatMap(script => [script.writerId, ...(script.craft?.writerIds || [])].filter((id): id is string => Boolean(id)))
             );
             const kept = b.studioState.writers.filter(writer => busy.has(writer.id));
             const fresh = generateIndustryWriters(10, industry, `${b.id}-${week}`);

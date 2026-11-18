@@ -65,6 +65,7 @@ export const mulberry32 = (seed: number) => {
 };
 
 const pick = <T>(rng: () => number, list: T[]): T => list[Math.floor(rng() * list.length) % list.length];
+let scriptSerial = 0;
 
 export const songWeight = (industry: FilmIndustryId, genre?: Genre): number => {
     const culture = INDUSTRIES[industry]?.songs || 'optional';
@@ -718,41 +719,43 @@ const promote = (script: Script): Script => {
     return next;
 };
 
-export const advanceCraftScript = (script: Script): { script: Script; alerts: string[] } => {
+export const advanceCraftScript = (script: Script, rng: () => number = Math.random): { script: Script; alerts: string[] } => {
     const craft = script.craft;
     if (!craft || craft.legacy || script.status !== 'IN_DEVELOPMENT') return { script, alerts: [] };
     const alerts: string[] = [];
+    const rewriting = (craft.rewriteWeeksLeft || 0) > 0;
+    let slipHold = craft.slipHold || 0;
+    let slipped = 0;
+    if (slipHold > 0) {
+        slipHold -= 1;
+    } else if (!rewriting && rng() < (craft.slipRisk ?? 0.1)) {
+        slipped = 1 + Math.floor(rng() * 2);
+        slipHold = slipped - 1;
+    }
+    const draftMoves = !rewriting && slipped === 0 && (craft.slipHold || 0) === 0;
     let next: Script = {
         ...script,
         weeksInDevelopment: (script.weeksInDevelopment || 0) + 1,
+        totalDevelopmentWeeks: script.totalDevelopmentWeeks + slipped,
         craft: {
             ...craft,
-            weeksAtStage: (craft.weeksAtStage || 0) + 1,
-            freshness: clamp((craft.freshness ?? 80) - 0.35, 0, 100),
+            weeksAtStage: draftMoves ? (craft.weeksAtStage || 0) + 1 : (craft.weeksAtStage || 0),
+            slipHold,
+            slipWeeks: (craft.slipWeeks || 0) + slipped,
+            freshness: clamp((craft.freshness ?? 80) - 0.35 - (slipped ? 2 : 0), 0, 100),
         },
     };
-    const slip = next.craft!.slipRisk ?? 0.1;
-    if (Math.random() < slip) {
-        const extra = 1 + Math.floor(Math.random() * 2);
-        next = {
-            ...next,
-            totalDevelopmentWeeks: next.totalDevelopmentWeeks + extra,
-            craft: {
-                ...next.craft!,
-                slipWeeks: (next.craft!.slipWeeks || 0) + extra,
-                freshness: clamp(next.craft!.freshness - 2, 0, 100),
-            },
-        };
-        alerts.push(`The writers' room on "${script.title}" slipped ${extra} week${extra > 1 ? 's' : ''}. The date moves, the draft does not.`);
+    if (slipped) {
+        alerts.push(`The writers' room on "${script.title}" slipped ${slipped} week${slipped > 1 ? 's' : ''}. The date moves, the draft does not.`);
     }
-    if (!next.craft!.leak?.leaked && Math.random() < leakChance(next)) {
+    if (!next.craft!.leak?.leaked && rng() < leakChance(next)) {
         next = applyLeak(next);
         const leak = next.craft!.leak!;
         alerts.push(leak.rivalTitle
             ? `"${script.title}" leaked. ${leak.rivalStudio} is rushing a lookalike called "${leak.rivalTitle}".`
             : `Pages from "${script.title}" are in the group chats. The surprise is thinner.`);
     }
-    if (next.craft!.stage === 'IDEA' || next.craft!.stage === 'TREATMENT' || next.craft!.stage === 'FIRST_DRAFT') {
+    if (draftMoves && (next.craft!.stage === 'IDEA' || next.craft!.stage === 'TREATMENT' || next.craft!.stage === 'FIRST_DRAFT')) {
         const need = stageWeeks(next.craft!.stage, next.assignedSpeed || 1);
         if ((next.craft!.weeksAtStage || 0) >= need) {
             const before = next.craft!.stage;
@@ -764,9 +767,17 @@ export const advanceCraftScript = (script: Script): { script: Script; alerts: st
     } else if (next.craft!.stage === 'REWRITES') {
         if ((next.craft!.rewriteWeeksLeft || 0) > 0) {
             const left = next.craft!.rewriteWeeksLeft! - 1;
-            next = { ...next, craft: { ...next.craft!, rewriteWeeksLeft: left, pages: left === 0 ? buildScreenplay(next) : next.craft!.pages } };
+            next = {
+                ...next,
+                craft: {
+                    ...next.craft!,
+                    rewriteWeeksLeft: left,
+                    weeksAtStage: left === 0 ? 0 : next.craft!.weeksAtStage,
+                    pages: left === 0 ? buildScreenplay(next) : next.craft!.pages,
+                },
+            };
             if (left === 0) alerts.push(`Rewrite ${next.craft!.rewrites} of "${script.title}" landed. Freshness is ${Math.round(next.craft!.freshness)}.`);
-        } else if ((next.craft!.weeksAtStage || 0) >= 8) {
+        } else if (draftMoves && (next.craft!.weeksAtStage || 0) >= 8) {
             next = lockScript(next);
             alerts.push(`"${script.title}" locked itself. The calendar ran out before another rewrite.`);
         }
@@ -900,7 +911,11 @@ export const releaseHypeBonus = (script?: Script | null): number => {
     const appeal = Math.round((craft.audienceAppeal - 50) * 0.55);
     const fatigue = craft.freshness < 45 ? Math.round((45 - craft.freshness) * 0.35) : 0;
     const leak = craft.leak?.heat || 0;
-    const prior = craft.book ? Math.round(((craft.book.partScores[craft.book.partScores.length - 1]?.score ?? 50) - 50) * 0.3) : 0;
+    const prior = craft.priorScore != null
+        ? 0
+        : craft.book
+            ? Math.round(((craft.book.partScores[craft.book.partScores.length - 1]?.score ?? 50) - 50) * 0.3)
+            : 0;
     return appeal + prior - fatigue - leak;
 };
 
@@ -998,6 +1013,7 @@ export const buildScriptRecord = (input: BuildScriptInput): BuiltScript => {
         weeksAtStage: 0,
         slipWeeks: 0,
         slipRisk: input.room.slipRisk,
+        priorScore: typeof input.draft.priorHeat === 'number' ? input.draft.priorHeat : undefined,
         partIndex,
         sagaId: bookState?.id,
         book: bookState,
@@ -1020,7 +1036,7 @@ export const buildScriptRecord = (input: BuildScriptInput): BuiltScript => {
     };
     const title = input.title.trim() || 'Untitled';
     const script: Script = {
-        id: input.id || `script_${hashSeed(title + input.week)}`,
+        id: input.id || `script_${hashSeed(`${title}|${input.week}|${input.genre}`).toString(36)}_${input.week}_${++scriptSerial}`,
         title,
         genres: input.secondaryGenre && input.secondaryGenre !== input.genre ? [input.genre, input.secondaryGenre] : [input.genre],
         status: 'IN_DEVELOPMENT',

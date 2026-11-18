@@ -3,15 +3,18 @@
  */
 import type { Genre, Script, ScriptCharacter } from '../types';
 import {
+    advanceCraftScript,
     applyRewrite,
     attachLegacyCraft,
     bookRightsCost,
     buildCoverage,
+    buildScriptRecord,
     generateTwistOffers,
     leakChance,
     migrateScriptDeskState,
     planWritersRoom,
     previewQuality,
+    recordSagaScore,
     remakeRightsCost,
     returningBump,
     rewriteQualityGain,
@@ -141,6 +144,48 @@ need(telugu.split(' ').every(part => teluguBank.has(part)), `Telugu name stays i
 need(returningBump(90) > returningBump(40) && returningBump(10) >= 1, 'a hit raises the returning cast ask');
 need(smallRolePremium('A_LIST', 'CAMEO') > smallRolePremium('A_LIST', 'LEAD'), 'a star in a cameo costs more than the same star in the lead');
 need(smallRolePremium('RISING', 'CAMEO') === 1, 'a rising actor does not get the star premium');
+
+const slipping: Script = {
+    ...script,
+    assignedSpeed: 1,
+    totalDevelopmentWeeks: 10,
+    craft: { ...script.craft!, stage: 'IDEA', weeksAtStage: 2, slipRisk: 1, slipHold: 0, rewriteWeeksLeft: 0 },
+};
+const rolls = [0, 1];
+const slipped = advanceCraftScript(slipping, () => rolls.shift() ?? 1).script;
+need((slipped.craft?.weeksAtStage || 0) === 2, 'a slip week does not advance the draft');
+need((slipped.craft?.slipWeeks || 0) > 0, 'a slip is recorded');
+need(slipped.totalDevelopmentWeeks > slipping.totalDevelopmentWeeks, 'a slip pushes the calendar');
+
+let longPass: Script = {
+    ...script,
+    craft: { ...script.craft!, stage: 'REWRITES', rewrites: 20, weeksAtStage: 6, rewriteWeeksLeft: 0, freshness: 40 },
+};
+longPass = applyRewrite(longPass);
+need((longPass.craft?.rewriteWeeksLeft || 0) >= 8, 'a late rewrite takes a long pass');
+const passLength = longPass.craft?.rewriteWeeksLeft || 0;
+for (let week = 0; week < passLength; week++) {
+    longPass = advanceCraftScript(longPass, () => 1).script;
+}
+need(longPass.status === 'IN_DEVELOPMENT', 'rewrite labor does not lock the draft');
+need((longPass.craft?.weeksAtStage || 0) === 0, 'the quiet clock starts when the rewrite lands');
+
+const sameWeek = (title: string, week: number) => buildScriptRecord({
+    title,
+    genre: 'DRAMA',
+    industry: 'HOLLYWOOD',
+    draft: { source: 'ORIGINAL', genre: 'DRAMA', songs: 0, characters: [] },
+    room: { skill: 40, fee: 0, speed: 1, weeks: 8, slipRisk: 0.1, names: ['You'], ids: [] },
+    week,
+}).script.id;
+need(sameWeek('ab', 12) !== sameWeek('ab1', 2), 'titles that concatenate do not share a script id');
+
+const scored = recordSagaScore({
+    scripts: [], concepts: [], writers: [], ipMarket: [], lastMarketRefreshWeek: 0, lastWriterRefreshWeek: 0,
+    bookSagas: [{ id: 'saga-1', title: 'Deed', author: 'A', popularity: 40, rightsCost: 1, rightsOwned: true, split: 'TWO_PART', totalParts: 2, partsMade: 1, partScores: [], castPremium: 1.05 }],
+}, 'saga-1', 1, 'Deed', 90);
+need(scored.bookSagas?.[0].partScores[0]?.score === 90, 'a released part records its score');
+need((scored.bookSagas?.[0].castPremium || 1) > 1.05, 'a hit raises the stored returning-cast premium');
 
 if (failed) {
     console.error(`${failed} script-desk checks failed`);

@@ -22,6 +22,7 @@ import {
     generateRemakeShelf,
     generateTrueStoryShelf,
     heatFromProjects,
+    returningBump,
     isFilmIndustry,
     listingCost,
     lockScript,
@@ -206,11 +207,12 @@ export const ScriptDesk: React.FC<{
         if (next === industry) return;
         const ownedBooks = (state.bookShelf || []).filter(item => item.owned && !item.publicDomain);
         const ownedRemakes = (state.remakeShelf || []).filter(item => item.owned && !item.publicDomain);
+        const ownedLives = (state.trueStoryShelf || []).filter(item => item.owned);
         saveStudio({
             filmIndustry: next,
             bookShelf: [...ownedBooks, ...generateBookShelf(next, `${studio.id}-${next}`)],
             remakeShelf: [...ownedRemakes, ...generateRemakeShelf(next, `${studio.id}-${next}`)],
-            trueStoryShelf: generateTrueStoryShelf(next, `${studio.id}-${next}`),
+            trueStoryShelf: [...ownedLives, ...generateTrueStoryShelf(next, `${studio.id}-${next}`)],
         });
         setSongs(INDUSTRIES[next].songs === 'central' ? 4 : 0);
         setNote(`${INDUSTRIES[next].label}. Names, songs, and the writers' room follow this industry.`);
@@ -275,8 +277,19 @@ export const ScriptDesk: React.FC<{
         });
     };
 
+    const pickStory = (item: TrueStoryListing) => {
+        setStory(item);
+        setUnauthorized(false);
+        if (item.owned) setNote(`${item.subject}'s life rights are already closed.`);
+        else setNote(`Life rights are ${formatMoney(listingCost.life(item))}. Buy them, or shoot it without them.`);
+    };
+
     const markStory = (item: TrueStoryListing) => {
-        const cost = item.owned ? 0 : listingCost.life(item);
+        if (item.owned) {
+            pickStory(item);
+            return;
+        }
+        const cost = listingCost.life(item);
         buy(cost, () => {
             const next = { ...item, owned: true, paid: cost };
             setStory(next);
@@ -313,7 +326,7 @@ export const ScriptDesk: React.FC<{
         const people = ensureCast();
         const heat = saga ? heatFromProjects(releases, saga.id) : null;
         const past = saga ? releases.find(item => item.franchiseId === saga.id) : null;
-        const bump = heat ? (saga?.castPremium || 1) * (heat.score / 50) : 1;
+        const bump = heat ? returningBump(heat.score) : (saga?.castPremium || 1);
         const returning = (past?.castList || []).filter((member: { actorId?: string }) => member.actorId && member.actorId !== 'UNKNOWN').map((member: { actorId: string; salary?: number; roleType?: string; name?: string }) => ({
             role: member.roleType === 'LEAD' ? 'LEAD_ACTOR' as const : 'SUPPORTING_ACTOR' as const,
             id: member.actorId,
@@ -555,14 +568,20 @@ export const ScriptDesk: React.FC<{
                                 cost: listingCost.life(item),
                                 owned: Boolean(item.owned),
                                 selected: story?.id === item.id && !unauthorized,
-                                onPick: () => markStory(item),
+                                onPick: () => pickStory(item),
                             }))}
                         />
-                        {story && (
-                            <button type="button" onClick={() => { setUnauthorized(true); setNote('No life rights. Curiosity goes up. Critics and the subject can punish you.'); }} className={`w-full rounded-2xl border p-4 text-left ${unauthorized ? 'border-rose-400 bg-rose-500/10' : 'border-zinc-800'}`}>
-                                <div className="font-black">Shoot it without the rights</div>
-                                <p className="mt-1 text-sm text-zinc-400">Allowed. The estate can make this the story about the lawsuit instead of the film.</p>
-                            </button>
+                        {story && !story.owned && (
+                            <div className="grid grid-cols-1 gap-2">
+                                <button type="button" onClick={() => markStory(story)} className="rounded-2xl border border-emerald-400/40 bg-emerald-500/10 p-4 text-left">
+                                    <div className="font-black">Buy the life rights · {formatMoney(listingCost.life(story))}</div>
+                                    <p className="mt-1 text-sm text-zinc-300">Critics treat it as access. The money is spent even if the draft dies.</p>
+                                </button>
+                                <button type="button" onClick={() => { setUnauthorized(true); setNote('No life rights. Curiosity goes up. Critics and the subject can punish you.'); }} className={`rounded-2xl border p-4 text-left ${unauthorized ? 'border-rose-400 bg-rose-500/10' : 'border-zinc-800'}`}>
+                                    <div className="font-black">Shoot it without the rights</div>
+                                    <p className="mt-1 text-sm text-zinc-400">No bill. The estate can make the lawsuit the story.</p>
+                                </button>
+                            </div>
                         )}
                     </div>
                 )}
