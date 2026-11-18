@@ -10,7 +10,7 @@ import { showAd } from '../../../services/adLogic';
 import { hasNoAds } from '../../../services/premiumLogic';
 import { formatProjectFormatLabel } from '../../../services/genreCatalog';
 import { applyUnauthorizedShoot, rightsGreenlightBlock, rightsHiddenFromScript } from '../../../services/rights/logic';
-import { castFitBonus, markSagaProduced, productionBudgetDelta, releaseHypeBonus, rolesForGreenlight, smallRolePremium } from '../../../services/scriptDesk/logic';
+import { castFitBonus, deskSagaPart, markSagaProduced, productionBudgetDelta, releaseHypeBonus, rolesForGreenlight, smallRolePremium } from '../../../services/scriptDesk/logic';
 import { addBreadcrumb, markGameCheckpoint, markTraceAction, setCrashContext, startPerformanceTrace, stopPerformanceTrace, trackGameEvent } from '../../../services/firebaseService';
 
 type ConnectedProjectIntent = 'AUTO' | 'SOLO' | 'CROSSOVER' | 'EVENT' | 'REBOOT';
@@ -2282,8 +2282,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                     : selectedScript.universePhaseName || ((selectedUniverseId && selectedUniverseId !== 'NEW') ? String(normalizedWorldUniverses[selectedUniverseId]?.currentPhaseName || normalizedWorldUniverses[selectedUniverseId]?.currentPhase || 'Phase 1') : undefined),
                 newUniverseName: isCreatingNewUniverse ? newUniverseName.trim() : undefined,
                 franchiseId: selectedFranchiseId === 'NEW' ? `fran_${Date.now()}` : (selectedFranchiseId || undefined),
-                installmentNumber: selectedScript.craft?.partIndex
-                    || selectedScript.installmentNumber
+                installmentNumber: deskSagaPart(selectedScript)
                     || ((selectedFranchiseId && selectedFranchiseId !== 'NEW') ? (studioFranchises.find(f => f.id === selectedFranchiseId)?.lastInstallment || 0) + 1 : 1),
                 genre: selectedScript.genres[0],
                 rightsIpId: selectedScript.rightsIpId,

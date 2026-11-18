@@ -1156,9 +1156,19 @@ export const markSagaProduced = (state: StudioState, script: Script): StudioStat
     return { ...state, bookSagas: sagas };
 };
 
-/** Prefer the part the script desk stored. Greenlight's franchise counter can still say 1 if the earlier part has not opened. */
+/**
+ * Book-saga parts keep the desk's part number. Every other new script also stores partIndex 1,
+ * and that must not override an existing franchise's next installment.
+ */
+export const deskSagaPart = (script?: { installmentNumber?: number; craft?: { sagaId?: string; book?: { id?: string }; partIndex?: number } } | null): number | undefined => {
+    if (!script) return undefined;
+    if (script.craft?.sagaId || script.craft?.book) return script.craft.partIndex || script.installmentNumber;
+    return script.installmentNumber;
+};
+
+/** Prefer the part the script desk stored for a book saga. Otherwise use the number greenlight already chose. */
 export const partNumberForRelease = (
-    scripts: { title?: string; name?: string; franchiseId?: string; installmentNumber?: number; craft?: { sagaId?: string; partIndex?: number } }[],
+    scripts: { title?: string; name?: string; franchiseId?: string; installmentNumber?: number; craft?: { sagaId?: string; book?: { id?: string }; partIndex?: number } }[],
     sagaId: string,
     title: string,
     fallback?: number,
@@ -1167,7 +1177,7 @@ export const partNumberForRelease = (
         (script.franchiseId === sagaId || script.craft?.sagaId === sagaId)
         && (script.title === title || script.name === title)
     );
-    return match?.craft?.partIndex || match?.installmentNumber || fallback || 1;
+    return deskSagaPart(match) || fallback || 1;
 };
 
 export const recordSagaScore = (state: StudioState, sagaId: string, part: number, title: string, score: number): StudioState => {

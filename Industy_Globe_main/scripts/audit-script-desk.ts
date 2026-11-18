@@ -13,6 +13,7 @@ import {
     leakChance,
     migrateScriptDeskState,
     planWritersRoom,
+    deskSagaPart,
     partNumberForRelease,
     previewQuality,
     recordSagaScore,
@@ -189,7 +190,9 @@ need(scored.bookSagas?.[0].partScores[0]?.score === 90, 'a released part records
 need((scored.bookSagas?.[0].castPremium || 1) > 1.05, 'a hit raises the stored returning-cast premium');
 need(partNumberForRelease([
     { title: 'Deed: Part Two', franchiseId: 'saga-1', installmentNumber: 1, craft: { sagaId: 'saga-1', partIndex: 2 } },
-], 'saga-1', 'Deed: Part Two', 1) === 2, 'a later part keeps its desk number when greenlight still says part 1');
+], 'saga-1', 'Deed: Part Two', 1) === 2, 'a later book part keeps its desk number when greenlight still says part 1');
+need(deskSagaPart({ craft: { partIndex: 1 } }) === undefined, 'a desk original does not force installment 1');
+need(deskSagaPart({ installmentNumber: 3, craft: { partIndex: 1 } }) === 3, 'a sequel number survives the desk default of part 1');
 
 if (failed) {
     console.error(`${failed} script-desk checks failed`);
