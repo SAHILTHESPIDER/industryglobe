@@ -50,6 +50,7 @@ import { hydrateGenreXP } from './services/genreCatalog';
 import { ensureOwnPlatform, migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
 import { normalizeMarketing } from './services/marketing/core';
 import { MarketingPreview } from './views/marketing/MarketingPreview';
+import { ScriptDeskPreview } from './views/lifestyle/business/scriptDesk/ScriptDeskPreview';
 import { syncRegions } from './services/ownPlatform/logic';
 import { purchasePlatform } from './services/ownPlatform/studio';
 import { BuyFinancing } from './services/ownPlatform/valuation';
@@ -2116,6 +2117,13 @@ export const App: React.FC = () => {
       : null;
   if (marketingPreview) {
       return <MarketingPreview mode={marketingPreview} />;
+  }
+
+  const scriptDeskPreview = import.meta.env.DEV && typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('scriptdesk')
+      : null;
+  if (scriptDeskPreview) {
+      return <ScriptDeskPreview mode={scriptDeskPreview} />;
   }
 
   if (isInitializing) {

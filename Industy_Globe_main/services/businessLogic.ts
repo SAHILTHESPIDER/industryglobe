@@ -1,7 +1,8 @@
 
 import { Business, BusinessType, BusinessSubtype, BusinessConfig, BusinessStaff, BusinessProduct, Player, EmployeeCandidate, StudioState } from '../types';
-import { generateWriters, generateIPMarket } from '../src/data/generators';
+import { generateIPMarket } from '../src/data/generators';
 import { createMarketTrends } from './marketTrends';
+import { advanceCraftScript, generateIndustryWriters, isFilmIndustry, migrateScriptDeskState } from './scriptDesk/logic';
 
 export interface BusinessBlueprint {
     type: BusinessType;
@@ -372,7 +373,7 @@ export const createBusiness = (
 export const createDefaultStudioState = (currentWeek: number): StudioState => ({
     scripts: [],
     concepts: [],
-    writers: generateWriters(10),
+    writers: generateIndustryWriters(10, 'HOLLYWOOD', `new-house-${currentWeek}`),
     ipMarket: generateIPMarket(5, [], currentWeek),
     lastMarketRefreshWeek: currentWeek,
     lastWriterRefreshWeek: currentWeek,
@@ -408,7 +409,7 @@ export const createDefaultStudioState = (currentWeek: number): StudioState => ({
 
 export const normalizeStudioState = (studioState: Partial<StudioState> | undefined, currentWeek: number): StudioState => {
     const defaults = createDefaultStudioState(currentWeek);
-    return {
+    return withScriptDesk({
         ...defaults,
         ...studioState,
         scripts: Array.isArray(studioState?.scripts) ? studioState!.scripts : defaults.scripts,
@@ -443,8 +444,10 @@ export const normalizeStudioState = (studioState: Partial<StudioState> | undefin
         lastWriterRefreshWeek: typeof studioState?.lastWriterRefreshWeek === 'number' ? studioState.lastWriterRefreshWeek : defaults.lastWriterRefreshWeek,
         lastTalentRefreshWeek: typeof studioState?.lastTalentRefreshWeek === 'number' ? studioState.lastTalentRefreshWeek : defaults.lastTalentRefreshWeek,
         productionFund: typeof studioState?.productionFund === 'number' ? studioState.productionFund : defaults.productionFund,
-    };
+    });
 };
+
+const withScriptDesk = (state: StudioState): StudioState => migrateScriptDeskState(state);
 
 export const hireCandidate = (business: Business, candidate: EmployeeCandidate): Business => {
     const b = { ...business };
@@ -740,6 +743,11 @@ export const processBusinessWeek = (business: Business, playerFame: number, week
     if (b.type === 'PRODUCTION_HOUSE' && b.studioState) {
         b.studioState = normalizeStudioState(b.studioState, week);
         b.studioState.scripts = b.studioState.scripts.map(script => {
+            if (script.status === 'IN_DEVELOPMENT' && script.craft && !script.craft.legacy) {
+                const advanced = advanceCraftScript(script);
+                advanced.alerts.forEach(alert => alerts.push(`🎬 ${alert}`));
+                return advanced.script;
+            }
             if (script.status === 'IN_DEVELOPMENT') {
                 const updatedWeeks = script.weeksInDevelopment + 1;
                 if (updatedWeeks >= script.totalDevelopmentWeeks) {
@@ -814,7 +822,15 @@ export const processBusinessWeek = (business: Business, playerFame: number, week
         
         // Refresh Writers every 3 weeks
         if (week - (b.studioState.lastWriterRefreshWeek || 0) >= 3) {
-            b.studioState.writers = generateWriters(10);
+            const industry = isFilmIndustry(b.studioState.filmIndustry) ? b.studioState.filmIndustry : 'HOLLYWOOD';
+            const busy = new Set(
+                b.studioState.scripts
+                    .filter(script => script.status === 'IN_DEVELOPMENT')
+                    .flatMap(script => [script.writerId, ...(script.craft?.writerIds || [])].filter((id): id is string => Boolean(id)))
+            );
+            const kept = b.studioState.writers.filter(writer => busy.has(writer.id));
+            const fresh = generateIndustryWriters(10, industry, `${b.id}-${week}`);
+            b.studioState.writers = [...kept, ...fresh.filter(writer => !busy.has(writer.id))].slice(0, 14);
             b.studioState.lastWriterRefreshWeek = week;
         }
     }

@@ -4,6 +4,7 @@ import { Player, BudgetTier, Genre, ProjectDetails, ActiveRelease, Commitment, B
 import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Tv, ArrowDownLeft, ArrowUpRight, WalletCards, Mail, Megaphone } from 'lucide-react';
 import { NPC_DATABASE, getAvailableTalent, calculateProjectFameMultiplier } from '../../../services/npcLogic';
 import { sellBusiness, liquidateBusiness } from '../../../services/businessLogic';
+import { returningBump } from '../../../services/scriptDesk/logic';
 import { NPCActor, NPCTier } from '../../../types';
 import { getDirectorTalent } from '../../../services/roleLogic';
 import { getPlayerLanguage, t } from '../../../services/i18n';
@@ -303,6 +304,12 @@ const ProductionHouseInner: React.FC<{
         const updatedStudio = { ...studio };
         if (!updatedStudio.studioState) return;
         const isInternallyControlledTalent = (id: string) => id === 'PLAYER_SELF' || id === 'STUDIO_STAFF';
+        const performance = typeof project.audienceScore === 'number'
+            ? project.audienceScore
+            : typeof project.rating === 'number'
+                ? project.rating * 10
+                : 60;
+        const castBump = returningBump(performance);
 
         // Deduct writer fee
         if (writer) {
@@ -322,7 +329,7 @@ const ProductionHouseInner: React.FC<{
                 role: 'DIRECTOR',
                 id: details.directorId,
                 originalSalary: dirSalary,
-                newDemand: dirSalary * 1.2, // 20% bump
+                newDemand: dirSalary * castBump,
                 negotiated: isInternallyControlledTalent(details.directorId),
                 accepted: isInternallyControlledTalent(details.directorId),
                 attemptsLeft: isInternallyControlledTalent(details.directorId) ? 0 : 3
@@ -339,7 +346,7 @@ const ProductionHouseInner: React.FC<{
                     role: crewMember.role,
                     id: crewMember.id,
                     originalSalary,
-                    newDemand: originalSalary * 1.18,
+                    newDemand: originalSalary * castBump,
                     negotiated: isInternallyControlledTalent(crewMember.id),
                     accepted: isInternallyControlledTalent(crewMember.id),
                     attemptsLeft: isInternallyControlledTalent(crewMember.id) ? 0 : 3
@@ -356,7 +363,7 @@ const ProductionHouseInner: React.FC<{
                         role: c.roleType === 'LEAD' ? 'LEAD_ACTOR' : 'SUPPORTING_ACTOR',
                         id: c.actorId,
                         originalSalary: originalSalary,
-                        newDemand: originalSalary * 1.2, // 20% bump
+                        newDemand: originalSalary * castBump,
                         negotiated: isInternallyControlledTalent(c.actorId),
                         accepted: isInternallyControlledTalent(c.actorId),
                         attemptsLeft: isInternallyControlledTalent(c.actorId) ? 0 : 3

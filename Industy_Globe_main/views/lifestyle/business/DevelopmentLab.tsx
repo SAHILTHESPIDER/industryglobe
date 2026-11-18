@@ -3,7 +3,8 @@ import { Player, Business, Script, Writer, Genre, ProjectType, ScriptAttributes,
 import { ArrowLeft, PenTool, BookOpen, ShoppingCart, Users, Star, Clock, DollarSign, Sparkles, ChevronRight, Layers, Globe, RefreshCw, Plus, History, Film, Tv, Edit2, ShoppingBag, Palmtree, Flame, Gauge, Trophy, AlertTriangle, RotateCcw, Info } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getWriterTalent } from '../../../services/roleLogic';
-import { generateWriters, generateProceduralLogline } from '../../../src/data/generators';
+import { generateProceduralLogline } from '../../../src/data/generators';
+import { generateIndustryWriters, isFilmIndustry } from '../../../services/scriptDesk/logic';
 import { loadRightsShelf } from '../../../services/rights/tick';
 import { negotiateLife, optionBook, takePublicDomain } from '../../../services/rights/logic';
 import { SCRIPT_TEMPLATES, ScriptQuestion } from '../../../src/data/scriptTemplates';
@@ -12,6 +13,7 @@ import { buildUniverseRoster, calculateUniverseProductWeeklyRevenue, getUniverse
 import { ALL_GENRES, PROJECT_FORMATS, formatGenreLabel, formatProjectFormatLabel, isSubjectDrivenGenre } from '../../../services/genreCatalog';
 import { createMarketTrends, getGenreMarketTrend, getScriptMarketDemand } from '../../../services/marketTrends';
 import { WritersRoom } from './PlatformCommissions';
+import { ScriptDesk } from './scriptDesk/ScriptDesk';
 
 interface DevelopmentLabProps {
     player: Player;
@@ -204,6 +206,8 @@ const getUniverseCharacterTimelineParts = (char: any) => {
 
 export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, onBack, onUpdatePlayer, onOpenRights }) => {
     const [activeTab, setActiveTab] = useState<DevTab>('VAULT');
+    const [deskScript, setDeskScript] = useState<Script | null>(null);
+    const writing = activeTab === 'NEW_CONCEPT' || deskScript;
     
     // Initialize Studio State if missing
     const studioState = normalizeStudioState(studio.studioState, player.currentWeek) as typeof studio.studioState & {
@@ -237,7 +241,7 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
         if (studio.balance >= 250000) {
             const newMarket = await loadRightsShelf(player, player.currentWeek, studioState.purchasedIPTitles || []);
             const marketTrends = createMarketTrends(player.currentWeek);
-            const newWriters = generateWriters(10);
+            const newWriters = generateIndustryWriters(10, isFilmIndustry(studioState.filmIndustry) ? studioState.filmIndustry : 'HOLLYWOOD', `${studio.id}-${player.currentWeek}`);
             
             const updatedStudio = { 
                 ...studio, 
@@ -313,11 +317,14 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
         if (currentBlock > lastBlock || !studio.studioState) {
             void loadRightsShelf(player, player.currentWeek, studioState.purchasedIPTitles || []).then(newMarket => {
                 if (cancelled) return;
-                const newWriters = generateWriters(10);
+                const industryId = isFilmIndustry(studioState.filmIndustry) ? studioState.filmIndustry : 'HOLLYWOOD';
+                const busy = new Set(studioState.scripts.filter(script => script.status === 'IN_DEVELOPMENT').flatMap(script => [script.writerId, ...(script.craft?.writerIds || [])].filter((id): id is string => Boolean(id))));
+                const kept = studioState.writers.filter(writer => busy.has(writer.id));
+                const fresh = generateIndustryWriters(10, industryId, `${studio.id}-${player.currentWeek}`).filter(writer => !busy.has(writer.id));
                 Object.assign(updatedState, {
                     ipMarket: newMarket,
                     marketTrends: createMarketTrends(player.currentWeek),
-                    writers: newWriters,
+                    writers: [...kept, ...fresh].slice(0, 14),
                     lastMarketRefreshWeek: player.currentWeek,
                     lastWriterRefreshWeek: player.currentWeek
                 });
@@ -366,7 +373,7 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
     return (
         <div className="fixed inset-0 z-[70] bg-[#050505] text-white flex flex-col font-sans animate-in fade-in duration-300">
             {/* Header */}
-            <div className="relative shrink-0 z-20 bg-zinc-950 border-b border-zinc-800">
+            {!writing && <div className="relative shrink-0 z-20 bg-zinc-950 border-b border-zinc-800">
                 <div className="flex items-center justify-between px-4 pt-12 pb-4">
                     <div className="flex items-center gap-3">
                         <button onClick={onBack} className="p-2 hover:bg-zinc-800/50 rounded-full text-zinc-400 hover:text-white transition-colors">
@@ -380,7 +387,7 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
                 </div>
 
                 {/* Tabs */}
-                <div className="flex overflow-x-auto no-scrollbar border-b border-zinc-800/30 bg-zinc-950/50 px-2">
+                {!writing && <div className="flex overflow-x-auto no-scrollbar border-b border-zinc-800/30 bg-zinc-950/50 px-2">
                     {[
                         { id: 'VAULT', label: 'Vault', icon: <BookOpen size={14} /> },
                         { id: 'NEW_CONCEPT', label: 'Concept', icon: <Sparkles size={14} /> },
@@ -421,11 +428,23 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
                         <BookOpen size={14} className="mb-1.5 opacity-50" />
                         <span className="text-[10px] font-black uppercase tracking-widest">Rights</span>
                     </button>
+                </div>}
+            </div>}
+
+            {writing && (
+                <div className="min-h-0 flex-1">
+                    <ScriptDesk
+                        player={player}
+                        studio={{ ...studio, studioState }}
+                        script={deskScript}
+                        onBack={() => { setDeskScript(null); setActiveTab('VAULT'); }}
+                        onUpdatePlayer={onUpdatePlayer}
+                    />
                 </div>
-            </div>
+            )}
 
             {/* Content Area */}
-            <div className="flex-1 overflow-y-auto p-4 pb-nav-safe-lg">
+            {!writing && <div className="flex-1 overflow-y-auto p-4 pb-nav-safe-lg">
                 {activeTab === 'VAULT' && <WritersRoom player={player} onUpdatePlayer={onUpdatePlayer} />}
                 {activeTab === 'VAULT' && <ScriptVault 
                     scripts={studioState.scripts} 
@@ -502,11 +521,8 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
                             businesses: player.businesses.map(b => b.id === studio.id ? updatedStudio : b)
                         });
                     }}
+                    onOpenDesk={(script) => setDeskScript(script)}
                 />}
-                {activeTab === 'NEW_CONCEPT' && <ScriptWizard onComplete={(script) => {
-                    handleUpdateStudioState({ scripts: [...studioState.scripts, { ...script, createdAtWeek: player.currentWeek }] });
-                    setActiveTab('VAULT');
-                }} />}
                 {activeTab === 'IP_MARKET' && <IPMarket 
 	                    market={studioState.ipMarket}
 	                    playerMoney={studio.balance}
@@ -533,7 +549,7 @@ export const DevelopmentLab: React.FC<DevelopmentLabProps> = ({ player, studio, 
                         setActiveTab('VAULT');
                     }}
                 />}
-            </div>
+            </div>}
         </div>
     );
 };
@@ -549,8 +565,9 @@ const ScriptVault: React.FC<{
     onUpdateScript: (script: Script, costType?: 'ENERGY' | 'MONEY', costAmount?: number) => void,
     onDelete: (id: string) => void,
     onDeductEnergy: (amount: number) => void,
-    onDeductMoney: (amount: number) => void
-}> = ({ scripts, writers, studioBalance, player, onAssign, onUpdateScript, onDelete, onDeductEnergy, onDeductMoney }) => {
+    onDeductMoney: (amount: number) => void,
+    onOpenDesk?: (script: Script) => void
+}> = ({ scripts, writers, studioBalance, player, onAssign, onUpdateScript, onDelete, onDeductEnergy, onDeductMoney, onOpenDesk }) => {
     const [selectedScriptForAssignment, setSelectedScriptForAssignment] = useState<string | null>(null);
     const [assignmentMode, setAssignmentMode] = useState<'CHOICE' | 'HIRE' | 'WIZARD' | 'DOCTOR'>('CHOICE');
     const [confirmation, setConfirmation] = useState<string | null>(null);
@@ -887,6 +904,16 @@ const ScriptVault: React.FC<{
                                 Develop Script
                             </button>
                         </div>
+                    )}
+
+                    {script.craft && !script.craft.legacy && script.status !== 'PRODUCED' && (
+                        <button
+                            type="button"
+                            onClick={() => onOpenDesk?.(script)}
+                            className="mt-4 w-full rounded-lg border border-amber-500/30 bg-amber-500/10 py-2 text-xs font-bold uppercase tracking-wider text-amber-400"
+                        >
+                            {script.craft.stage === 'LOCKED' ? 'Open locked script' : `Writers' room · ${script.craft.stage.replace('_', ' ').toLowerCase()}`}
+                        </button>
                     )}
 
                     {script.status === 'IN_DEVELOPMENT' && (
