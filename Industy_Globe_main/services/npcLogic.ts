@@ -818,6 +818,7 @@ export const NPC_DATABASE = generateNPCs();
 const readNpcEconomy = (npc: NPCActor): NpcEconomyEntry => ({
     fame: Number.isFinite(npc.stats?.fame) ? Number(npc.stats?.fame) : 0,
     netWorth: Number.isFinite(npc.netWorth) ? npc.netWorth : 0,
+    followers: Number.isFinite(npc.followers) ? npc.followers : 0,
 });
 
 const BASE_NPC_ECONOMY: Record<string, NpcEconomyEntry> = Object.fromEntries(
@@ -840,11 +841,22 @@ export const applyNpcEconomy = (snapshot?: Record<string, NpcEconomyEntry> | nul
         const entry = saved?.[npc.id];
         const fame = entry && Number.isFinite(entry.fame) ? entry.fame : base.fame;
         const netWorth = entry && Number.isFinite(entry.netWorth) ? entry.netWorth : base.netWorth;
+        const followers = entry && Number.isFinite(entry.followers) ? entry.followers : base.followers;
         if (!npc.stats) npc.stats = {};
         npc.stats.fame = fame;
         npc.netWorth = netWorth;
+        if (Number.isFinite(followers)) npc.followers = followers as number;
     });
 };
+
+/** Fictional debuts for the loaded save. The shared database stays the real roster. */
+let debutCast: NPCActor[] = [];
+
+export const bindDebutCast = (list?: NPCActor[]): void => {
+    debutCast = Array.isArray(list) ? list.filter(npc => npc && !npc.retired) : [];
+};
+
+export const debutCastNow = (): NPCActor[] => debutCast;
 
 /** Point the shared roster at one save before casting, Forbes, news, or the world sim read it. */
 export const syncNpcRoster = (economy?: Record<string, NpcEconomyEntry> | null): NPCActor[] => {
@@ -909,7 +921,7 @@ export const getAvailableTalent = (
     const rotationSeed = Math.floor(currentWeek / 3);
     
     // 2. Filter DB by occupation
-    const allTalent = [...NPC_DATABASE, ...extraNPCs].filter(npc => npc.occupation === occupation);
+    const allTalent = [...NPC_DATABASE, ...debutCast, ...extraNPCs].filter(npc => npc.occupation === occupation && !npc.retired);
     
     // 3. Shuffle using a more robust seeded shuffle
     // We use a pseudo-random number generator based on the rotationSeed
@@ -1016,7 +1028,7 @@ const CAPTIONS = {
 
 export const generateWeeklyFeed = (player: Player): InstaPost[] => {
     const feed: InstaPost[] = [];
-    const npcPool = [...NPC_DATABASE, ...(Array.isArray(player.flags?.extraNPCs) ? player.flags.extraNPCs : [])];
+    const npcPool = [...NPC_DATABASE, ...debutCast, ...(Array.isArray(player.flags?.extraNPCs) ? player.flags.extraNPCs : [])];
     
     // 1. Add Player's posts from this week (Persist them in the new feed batch)
     const playerPosts = player.instagram.posts.filter(p => p.week === player.currentWeek);

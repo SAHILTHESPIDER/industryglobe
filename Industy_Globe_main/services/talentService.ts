@@ -33,7 +33,8 @@ export const evaluateOffer = (
     offeredAmount: number,
     paymentMode: PaymentMode,
     playerFame: number,
-    studioValuation: number
+    studioValuation: number,
+    askOverride?: { totalAmount: number; weeklyInstallment: number; maintenanceFee: number }
 ): { success: boolean, message: string, maintenanceFee: number, totalContractValue: number } => {
     
     // Independence check
@@ -48,7 +49,7 @@ export const evaluateOffer = (
         return { success: false, message: "I need at least a one-movie commitment.", maintenanceFee: 0, totalContractValue: 0 };
     }
 
-    const ask = calculateNPCAsk(npc, duration);
+    const ask = askOverride || calculateNPCAsk(npc, duration);
     const baseAsk = paymentMode === 'UPFRONT' ? ask.totalAmount : ask.weeklyInstallment;
     
     // Player fame and studio valuation give a discount (up to 20% combined)

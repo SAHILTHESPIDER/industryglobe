@@ -582,7 +582,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         ];
         return new Set(
             roster
-                .filter(contract => contract?.status === 'ACTIVE' && contract?.type === 'MOVIE_DEAL' && (contract?.moviesRemaining ?? 0) > 0 && contract?.npcId)
+                .filter(contract => contract?.status === 'ACTIVE' && (contract?.moviesRemaining ?? 0) > 0 && contract?.npcId)
                 .map(contract => contract.npcId)
         );
     }, [player.studio?.talentRoster, studio.studioState?.talentRoster]);
@@ -1336,7 +1336,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         });
 
         // Ensure contracted actors are in the list
-        const contracts = player.studio?.talentRoster?.filter(c => c.type === 'MOVIE_DEAL' && c.moviesRemaining > 0) || [];
+        const contracts = player.studio?.talentRoster?.filter(c => c.moviesRemaining > 0) || [];
         contracts.forEach(c => {
             if (!talent.some(t => t.id === c.npcId)) {
                 const selectedNPC = [...NPC_DATABASE, ...(player.flags.extraNPCs || [])].find(n => n.id === c.npcId);

@@ -739,31 +739,37 @@ const ProductionHouseInner: React.FC<{
                         <MapPin size={12} />
                         <span>{hqSummary(readHqIndustry(studio.studioState, player.homeIndustryId))}</span>
                     </div>
-                    <div className="ph-regions">
+                    <div className="ph-office-list">
                         {(studio.studioState?.operatingRegions || []).map(region => (
-                            <div key={region.industryId}>{industryById(region.industryId).name} · {Math.round(region.contacts)} contacts{region.home ? ' · HQ' : ''}</div>
+                            <div key={region.industryId} className="ph-office-open">
+                                <span>{industryById(region.industryId).name}{region.home ? ' · HQ' : ''}</span>
+                                <b>{Math.round(region.contacts)} contacts</b>
+                            </div>
                         ))}
                         {INDUSTRY_ORDER.filter(id => !(studio.studioState?.operatingRegions || []).some(region => region.industryId === id)).map(id => {
                             const cost = INDUSTRY_ENGINE[id].regionOpenCost;
-                            const short = (studio.balance || 0) < cost;
+                            const balance = studio.balance || 0;
+                            const short = balance < cost;
                             return (
                             <button
                                 key={id}
                                 type="button"
                                 disabled={short}
-                                className={`ph-region-open${short ? ' is-short' : ''}`}
+                                className="ph-office-btn"
                                 onClick={() => {
                                     if (short) return;
                                     const result = openOperatingRegion(player, studio.id, id);
                                     if (!result.error) onUpdatePlayer(result.player);
                                 }}
                             >
-                                {short
-                                    ? `${INDUSTRY_ENGINE[id].name} office costs ${formatMoney(cost)}. The house has ${formatMoney(studio.balance || 0)}.`
-                                    : `Open ${INDUSTRY_ENGINE[id].name} · ${formatMoney(cost)}`}
+                                <span>Open {INDUSTRY_ENGINE[id].name}</span>
+                                <b>{short ? `Need ${formatMoney(cost)}` : formatMoney(cost)}</b>
                             </button>
                             );
                         })}
+                        {INDUSTRY_ORDER.some(id => !(studio.studioState?.operatingRegions || []).some(region => region.industryId === id) && (studio.balance || 0) < INDUSTRY_ENGINE[id].regionOpenCost) && (
+                            <p className="ph-office-note">The house cannot afford every new office. Grey buttons stay closed until capital covers the cost. HQ stays open.</p>
+                        )}
                     </div>
                 </div>
                 <div className="ph-money">

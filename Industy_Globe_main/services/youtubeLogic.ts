@@ -5,6 +5,7 @@ import { cartoonAvatarUrl } from './cartoonAvatar';
 import { MOD_TALENT_ROWS, ModTalentRow } from './modTalentData';
 import { hydrateGenreXP } from './genreCatalog';
 import { PUBLIC_CREATORS, PublicCreator } from './youtubeCreators';
+import { followersOf } from './talentAudience';
 import { aiOffline } from '../src/services/aiContent';
 import { isMarketingType } from './youtubeMarketing';
 import { getAbsoluteWeek } from './legacyLogic';
@@ -226,7 +227,11 @@ export const getEnabledGlobalCreatorProfiles = (player: Player) => {
             creator.followers >= ALWAYS_ON_CREATOR_THRESHOLD ||
             enabledCountries.includes(creator.country.toLowerCase())
         )
-        .filter((creator, idx, arr) => arr.findIndex(entry => entry.id === creator.id) === idx);
+        .filter((creator, idx, arr) => arr.findIndex(entry => entry.id === creator.id) === idx)
+        .map(creator => ({
+            ...creator,
+            followers: followersOf(player, creator.id, creator.name, creator.followers),
+        }));
 };
 
 export const getGlobalCreatorCountForPack = (packId: string): number => {

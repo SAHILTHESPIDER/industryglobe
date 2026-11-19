@@ -1,6 +1,7 @@
 import type { FilmIndustryId, Player } from '../types';
 import { INDUSTRY_ENGINE } from './industryEngine';
 import { INDUSTRY_ORDER, isFilmIndustry } from './scriptDesk/catalog';
+import { ensureDebutClass } from './talentDebut';
 import { ensureHouseFootprint, readHqIndustry } from './studioRegions';
 
 export const GLOBAL_EXPANSION_VERSION = 1;
@@ -56,6 +57,8 @@ export const migrateGlobalExpansion = (player: Player): Player => {
     }
 
     next.flags.globalExpansion = GLOBAL_EXPANSION_VERSION;
+    const withDebut = ensureDebutClass(next);
+    Object.assign(next, withDebut);
     if (house) {
         const hq = readHqIndustry(next.businesses?.find(row => row.id === house.id)?.studioState, next.homeIndustryId);
         if (!isFilmIndustry(next.homeIndustryId)) next.homeIndustryId = hq;
