@@ -18,7 +18,7 @@ export const YOUTUBE_ROSTER: RosterRow[] = [
     { name: 'Snax Gaming', country: 'India', subsM: 8.2, gender: 'MALE', niche: 'BGMI', cadence: 1, category: 'STREAMER', viewersK: 85, org: 'S8UL', living: true },
     { name: 'Payal Gaming', country: 'India', subsM: 4.6, gender: 'FEMALE', niche: 'BGMI', cadence: 1, category: 'STREAMER', viewersK: 42, org: '', living: true },
     { name: 'Kaash Plays', country: 'India', subsM: 3.1, gender: 'FEMALE', niche: 'BGMI', cadence: 1, category: 'STREAMER', viewersK: 28, org: '', living: true },
-    { name: 'Scout', country: 'India', subsM: 7.4, gender: 'MALE', niche: 'BGMI', cadence: 1, category: 'STREAMER', viewersK: 90, org: '8BIT', living: true },
+    { name: 'Scout', country: 'India', subsM: 7.4, gender: 'MALE', niche: 'BGMI', cadence: 1, category: 'STREAMER', viewersK: 90, org: 'S8UL', living: true },
     { name: 'Mortal', country: 'India', subsM: 8.8, gender: 'MALE', niche: 'BGMI', cadence: 1, category: 'STREAMER', viewersK: 110, org: 'SOUL', living: true },
     { name: 'Jonathan Gaming', country: 'India', subsM: 6.9, gender: 'MALE', niche: 'BGMI', cadence: 1, category: 'STREAMER', viewersK: 70, org: 'GODL', living: true },
     { name: 'Dynamo Gaming', country: 'India', subsM: 12.5, gender: 'MALE', niche: 'GTA', cadence: 1, category: 'STREAMER', viewersK: 60, org: 'HYDRA', living: true },

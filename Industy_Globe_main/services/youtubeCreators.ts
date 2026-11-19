@@ -1,5 +1,7 @@
 import { Gender, NPCActor, NPCPrestige, NPCTier } from '../types';
 import { cartoonAvatarUrl } from './cartoonAvatar';
+import { canonicalKey } from './data/creatorAliases';
+import { TALENT_ROSTER, talentAvatar, talentDisplayName, USE_REAL_NAMES } from './data/talentRoster';
 import { hydrateGenreXP } from './genreCatalog';
 import { publicPersonName } from './rights/alterName';
 import { CreatorCategory, YOUTUBE_ROSTER } from './youtubeRoster';
@@ -40,38 +42,73 @@ export const hashString = (value: string): number => {
 const genderOf = (value: 'MALE' | 'FEMALE' | 'NON_BINARY'): Exclude<Gender, 'ALL'> =>
     value === 'FEMALE' ? 'FEMALE' : 'MALE';
 
+const ROSTER_CREATORS = TALENT_ROSTER.filter(entry =>
+    entry.kind === 'YOUTUBER' || entry.kind === 'STREAMER' || entry.kind === 'INFLUENCER'
+);
+
+const rosterByKey = new Map<string, (typeof ROSTER_CREATORS)[number]>();
+ROSTER_CREATORS.forEach(entry => {
+    const key = canonicalKey(entry.realName);
+    if (!rosterByKey.has(key)) rosterByKey.set(key, entry);
+});
+
+const shownName = (source: string, living: boolean) =>
+    (USE_REAL_NAMES || !living) ? source : publicPersonName(source, living);
+
 export const PUBLIC_CREATORS: PublicCreator[] = (() => {
     const used = new Set<string>();
-    return YOUTUBE_ROSTER.map(row => {
-        const name = publicPersonName(row.name, row.living);
+    const seenKeys = new Set<string>();
+    const rows: PublicCreator[] = [];
+    const push = (row: PublicCreator, key: string) => {
+        if (seenKeys.has(key) || used.has(row.id)) return;
+        seenKeys.add(key);
+        used.add(row.id);
+        rows.push(row);
+    };
+    YOUTUBE_ROSTER.forEach(row => {
+        const key = canonicalKey(row.name);
+        const roster = rosterByKey.get(key);
+        const name = roster ? talentDisplayName(roster) : shownName(row.name, row.living);
         const base = slug(name) || 'creator';
-        let id = `yt_${base}`;
-        let handle = `@${base}`;
-        let n = 2;
-        while (used.has(id)) {
-            id = `yt_${base}${n}`;
-            handle = `@${base}${n}`;
-            n += 1;
-        }
-        used.add(id);
-        const gender = genderOf(row.gender);
-        return {
+        const id = roster?.id || `yt_${base}`;
+        push({
             id,
             name,
-            handle,
-            avatar: cartoonAvatarUrl(`${name} ${row.country}`),
-            followers: Math.max(1000, Math.floor(row.subsM * M)),
-            country: row.country,
-            gender,
+            handle: `@${slug(name) || base}`,
+            avatar: roster ? talentAvatar(roster) : cartoonAvatarUrl(`${name} ${row.country}`),
+            followers: Math.max(1000, roster ? Math.floor(roster.followersM * M) : Math.floor(row.subsM * M)),
+            country: roster?.country || row.country,
+            gender: roster ? roster.gender : genderOf(row.gender),
             niche: row.niche,
             cadence: Math.max(1, row.cadence || 1),
             category: row.category,
             viewers: Math.max(0, Math.floor((row.viewersK || 0) * 1000)),
             org: row.org,
             living: row.living,
-            core: true as const,
-        };
+            core: true,
+        }, key);
     });
+    ROSTER_CREATORS.forEach(entry => {
+        const key = canonicalKey(entry.realName);
+        const name = talentDisplayName(entry);
+        push({
+            id: entry.id,
+            name,
+            handle: `@${slug(name) || entry.id}`,
+            avatar: talentAvatar(entry),
+            followers: Math.max(1000, Math.floor(entry.followersM * M)),
+            country: entry.country,
+            gender: entry.gender,
+            niche: entry.kind === 'STREAMER' ? 'Gaming' : entry.kind === 'INFLUENCER' ? 'Lifestyle' : 'Entertainment',
+            cadence: 1,
+            category: entry.kind === 'STREAMER' ? 'STREAMER' : 'YOUTUBER',
+            viewers: entry.kind === 'STREAMER' ? 12_000 : 0,
+            org: '',
+            living: true,
+            core: true,
+        }, key);
+    });
+    return rows;
 })();
 
 export const creatorCount = () => PUBLIC_CREATORS.length;

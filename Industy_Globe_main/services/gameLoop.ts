@@ -57,6 +57,8 @@ import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonW
 import { advanceReviewBomb, advanceScreeningWork, applyReleaseCampaignHype, hydrateReleaseWorld, lockReleaseScores, offerTestScreeningOnWrap, resolveDueFestivals, withdrawUnfinishedFestival } from './releaseGauntlet';
 import { migrateGlobalExpansion } from './migrateIndustries';
 import { growRegionContacts } from './studioRegions';
+import { tickTalentAudience } from './talentAudience';
+import { debutTalentYear } from './talentDebut';
 import { INDUSTRY_ENGINE, theatricalMultiplier } from './industryEngine';
 import { linkSocialWeek } from './socialBridge';
 import { processWorldTurn, generateIndustryProject } from './worldLogic';
@@ -1156,6 +1158,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         const worldResult = processWorldTurn(nextPlayer);
         nextPlayer.world = worldResult.world;
         nextPlayer = growRegionContacts(nextPlayer);
+        nextPlayer = tickTalentAudience(nextPlayer);
         nextPlayer = linkSocialWeek(nextPlayer);
         nextPlayer = hydrateReleaseWorld(nextPlayer);
         nextPlayer.news = [...worldResult.news, ...nextPlayer.news].slice(0, 50);
@@ -2024,6 +2027,13 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             if (contract.type === 'MOVIE_DEAL' && contract.moviesRemaining !== undefined && contract.moviesRemaining <= 0) {
                 logsToAdd.push({ msg: `📜 Movie deal completed: ${contract.npcId}`, type: 'positive' });
                 return false; // Remove from roster
+            }
+            if (contract.type !== 'MOVIE_DEAL') {
+                contract.moviesRemaining = Math.max(0, (contract.moviesRemaining || 1) - 1);
+                if (contract.moviesRemaining <= 0) {
+                    logsToAdd.push({ msg: `📣 Booking wrapped: ${contract.npcId}`, type: 'neutral' });
+                    return false;
+                }
             }
 
             return true;
@@ -3685,6 +3695,9 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         nextPlayer.currentWeek = 1;
         nextPlayer.age += 1;
         logsToAdd.push({ msg: `🎂 Happy Birthday! You are now ${nextPlayer.age}.`, type: 'positive' });
+        const debut = debutTalentYear(nextPlayer);
+        nextPlayer = debut.player;
+        debut.notes.forEach(message => logsToAdd.push({ msg: message, type: 'neutral' }));
         
         // Age up parents yearly. Children with tracked birth weeks are resolved separately.
         if (nextPlayer.relationships) {

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { User, Calendar, Check, ArrowRight, Camera, UploadCloud, AtSign, Sparkles, Shuffle } from 'lucide-react';
 import { FilmIndustryId, Gender } from '../types';
-import { INDUSTRY_ENGINE, allIndustries } from '../services/industryEngine';
+import { INDUSTRY_ENGINE, allIndustries, type IndustryEngineDef } from '../services/industryEngine';
 import { MALE_AVATAR_SEEDS, FEMALE_AVATAR_SEEDS } from '../services/npcLogic';
 import { IndustryGlobeMark } from '../components/IndustryGlobeMark';
 
@@ -24,6 +24,20 @@ const buildAvatarUrl = (style: AvatarStyleId, seed: string) =>
   `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(seed)}&backgroundColor=${AVATAR_BG}`;
 
 const GRAIN_SVG = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.35 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`;
+
+const INDUSTRY_FACE: Record<IndustryEngineDef['id'], { flag: string; blurb: string }> = {
+  HOLLYWOOD: { flag: '🇺🇸', blurb: 'Wide releases, tentpoles, and the awards corridor.' },
+  BOLLYWOOD: { flag: '🇮🇳', blurb: 'Mumbai star vehicles, songs, and festival Fridays.' },
+  TOLLYWOOD: { flag: '🇮🇳', blurb: 'Hyderabad scale, mass heroes, and pan-India openings.' },
+  KOLLYWOOD: { flag: '🇮🇳', blurb: 'Chennai stardom, fan armies, and festival clashes.' },
+  MOLLYWOOD: { flag: '🇮🇳', blurb: 'Kochi stories with a sharp, smaller market.' },
+  NOLLYWOOD: { flag: '🇳🇬', blurb: 'Lagos speed. Stories travel on streaming and word of mouth.' },
+  KOREAN: { flag: '🇰🇷', blurb: 'Seoul thrillers, stars, and a fierce opening weekend.' },
+  BRITISH: { flag: '🇬🇧', blurb: 'London craft, festivals, and a tighter theatrical market.' },
+  CHINESE: { flag: '🇨🇳', blurb: 'Beijing and Hong Kong screens, stars, and holiday dates.' },
+  LATIN: { flag: '🇲🇽', blurb: 'Mexico City and a festival path into the home audience.' },
+  JAPANESE: { flag: '🇯🇵', blurb: 'Tokyo committees, Golden Week, and a loyal home crowd.' },
+};
 
 export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
   const [name, setName] = useState('');
@@ -376,24 +390,38 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
               </div>
 
               <div>
-                <label className={labelClass}>Headquarters</label>
-                <p className="text-[11px] text-zinc-500 mb-2 px-1">Pick the industry you start in. The first office is free. Other regions open later, from house capital.</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {allIndustries().map(row => (
-                    <button
-                      key={row.id}
-                      type="button"
-                      onClick={() => setIndustry(row.id)}
-                      className={`rounded-xl border px-2 py-2 text-left ${
-                        industry === row.id
-                          ? 'border-amber-400 bg-amber-400/15 text-amber-100'
-                          : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-amber-500/40'
-                      }`}
-                    >
-                      <div className="text-xs font-bold">{row.name}</div>
-                      <div className="text-[10px] opacity-70">{row.hqCity}, {row.hqCountry}</div>
-                    </button>
-                  ))}
+                <label className={labelClass}>Home industry</label>
+                <p className="text-[11px] text-zinc-500 mb-2 px-1">Your first office is free. Local stars, crew, and the home audience follow this choice.</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 snap-x sm:grid sm:grid-cols-2 sm:overflow-visible">
+                  {allIndustries().map(row => {
+                    const face = INDUSTRY_FACE[row.id];
+                    const selected = industry === row.id;
+                    return (
+                      <button
+                        key={row.id}
+                        type="button"
+                        onClick={() => setIndustry(row.id)}
+                        className={`snap-start min-w-[220px] sm:min-w-0 text-left rounded-2xl border p-3 transition-colors ${
+                          selected
+                            ? 'border-amber-400 bg-gradient-to-br from-amber-400/20 to-zinc-900 text-amber-50 shadow-[0_0_24px_rgba(245,158,11,0.18)]'
+                            : 'border-zinc-800 bg-zinc-900/70 text-zinc-300'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-2xl leading-none" aria-hidden="true">{face.flag}</span>
+                          {selected && <Check size={14} className="text-amber-300" />}
+                        </div>
+                        <div className="font-black text-sm mt-2">{row.name}</div>
+                        <div className="text-[10px] text-zinc-400">{row.hqCity}, {row.hqCountry}</div>
+                        <p className="text-[11px] text-zinc-300 mt-2 leading-snug min-h-[2.5rem]">{face.blurb}</p>
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-black/50 text-amber-200">Stars +{row.localStarBonus}</span>
+                          <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-black/50 text-sky-200">Crew {row.crewCost}×</span>
+                          <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-black/50 text-zinc-200">Market {row.marketScale}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
