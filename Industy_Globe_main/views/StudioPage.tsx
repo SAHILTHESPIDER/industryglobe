@@ -4,8 +4,11 @@ import {
     Users, Star, TrendingUp, DollarSign, X, Check, Info, Film, ShieldAlert, PenTool,
     Search, Lock, Wallet, Flame, Scissors, ArrowUpDown, BadgeDollarSign, Gauge
 } from 'lucide-react';
-import { getAvailableTalent, NPC_DATABASE } from '../services/npcLogic';
-import { calculateNPCAsk, evaluateOffer, createContract } from '../services/talentService';
+import { NPC_DATABASE } from '../services/npcLogic';
+import { evaluateOffer, createContract } from '../services/talentService';
+import { bookingWeeks, contractTypeFor, defaultBooking, findHireable, hireablePeople, marketShelf, quoteBooking, talentLabel, type BookingKind } from '../services/talentHire';
+import { shiftTalentFollowers } from '../services/talentAudience';
+import { industryById } from '../services/industryEngine';
 
 interface StudioPageProps {
     player: Player;
@@ -17,6 +20,7 @@ interface StudioPageProps {
 type Tab = 'ROSTER' | 'MARKET';
 type SortKey = 'FAME' | 'TALENT' | 'ASK';
 type TierFilter = 'ALL' | 'UNKNOWN' | 'ESTABLISHED';
+type PeopleFilter = 'ALL' | 'ACTORS' | 'CREATORS';
 
 const MAX_ATTEMPTS = 3;
 const COOLDOWN_WEEKS = 12;
@@ -38,6 +42,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
     const [search, setSearch] = useState('');
     const [tierFilter, setTierFilter] = useState<TierFilter>('ALL');
     const [sortKey, setSortKey] = useState<SortKey>('FAME');
+    const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>('ALL');
+    const [bookingKind, setBookingKind] = useState<BookingKind>('PROJECT');
 
     // Roster controls
     const [releaseTarget, setReleaseTarget] = useState<StudioContract | null>(null);
@@ -61,9 +67,11 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
 
     const extraNPCs = player.flags.extraNPCs || [];
 
+    const hirePool = useMemo(() => hireablePeople(player), [player]);
+    const signedKey = [...allSignedNpcIds].join('|');
     const rawMarket = useMemo(
-        () => getAvailableTalent(player.currentWeek, 'ACTOR', extraNPCs, player.world?.npcEconomy ?? null).filter(npc => !allSignedNpcIds.has(npc.id)),
-        [player.currentWeek, extraNPCs, allSignedNpcIds, player.world?.npcEconomy]
+        () => marketShelf(hirePool, player.currentWeek, search, peopleFilter).filter(npc => !allSignedNpcIds.has(npc.id)),
+        [hirePool, player.currentWeek, search, peopleFilter, signedKey]
     );
 
     const market = useMemo(() => {
@@ -74,11 +82,11 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
             .sort((a, b) => {
                 if (sortKey === 'FAME') return (b.stats?.fame || 0) - (a.stats?.fame || 0);
                 if (sortKey === 'TALENT') return (b.stats?.talent || 0) - (a.stats?.talent || 0);
-                return calculateNPCAsk(a, 1).totalAmount - calculateNPCAsk(b, 1).totalAmount;
+                return quoteBooking(a, defaultBooking(a), 1).totalAmount - quoteBooking(b, defaultBooking(b), 1).totalAmount;
             });
     }, [rawMarket, search, tierFilter, sortKey]);
 
-    const getNPCById = (id: string) => [...rawMarket, ...NPC_DATABASE, ...extraNPCs].find(n => n.id === id);
+    const getNPCById = (id: string) => [...rawMarket, ...NPC_DATABASE, ...extraNPCs].find(n => n.id === id) || findHireable(player, id);
 
     // Studio overview numbers
     const weeklyUpkeep = signedContracts.reduce((s, c) => s + (c.maintenanceFee || 0), 0);
@@ -87,10 +95,12 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
     const nearExpiry = signedContracts.filter(c => c.moviesRemaining <= 1).length;
 
     // Negotiation derived values
-    const ask = selectedNPC ? calculateNPCAsk(selectedNPC, negotiationDuration) : null;
+    const bookingLength = bookingKind === 'PROJECT' ? negotiationDuration : bookingWeeks(bookingKind);
+    const payWeeks = bookingKind === 'PROJECT' ? INSTALLMENT_WEEKS : (bookingWeeks(bookingKind) || 4);
+    const ask = selectedNPC ? quoteBooking(selectedNPC, bookingKind, bookingLength || 1) : null;
     const offerAmount = parseMoney(offerAmountStr);
-    const offerTotal = paymentMode === 'UPFRONT' ? offerAmount : offerAmount * INSTALLMENT_WEEKS;
-    const askTotal = ask ? (paymentMode === 'UPFRONT' ? ask.totalAmount : ask.weeklyInstallment * INSTALLMENT_WEEKS) : 0;
+    const offerTotal = paymentMode === 'UPFRONT' ? offerAmount : offerAmount * payWeeks;
+    const askTotal = ask ? (paymentMode === 'UPFRONT' ? ask.totalAmount : ask.weeklyInstallment * payWeeks) : 0;
     const offerRatio = askTotal > 0 ? offerTotal / askTotal : 0;
     const canAfford = paymentMode === 'UPFRONT' ? player.money >= offerAmount : true;
     const currentAttempts = selectedNPC ? (attempts[selectedNPC.id] || 0) : 0;
@@ -112,6 +122,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
         setOfferAmountStr('');
         setNegotiationDuration(3);
         setPaymentMode('UPFRONT');
+        setBookingKind(defaultBooking(npc));
     };
 
     const handlePaymentModeChange = (newMode: PaymentMode) => {
@@ -120,8 +131,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
         if (cur > 0) {
             setOfferAmountStr(
                 newMode === 'WEEKLY_INSTALLMENTS'
-                    ? Math.ceil((cur * WEEKLY_PREMIUM) / INSTALLMENT_WEEKS).toLocaleString()
-                    : Math.floor((cur * INSTALLMENT_WEEKS) / WEEKLY_PREMIUM).toLocaleString()
+                    ? Math.ceil((cur * WEEKLY_PREMIUM) / payWeeks).toLocaleString()
+                    : Math.floor((cur * payWeeks) / WEEKLY_PREMIUM).toLocaleString()
             );
         }
         setPaymentMode(newMode);
@@ -136,9 +147,10 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
     const handleNegotiate = () => {
         if (!selectedNPC || !studio) return;
 
+        const quote = quoteBooking(selectedNPC, bookingKind, bookingLength || 1);
         const result = evaluateOffer(
-            selectedNPC, negotiationDuration, offerAmount, paymentMode,
-            player.stats.fame, studio.stats.valuation || 0
+            selectedNPC, bookingLength || 1, offerAmount, paymentMode,
+            player.stats.fame, studio.stats.valuation || 0, quote, payWeeks
         );
         setNegotiationResult(result);
 
@@ -149,7 +161,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
 
         if (result.success && result.maintenanceFee !== undefined) {
             const newContract = createContract(
-                selectedNPC.id, 'MOVIE_DEAL', paymentMode, negotiationDuration,
+                selectedNPC.id, contractTypeFor(bookingKind), paymentMode, bookingLength || 1,
                 result.totalContractValue, result.maintenanceFee, player.currentWeek
             );
 
@@ -177,6 +189,14 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                 };
             }
             delete updated.studioMemory.attempts[selectedNPC.id];
+            const bumped = shiftTalentFollowers(updated, [{
+                id: selectedNPC.id,
+                name: selectedNPC.name,
+                reason: 'BOOKING',
+                percent: 2 + Math.min(6, Math.round((player.stats.fame || 0) / 20)),
+            }]);
+            updated.world = bumped.world;
+            updated.flags = bumped.flags;
         } else {
             const next = (updated.studioMemory.attempts[selectedNPC.id] || 0) + 1;
             updated.studioMemory.attempts[selectedNPC.id] = next;
@@ -338,6 +358,12 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                 />
                             </div>
                             <div className="flex gap-2 flex-wrap">
+                                {(['ALL', 'ACTORS', 'CREATORS'] as PeopleFilter[]).map(t => (
+                                    <button key={t} onClick={() => setPeopleFilter(t)}
+                                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${peopleFilter === t ? 'bg-white text-black border-white' : 'border-zinc-800 text-zinc-500 hover:text-white'}`}>
+                                        {t === 'ALL' ? 'All' : t === 'ACTORS' ? 'Actors' : 'Creators'}
+                                    </button>
+                                ))}
                                 {(['ALL', 'UNKNOWN', 'ESTABLISHED'] as TierFilter[]).map(t => (
                                     <button key={t} onClick={() => setTierFilter(t)}
                                         className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border ${tierFilter === t ? 'bg-amber-500 border-amber-500 text-black' : 'border-zinc-800 text-zinc-500 hover:text-white'}`}>
@@ -366,7 +392,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
 
                         {market.map(npc => {
                             const locked = cooldowns[npc.id] && cooldowns[npc.id] > player.currentWeek;
-                            const quickAsk = calculateNPCAsk(npc, 1);
+                            const quickAsk = quoteBooking(npc, defaultBooking(npc), defaultBooking(npc) === 'PROJECT' ? 1 : 4);
                             const tried = attempts[npc.id] || 0;
                             return (
                                 <div key={npc.id} className={`bg-zinc-900 border rounded-3xl p-4 flex items-center gap-4 group transition-all ${locked ? 'border-zinc-800 opacity-60' : 'border-zinc-800 hover:border-amber-500/50'}`}>
@@ -374,14 +400,17 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <h3 className="font-bold text-white truncate">{npc.name}</h3>
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase bg-zinc-800 text-zinc-300">{talentLabel(npc)}</span>
                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase ${npc.tier === 'UNKNOWN' ? 'bg-zinc-800 text-zinc-500' : 'bg-amber-500/20 text-amber-500'}`}>{npc.tier}</span>
+                                            {npc.homeIndustryId && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase bg-zinc-950 text-zinc-500">{industryById(npc.homeIndustryId).name}</span>}
                                             {tried > 0 && !locked && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase bg-red-500/10 text-red-400">{MAX_ATTEMPTS - tried} tries left</span>}
                                         </div>
                                         <p className="text-[10px] text-zinc-500 italic line-clamp-1 mb-2">"{npc.bio}"</p>
                                         <div className="flex items-center gap-3 text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
                                             <span className="flex items-center gap-1"><TrendingUp size={10} /> {Math.floor(npc.stats?.fame || 0)}</span>
                                             <span className="flex items-center gap-1"><Star size={10} /> {Math.floor(npc.stats?.talent || 0)}</span>
-                                            <span className="flex items-center gap-1 text-amber-500"><BadgeDollarSign size={10} /> {fmt(quickAsk.totalAmount)}/film</span>
+                                            <span className="flex items-center gap-1 text-sky-400">{Math.round(npc.followers).toLocaleString()} followers</span>
+                                            <span className="flex items-center gap-1 text-amber-500"><BadgeDollarSign size={10} /> {fmt(quickAsk.totalAmount)}</span>
                                         </div>
                                     </div>
                                     {locked ? (
@@ -454,12 +483,28 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
 
                                 <div className="space-y-4 font-sans">
                                     <div>
+                                        <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1 block">Booking</label>
+                                        <div className="flex gap-2">
+                                            {(['PROJECT', 'PROMOTION', 'APPEARANCE'] as BookingKind[]).map(kind => (
+                                                <button key={kind} type="button" onClick={() => { setBookingKind(kind); setOfferAmountStr(''); }}
+                                                    className={`flex-1 py-2 rounded text-[10px] font-bold uppercase tracking-widest border ${bookingKind === kind ? 'bg-amber-500 border-amber-500 text-black' : 'bg-white border-zinc-300 text-zinc-600'}`}>
+                                                    {kind === 'PROJECT' ? 'Project' : kind === 'PROMOTION' ? 'Promo' : 'Appear'}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <p className="text-[10px] text-zinc-500 mt-1">The quote follows their followers and fame. A promo or appearance runs four weeks.</p>
+                                    </div>
+
+                                    <div>
                                         <label className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1 flex justify-between">
-                                            <span>1. Commitment</span><span className="text-zinc-900">{negotiationDuration} film{negotiationDuration > 1 ? 's' : ''}</span>
+                                            <span>{bookingKind === 'PROJECT' ? '1. Films' : '1. Window'}</span>
+                                            <span className="text-zinc-900">{bookingKind === 'PROJECT' ? `${negotiationDuration} film${negotiationDuration > 1 ? 's' : ''}` : '4 weeks'}</span>
                                         </label>
-                                        <input type="range" min={1} max={10} value={negotiationDuration}
-                                            onChange={e => setNegotiationDuration(parseInt(e.target.value))}
-                                            className="w-full accent-zinc-900" />
+                                        {bookingKind === 'PROJECT' && (
+                                            <input type="range" min={1} max={10} value={negotiationDuration}
+                                                onChange={e => setNegotiationDuration(parseInt(e.target.value))}
+                                                className="w-full accent-zinc-900" />
+                                        )}
                                     </div>
 
                                     <div>
@@ -468,7 +513,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                             {(['UPFRONT', 'WEEKLY_INSTALLMENTS'] as PaymentMode[]).map(m => (
                                                 <button key={m} onClick={() => handlePaymentModeChange(m)}
                                                     className={`flex-1 py-2 rounded text-xs font-bold uppercase tracking-widest border transition-all ${paymentMode === m ? 'bg-zinc-900 border-zinc-900 text-white' : 'bg-white border-zinc-300 text-zinc-600 hover:bg-zinc-50'}`}>
-                                                    {m === 'UPFRONT' ? 'Upfront' : `Weekly (${INSTALLMENT_WEEKS}w)`}
+                                                    {m === 'UPFRONT' ? 'Upfront' : `Weekly (${payWeeks}w)`}
                                                 </button>
                                             ))}
                                         </div>
@@ -510,8 +555,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                             <div className="font-black text-sm">{fmt(offerTotal)}</div>
                                         </div>
                                         <div>
-                                            <div className="text-[10px] text-zinc-500 uppercase font-bold">Per Film</div>
-                                            <div className="font-black text-sm">{fmt(offerTotal / negotiationDuration)}</div>
+                                            <div className="text-[10px] text-zinc-500 uppercase font-bold">{bookingKind === 'PROJECT' ? 'Per Film' : 'Per Week'}</div>
+                                            <div className="font-black text-sm">{fmt(offerTotal / Math.max(1, bookingKind === 'PROJECT' ? negotiationDuration : payWeeks))}</div>
                                         </div>
                                         <div>
                                             <div className="text-[10px] text-zinc-500 uppercase font-bold flex items-center justify-center gap-1"><Gauge size={10} /> Reception</div>
@@ -562,7 +607,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                         <div>
                                             <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Contract Value</div>
                                             <div className="text-lg font-black">{fmt(offerAmount)}{paymentMode === 'WEEKLY_INSTALLMENTS' ? '/wk' : ''}</div>
-                                            {paymentMode === 'WEEKLY_INSTALLMENTS' && <div className="text-[10px] text-zinc-500">× {INSTALLMENT_WEEKS} weeks</div>}
+                                            {paymentMode === 'WEEKLY_INSTALLMENTS' && <div className="text-[10px] text-zinc-500">× {payWeeks} weeks</div>}
                                         </div>
                                         <div>
                                             <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Maintenance</div>

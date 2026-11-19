@@ -5,6 +5,7 @@ import { cartoonAvatarUrl } from './cartoonAvatar';
 import { MOD_TALENT_ROWS, ModTalentRow } from './modTalentData';
 import { hydrateGenreXP } from './genreCatalog';
 import { PUBLIC_CREATORS, PublicCreator } from './youtubeCreators';
+import { followersOf } from './talentAudience';
 import { aiOffline } from '../src/services/aiContent';
 import { isMarketingType } from './youtubeMarketing';
 import { getAbsoluteWeek } from './legacyLogic';
@@ -226,7 +227,11 @@ export const getEnabledGlobalCreatorProfiles = (player: Player) => {
             creator.followers >= ALWAYS_ON_CREATOR_THRESHOLD ||
             enabledCountries.includes(creator.country.toLowerCase())
         )
-        .filter((creator, idx, arr) => arr.findIndex(entry => entry.id === creator.id) === idx);
+        .filter((creator, idx, arr) => arr.findIndex(entry => entry.id === creator.id) === idx)
+        .map(creator => ({
+            ...creator,
+            followers: followersOf(player, creator.id, creator.name, creator.followers),
+        }));
 };
 
 export const getGlobalCreatorCountForPack = (packId: string): number => {
@@ -247,7 +252,8 @@ export const getEnabledGlobalCreatorSocialProfiles = (player: Player): NPCActor[
         followers: creator.followers,
         netWorth: creator.netWorth || Math.max(1_000_000, Math.floor(creator.followers * 1.8)),
         occupation: 'ACTOR',
-        bio: `${creator.country} creator. Global social presence.`,
+        talentKind: creator.category === 'STREAMER' ? 'STREAMER' : creator.category === 'OFFICIAL' ? undefined : 'YOUTUBER',
+        bio: `${creator.country} ${creator.category === 'STREAMER' ? 'streamer' : 'creator'}.`,
         stats: {
             talent: 70,
             fame: creator.followers >= 20 * M ? 88 : 62,
@@ -267,7 +273,7 @@ export const getEnabledGlobalCreatorSocialProfiles = (player: Player): NPCActor[
         potential: 85,
         isIndependent: true,
         age: creator.age,
-        forbesCategory: creator.forbesCategory || 'Creator'
+        forbesCategory: creator.category === 'OFFICIAL' ? 'Official' : (creator.forbesCategory || 'Creator')
     }));
 };
 

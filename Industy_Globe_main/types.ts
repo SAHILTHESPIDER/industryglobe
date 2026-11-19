@@ -72,7 +72,9 @@ export enum Page {
   export type TalentFeeTier = 'LOW' | 'MID' | 'HIGH' | 'ICON';
   export type NPCPrestige = 'COMMERCIAL' | 'PRESTIGE' | 'MIXED';
   export type ActorTrait = 'DIVA' | 'METHOD' | 'WORKAHOLIC' | 'UNRELIABLE' | 'EASY_GOING' | 'BOX_OFFICE_POISON' | 'PROFESSIONAL' | 'AMBITIOUS';
-  export type ContractType = 'MOVIE_DEAL';
+  /** MOVIE_DEAL is a screen contract. PROMOTION and APPEARANCE book creators. REALITY is reserved for a later show. */
+  export type ContractType = 'MOVIE_DEAL' | 'PROMOTION' | 'APPEARANCE';
+  export type AudienceReason = 'ACTIVITY' | 'HIT' | 'FLOP' | 'COLLAB' | 'CONTROVERSY' | 'INACTIVITY' | 'BOOKING' | 'REALITY';
   export type PaymentMode = 'UPFRONT' | 'WEEKLY_INSTALLMENTS';
   export type ProjectMemoryTag = string;
   export type AdType = 'INTERSTITIAL' | 'REWARDED_CASH' | 'REWARDED_ENERGY' | 'REWARDED_STATS' | 'REWARDED_SKILL' | 'REWARDED_GENRE' | 'REWARDED_BAILOUT';
@@ -2585,6 +2587,10 @@ export enum Page {
       potential?: number; // 0-100
       isIndependent?: boolean; // If true, harder to sign to multi-movie deals
       contractId?: string; // ID of the active contract with the player's studio
+      /** Set on the save, not the shared database. Retired names leave the hiring pool. */
+      retired?: boolean;
+      /** Older names keep working. Their audience moves more slowly. */
+      slowed?: boolean;
       /** Home film industry. Missing on older NPCs means Hollywood. */
       homeIndustryId?: FilmIndustryId;
       country?: string;
@@ -2990,6 +2996,28 @@ export enum Page {
   export interface NpcEconomyEntry {
       fame: number;
       netWorth: number;
+      /** Dynamic audience. Missing on older saves until the weekly tick. */
+      followers?: number;
+      retired?: boolean;
+      slowed?: boolean;
+      age?: number;
+  }
+
+  /** One row in the save-backed audience book. A future reality show can shift the same row. */
+  export interface TalentAudiencePerson {
+      followers: number;
+      lastActiveAbs: number;
+      heat: number;
+      retired?: boolean;
+      slowed?: boolean;
+      age?: number;
+  }
+
+  export interface TalentAudienceBook {
+      version: 1;
+      /** Absolute week last ticked. A second pass the same week does nothing. */
+      weekAbs: number;
+      byKey: Record<string, TalentAudiencePerson>;
   }
 
   export interface WorldState {
@@ -3004,6 +3032,8 @@ export enum Page {
       npcVentures?: Record<string, NpcVentureState>;
       /** Per-save fame and net worth for NPC_DATABASE. Missing on older saves. */
       npcEconomy?: Record<string, NpcEconomyEntry>;
+      /** Followers for actors, creators, and generated talent. Missing on older saves. */
+      talentAudience?: TalentAudienceBook;
       /** Newest weekend last. Capped. Missing on older saves. */
       boxOfficeCharts?: BoxOfficeWeekend[];
       boxOfficeRecord?: BoxOfficeRecord;

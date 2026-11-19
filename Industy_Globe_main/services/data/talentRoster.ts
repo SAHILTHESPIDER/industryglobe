@@ -2,6 +2,7 @@ import type { FilmIndustryId, Genre, NPCTier, TalentFeeTier, TalentKind } from '
 import { cartoonAvatarUrl } from '../cartoonAvatar';
 import { INDUSTRIES } from '../scriptDesk/catalog';
 import { ASIA_ROSTER_SEEDS } from './talentRosterAsia';
+import { EXPANSION_SEEDS } from './talentRosterExpand';
 
 /**
  * One switch for this roster.
@@ -74,10 +75,32 @@ const kindLabel = (kind: TalentKind, gender: 'MALE' | 'FEMALE') => {
 
 type Seed = [string, FilmIndustryId, 'MALE' | 'FEMALE', NPCTier, TalentKind, Genre[], number, number, string];
 
+/** Public names that used to be stored under the legal-name slug. Saves still point at the old id. */
+const LEGACY_ROSTER_SLUG: Record<string, string> = {
+    'MrBeast': 'jimmydonaldson',
+    'Markiplier': 'markfischbach',
+    'Pokimane': 'imaneanys',
+    'IShowSpeed': 'darrenwatkinsjr',
+    'Ninja': 'tylerblevins',
+    'xQc': 'felixlengyel',
+    'PewDiePie': 'felixkjellberg',
+    'KSI': 'olajideolatunji',
+    'BB Ki Vines': 'bhuvanbam',
+    'CarryMinati': 'ajeynagar',
+    'HIKAKIN': 'hikarukaihatsu',
+    'Faker': 'leesanghyeok',
+    'Mortal': 'namanmathur',
+    'Jonathan Gaming': 'jonathanamaral',
+    'Techno Gamerz': 'ujjwalchaurasia',
+    '8Bit Thug': 'animeshagarwal',
+    'Payal Gaming': 'payaldhare',
+    'Triggered Insaan': 'nischaymalhan',
+};
+
 const build = (seed: Seed): TalentRosterEntry => {
     const [realName, industry, gender, tier, kind, genres, followersM, netWorthM, country] = seed;
     return {
-        id: `roster_${slug(realName)}`,
+        id: `roster_${LEGACY_ROSTER_SLUG[realName] || slug(realName)}`,
         realName,
         fictionalName: aliasFor(realName, industry, gender),
         industry,
@@ -274,34 +297,34 @@ const SEEDS: Seed[] = [
     ['Saoirse Ronan', 'BRITISH', 'FEMALE', 'A_LIST', 'ACTOR', [D, R], 4, 12, 'Ireland'],
     ['Dev Patel', 'BRITISH', 'MALE', 'A_LIST', 'ACTOR', [D, A], 5, 12, 'United Kingdom'],
     // Creators. Careers only. No personal allegations.
-    ['Jimmy Donaldson', 'HOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [C, V], 300, 500, 'United States'],
-    ['Mark Fischbach', 'HOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [H, C], 35, 30, 'United States'],
-    ['Imane Anys', 'HOLLYWOOD', 'FEMALE', 'A_LIST', 'STREAMER', [C], 10, 12, 'United States'],
+    ['MrBeast', 'HOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [C, V], 300, 500, 'United States'],
+    ['Markiplier', 'HOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [H, C], 35, 30, 'United States'],
+    ['Pokimane', 'HOLLYWOOD', 'FEMALE', 'A_LIST', 'STREAMER', [C], 10, 12, 'Canada'],
     ['Kai Cenat', 'HOLLYWOOD', 'MALE', 'A_LIST', 'STREAMER', [C], 15, 15, 'United States'],
-    ['Darren Watkins Jr.', 'HOLLYWOOD', 'MALE', 'A_LIST', 'STREAMER', [C, V], 40, 20, 'United States'],
-    ['Tyler Blevins', 'HOLLYWOOD', 'MALE', 'ESTABLISHED', 'STREAMER', [C], 20, 20, 'United States'],
-    ['Felix Lengyel', 'HOLLYWOOD', 'MALE', 'A_LIST', 'STREAMER', [C], 12, 25, 'Canada'],
+    ['IShowSpeed', 'HOLLYWOOD', 'MALE', 'A_LIST', 'STREAMER', [C, V], 40, 20, 'United States'],
+    ['Ninja', 'HOLLYWOOD', 'MALE', 'ESTABLISHED', 'STREAMER', [C], 20, 20, 'United States'],
+    ['xQc', 'HOLLYWOOD', 'MALE', 'A_LIST', 'STREAMER', [C], 12, 25, 'Canada'],
     ['Emma Chamberlain', 'HOLLYWOOD', 'FEMALE', 'A_LIST', 'YOUTUBER', [C, D], 15, 20, 'United States'],
     ['Charli D\'Amelio', 'HOLLYWOOD', 'FEMALE', 'A_LIST', 'INFLUENCER', [C, M], 150, 20, 'United States'],
     ['Addison Rae', 'HOLLYWOOD', 'FEMALE', 'ESTABLISHED', 'INFLUENCER', [C, M], 40, 15, 'United States'],
     ['Marques Brownlee', 'HOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [S, C], 20, 25, 'United States'],
     ['Casey Neistat', 'HOLLYWOOD', 'MALE', 'ESTABLISHED', 'YOUTUBER', [D, C], 12, 20, 'United States'],
     ['Lilly Singh', 'HOLLYWOOD', 'FEMALE', 'ESTABLISHED', 'YOUTUBER', [C], 14, 20, 'Canada'],
-    ['Felix Kjellberg', 'BRITISH', 'MALE', 'ICON', 'YOUTUBER', [C], 110, 40, 'Sweden'],
-    ['Olajide Olatunji', 'BRITISH', 'MALE', 'A_LIST', 'YOUTUBER', [C, M], 25, 40, 'United Kingdom'],
+    ['PewDiePie', 'BRITISH', 'MALE', 'ICON', 'YOUTUBER', [C], 110, 40, 'Sweden'],
+    ['KSI', 'BRITISH', 'MALE', 'A_LIST', 'YOUTUBER', [C, M], 25, 40, 'United Kingdom'],
     ['Daniel Middleton', 'BRITISH', 'MALE', 'ESTABLISHED', 'YOUTUBER', [C], 25, 30, 'United Kingdom'],
-    ['Bhuvan Bam', 'BOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [C, D], 25, 8, 'India'],
+    ['BB Ki Vines', 'BOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [C, D], 25, 8, 'India'],
     ['Ashish Chanchlani', 'BOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [C], 30, 8, 'India'],
     ['Prajakta Koli', 'BOLLYWOOD', 'FEMALE', 'A_LIST', 'YOUTUBER', [C, R], 10, 4, 'India'],
-    ['Ajey Nagar', 'BOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [C], 40, 10, 'India'],
+    ['CarryMinati', 'BOLLYWOOD', 'MALE', 'A_LIST', 'YOUTUBER', [C], 40, 10, 'India'],
     ['Gaurav Chaudhary', 'BOLLYWOOD', 'MALE', 'ESTABLISHED', 'YOUTUBER', [S], 22, 8, 'India'],
     ['Gaurav Taneja', 'BOLLYWOOD', 'MALE', 'ESTABLISHED', 'YOUTUBER', [V, C], 8, 6, 'India'],
     ['Nikhil Sharma', 'BOLLYWOOD', 'MALE', 'ESTABLISHED', 'YOUTUBER', [V], 4, 3, 'India'],
-    ['Hikaru Kaihatsu', 'JAPANESE', 'MALE', 'A_LIST', 'YOUTUBER', [C], 12, 20, 'Japan'],
+    ['HIKAKIN', 'JAPANESE', 'MALE', 'A_LIST', 'YOUTUBER', [C], 12, 20, 'Japan'],
     ['Hajime Syacho', 'JAPANESE', 'MALE', 'A_LIST', 'YOUTUBER', [C], 10, 15, 'Japan'],
     ['Li Ziqi', 'CHINESE', 'FEMALE', 'A_LIST', 'YOUTUBER', [D], 20, 15, 'China'],
     ['Tzuyang', 'KOREAN', 'FEMALE', 'ESTABLISHED', 'YOUTUBER', [C], 8, 4, 'South Korea'],
-    ['Lee Sang-hyeok', 'KOREAN', 'MALE', 'A_LIST', 'STREAMER', [C], 8, 30, 'South Korea'],
+    ['Faker', 'KOREAN', 'MALE', 'A_LIST', 'STREAMER', [C], 8, 30, 'South Korea'],
     ['Ibai Llanos', 'LATIN', 'MALE', 'A_LIST', 'STREAMER', [C], 15, 10, 'Spain'],
     ['Rubén Doblas', 'LATIN', 'MALE', 'A_LIST', 'YOUTUBER', [C], 40, 20, 'Spain'],
     ['Luisito Comunica', 'LATIN', 'MALE', 'A_LIST', 'YOUTUBER', [V, C], 40, 12, 'Mexico'],
@@ -314,7 +337,7 @@ const SEEDS: Seed[] = [
 ];
 
 const seenRosterIds = new Set<string>();
-export const TALENT_ROSTER: TalentRosterEntry[] = [...SEEDS, ...ASIA_ROSTER_SEEDS].map(build).filter(row => {
+export const TALENT_ROSTER: TalentRosterEntry[] = [...SEEDS, ...ASIA_ROSTER_SEEDS, ...EXPANSION_SEEDS].map(build).filter(row => {
     if (seenRosterIds.has(row.id)) return false;
     seenRosterIds.add(row.id);
     return true;

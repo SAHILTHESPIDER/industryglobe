@@ -2,6 +2,7 @@ import { CreatorYoutubeChannel, NewsItem, Player, YoutubeChannel } from '../type
 import { getAbsoluteWeek } from './legacyLogic';
 import { describeAward, newTiers } from './youtubeAwards';
 import { hashString } from './youtubeCreators';
+import { followersOf } from './talentAudience';
 import { getEnabledGlobalCreatorProfiles } from './youtubeLogic';
 import { BACKFILL_WEEKS } from './youtubeRivals';
 
@@ -111,6 +112,17 @@ export const syncCreatorYoutube = (player: Player, channel: YoutubeChannel, mode
             });
         }
     }
+
+    seeds.forEach(seed => {
+        const row = rows.get(seed.id);
+        if (!row) return;
+        const live = followersOf(player, seed.id, seed.name, seed.followers || row.subscribers);
+        if (!Number.isFinite(live) || live <= 0) return;
+        row.subscribers = live;
+        row.totalViews = Math.max(row.totalViews, Math.floor(live * 6));
+        const crossed = newTiers(row.playButtons, live);
+        if (crossed.length) row.playButtons = [...(row.playButtons || []), ...crossed];
+    });
 
     const creatorSimWeekAbs = cursor == null
         ? (mode === 'week' ? abs : Math.max(0, abs - 1))
