@@ -376,7 +376,8 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
               </div>
 
               <div>
-                <label className={labelClass}>Home industry</label>
+                <label className={labelClass}>Headquarters</label>
+                <p className="text-[11px] text-zinc-500 mb-2 px-1">Pick the industry you start in. The first office is free. Other regions open later, from house capital.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                   {allIndustries().map(row => (
                     <button
@@ -402,7 +403,7 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
                 <div className="min-w-0">
                   <p className="font-bold truncate">{name.trim() || 'Your Stage Name'}</p>
                   <p className="text-xs text-zinc-500 font-mono truncate">
-                    {handle.trim() || '@handle'} · {age || '—'} yrs · {INDUSTRY_ENGINE[industry].hqCity}
+                    {handle.trim() || '@handle'} · {age || '—'} yrs · {INDUSTRY_ENGINE[industry].name} · {INDUSTRY_ENGINE[industry].hqCity}
                   </p>
                 </div>
               </div>

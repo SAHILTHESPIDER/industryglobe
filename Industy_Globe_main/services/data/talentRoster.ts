@@ -2,6 +2,7 @@ import type { FilmIndustryId, Genre, NPCTier, TalentFeeTier, TalentKind } from '
 import { cartoonAvatarUrl } from '../cartoonAvatar';
 import { INDUSTRIES } from '../scriptDesk/catalog';
 import { ASIA_ROSTER_SEEDS } from './talentRosterAsia';
+import { EXPANSION_SEEDS } from './talentRosterExpansion';
 
 /**
  * One switch for this roster.
@@ -314,7 +315,7 @@ const SEEDS: Seed[] = [
 ];
 
 const seenRosterIds = new Set<string>();
-export const TALENT_ROSTER: TalentRosterEntry[] = [...SEEDS, ...ASIA_ROSTER_SEEDS].map(build).filter(row => {
+export const TALENT_ROSTER: TalentRosterEntry[] = [...SEEDS, ...ASIA_ROSTER_SEEDS, ...EXPANSION_SEEDS].map(build).filter(row => {
     if (seenRosterIds.has(row.id)) return false;
     seenRosterIds.add(row.id);
     return true;

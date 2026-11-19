@@ -79,6 +79,7 @@ const ProductionHouseInner: React.FC<{
     const [marketingTitleId, setMarketingTitleId] = useState<string | undefined>(undefined);
     const [commissionFlow, setCommissionFlow] = useState<{ screen: 'sheet' | 'counter' | 'reply' | 'contract' | 'signed' | 'lost' | 'project'; briefId?: string; projectId?: string } | null>(null);
     const [snoozedOffers, setSnoozedOffers] = useState<string[]>([]);
+    const [officeNote, setOfficeNote] = useState('');
     const openCommission = (brief: CommissionBrief) => setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
     const openCommissionProject = (project: CommissionProject) => setCommissionFlow({ screen: 'project', projectId: project.id });
     const [selectedProjectDashboard, setSelectedProjectDashboard] = useState<any>(null);
@@ -743,24 +744,31 @@ const ProductionHouseInner: React.FC<{
                         {(studio.studioState?.operatingRegions || []).map(region => (
                             <div key={region.industryId}>{industryById(region.industryId).name} · {Math.round(region.contacts)} contacts{region.home ? ' · HQ' : ''}</div>
                         ))}
+                        {officeNote && <p className="ph-office-note" role="status">{officeNote}</p>}
                         {INDUSTRY_ORDER.filter(id => !(studio.studioState?.operatingRegions || []).some(region => region.industryId === id)).map(id => {
                             const cost = INDUSTRY_ENGINE[id].regionOpenCost;
-                            const short = (studio.balance || 0) < cost;
+                            const balance = studio.balance || 0;
+                            const short = balance < cost;
+                            const shortCopy = `${INDUSTRY_ENGINE[id].name} needs ${formatMoney(cost)}. The house has ${formatMoney(balance)}.`;
                             return (
                             <button
                                 key={id}
                                 type="button"
                                 disabled={short}
+                                aria-disabled={short}
+                                title={short ? shortCopy : `Open a ${INDUSTRY_ENGINE[id].name} office for ${formatMoney(cost)}`}
                                 className={`ph-region-open${short ? ' is-short' : ''}`}
                                 onClick={() => {
-                                    if (short) return;
                                     const result = openOperatingRegion(player, studio.id, id);
-                                    if (!result.error) onUpdatePlayer(result.player);
+                                    if (result.error) {
+                                        setOfficeNote(result.error === 'The house cannot afford that office yet.' ? shortCopy : result.error);
+                                        return;
+                                    }
+                                    setOfficeNote(`${INDUSTRY_ENGINE[id].name} office opened. ${formatMoney(cost)} left house capital.`);
+                                    onUpdatePlayer(result.player);
                                 }}
                             >
-                                {short
-                                    ? `${INDUSTRY_ENGINE[id].name} office costs ${formatMoney(cost)}. The house has ${formatMoney(studio.balance || 0)}.`
-                                    : `Open ${INDUSTRY_ENGINE[id].name} · ${formatMoney(cost)}`}
+                                {short ? shortCopy : `Open ${INDUSTRY_ENGINE[id].name} · ${formatMoney(cost)}`}
                             </button>
                             );
                         })}
