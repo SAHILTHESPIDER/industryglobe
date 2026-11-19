@@ -253,7 +253,6 @@ export const EXPANSION_SEEDS: RosterSeed[] = [
     ['Jung Woo-sung', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [A, D, R], 4, 20, 'South Korea'],
     ['Jang Dong-gun', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [A, D], 3, 25, 'South Korea'],
     ['So Ji-sub', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [D, R, A], 4, 18, 'South Korea'],
-    ['Jo In-sung', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [D, R], 3, 15, 'South Korea'],
     ['Kwon Sang-woo', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [A, R], 3, 15, 'South Korea'],
     ['Song Seung-heon', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [R, D], 4, 15, 'South Korea'],
     ['Kim Woo-bin', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [D, A], 10, 12, 'South Korea'],

@@ -764,7 +764,9 @@ const ProductionHouseInner: React.FC<{
                                         setOfficeNote(result.error === 'The house cannot afford that office yet.' ? shortCopy : result.error);
                                         return;
                                     }
-                                    setOfficeNote(`${INDUSTRY_ENGINE[id].name} office opened. ${formatMoney(cost)} left house capital.`);
+                                    const opened = result.player.businesses.find(row => row.id === studio.id);
+                                    const left = opened?.balance ?? Math.max(0, balance - cost);
+                                    setOfficeNote(`${INDUSTRY_ENGINE[id].name} office opened. Spent ${formatMoney(cost)}. The house has ${formatMoney(left)}.`);
                                     onUpdatePlayer(result.player);
                                 }}
                             >
