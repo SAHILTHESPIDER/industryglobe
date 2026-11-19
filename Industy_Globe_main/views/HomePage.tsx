@@ -1552,7 +1552,8 @@ export const HomePage: React.FC<HomePageProps> = ({ player, onNextWeek, isProces
           'MAJOR_STUDIO',
           { quality: 'LUXURY', pricing: 'HIGH', marketing: 'HIGH' },
           '🎬',
-          player.currentWeek
+          player.currentWeek,
+          player.homeIndustryId
       );
 
       const fundedStudio = {

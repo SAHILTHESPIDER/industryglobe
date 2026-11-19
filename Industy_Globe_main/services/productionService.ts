@@ -198,9 +198,35 @@ export const applyCrisisImpact = (player: Player, event: ScheduledEvent, choiceI
             options: event.data.options.map((opt: any) => ({
                 label: opt.label,
                 impact: (p: Player, c: Commitment) => {
-                    // We need to re-derive the impact based on the label or index
-                    // This is tricky without storing functions.
-                    // Let's use a standard impact mapper for generative ones.
+                    const effect = opt.effect as { money?: number; quality?: number; buzz?: number; reputation?: number; contacts?: number; industryId?: string; log?: string } | undefined;
+                    if (effect && (effect.money || effect.quality || effect.buzz || effect.reputation || effect.contacts || effect.log)) {
+                        const updatedPlayer: Player = {
+                            ...p,
+                            money: p.money + (effect.money || 0),
+                            stats: {
+                                ...p.stats,
+                                reputation: Math.max(0, Math.min(100, (p.stats?.reputation || 0) + (effect.reputation || 0))),
+                            },
+                            businesses: (p.businesses || []).map(business => {
+                                if (!effect.contacts || business.type !== 'PRODUCTION_HOUSE' || !business.studioState?.operatingRegions) return business;
+                                return {
+                                    ...business,
+                                    studioState: {
+                                        ...business.studioState,
+                                        operatingRegions: business.studioState.operatingRegions.map(region => region.industryId === effect.industryId
+                                            ? { ...region, contacts: Math.max(0, Math.min(100, region.contacts + (effect.contacts || 0))) }
+                                            : region),
+                                    },
+                                };
+                            }),
+                        };
+                        const updatedProject: Commitment = {
+                            ...c,
+                            productionPerformance: Math.max(0, Math.min(100, (c.productionPerformance || 50) + (effect.quality || 0))),
+                            promotionalBuzz: Math.max(0, (c.promotionalBuzz || 0) + (effect.buzz || 0)),
+                        };
+                        return { updatedPlayer, updatedProject, log: effect.log || 'You handled the crisis.' };
+                    }
                     if (opt.label.includes("Money")) {
                         const updatedPlayer = { ...p, money: p.money - 25000 };
                         return { updatedPlayer, updatedProject: c, log: `You resolved the issue with a $25k investment.` };

@@ -171,7 +171,7 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
                 pricing: 'HIGH',
                 marketing: 'HIGH',
                 headOfProductionId: headOfProd,
-            }, '🎬', player.currentWeek);
+            }, '🎬', player.currentWeek, player.homeIndustryId);
 
             const hopName = HEAD_OF_PRODUCTION_CANDIDATES.find(h => h.id === headOfProd)?.name;
 

@@ -1,6 +1,7 @@
 import type { FilmIndustryId, Genre, NPCTier, TalentFeeTier, TalentKind } from '../../types';
 import { cartoonAvatarUrl } from '../cartoonAvatar';
 import { INDUSTRIES } from '../scriptDesk/catalog';
+import { ASIA_ROSTER_SEEDS } from './talentRosterAsia';
 
 /**
  * One switch for this roster.
@@ -312,7 +313,7 @@ const SEEDS: Seed[] = [
     ['Tunde Ednut', 'NOLLYWOOD', 'MALE', 'ESTABLISHED', 'INFLUENCER', [C, M], 10, 5, 'Nigeria'],
 ];
 
-export const TALENT_ROSTER: TalentRosterEntry[] = SEEDS.map(build);
+export const TALENT_ROSTER: TalentRosterEntry[] = [...SEEDS, ...ASIA_ROSTER_SEEDS].map(build);
 
 const OVERRIDE = new Map(TALENT_ROSTER.map(row => [slug(row.realName), row.industry]));
 

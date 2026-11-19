@@ -2080,10 +2080,12 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                 if (locData) totalQuality += locData.quality;
             });
             locationQualityBonus = Math.round(totalQuality / selectedLocations.length);
+            let starBonus = 0;
             castList.forEach(role => {
                 const actor = availableActors.find(row => row.id === role.actorId);
-                locationQualityBonus += localStarQuality(studio.studioState, actor?.homeIndustryId);
+                starBonus = Math.max(starBonus, localStarQuality(studio.studioState, actor?.homeIndustryId));
             });
+            locationQualityBonus += starBonus;
 
             if (selectedLocations.length === 1) {
                 const loc = findLocation(selectedLocations[0]);

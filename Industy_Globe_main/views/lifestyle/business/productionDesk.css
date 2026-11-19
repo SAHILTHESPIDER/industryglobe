@@ -130,6 +130,11 @@
     cursor: pointer;
 }
 
+.ph-region-open.is-short {
+    color: #fca5a5;
+    cursor: not-allowed;
+}
+
 .ph-money {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

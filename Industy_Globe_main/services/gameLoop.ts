@@ -2694,7 +2694,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         isGeneral: (crisis as any).isGeneral,
                         templateIndex: (crisis as any).templateIndex,
                         isGenerative: (crisis as any).isGenerative,
-                        options: crisis.options.map((o, i) => ({ label: o.label, index: i }))
+                        options: crisis.options.map((o, i) => ({ label: o.label, index: i, effect: (o as { effect?: unknown }).effect }))
                     }
                 });
                 logsToAdd.push({ msg: `⚠️ CRISIS on the set of "${updatedC.name}"!`, type: 'negative' });

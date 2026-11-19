@@ -743,19 +743,27 @@ const ProductionHouseInner: React.FC<{
                         {(studio.studioState?.operatingRegions || []).map(region => (
                             <div key={region.industryId}>{industryById(region.industryId).name} · {Math.round(region.contacts)} contacts{region.home ? ' · HQ' : ''}</div>
                         ))}
-                        {INDUSTRY_ORDER.filter(id => !(studio.studioState?.operatingRegions || []).some(region => region.industryId === id)).map(id => (
+                        {INDUSTRY_ORDER.filter(id => !(studio.studioState?.operatingRegions || []).some(region => region.industryId === id)).map(id => {
+                            const cost = INDUSTRY_ENGINE[id].regionOpenCost;
+                            const short = (studio.balance || 0) < cost;
+                            return (
                             <button
                                 key={id}
                                 type="button"
-                                className="ph-region-open"
+                                disabled={short}
+                                className={`ph-region-open${short ? ' is-short' : ''}`}
                                 onClick={() => {
+                                    if (short) return;
                                     const result = openOperatingRegion(player, studio.id, id);
                                     if (!result.error) onUpdatePlayer(result.player);
                                 }}
                             >
-                                Open {INDUSTRY_ENGINE[id].name} · {formatMoney(INDUSTRY_ENGINE[id].regionOpenCost)}
+                                {short
+                                    ? `${INDUSTRY_ENGINE[id].name} office costs ${formatMoney(cost)}. The house has ${formatMoney(studio.balance || 0)}.`
+                                    : `Open ${INDUSTRY_ENGINE[id].name} · ${formatMoney(cost)}`}
                             </button>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
                 <div className="ph-money">

@@ -194,6 +194,15 @@ export const generateRandomCrisis = (project: Commitment, player: Player): Produ
             description: template.detail,
             options: template.choices.map(choice => ({
                 label: choice.label,
+                effect: {
+                    money: choice.money,
+                    quality: choice.quality,
+                    buzz: choice.buzz,
+                    reputation: choice.reputation,
+                    contacts: choice.contacts,
+                    industryId: hq,
+                    log: choice.log,
+                },
                 impact: (current: Player, commitment: Commitment) => {
                     const updatedPlayer: Player = {
                         ...current,

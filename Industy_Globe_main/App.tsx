@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { INITIAL_PLAYER, Player, Page, Commitment, PressInteraction, SocialEvent, ActorSkills, AdType, Relationship, ProjectDetails, ActiveRelease, PastProject, StreamingState, PregnancyCarrier } from './types';
+import { INITIAL_PLAYER, Player, Page, Commitment, PressInteraction, SocialEvent, ActorSkills, AdType, Relationship, ProjectDetails, ActiveRelease, PastProject, StreamingState, PregnancyCarrier, FilmIndustryId } from './types';
 import { BottomNav, SideNav } from './components/BottomNav';
 import { IndustryGlobeMark } from './components/IndustryGlobeMark';
 import { GameNavProvider, LifestyleDestination } from './components/GameNav';
@@ -44,6 +44,7 @@ import { APP_DISPLAY_VERSION } from './services/appVersion';
 import { WhatsNewNotes } from './components/WhatsNewNotes';
 import { applyLegacyFilmScores, hydrateReleaseWorld } from './services/releaseGauntlet';
 import { migrateGlobalExpansion } from './services/migrateIndustries';
+import { INDUSTRY_ENGINE } from './services/industryEngine';
 import { FestivalNightModal } from './views/FestivalNightModal';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
 import { normalizeUniverseMap } from './services/universeLogic';
@@ -1141,7 +1142,8 @@ export const App: React.FC = () => {
                       mapped.subtype,
                       { quality: 'STANDARD', pricing: 'MARKET', marketing: 'LOW' },
                       mapped.emoji,
-                      safePlayer.currentWeek
+                      safePlayer.currentWeek,
+                      safePlayer.homeIndustryId
                   );
                   const legacyInvestment = Math.max(0, Number(safePlayer.business.totalInvestment || 0));
                   if (legacyInvestment > 0) {
@@ -1704,7 +1706,7 @@ export const App: React.FC = () => {
   };
 
   // --- HANDLERS ---
-  const handleStartGame = (name: string, age: number, gender: any, avatar: string, handle: string) => { 
+  const handleStartGame = (name: string, age: number, gender: any, avatar: string, handle: string, industry: FilmIndustryId = 'HOLLYWOOD') => { 
       const parentRelationships = INITIAL_PLAYER.relationships.map((rel, index) => ({
           ...rel,
           age: age + (index === 0 ? 28 : 31),
@@ -1719,7 +1721,10 @@ export const App: React.FC = () => {
           // Set specific handle for all platforms
           instagram: { ...INITIAL_PLAYER.instagram, handle: handle },
           x: { ...INITIAL_PLAYER.x, handle: handle, followers: 0 },
-          youtube: { ...INITIAL_PLAYER.youtube, handle: handle }
+          youtube: { ...INITIAL_PLAYER.youtube, handle: handle },
+          homeIndustryId: industry,
+          languages: [...INDUSTRY_ENGINE[industry].languages],
+          fameByIndustry: { [industry]: 0 },
       };
       applyNpcEconomy(null);
       if (currentSlot) {

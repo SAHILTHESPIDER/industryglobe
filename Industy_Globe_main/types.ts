@@ -2020,6 +2020,8 @@ export enum Page {
       options: {
           label: string;
           impact: (player: Player, project: Commitment) => { updatedPlayer: Player, updatedProject: Commitment, log: string };
+          /** Plain numbers so a saved crisis still applies after the functions are gone. */
+          effect?: { money: number; quality: number; buzz: number; reputation: number; contacts: number; industryId?: string; log: string };
       }[];
   }
   
