@@ -114,25 +114,43 @@
 
 .ph-regions {
     display: grid;
-    gap: 4px;
-    margin-top: 8px;
+    gap: 6px;
+    width: 100%;
+    align-self: stretch;
+    margin-top: 10px;
     color: #a1a1aa;
     font-size: 11px;
 }
 
+.ph-office-note {
+    margin: 0;
+    color: #fecaca;
+    font-size: 11px;
+    line-height: 1.35;
+    text-align: left;
+}
+
 .ph-region-open {
+    width: 100%;
     text-align: left;
     color: #e4e4e7;
-    background: transparent;
-    border: 0;
-    padding: 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 6px 8px;
     font-size: 11px;
+    line-height: 1.35;
+    white-space: normal;
     cursor: pointer;
 }
 
+.ph-region-open:disabled,
 .ph-region-open.is-short {
-    color: #fca5a5;
+    color: #fecaca;
+    background: rgba(127, 29, 29, 0.35);
+    border-color: rgba(252, 165, 165, 0.55);
     cursor: not-allowed;
+    opacity: 1;
 }
 
 .ph-office-list {

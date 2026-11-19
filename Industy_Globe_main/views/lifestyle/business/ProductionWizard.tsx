@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { Player } from '../../../types';
+import { FilmIndustryId, Player } from '../../../types';
 import { createBusiness, HEAD_OF_PRODUCTION_CANDIDATES } from '../../../services/businessLogic';
+import { INDUSTRY_ENGINE } from '../../../services/industryEngine';
+import { INDUSTRY_ORDER, isFilmIndustry } from '../../../services/scriptDesk/catalog';
 import { ArrowLeft, ArrowRight, Camera, Check, Clapperboard, Star, Users, Zap, Lock, DollarSign, TrendingUp, ShieldCheck, Crown, Sparkles, X, AlertTriangle, ChevronRight, PenTool } from 'lucide-react';
 
 interface ProductionWizardProps {
@@ -15,6 +17,7 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
     // Start at Step 0 (The Gate) instead of 1
     const [step, setStep] = useState(0);
     const [name, setName] = useState('');
+    const [hq, setHq] = useState<FilmIndustryId>(isFilmIndustry(player.homeIndustryId) ? player.homeIndustryId : 'HOLLYWOOD');
     const [headOfProd, setHeadOfProd] = useState<string | null>(null);
     const [isAnimating, setIsAnimating] = useState(false);
     
@@ -171,18 +174,21 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
                 pricing: 'HIGH',
                 marketing: 'HIGH',
                 headOfProductionId: headOfProd,
-            }, '🎬', player.currentWeek, player.homeIndustryId);
+            }, '🎬', player.currentWeek, hq);
 
             const hopName = HEAD_OF_PRODUCTION_CANDIDATES.find(h => h.id === headOfProd)?.name;
 
             onUpdatePlayer({
                 ...player,
+                homeIndustryId: hq,
+                languages: hq === player.homeIndustryId && player.languages?.length ? player.languages : [...INDUSTRY_ENGINE[hq].languages],
+                fameByIndustry: { ...(player.fameByIndustry || {}), [hq]: player.fameByIndustry?.[hq] ?? (player.stats?.fame || 0) },
                 money: player.money - COST,
                 businesses: [...player.businesses, newBiz],
                 logs: [...player.logs, { 
                     week: player.currentWeek, 
                     year: player.age, 
-                    message: `GRAND OPENING: ${name} Production House established! ${hopName} hired as Head of Production.`, 
+                    message: `GRAND OPENING: ${name} opens in ${INDUSTRY_ENGINE[hq].hqCity}. ${hopName} hired as Head of Production.`, 
                     type: 'positive' 
                 }],
                 news: [{
@@ -463,6 +469,20 @@ export const ProductionWizard: React.FC<ProductionWizardProps> = ({ player, onCa
                                        className="w-full bg-transparent border-b-2 border-black/20 py-2 text-xl font-bold uppercase tracking-wide focus:outline-none focus:border-black transition-colors placeholder:text-black/20 font-serif"
                                        autoFocus
                                    />
+                               </div>
+
+                               <div className="mt-4">
+                                   <label className="block text-[10px] font-bold uppercase tracking-widest mb-1 opacity-50 font-sans">Headquarters</label>
+                                   <select
+                                       value={hq}
+                                       onChange={(e) => setHq(e.target.value as FilmIndustryId)}
+                                       className="w-full bg-transparent border-b-2 border-black/20 py-2 text-sm font-bold uppercase tracking-wide focus:outline-none focus:border-black font-sans"
+                                   >
+                                       {INDUSTRY_ORDER.map(id => (
+                                           <option key={id} value={id}>{INDUSTRY_ENGINE[id].name} · {INDUSTRY_ENGINE[id].hqCity}</option>
+                                       ))}
+                                   </select>
+                                   <p className="mt-2 text-[10px] font-sans leading-snug opacity-60">This is the home office. Later regions spend house capital.</p>
                                </div>
 
                                <div className="flex-1"></div>

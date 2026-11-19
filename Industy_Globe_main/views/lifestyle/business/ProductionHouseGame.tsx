@@ -79,6 +79,7 @@ const ProductionHouseInner: React.FC<{
     const [marketingTitleId, setMarketingTitleId] = useState<string | undefined>(undefined);
     const [commissionFlow, setCommissionFlow] = useState<{ screen: 'sheet' | 'counter' | 'reply' | 'contract' | 'signed' | 'lost' | 'project'; briefId?: string; projectId?: string } | null>(null);
     const [snoozedOffers, setSnoozedOffers] = useState<string[]>([]);
+    const [officeNote, setOfficeNote] = useState('');
     const openCommission = (brief: CommissionBrief) => setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
     const openCommissionProject = (project: CommissionProject) => setCommissionFlow({ screen: 'project', projectId: project.id });
     const [selectedProjectDashboard, setSelectedProjectDashboard] = useState<any>(null);
@@ -746,20 +747,30 @@ const ProductionHouseInner: React.FC<{
                                 <b>{Math.round(region.contacts)} contacts</b>
                             </div>
                         ))}
+                        {officeNote && <p className="ph-office-note" role="status">{officeNote}</p>}
                         {INDUSTRY_ORDER.filter(id => !(studio.studioState?.operatingRegions || []).some(region => region.industryId === id)).map(id => {
                             const cost = INDUSTRY_ENGINE[id].regionOpenCost;
                             const balance = studio.balance || 0;
                             const short = balance < cost;
+                            const shortCopy = `${INDUSTRY_ENGINE[id].name} needs ${formatMoney(cost)}. The house has ${formatMoney(balance)}.`;
                             return (
                             <button
                                 key={id}
                                 type="button"
                                 disabled={short}
+                                aria-disabled={short}
+                                title={short ? shortCopy : `Open a ${INDUSTRY_ENGINE[id].name} office for ${formatMoney(cost)}`}
                                 className="ph-office-btn"
                                 onClick={() => {
-                                    if (short) return;
                                     const result = openOperatingRegion(player, studio.id, id);
-                                    if (!result.error) onUpdatePlayer(result.player);
+                                    if (result.error) {
+                                        setOfficeNote(result.error === 'The house cannot afford that office yet.' ? shortCopy : result.error);
+                                        return;
+                                    }
+                                    const opened = result.player.businesses.find(row => row.id === studio.id);
+                                    const left = opened?.balance ?? Math.max(0, balance - cost);
+                                    setOfficeNote(`${INDUSTRY_ENGINE[id].name} office opened. Spent ${formatMoney(cost)}. The house has ${formatMoney(left)}.`);
+                                    onUpdatePlayer(result.player);
                                 }}
                             >
                                 <span>Open {INDUSTRY_ENGINE[id].name}</span>
