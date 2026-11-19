@@ -96,10 +96,11 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
 
     // Negotiation derived values
     const bookingLength = bookingKind === 'PROJECT' ? negotiationDuration : bookingWeeks(bookingKind);
+    const payWeeks = bookingKind === 'PROJECT' ? INSTALLMENT_WEEKS : (bookingWeeks(bookingKind) || 4);
     const ask = selectedNPC ? quoteBooking(selectedNPC, bookingKind, bookingLength || 1) : null;
     const offerAmount = parseMoney(offerAmountStr);
-    const offerTotal = paymentMode === 'UPFRONT' ? offerAmount : offerAmount * INSTALLMENT_WEEKS;
-    const askTotal = ask ? (paymentMode === 'UPFRONT' ? ask.totalAmount : ask.weeklyInstallment * INSTALLMENT_WEEKS) : 0;
+    const offerTotal = paymentMode === 'UPFRONT' ? offerAmount : offerAmount * payWeeks;
+    const askTotal = ask ? (paymentMode === 'UPFRONT' ? ask.totalAmount : ask.weeklyInstallment * payWeeks) : 0;
     const offerRatio = askTotal > 0 ? offerTotal / askTotal : 0;
     const canAfford = paymentMode === 'UPFRONT' ? player.money >= offerAmount : true;
     const currentAttempts = selectedNPC ? (attempts[selectedNPC.id] || 0) : 0;
@@ -130,8 +131,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
         if (cur > 0) {
             setOfferAmountStr(
                 newMode === 'WEEKLY_INSTALLMENTS'
-                    ? Math.ceil((cur * WEEKLY_PREMIUM) / INSTALLMENT_WEEKS).toLocaleString()
-                    : Math.floor((cur * INSTALLMENT_WEEKS) / WEEKLY_PREMIUM).toLocaleString()
+                    ? Math.ceil((cur * WEEKLY_PREMIUM) / payWeeks).toLocaleString()
+                    : Math.floor((cur * payWeeks) / WEEKLY_PREMIUM).toLocaleString()
             );
         }
         setPaymentMode(newMode);
@@ -147,7 +148,6 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
         if (!selectedNPC || !studio) return;
 
         const quote = quoteBooking(selectedNPC, bookingKind, bookingLength || 1);
-        const payWeeks = bookingKind === 'PROJECT' ? 52 : (bookingWeeks(bookingKind) || 4);
         const result = evaluateOffer(
             selectedNPC, bookingLength || 1, offerAmount, paymentMode,
             player.stats.fame, studio.stats.valuation || 0, quote, payWeeks
@@ -513,7 +513,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                             {(['UPFRONT', 'WEEKLY_INSTALLMENTS'] as PaymentMode[]).map(m => (
                                                 <button key={m} onClick={() => handlePaymentModeChange(m)}
                                                     className={`flex-1 py-2 rounded text-xs font-bold uppercase tracking-widest border transition-all ${paymentMode === m ? 'bg-zinc-900 border-zinc-900 text-white' : 'bg-white border-zinc-300 text-zinc-600 hover:bg-zinc-50'}`}>
-                                                    {m === 'UPFRONT' ? 'Upfront' : `Weekly (${INSTALLMENT_WEEKS}w)`}
+                                                    {m === 'UPFRONT' ? 'Upfront' : `Weekly (${payWeeks}w)`}
                                                 </button>
                                             ))}
                                         </div>
@@ -555,8 +555,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                             <div className="font-black text-sm">{fmt(offerTotal)}</div>
                                         </div>
                                         <div>
-                                            <div className="text-[10px] text-zinc-500 uppercase font-bold">Per Film</div>
-                                            <div className="font-black text-sm">{fmt(offerTotal / negotiationDuration)}</div>
+                                            <div className="text-[10px] text-zinc-500 uppercase font-bold">{bookingKind === 'PROJECT' ? 'Per Film' : 'Per Week'}</div>
+                                            <div className="font-black text-sm">{fmt(offerTotal / Math.max(1, bookingKind === 'PROJECT' ? negotiationDuration : payWeeks))}</div>
                                         </div>
                                         <div>
                                             <div className="text-[10px] text-zinc-500 uppercase font-bold flex items-center justify-center gap-1"><Gauge size={10} /> Reception</div>
@@ -607,7 +607,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                         <div>
                                             <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Contract Value</div>
                                             <div className="text-lg font-black">{fmt(offerAmount)}{paymentMode === 'WEEKLY_INSTALLMENTS' ? '/wk' : ''}</div>
-                                            {paymentMode === 'WEEKLY_INSTALLMENTS' && <div className="text-[10px] text-zinc-500">× {INSTALLMENT_WEEKS} weeks</div>}
+                                            {paymentMode === 'WEEKLY_INSTALLMENTS' && <div className="text-[10px] text-zinc-500">× {payWeeks} weeks</div>}
                                         </div>
                                         <div>
                                             <div className="text-[10px] text-zinc-500 uppercase font-bold mb-1">Maintenance</div>
