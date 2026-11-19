@@ -313,9 +313,18 @@ const SEEDS: Seed[] = [
     ['Tunde Ednut', 'NOLLYWOOD', 'MALE', 'ESTABLISHED', 'INFLUENCER', [C, M], 10, 5, 'Nigeria'],
 ];
 
-export const TALENT_ROSTER: TalentRosterEntry[] = [...SEEDS, ...ASIA_ROSTER_SEEDS].map(build);
+const seenRosterIds = new Set<string>();
+export const TALENT_ROSTER: TalentRosterEntry[] = [...SEEDS, ...ASIA_ROSTER_SEEDS].map(build).filter(row => {
+    if (seenRosterIds.has(row.id)) return false;
+    seenRosterIds.add(row.id);
+    return true;
+});
 
-const OVERRIDE = new Map(TALENT_ROSTER.map(row => [slug(row.realName), row.industry]));
+const OVERRIDE = new Map<string, FilmIndustryId>();
+TALENT_ROSTER.forEach(row => {
+    const key = slug(row.realName);
+    if (!OVERRIDE.has(key)) OVERRIDE.set(key, row.industry);
+});
 
 export const rosterIndustryOverride = (name: string): FilmIndustryId | undefined => OVERRIDE.get(slug(name));
 
