@@ -819,6 +819,9 @@ const readNpcEconomy = (npc: NPCActor): NpcEconomyEntry => ({
     fame: Number.isFinite(npc.stats?.fame) ? Number(npc.stats?.fame) : 0,
     netWorth: Number.isFinite(npc.netWorth) ? npc.netWorth : 0,
     followers: Number.isFinite(npc.followers) ? npc.followers : 0,
+    retired: !!npc.retired,
+    slowed: !!npc.slowed,
+    age: Number.isFinite(npc.age) ? npc.age : undefined,
 });
 
 const BASE_NPC_ECONOMY: Record<string, NpcEconomyEntry> = Object.fromEntries(
@@ -846,6 +849,9 @@ export const applyNpcEconomy = (snapshot?: Record<string, NpcEconomyEntry> | nul
         npc.stats.fame = fame;
         npc.netWorth = netWorth;
         if (Number.isFinite(followers)) npc.followers = followers as number;
+        npc.retired = !!(entry && entry.retired);
+        npc.slowed = !!(entry && entry.slowed);
+        if (entry && Number.isFinite(entry.age)) npc.age = entry.age;
     });
 };
 

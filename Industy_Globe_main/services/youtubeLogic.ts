@@ -252,7 +252,8 @@ export const getEnabledGlobalCreatorSocialProfiles = (player: Player): NPCActor[
         followers: creator.followers,
         netWorth: creator.netWorth || Math.max(1_000_000, Math.floor(creator.followers * 1.8)),
         occupation: 'ACTOR',
-        bio: `${creator.country} creator. Global social presence.`,
+        talentKind: creator.category === 'STREAMER' ? 'STREAMER' : creator.category === 'OFFICIAL' ? undefined : 'YOUTUBER',
+        bio: `${creator.country} ${creator.category === 'STREAMER' ? 'streamer' : 'creator'}.`,
         stats: {
             talent: 70,
             fame: creator.followers >= 20 * M ? 88 : 62,
@@ -272,7 +273,7 @@ export const getEnabledGlobalCreatorSocialProfiles = (player: Player): NPCActor[
         potential: 85,
         isIndependent: true,
         age: creator.age,
-        forbesCategory: creator.forbesCategory || 'Creator'
+        forbesCategory: creator.category === 'OFFICIAL' ? 'Official' : (creator.forbesCategory || 'Creator')
     }));
 };
 

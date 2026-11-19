@@ -75,10 +75,32 @@ const kindLabel = (kind: TalentKind, gender: 'MALE' | 'FEMALE') => {
 
 type Seed = [string, FilmIndustryId, 'MALE' | 'FEMALE', NPCTier, TalentKind, Genre[], number, number, string];
 
+/** Public names that used to be stored under the legal-name slug. Saves still point at the old id. */
+const LEGACY_ROSTER_SLUG: Record<string, string> = {
+    'MrBeast': 'jimmydonaldson',
+    'Markiplier': 'markfischbach',
+    'Pokimane': 'imaneanys',
+    'IShowSpeed': 'darrenwatkinsjr',
+    'Ninja': 'tylerblevins',
+    'xQc': 'felixlengyel',
+    'PewDiePie': 'felixkjellberg',
+    'KSI': 'olajideolatunji',
+    'BB Ki Vines': 'bhuvanbam',
+    'CarryMinati': 'ajeynagar',
+    'HIKAKIN': 'hikarukaihatsu',
+    'Faker': 'leesanghyeok',
+    'Mortal': 'namanmathur',
+    'Jonathan Gaming': 'jonathanamaral',
+    'Techno Gamerz': 'ujjwalchaurasia',
+    '8Bit Thug': 'animeshagarwal',
+    'Payal Gaming': 'payaldhare',
+    'Triggered Insaan': 'nischaymalhan',
+};
+
 const build = (seed: Seed): TalentRosterEntry => {
     const [realName, industry, gender, tier, kind, genres, followersM, netWorthM, country] = seed;
     return {
-        id: `roster_${slug(realName)}`,
+        id: `roster_${LEGACY_ROSTER_SLUG[realName] || slug(realName)}`,
         realName,
         fictionalName: aliasFor(realName, industry, gender),
         industry,

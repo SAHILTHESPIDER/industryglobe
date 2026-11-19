@@ -259,7 +259,15 @@ export const tickTalentAudience = (player: Player): Player => {
         const row = byKey[audienceKey(npc.id, npc.name)];
         if (!row) return;
         const prev = economy[npc.id] || { fame: npc.stats?.fame || 0, netWorth: npc.netWorth || 0 };
-        economy[npc.id] = { ...prev, followers: row.followers, fame: npc.stats?.fame || prev.fame, netWorth: npc.netWorth || prev.netWorth };
+        economy[npc.id] = {
+            ...prev,
+            followers: row.followers,
+            fame: npc.stats?.fame || prev.fame,
+            netWorth: npc.netWorth || prev.netWorth,
+            retired: !!row.retired,
+            slowed: !!row.slowed,
+            age: row.age,
+        };
     });
     next.world = { ...next.world, npcEconomy: economy };
     const generated = generatedOf(next).map(npc => {

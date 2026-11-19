@@ -147,9 +147,10 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
         if (!selectedNPC || !studio) return;
 
         const quote = quoteBooking(selectedNPC, bookingKind, bookingLength || 1);
+        const payWeeks = bookingKind === 'PROJECT' ? 52 : (bookingWeeks(bookingKind) || 4);
         const result = evaluateOffer(
             selectedNPC, bookingLength || 1, offerAmount, paymentMode,
-            player.stats.fame, studio.stats.valuation || 0, quote
+            player.stats.fame, studio.stats.valuation || 0, quote, payWeeks
         );
         setNegotiationResult(result);
 

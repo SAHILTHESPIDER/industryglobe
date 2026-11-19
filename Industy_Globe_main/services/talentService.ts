@@ -34,7 +34,9 @@ export const evaluateOffer = (
     paymentMode: PaymentMode,
     playerFame: number,
     studioValuation: number,
-    askOverride?: { totalAmount: number; weeklyInstallment: number; maintenanceFee: number }
+    askOverride?: { totalAmount: number; weeklyInstallment: number; maintenanceFee: number },
+    /** How many weekly payments make up the quoted total. Movie deals stay on 52. */
+    installmentWeeks = 52
 ): { success: boolean, message: string, maintenanceFee: number, totalContractValue: number } => {
     
     // Independence check
@@ -59,7 +61,8 @@ export const evaluateOffer = (
     // Base acceptable is 90% of ask. With max fame/studio, it can go down to 70%.
     const minAcceptable = baseAsk * (0.9 - fameDiscount - studioDiscount);
 
-    const totalContractValue = paymentMode === 'UPFRONT' ? offeredAmount : offeredAmount * 52;
+    const weeks = Math.max(1, installmentWeeks || 52);
+    const totalContractValue = paymentMode === 'UPFRONT' ? offeredAmount : offeredAmount * weeks;
 
     if (offeredAmount >= minAcceptable) {
         return { 
@@ -87,7 +90,8 @@ export const createContract = (
     maintenanceFee: number,
     startWeek: number
 ): StudioContract => {
-    const totalInstallments = paymentMode === 'WEEKLY_INSTALLMENTS' ? 52 : 1;
+    const span = type === 'MOVIE_DEAL' ? 52 : Math.max(1, duration);
+    const totalInstallments = paymentMode === 'WEEKLY_INSTALLMENTS' ? span : 1;
 
     return {
         id: `contract_${npcId}_${Date.now()}`,

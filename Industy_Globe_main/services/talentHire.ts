@@ -46,6 +46,7 @@ export const hireablePeople = (player: Player): NPCActor[] => {
     const rows: NPCActor[] = [];
     [...NPC_DATABASE, ...generated, ...creators].forEach(npc => {
         if (!npc || npc.retired) return;
+        if (npc.forbesCategory === 'Official') return;
         if (npc.occupation === 'DIRECTOR' && !creatorKind(npc)) return;
         const key = canonicalKey(npc.name || npc.id);
         if (seen.has(key)) return;
@@ -122,9 +123,10 @@ export const quoteBooking = (npc: NPCActor, kind: BookingKind, duration = 1): Ta
     const floor = kind === 'PROJECT' ? 20_000 : kind === 'PROMOTION' ? 4_000 : 2_500;
     const totalAmount = Math.round(Math.max(floor, Math.min(cap, total)));
     const maintenanceFee = Math.min(25_000, Math.max(200, Math.round(totalAmount * 0.002)));
+    const weeks = kind === 'PROJECT' ? 52 : 4;
     return {
         totalAmount,
-        weeklyInstallment: Math.max(100, Math.ceil((totalAmount * 1.1) / 52)),
+        weeklyInstallment: Math.max(100, Math.ceil((totalAmount * 1.1) / weeks)),
         maintenanceFee,
     };
 };

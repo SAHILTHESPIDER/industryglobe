@@ -128,12 +128,7 @@ export const debutTalentYear = (player: Player): { player: Player; notes: string
         bindGenerated(aged.player);
         return { player: aged.player, notes: aged.note ? [aged.note] : [] };
     }
-    const existing = generatedOf(aged.player).map(person => {
-        const age = (person.age || 20) + Math.max(1, year - (Number(aged.player.flags?.talentDebutYear) || year));
-        const slowed = age >= 50 || person.slowed;
-        const retired = person.retired || (age >= 70 && hash(`${person.id}:${age}`) % 4 === 0);
-        return { ...person, age, slowed, retired };
-    });
+    const existing = generatedOf(aged.player);
     const fresh = debutYear(aged.player, year, existing);
     const sample = fresh[0]?.name;
     const next: Player = {

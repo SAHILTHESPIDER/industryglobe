@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { Player, BudgetTier, Genre, ProjectDetails, ActiveRelease, Commitment, Business, LocationDetails, NewsItem, XPost, StudioEquipment, CrewMember, Universe, UniverseId } from '../../../types';
 import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Info, CheckCircle, XCircle, Layers, Loader2 } from 'lucide-react';
 import { NPC_DATABASE, getAvailableTalent, calculateProjectFameMultiplier } from '../../../services/npcLogic';
+import { findHireable } from '../../../services/talentHire';
 import { calculateCastDepthScore, getDirectorTalent } from '../../../services/roleLogic';
 import { buildUniverseRoster, getFallbackCharacterName, getUniverseCharacterKeyAliases, getUniverseDashboardProjects, normalizeUniverseCharacterKey, normalizeUniverseForSave, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getEquipmentStageName } from './FacilitiesView';
@@ -1330,7 +1331,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         const selectedActorIds = castList.map(c => c.actorId).filter(id => id && id !== 'PLAYER_SELF');
         selectedActorIds.forEach(id => {
             if (!talent.some(t => t.id === id)) {
-                const selectedNPC = [...NPC_DATABASE, ...(player.flags.extraNPCs || [])].find(n => n.id === id);
+                const selectedNPC = findHireable(player, id) || [...NPC_DATABASE, ...(player.flags.extraNPCs || [])].find(n => n.id === id);
                 if (selectedNPC) talent.unshift(selectedNPC);
             }
         });
@@ -1339,7 +1340,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         const contracts = player.studio?.talentRoster?.filter(c => c.moviesRemaining > 0) || [];
         contracts.forEach(c => {
             if (!talent.some(t => t.id === c.npcId)) {
-                const selectedNPC = [...NPC_DATABASE, ...(player.flags.extraNPCs || [])].find(n => n.id === c.npcId);
+                const selectedNPC = findHireable(player, c.npcId) || [...NPC_DATABASE, ...(player.flags.extraNPCs || [])].find(n => n.id === c.npcId);
                 if (selectedNPC) talent.unshift(selectedNPC);
             }
         });
@@ -2317,6 +2318,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         // Update both player.studio.talentRoster and studio.studioState.talentRoster for consistency
         const updateRoster = (roster: any[]) => {
             return roster?.map(contract => {
+                if (contract.type !== 'MOVIE_DEAL' && contract.type) return contract;
                 if (usedActorIds.includes(contract.npcId) && contract.moviesRemaining > 0) {
                     return { ...contract, moviesRemaining: contract.moviesRemaining - 1 };
                 }

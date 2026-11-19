@@ -2998,6 +2998,9 @@ export enum Page {
       netWorth: number;
       /** Dynamic audience. Missing on older saves until the weekly tick. */
       followers?: number;
+      retired?: boolean;
+      slowed?: boolean;
+      age?: number;
   }
 
   /** One row in the save-backed audience book. A future reality show can shift the same row. */
