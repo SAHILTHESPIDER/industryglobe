@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Clapperboard, Dices, Lock, PenLine, Plus, RefreshCw, ScrollText, Users } from 'lucide-react';
 import type { BookListing, BookSagaState, BookSplit, Business, FilmIndustryId, Genre, IdeaSource, Player, PlotTwistOffer, RemakeListing, Script, ScriptCharacter, TrueStoryListing, Writer } from '../../../../types';
+import { footprintForCreativeChange } from '../../../../services/studioRegions';
 import { ALL_GENRES, formatGenreLabel } from '../../../../services/genreCatalog';
 import { normalizeStudioState } from '../../../../services/businessLogic';
 import { formatMoney } from '../../../../services/formatUtils';
@@ -209,6 +210,7 @@ export const ScriptDesk: React.FC<{
         const ownedRemakes = (state.remakeShelf || []).filter(item => item.owned && !item.publicDomain);
         const ownedLives = (state.trueStoryShelf || []).filter(item => item.owned);
         saveStudio({
+            ...footprintForCreativeChange(state, next, player.currentWeek, player.age),
             filmIndustry: next,
             bookShelf: [...ownedBooks, ...generateBookShelf(next, `${studio.id}-${next}`)],
             remakeShelf: [...ownedRemakes, ...generateRemakeShelf(next, `${studio.id}-${next}`)],

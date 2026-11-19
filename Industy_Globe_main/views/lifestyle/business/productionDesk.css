@@ -112,6 +112,29 @@
     font-size: 12px;
 }
 
+.ph-regions {
+    display: grid;
+    gap: 4px;
+    margin-top: 8px;
+    color: #a1a1aa;
+    font-size: 11px;
+}
+
+.ph-region-open {
+    text-align: left;
+    color: #e4e4e7;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.ph-region-open.is-short {
+    color: #fca5a5;
+    cursor: not-allowed;
+}
+
 .ph-money {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

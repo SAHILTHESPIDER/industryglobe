@@ -11,6 +11,8 @@ import { hasNoAds } from '../../../services/premiumLogic';
 import { formatProjectFormatLabel } from '../../../services/genreCatalog';
 import { applyUnauthorizedShoot, rightsGreenlightBlock, rightsHiddenFromScript } from '../../../services/rights/logic';
 import { castFitBonus, deskSagaPart, markSagaProduced, productionBudgetDelta, releaseHypeBonus, rolesForGreenlight, smallRolePremium } from '../../../services/scriptDesk/logic';
+import { SHOOT_LOCATION_GROUPS } from '../../../services/shootLocations';
+import { localStarQuality, shootQuote } from '../../../services/studioRegions';
 import { addBreadcrumb, markGameCheckpoint, markTraceAction, setCrashContext, startPerformanceTrace, stopPerformanceTrace, trackGameEvent } from '../../../services/firebaseService';
 
 type ConnectedProjectIntent = 'AUTO' | 'SOLO' | 'CROSSOVER' | 'EVENT' | 'REBOOT';
@@ -1446,49 +1448,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         };
     }, [Math.floor(player.currentWeek / 3)]);
 
-    const mockLocations = useMemo<Record<string, any[]>>(() => ({
-        'NA': [
-            { id: 'LA', name: 'Los Angeles', desc: 'The heart of Hollywood. Expensive but high quality.', cost: 15000000, quality: 10, x: 15, y: 35 },
-            { id: 'ATL', name: 'Atlanta', desc: 'Generous tax credits. Good facilities.', cost: 5000000, quality: 5, x: 22, y: 38 },
-            { id: 'NYC', name: 'New York', desc: 'Iconic urban scenery. Very expensive.', cost: 20000000, quality: 9, x: 25, y: 32 },
-            { id: 'VAN', name: 'Vancouver', desc: 'Versatile and budget friendly.', cost: 3000000, quality: 6, x: 12, y: 28 },
-            { id: 'MEX', name: 'Mexico City', desc: 'Vibrant culture and unique architecture.', cost: 4000000, quality: 7, x: 18, y: 45 },
-            { id: 'TOR', name: 'Toronto', desc: 'Urban double for NYC/Chicago.', cost: 3500000, quality: 6, x: 20, y: 30 },
-        ],
-        'EU': [
-            { id: 'LDN', name: 'London', desc: 'World-class studios and talent.', cost: 12000000, quality: 9, x: 48, y: 28 },
-            { id: 'PAR', name: 'Paris', desc: 'Romantic and historic.', cost: 10000000, quality: 8, x: 50, y: 32 },
-            { id: 'PRG', name: 'Prague', desc: 'Old world charm on a budget.', cost: 2000000, quality: 7, x: 54, y: 30 },
-            { id: 'ROM', name: 'Rome', desc: 'Eternal city with epic scale.', cost: 9000000, quality: 9, x: 53, y: 36 },
-            { id: 'BER', name: 'Berlin', desc: 'Gritty urban and modern tech.', cost: 7000000, quality: 8, x: 53, y: 28 },
-            { id: 'MAD', name: 'Madrid', desc: 'Sunny and historic.', cost: 5000000, quality: 7, x: 46, y: 38 },
-        ],
-        'AS': [
-            { id: 'TOK', name: 'Tokyo', desc: 'Neon futuristic vibes.', cost: 14000000, quality: 9, x: 88, y: 35 },
-            { id: 'SEO', name: 'Seoul', desc: 'Modern and efficient.', cost: 8000000, quality: 8, x: 84, y: 34 },
-            { id: 'BOM', name: 'Mumbai', desc: 'The home of Bollywood.', cost: 6000000, quality: 7, x: 72, y: 48 },
-            { id: 'HKG', name: 'Hong Kong', desc: 'Dense urban neon.', cost: 11000000, quality: 9, x: 80, y: 42 },
-            { id: 'BEI', name: 'Beijing', desc: 'Grand scale and history.', cost: 12000000, quality: 8, x: 78, y: 32 },
-            { id: 'BKK', name: 'Bangkok', desc: 'Chaotic energy and temples.', cost: 3000000, quality: 6, x: 75, y: 45 },
-        ],
-        'SA': [
-            { id: 'RIO', name: 'Rio de Janeiro', desc: 'Stunning natural beauty.', cost: 5000000, quality: 8, x: 32, y: 72 },
-            { id: 'BUE', name: 'Buenos Aires', desc: 'European flair in South America.', cost: 4000000, quality: 7, x: 30, y: 85 },
-            { id: 'BOG', name: 'Bogota', desc: 'High altitude urban grit.', cost: 2000000, quality: 6, x: 25, y: 58 },
-            { id: 'LIM', name: 'Lima', desc: 'Coastal desert city.', cost: 2500000, quality: 6, x: 22, y: 65 },
-        ],
-        'AF': [
-            { id: 'CPT', name: 'Cape Town', desc: 'Diverse landscapes and great light.', cost: 4000000, quality: 8, x: 53, y: 82 },
-            { id: 'CAI', name: 'Cairo', desc: 'Ancient wonders and desert heat.', cost: 7000000, quality: 7, x: 56, y: 42 },
-            { id: 'MAR', name: 'Marrakesh', desc: 'Exotic colors and textures.', cost: 3000000, quality: 8, x: 46, y: 42 },
-            { id: 'LAG', name: 'Lagos', desc: 'Bustling energy.', cost: 2000000, quality: 5, x: 48, y: 55 },
-        ],
-        'OC': [
-            { id: 'SYD', name: 'Sydney', desc: 'Modern harbor and coastal beauty.', cost: 10000000, quality: 9, x: 88, y: 82 },
-            { id: 'MEL', name: 'Melbourne', desc: 'Arts and culture hub.', cost: 8000000, quality: 8, x: 86, y: 86 },
-            { id: 'AKL', name: 'Auckland', desc: 'Middle-earth landscapes.', cost: 6000000, quality: 10, x: 94, y: 88 },
-        ]
-    }), []);
+    const mockLocations = useMemo<Record<string, any[]>>(() => SHOOT_LOCATION_GROUPS, []);
 
     const findLocation = (id: string | null) => {
         if (!id) return null;
@@ -1892,7 +1852,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
             selectedLocations.forEach(lid => {
                 const locData = findLocation(lid);
                 if (locData) {
-                    locationCost += Number(locData.cost) || 0;
+                    locationCost += shootQuote(studio.studioState, locData.industryId, Number(locData.cost) || 0);
                 }
             });
             estimatedBudget += locationCost;
@@ -2120,6 +2080,12 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                 if (locData) totalQuality += locData.quality;
             });
             locationQualityBonus = Math.round(totalQuality / selectedLocations.length);
+            let starBonus = 0;
+            castList.forEach(role => {
+                const actor = availableActors.find(row => row.id === role.actorId);
+                starBonus = Math.max(starBonus, localStarQuality(studio.studioState, actor?.homeIndustryId));
+            });
+            locationQualityBonus += starBonus;
 
             if (selectedLocations.length === 1) {
                 const loc = findLocation(selectedLocations[0]);

@@ -1,9 +1,12 @@
 
 // ... existing imports
-import { NPCActor, NPCTier, NPCPrestige, Player, InstaPost, InstaPostType, InteractionType, Genre, Gender, ActorTrait, NpcEconomyEntry } from '../types';
+import { NPCActor, NPCTier, NPCPrestige, Player, InstaPost, InstaPostType, InteractionType, Genre, Gender, ActorTrait, NpcEconomyEntry, TalentKind, FilmIndustryId } from '../types';
 import { MOD_TALENT_ROWS, ModTalentRow } from './modTalentData';
 import { getInstagramPostComments, getInstagramPresetCaption } from './instagramLogic';
 import { ALL_GENRES, hydrateGenreXP } from './genreCatalog';
+import { cartoonAvatarUrl } from './cartoonAvatar';
+import { countryToIndustry } from './industryEngine';
+import { TALENT_ROSTER, rosterIndustryOverride, talentAvatar, talentDisplayName } from './data/talentRoster';
 
 const ACTOR_TRAITS: ActorTrait[] = ['DIVA', 'METHOD', 'WORKAHOLIC', 'UNRELIABLE', 'EASY_GOING', 'BOX_OFFICE_POISON', 'PROFESSIONAL', 'AMBITIOUS'];
 
@@ -520,19 +523,20 @@ const createNPCFromCeleb = (celeb: RealCeleb, id: string): NPCActor => {
     else if (celeb.tier === 'ESTABLISHED') fame = 60 + Math.random() * 25;
     else fame = 30 + Math.random() * 30;
 
+    const homeIndustryId = rosterIndustryOverride(celeb.name) || countryToIndustry(celeb.country);
     return {
         id,
         name: celeb.name,
         handle: celeb.handle,
         gender: celeb.gender,
-        avatar: getGenderedAvatar(celeb.gender, celeb.name),
+        avatar: cartoonAvatarUrl(celeb.name),
         tier: celeb.tier,
         prestigeBias: celeb.bias,
         openness,
         followers: celeb.followers,
         netWorth: celeb.netWorth,
         occupation: celeb.occupation,
-        bio: celeb.bio || "Hollywood Icon.",
+        bio: celeb.bio || "Screen actor.",
         stats: {
             talent: celeb.talentBase || 80,
             fame,
@@ -542,7 +546,11 @@ const createNPCFromCeleb = (celeb: RealCeleb, id: string): NPCActor => {
         potential: celeb.potential || 50,
         isIndependent: celeb.isIndependent ?? true,
         age: celeb.age ?? estimateTalentAge(celeb),
-        forbesCategory: celeb.forbesCategory
+        forbesCategory: celeb.forbesCategory,
+        homeIndustryId,
+        country: celeb.country,
+        talentKind: celeb.occupation === 'DIRECTOR' ? 'DIRECTOR' : 'ACTOR',
+        fameByIndustry: { [homeIndustryId]: fame },
     };
 };
 
@@ -615,6 +623,8 @@ const generateRandomNPC = (seed: number | string): NPCActor => {
         handle,
         gender,
         avatar: getGenderedAvatar(gender, name),
+        homeIndustryId: 'HOLLYWOOD',
+        talentKind: 'ACTOR',
         tier,
         prestigeBias: 'MIXED',
         openness,
@@ -660,7 +670,10 @@ export const generateNPCs = (): NPCActor[] => {
             name: celeb.name,
             handle: celeb.handle,
             gender: celeb.gender,
-            avatar: getGenderedAvatar(celeb.gender, celeb.name),
+            avatar: cartoonAvatarUrl(celeb.name),
+            homeIndustryId: rosterIndustryOverride(celeb.name) || countryToIndustry(celeb.country),
+            country: celeb.country,
+            talentKind: 'DIRECTOR',
             tier: celeb.tier,
             prestigeBias: celeb.bias,
             openness,
@@ -690,6 +703,8 @@ export const generateNPCs = (): NPCActor[] => {
             handle: `@${first.toLowerCase()}_films`,
             gender,
             avatar: getGenderedAvatar(gender, `${first} ${last}`),
+            homeIndustryId: 'HOLLYWOOD',
+            talentKind: 'DIRECTOR',
             tier,
             prestigeBias: Math.random() > 0.5 ? 'PRESTIGE' : 'COMMERCIAL',
             openness: 40 + Math.floor(Math.random() * 40),
@@ -705,12 +720,96 @@ export const generateNPCs = (): NPCActor[] => {
         });
     }
 
-    // 4. Add Random Actors (Filler for low budget)
+    const seen = new Set(npcs.map(npc => normalizeTalentName(npc.name)));
+    const pushUnique = (npc: NPCActor) => {
+        const key = normalizeTalentName(npc.name);
+        if (seen.has(key)) return;
+        seen.add(key);
+        npcs.push(npc);
+    };
+
+    TALENT_ROSTER.forEach(entry => {
+        const name = talentDisplayName(entry);
+        const npc = createNPCFromCeleb({
+            name,
+            handle: `@${name.toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
+            followers: entry.followersM * M,
+            netWorth: entry.netWorthM * M,
+            tier: entry.tier,
+            occupation: entry.kind === 'DIRECTOR' ? 'DIRECTOR' : 'ACTOR',
+            bias: entry.kind === 'DIRECTOR' ? 'PRESTIGE' : 'MIXED',
+            gender: entry.gender,
+            bio: entry.bio,
+            country: entry.country,
+            genres: entry.genres,
+            talentBase: entry.tier === 'ICON' ? 94 : entry.tier === 'A_LIST' ? 88 : entry.tier === 'ESTABLISHED' ? 82 : 76,
+            traits: ['PROFESSIONAL', 'AMBITIOUS'],
+            potential: entry.tier === 'RISING' ? 90 : 86,
+            isIndependent: true,
+        }, entry.id);
+        npc.name = name;
+        npc.avatar = talentAvatar(entry);
+        npc.homeIndustryId = entry.industry;
+        npc.talentKind = entry.kind;
+        npc.feeTier = entry.feeTier;
+        npc.rosterId = entry.id;
+        npc.country = entry.country;
+        npc.bio = entry.bio;
+        if (npc.stats) npc.stats.fame = entry.fame;
+        npc.fameByIndustry = { [entry.industry]: entry.fame };
+        pushUnique(npc);
+    });
+
+    GLOBAL_TALENT_EXPANSION.forEach((celeb, idx) => {
+        pushUnique(createNPCFromCeleb(celeb, `world_talent_${idx}`));
+    });
+
+    MOD_TALENT_ROWS.filter(row => row.category === 'creator').forEach((row, idx) => {
+        const forbes = `${row.forbesCategory} ${row.knownFor}`.toLowerCase();
+        const talentKind: TalentKind = /stream/.test(forbes) ? 'STREAMER' : /influenc/.test(forbes) ? 'INFLUENCER' : 'YOUTUBER';
+        const npc = createNPCFromCeleb(modTalentToCeleb(row), `world_creator_${idx}`);
+        npc.occupation = 'ACTOR';
+        npc.talentKind = talentKind;
+        npc.forbesCategory = row.forbesCategory;
+        pushUnique(npc);
+    });
+
+    // Random actors (filler for low budget). Cartoon faces stay on the named roster.
     for(let i=0; i<50; i++) {
         npcs.push(generateRandomNPC(i));
     }
 
     return npcs;
+};
+
+export interface TalentCensusRow {
+    industry: FilmIndustryId | 'UNSET';
+    kind: string;
+    count: number;
+}
+
+/** Live pool after this module loads. Random fillers are counted as their occupation. */
+export const talentCensus = (): { total: number; byKind: Record<string, number>; byIndustry: Record<string, number>; rows: TalentCensusRow[] } => {
+    const byKind: Record<string, number> = {};
+    const byIndustry: Record<string, number> = {};
+    const grid = new Map<string, number>();
+    NPC_DATABASE.forEach(npc => {
+        const kind = npc.talentKind
+            || (npc.occupation === 'DIRECTOR' ? 'DIRECTOR' : (npc.gender === 'FEMALE' ? 'ACTRESS' : 'ACTOR'));
+        const screenKind = npc.talentKind === 'ACTOR' || (!npc.talentKind && npc.occupation === 'ACTOR')
+            ? (npc.gender === 'FEMALE' ? 'ACTRESS' : 'ACTOR')
+            : kind;
+        const industry = npc.homeIndustryId || 'UNSET';
+        byKind[screenKind] = (byKind[screenKind] || 0) + 1;
+        byIndustry[industry] = (byIndustry[industry] || 0) + 1;
+        const key = `${industry}|${screenKind}`;
+        grid.set(key, (grid.get(key) || 0) + 1);
+    });
+    const rows = [...grid.entries()].map(([key, count]) => {
+        const [industry, kind] = key.split('|');
+        return { industry: industry as FilmIndustryId | 'UNSET', kind, count };
+    }).sort((a, b) => a.industry.localeCompare(b.industry) || a.kind.localeCompare(b.kind));
+    return { total: NPC_DATABASE.length, byKind, byIndustry, rows };
 };
 
 // GLOBAL DB (Initialized once in app). Fame and net worth are copied per save.

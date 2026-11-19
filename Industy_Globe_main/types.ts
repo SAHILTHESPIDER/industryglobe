@@ -67,6 +67,9 @@ export enum Page {
   export type SeriesStatus = 'N/A' | 'RUNNING' | 'CANCELLED' | 'ENDED';
   export type PlayerReturnStatus = 'RETURNING' | 'WRITTEN_OFF' | 'KILLED_OFF';
   export type NPCTier = 'A_LIST' | 'ESTABLISHED' | 'RISING' | 'INDIE' | 'ICON' | 'UNKNOWN';
+  /** Screen actor, director, or a creator who can be hired. Real names stay swappable in one roster file. */
+  export type TalentKind = 'ACTOR' | 'DIRECTOR' | 'INFLUENCER' | 'YOUTUBER' | 'STREAMER';
+  export type TalentFeeTier = 'LOW' | 'MID' | 'HIGH' | 'ICON';
   export type NPCPrestige = 'COMMERCIAL' | 'PRESTIGE' | 'MIXED';
   export type ActorTrait = 'DIVA' | 'METHOD' | 'WORKAHOLIC' | 'UNRELIABLE' | 'EASY_GOING' | 'BOX_OFFICE_POISON' | 'PROFESSIONAL' | 'AMBITIOUS';
   export type ContractType = 'MOVIE_DEAL';
@@ -493,6 +496,18 @@ export enum Page {
       practicalEffects: number;
   }
   
+  /** An office the production house has opened. Missing on saves from before global expansion. */
+  export interface OperatingRegion {
+      industryId: FilmIndustryId;
+      country: string;
+      openedWeek: number;
+      openedYear: number;
+      /** 0–100. A new office starts low and grows. The HQ starts higher. */
+      contacts: number;
+      /** True for the head office. */
+      home?: boolean;
+  }
+
   export interface StudioState {
       scripts: Script[];
       concepts: ProjectConcept[]; // NEW: Drafts
@@ -515,6 +530,12 @@ export enum Page {
       universes?: Record<string, any>;
       /** Film industry this house writes for. Missing means Hollywood until the player picks one. */
       filmIndustry?: FilmIndustryId;
+      /** Head-office industry. Tax, crew, local stars, and the home audience hang off this. */
+      hqIndustryId?: FilmIndustryId;
+      /** Country of the head office. Display and migration only. Money stays USD. */
+      hqCountry?: string;
+      /** HQ plus any other industries the house has paid to open. */
+      operatingRegions?: OperatingRegion[];
       bookShelf?: BookListing[];
       remakeShelf?: RemakeListing[];
       trueStoryShelf?: TrueStoryListing[];
@@ -1999,6 +2020,8 @@ export enum Page {
       options: {
           label: string;
           impact: (player: Player, project: Commitment) => { updatedPlayer: Player, updatedProject: Commitment, log: string };
+          /** Plain numbers so a saved crisis still applies after the functions are gone. */
+          effect?: { money: number; quality: number; buzz: number; reputation: number; contacts: number; industryId?: string; log: string };
       }[];
   }
   
@@ -2562,6 +2585,16 @@ export enum Page {
       potential?: number; // 0-100
       isIndependent?: boolean; // If true, harder to sign to multi-movie deals
       contractId?: string; // ID of the active contract with the player's studio
+      /** Home film industry. Missing on older NPCs means Hollywood. */
+      homeIndustryId?: FilmIndustryId;
+      country?: string;
+      languages?: string[];
+      fameByIndustry?: Partial<Record<FilmIndustryId, number>>;
+      /** ACTOR covers actresses. Creators use the other kinds. Missing means a screen actor or director from occupation. */
+      talentKind?: TalentKind;
+      feeTier?: TalentFeeTier;
+      /** Stable id in the swappable roster file, when this person came from it. */
+      rosterId?: string;
   }
   
   export interface NPCState {
@@ -2789,6 +2822,20 @@ export enum Page {
       isFamous?: boolean;
       /** Weekly grosses. Absent on older saves until migration. */
       run?: IndustryRun;
+      /** Market the film was made for. Missing means Hollywood. */
+      originIndustryId?: FilmIndustryId;
+      /** Set when the lead's home industry is not the film's. */
+      partnerIndustryId?: FilmIndustryId;
+      /** Local banner. Hollywood rows keep using studioId. */
+      regionalStudioName?: string;
+      /** Board label from that industry's rating set. The old targetAudience field stays for existing UI. */
+      censorRating?: string;
+  }
+
+  export interface IndustryMarketState {
+      trendingGenre: Genre;
+      projects: IndustryProject[];
+      awardHistory: AwardHistoryEntry[];
   }
   
   export interface UniverseCharacter {
@@ -2964,6 +3011,8 @@ export enum Page {
       critics?: CriticProfile[];
       /** Optional. Festival prizes the player has taken home. */
       festivalWinners?: FestivalWinnerRecord[];
+      /** Per-industry slice of the shared calendar. The legacy projects array stays the full chart. */
+      industries?: Partial<Record<FilmIndustryId, IndustryMarketState>>;
   }
   
   export interface LogEntry {
@@ -3628,6 +3677,10 @@ export enum Page {
       stocks: Stock[];
       portfolio: PortfolioItem[];
       world: WorldState;
+      /** Career home. Missing on older saves until silent migration, which uses Hollywood. */
+      homeIndustryId?: FilmIndustryId;
+      fameByIndustry?: Partial<Record<FilmIndustryId, number>>;
+      languages?: string[];
       flags: Record<string, any>;
       weeklyOpportunities: {
           auditions: AuditionOpportunity[];

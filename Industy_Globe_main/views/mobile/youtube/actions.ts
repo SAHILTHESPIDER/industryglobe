@@ -10,6 +10,7 @@ import { liveCreators, PUBLIC_CREATORS } from '../../../services/youtubeCreators
 import { collabBoard, deliverSponsorship, filmCollab, filmCollabFromOffer, partnerHeat } from '../../../services/youtubePartner';
 import { channelSwitchAllowed, lookFor } from '../../../services/youtubeCustomize';
 import { findCreatorSeed } from '../../../services/youtubePeople';
+import { mirrorYoutubeUpload } from '../../../services/socialBridge';
 
 export const UPLOAD_PLANS: Record<YoutubeUploadPlan, { label: string; viewBoost: number; qualityBoost: number; trust: number; mood: number; controversy: number }> = {
     SAFE: { label: 'Safe', viewBoost: 0, qualityBoost: 5, trust: 4, mood: 1, controversy: -2 },
@@ -357,6 +358,7 @@ export const publishUpload = (player: Player, input: {
     let next: Player = { ...player, money: player.money - cost.cost, youtube: nextChannel };
     spendPlayerEnergy(next, cost.energy);
     next = log(next, note, risky ? 'neutral' : 'positive');
+    next = mirrorYoutubeUpload(next, video);
     return { player: next, screen: 'studio' };
 };
 
@@ -449,6 +451,7 @@ export const raidStreamer = (player: Player, creatorId: string): ActionResult =>
         };
     }
     next = log(next, `${live.name} raided the trailer. +${views.toLocaleString()} views.`, 'positive');
+    next = mirrorYoutubeUpload(next, { ...video, isPlayer: true });
     return { player: next };
 };
 

@@ -1,5 +1,5 @@
 
-import { WorldState, IndustryProject, StudioId, BudgetTier, Genre, Player, NPCActor, NewsItem, UniverseId, Universe, Festival, TargetAudience } from '../types';
+import { WorldState, IndustryProject, StudioId, BudgetTier, Genre, Player, NPCActor, NewsItem, UniverseId, Universe, Festival, TargetAudience, FilmIndustryId } from '../types';
 import { STUDIO_CATALOG } from './studioLogic';
 import { NPC_DATABASE, calculateProjectFameMultiplier, captureNpcEconomy, syncNpcRoster } from './npcLogic';
 import { generateProjectTitle, getEstimatedBudget, generateProjectDetails, sanitizeGross } from './roleLogic';
@@ -7,6 +7,8 @@ import { initUniverses, normalizeUniverseMap, processUniverseTurn } from './univ
 import { processNpcVentures, syncNpcVenturesToStudios } from './npcVentureLogic';
 import { ALL_GENRES } from './genreCatalog';
 import { absoluteWeek, attachRunSkeleton, creditName, gameCalendarYear, simulateIndustryWeek, weekParts } from './boxOfficeSim';
+import { INDUSTRY_ENGINE, calendarImpact, industryById, pickWeightedGenre, ratingForRoll, theatricalMultiplier } from './industryEngine';
+import { INDUSTRY_ORDER } from './scriptDesk/catalog';
 
 // Helpers
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -31,37 +33,57 @@ export const CALENDAR_EVENTS = [
 ];
 
 // 1. Generate an Industry Project
+const screenActors = () => NPC_DATABASE.filter(n => n.occupation === 'ACTOR' && (!n.talentKind || n.talentKind === 'ACTOR'));
+
 export const generateIndustryProject = (
     currentWeek: number, 
     year: number, 
-    forcedLead?: NPCActor
+    forcedLead?: NPCActor,
+    industryId?: FilmIndustryId,
 ): IndustryProject => {
-    
-    // Pick Studio
-    const studioId = pick(Object.keys(STUDIO_CATALOG)) as StudioId;
+    const industry: FilmIndustryId = industryId && INDUSTRY_ENGINE[industryId] ? industryId : 'HOLLYWOOD';
+    const engine = industryById(industry);
+
+    // Hollywood still draws from the studio catalog. Other industries keep a catalog id for old readers and a local banner for the marquee.
+    const studioId = (industry === 'HOLLYWOOD'
+        ? pick(Object.keys(STUDIO_CATALOG))
+        : 'ARTISAN_PICTURES') as StudioId;
     const studio = STUDIO_CATALOG[studioId];
+    const regionalStudioName = industry === 'HOLLYWOOD' ? undefined : pick(engine.studios);
     
-    // Pick Budget based on studio comfort
-    const tier = pick(studio.budgetComfort);
+    // Pick Budget based on studio comfort. Smaller markets rarely open a Hollywood blockbuster.
+    const tier = industry === 'HOLLYWOOD'
+        ? pick(studio.budgetComfort)
+        : pick(engine.marketScale < 0.35 ? ['LOW', 'MID', 'MID'] as BudgetTier[] : ['LOW', 'MID', 'HIGH'] as BudgetTier[]);
     
-    // Pick Genre
-    const genre = pick(GENRES);
+    const week = currentWeek > 52 ? ((currentWeek - 1) % 52) + 1 : currentWeek;
+    const genre = industry === 'HOLLYWOOD'
+        ? pick(GENRES)
+        : pickWeightedGenre(industry, GENRES, Math.floor(Math.random() * 100000));
     
-    // Pick Lead Actor
+    // Pick Lead Actor. Most leads are local. A minority cross over, which is how stars move between industries.
     let lead: NPCActor;
+    let partnerIndustryId: FilmIndustryId | undefined;
     if (forcedLead) {
         lead = forcedLead;
+        if ((forcedLead.homeIndustryId || 'HOLLYWOOD') !== industry) partnerIndustryId = forcedLead.homeIndustryId;
     } else {
-        let pool = NPC_DATABASE.filter(n => n.occupation === 'ACTOR');
-        if (tier === 'HIGH') pool = pool.filter(n => n.tier === 'A_LIST' || n.tier === 'ESTABLISHED');
-        else if (tier === 'MID') pool = pool.filter(n => n.tier === 'ESTABLISHED' || n.tier === 'RISING');
-        else pool = pool.filter(n => n.tier === 'RISING' || n.tier === 'INDIE');
-        
-        lead = pick(pool.length > 0 ? pool : NPC_DATABASE.filter(n => n.occupation === 'ACTOR'));
+        const actors = screenActors();
+        const local = actors.filter(n => (n.homeIndustryId || 'HOLLYWOOD') === industry);
+        const outside = actors.filter(n => (n.homeIndustryId || 'HOLLYWOOD') !== industry);
+        const cross = outside.length > 0 && Math.random() < engine.crossoverOpenness * 0.28;
+        let pool = cross ? outside : (local.length ? local : actors);
+        if (tier === 'HIGH') pool = pool.filter(n => n.tier === 'A_LIST' || n.tier === 'ESTABLISHED' || n.tier === 'ICON');
+        else if (tier === 'MID') pool = pool.filter(n => n.tier === 'ESTABLISHED' || n.tier === 'RISING' || n.tier === 'A_LIST');
+        else pool = pool.filter(n => n.tier === 'RISING' || n.tier === 'INDIE' || n.tier === 'ESTABLISHED' || n.tier === 'UNKNOWN');
+        const fallback = local.length ? local : actors;
+        lead = pick(pool.length > 0 ? pool : fallback);
+        if (cross && lead && (lead.homeIndustryId || 'HOLLYWOOD') !== industry) partnerIndustryId = lead.homeIndustryId;
     }
 
-    // Pick Director
-    const director = pick(NPC_DATABASE.filter(n => n.occupation === 'DIRECTOR')) || NPC_DATABASE[0];
+    const directors = NPC_DATABASE.filter(n => n.occupation === 'DIRECTOR');
+    const localDirectors = directors.filter(n => (n.homeIndustryId || 'HOLLYWOOD') === industry);
+    const director = pick((localDirectors.length && Math.random() > 0.25 ? localDirectors : directors)) || NPC_DATABASE[0];
 
     // Generate Quality
     const leadTalent = lead.stats?.talent || 50;
@@ -86,16 +108,18 @@ export const generateIndustryProject = (
     const safeBudget = Number.isFinite(budget) ? budget : 0;
     let projected = safeBudget * fameMultiplier * qualityMod * luck;
     if (tier === 'HIGH' && projected < safeBudget) projected = safeBudget * 0.8;
+    if (industry !== 'HOLLYWOOD') projected *= theatricalMultiplier(industry) * calendarImpact(industry, week, genre);
+    if (partnerIndustryId) projected *= 0.92 + engine.crossoverOpenness * 0.12;
     const boxOffice = 0; 
     
     let review = "MIXED";
     if (quality > 80) review = "HIT";
     else if (quality < 40) review = "FLOP";
 
-    const targetAudiences: TargetAudience[] = ['G', 'PG', 'PG-13', 'R', 'NC-17'];
-    const targetAudience = targetAudiences[Math.floor(Math.random() * targetAudiences.length)];
+    const rating = ratingForRoll(industry, Math.floor(Math.random() * 1000));
+    const targetAudience: TargetAudience = rating.minAge >= 18 ? 'NC-17' : rating.minAge >= 17 ? 'R' : rating.minAge >= 13 ? 'PG-13' : rating.minAge >= 8 ? 'PG' : 'G';
 
-    const openedAbs = absoluteWeek(year, currentWeek > 52 ? ((currentWeek - 1) % 52) + 1 : currentWeek);
+    const openedAbs = absoluteWeek(year, week);
     const project: IndustryProject = {
         id: `ind_proj_${Date.now()}_${Math.random()}`,
         title: generateProjectTitle([]),
@@ -106,11 +130,15 @@ export const generateIndustryProject = (
         quality,
         boxOffice: sanitizeGross(boxOffice),
         year,
-        weekReleased: currentWeek > 52 ? ((currentWeek - 1) % 52) + 1 : currentWeek,
+        weekReleased: week,
         leadActorId: lead.id,
         leadActorName: creditName(lead.name, (lead.age ?? 40) < 100),
         directorName: creditName(director.name, (director.age ?? 50) < 100),
-        reviews: review
+        reviews: review,
+        originIndustryId: industry,
+        partnerIndustryId,
+        regionalStudioName,
+        censorRating: rating.label,
     };
     const seeded = attachRunSkeleton(project, gameCalendarYear(year), openedAbs);
     if (seeded.run) seeded.run.projectedGross = sanitizeGross(projected);
@@ -171,8 +199,11 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
     const openingThisWeek = due.filter(project => rivalAbs(project) === nowAbs);
     const overdue = due.filter(project => rivalAbs(project) < nowAbs);
     const targetNow = rivalTarget(nowAbs);
+    const industryForSlot = (abs: number, slot: number): FilmIndustryId =>
+        INDUSTRY_ORDER[(Math.abs(Math.trunc(abs)) + slot) % INDUSTRY_ORDER.length];
+
     while (openingThisWeek.length < targetNow) {
-        openingThisWeek.push(stampOpening(generateIndustryProject(player.currentWeek, player.age), nowAbs));
+        openingThisWeek.push(stampOpening(generateIndustryProject(player.currentWeek, player.age, undefined, industryForSlot(nowAbs, openingThisWeek.length)), nowAbs));
     }
     const releasing = [...overdue, ...openingThisWeek];
 
@@ -182,10 +213,22 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         let scheduled = newWorld.upcomingRivals.filter(project => rivalAbs(project) === openAbs).length;
         while (scheduled < target) {
             const parts = weekParts(openAbs);
-            newWorld.upcomingRivals.push(stampOpening(generateIndustryProject(parts.week, parts.age), openAbs));
+            newWorld.upcomingRivals.push(stampOpening(generateIndustryProject(parts.week, parts.age, undefined, industryForSlot(openAbs, scheduled)), openAbs));
             scheduled += 1;
         }
     }
+
+    const seenIndustries = new Set(
+        [...(newWorld.projects || []), ...newWorld.upcomingRivals].map(project => project.originIndustryId || 'HOLLYWOOD')
+    );
+    let extra = 0;
+    INDUSTRY_ORDER.forEach(id => {
+        if (seenIndustries.has(id) || extra >= 4) return;
+        const openAbs = nowAbs + 1 + extra;
+        const parts = weekParts(openAbs);
+        newWorld.upcomingRivals.push(stampOpening(generateIndustryProject(parts.week, parts.age, undefined, id), openAbs));
+        extra += 1;
+    });
 
     newWorld.upcomingRivals.sort((a, b) => rivalAbs(a) - rivalAbs(b));
     releasing.forEach(project => {
@@ -217,7 +260,10 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
                 salary += backend;
             }
 
-            lead.netWorth += salary;
+            const market = project.originIndustryId && project.originIndustryId !== 'HOLLYWOOD'
+                ? INDUSTRY_ENGINE[project.originIndustryId].marketScale
+                : 1;
+            lead.netWorth += Math.floor(salary * Math.max(0.2, market));
         }
 
         const trackedGross = project.run?.projectedGross || project.boxOffice;
@@ -225,7 +271,10 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         const isFlop = trackedGross > 0 && trackedGross < getEstimatedBudget(project.budgetTier) * 0.8;
         
         if (project.budgetTier === 'HIGH' || isHit || isFlop || project.directorName === "Nyanika Mishra") {
-            let headline = `'${project.title}' releases this week.`;
+            const marketName = project.originIndustryId && project.originIndustryId !== 'HOLLYWOOD'
+                ? industryById(project.originIndustryId).name
+                : '';
+            let headline = marketName ? `${marketName}: '${project.title}' releases this week.` : `'${project.title}' releases this week.`;
             if (isHit) headline = `Global Smash: '${project.title}' dominates box office.`;
             if (isFlop) headline = `Box Office Disaster: '${project.title}' flops hard.`;
             if (project.quality > 90) headline = `Masterpiece: Critics hail '${project.title}' as best of year.`;
@@ -237,7 +286,7 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
             news.push({
                 id: `news_world_${project.id}`,
                 headline,
-                subtext: `Starring ${project.leadActorName}. Directed by ${project.directorName}.`,
+                subtext: `Starring ${project.leadActorName}. Directed by ${project.directorName}.${project.regionalStudioName ? ` ${project.regionalStudioName}.` : ''}${project.censorRating ? ` Rated ${project.censorRating}.` : ''}`,
                 category: 'INDUSTRY',
                 week: player.currentWeek,
                 year: player.age,
@@ -337,15 +386,26 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         }
     });
 
-    // Keep last 100 projects
-    if (newWorld.projects.length > 100) {
-        newWorld.projects = newWorld.projects.slice(0, 100);
+    // Shared calendar. A higher cap so eleven industries are not wiped by one Hollywood month.
+    if (newWorld.projects.length > 180) {
+        newWorld.projects = newWorld.projects.slice(0, 180);
     }
 
     newWorld.projects = simulateIndustryWeek({ ...player, world: newWorld });
-    if (newWorld.projects.length > 100) {
-        newWorld.projects = newWorld.projects.slice(0, 100);
+    if (newWorld.projects.length > 180) {
+        newWorld.projects = newWorld.projects.slice(0, 180);
     }
+
+    const industries = { ...(newWorld.industries || {}) };
+    INDUSTRY_ORDER.forEach(id => {
+        const prior = industries[id];
+        industries[id] = {
+            trendingGenre: prior?.trendingGenre || (id === 'HOLLYWOOD' ? newWorld.trendingGenre : 'DRAMA'),
+            projects: newWorld.projects.filter(project => (project.originIndustryId || 'HOLLYWOOD') === id).slice(0, 24),
+            awardHistory: id === 'HOLLYWOOD' ? (newWorld.awardHistory || []) : (prior?.awardHistory || []),
+        };
+    });
+    newWorld.industries = industries;
 
     newWorld.npcEconomy = captureNpcEconomy();
     return { world: newWorld, news, logs };

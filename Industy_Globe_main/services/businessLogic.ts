@@ -1,5 +1,6 @@
 
-import { Business, BusinessType, BusinessSubtype, BusinessConfig, BusinessStaff, BusinessProduct, Player, EmployeeCandidate, StudioState } from '../types';
+import { Business, BusinessType, BusinessSubtype, BusinessConfig, BusinessStaff, BusinessProduct, Player, EmployeeCandidate, StudioState, FilmIndustryId } from '../types';
+import { INDUSTRY_ENGINE } from './industryEngine';
 import { generateIPMarket } from '../src/data/generators';
 import { createMarketTrends } from './marketTrends';
 import { advanceCraftScript, generateIndustryWriters, isFilmIndustry, migrateScriptDeskState } from './scriptDesk/logic';
@@ -343,7 +344,7 @@ export const generateCandidates = (): EmployeeCandidate[] => {
 };
 
 export const createBusiness = (
-    name: string, type: BusinessType, subtype: BusinessSubtype, config: BusinessConfig, logo: string, currentWeek: number
+    name: string, type: BusinessType, subtype: BusinessSubtype, config: BusinessConfig, logo: string, currentWeek: number, industry?: FilmIndustryId
 ): Business => {
     const cost = calculateSetupCost(type, subtype, config);
     const blueprint = BUSINESS_BLUEPRINTS[type];
@@ -366,14 +367,14 @@ export const createBusiness = (
             capacity: capacity, inventory: blueprint.model === 'PRODUCT' ? 0 : undefined, locations: 1
         },
         staff: [], products: [], history: [], hiringPool: generateCandidates(), lastHiringRefreshWeek: currentWeek,
-        ...(type === 'PRODUCTION_HOUSE' ? { studioState: createDefaultStudioState(currentWeek) } : {})
+        ...(type === 'PRODUCTION_HOUSE' ? { studioState: createDefaultStudioState(currentWeek, industry) } : {})
     };
 };
 
-export const createDefaultStudioState = (currentWeek: number): StudioState => ({
+export const createDefaultStudioState = (currentWeek: number, industry: FilmIndustryId = 'HOLLYWOOD'): StudioState => ({
     scripts: [],
     concepts: [],
-    writers: generateIndustryWriters(10, 'HOLLYWOOD', `new-house-${currentWeek}`),
+    writers: generateIndustryWriters(10, industry, `new-house-${currentWeek}`),
     ipMarket: generateIPMarket(5, [], currentWeek),
     lastMarketRefreshWeek: currentWeek,
     lastWriterRefreshWeek: currentWeek,
@@ -405,10 +406,19 @@ export const createDefaultStudioState = (currentWeek: number): StudioState => ({
         hotReleases: [],
         clashes: [],
     },
+    filmIndustry: industry,
+    hqIndustryId: industry,
+    hqCountry: INDUSTRY_ENGINE[industry].hqCountry,
+    operatingRegions: [{ industryId: industry, country: INDUSTRY_ENGINE[industry].hqCountry, openedWeek: currentWeek, openedYear: 1, contacts: 52, home: true }],
 });
 
 export const normalizeStudioState = (studioState: Partial<StudioState> | undefined, currentWeek: number): StudioState => {
-    const defaults = createDefaultStudioState(currentWeek);
+    const industry: FilmIndustryId = isFilmIndustry(studioState?.hqIndustryId)
+        ? studioState.hqIndustryId
+        : isFilmIndustry(studioState?.filmIndustry)
+            ? studioState.filmIndustry
+            : 'HOLLYWOOD';
+    const defaults = createDefaultStudioState(currentWeek, industry);
     return withScriptDesk({
         ...defaults,
         ...studioState,

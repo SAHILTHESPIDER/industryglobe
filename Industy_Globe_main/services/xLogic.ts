@@ -6,6 +6,7 @@ import { getEnabledGlobalCreatorProfiles } from './youtubeLogic';
 import { normalizeUniverseMap } from './universeLogic';
 import { getPlayerLanguage } from './i18n';
 import { aiOffline } from '../src/services/aiContent';
+import { linkedTrendTag } from './socialBridge';
 
 // --- TWEET TEMPLATES ---
 
@@ -237,7 +238,6 @@ export const generateXFeed = (player: Player): XPost[] => {
 };
 
 export const generateTrendingTopics = (player: Player): { tag: string, posts: string, category: string }[] => {
-    // Dynamic trends based on player events?
     const trends = [
         { tag: "#IndustryGlobe", posts: "54.2K posts", category: "Entertainment" },
         { tag: "Hollywood", posts: "120K posts", category: "Movies" },
@@ -247,6 +247,8 @@ export const generateTrendingTopics = (player: Player): { tag: string, posts: st
     ];
 
     // Add movie release trend if active
+    const linked = linkedTrendTag(player);
+    if (linked) trends.unshift({ tag: linked, posts: 'On YouTube, X, and Instagram', category: 'Entertainment' });
     const release = player.activeReleases.find(r => r.status === 'RUNNING' || r.status === 'BLOCKBUSTER_TRACK');
     if (release) {
         trends.unshift({ tag: `#${release.name.replace(/\s+/g, '')}`, posts: "Trending in Movies", category: "Entertainment" });

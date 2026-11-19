@@ -1,11 +1,12 @@
 import React, { useState, useRef, useMemo } from 'react';
 import { User, Calendar, Check, ArrowRight, Camera, UploadCloud, AtSign, Sparkles, Shuffle } from 'lucide-react';
-import { Gender } from '../types';
+import { FilmIndustryId, Gender } from '../types';
+import { INDUSTRY_ENGINE, allIndustries } from '../services/industryEngine';
 import { MALE_AVATAR_SEEDS, FEMALE_AVATAR_SEEDS } from '../services/npcLogic';
 import { IndustryGlobeMark } from '../components/IndustryGlobeMark';
 
 interface CreationMenuProps {
-  onStartGame: (name: string, age: number, gender: Gender, avatar: string, handle: string) => void;
+  onStartGame: (name: string, age: number, gender: Gender, avatar: string, handle: string, industry: FilmIndustryId) => void;
 }
 
 // --- AVATAR STYLES (DiceBear 9.x) ---
@@ -30,6 +31,7 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
   const [isHandleEdited, setIsHandleEdited] = useState(false);
   const [age, setAge] = useState<number | string>(18);
   const [gender, setGender] = useState<Gender>('MALE');
+  const [industry, setIndustry] = useState<FilmIndustryId>('HOLLYWOOD');
   const [avatarStyle, setAvatarStyle] = useState<AvatarStyleId>('adventurer');
   const [shuffleSalt, setShuffleSalt] = useState(0);
   const [selectedAvatar, setSelectedAvatar] = useState(buildAvatarUrl('adventurer', MALE_AVATAR_SEEDS[0]));
@@ -82,7 +84,7 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
     }
     const finalHandle = handle.startsWith('@') ? handle : `@${handle}`;
     setError('');
-    onStartGame(name, parsedAge, gender, selectedAvatar, finalHandle);
+    onStartGame(name, parsedAge, gender, selectedAvatar, finalHandle, industry);
   };
 
   const compressImage = (file: File): Promise<string> => {
@@ -373,13 +375,34 @@ export const CreationMenu: React.FC<CreationMenuProps> = ({ onStartGame }) => {
                 </div>
               </div>
 
+              <div>
+                <label className={labelClass}>Home industry</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {allIndustries().map(row => (
+                    <button
+                      key={row.id}
+                      type="button"
+                      onClick={() => setIndustry(row.id)}
+                      className={`rounded-xl border px-2 py-2 text-left ${
+                        industry === row.id
+                          ? 'border-amber-400 bg-amber-400/15 text-amber-100'
+                          : 'border-zinc-800 bg-zinc-900/60 text-zinc-400 hover:border-amber-500/40'
+                      }`}
+                    >
+                      <div className="text-xs font-bold">{row.name}</div>
+                      <div className="text-[10px] opacity-70">{row.hqCity}, {row.hqCountry}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Live card preview */}
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 flex items-center gap-4">
                 <img src={selectedAvatar} alt="" className="w-12 h-12 rounded-full object-cover bg-zinc-800 border border-amber-500/30 shrink-0" />
                 <div className="min-w-0">
                   <p className="font-bold truncate">{name.trim() || 'Your Stage Name'}</p>
                   <p className="text-xs text-zinc-500 font-mono truncate">
-                    {handle.trim() || '@handle'} · {age || '—'} yrs · {gender === 'NON_BINARY' ? 'Non-Binary' : gender === 'MALE' ? 'Male' : 'Female'}
+                    {handle.trim() || '@handle'} · {age || '—'} yrs · {INDUSTRY_ENGINE[industry].hqCity}
                   </p>
                 </div>
               </div>

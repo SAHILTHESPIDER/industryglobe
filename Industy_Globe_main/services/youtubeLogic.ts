@@ -1,6 +1,7 @@
 
 import { Gender, NPCActor, NPCPrestige, NPCTier, Player, YoutubeBrandDeal, YoutubeChannel, YoutubeCollabOffer, YoutubeCreatorIdentity, YoutubeVideo, YoutubeVideoType } from '../types';
-import { getGenderedAvatar, NPC_DATABASE } from './npcLogic';
+import { NPC_DATABASE } from './npcLogic';
+import { cartoonAvatarUrl } from './cartoonAvatar';
 import { MOD_TALENT_ROWS, ModTalentRow } from './modTalentData';
 import { hydrateGenreXP } from './genreCatalog';
 import { PUBLIC_CREATORS, PublicCreator } from './youtubeCreators';
@@ -81,7 +82,7 @@ const globalCreator = (
     id: `yt_global_${name.toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
     name,
     handle: `@${name.toLowerCase().replace(/[^a-z0-9]+/g, '')}`,
-    avatar: getGenderedAvatar(gender, `${name} ${country}`),
+    avatar: cartoonAvatarUrl(`${name} ${country}`),
     followers: Math.max(1000, Math.floor(followersM * M)),
     country,
     gender,

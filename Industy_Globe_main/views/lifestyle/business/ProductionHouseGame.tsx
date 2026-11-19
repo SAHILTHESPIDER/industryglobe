@@ -8,6 +8,9 @@ import { returningBump } from '../../../services/scriptDesk/logic';
 import { NPCActor, NPCTier } from '../../../types';
 import { getDirectorTalent } from '../../../services/roleLogic';
 import { getPlayerLanguage, t } from '../../../services/i18n';
+import { INDUSTRY_ENGINE, hqSummary, industryById } from '../../../services/industryEngine';
+import { INDUSTRY_ORDER } from '../../../services/scriptDesk/catalog';
+import { openOperatingRegion, readHqIndustry } from '../../../services/studioRegions';
 
 
 import { DevelopmentLab } from './DevelopmentLab';
@@ -734,7 +737,33 @@ const ProductionHouseInner: React.FC<{
                     <span className="ph-tier">{studio.subtype === 'MAJOR_STUDIO' ? 'Major' : 'Indie'}</span>
                     <div className="ph-where">
                         <MapPin size={12} />
-                        <span>{studio.subtype === 'MAJOR_STUDIO' ? 'Hollywood, CA' : 'Burbank, CA'}</span>
+                        <span>{hqSummary(readHqIndustry(studio.studioState, player.homeIndustryId))}</span>
+                    </div>
+                    <div className="ph-regions">
+                        {(studio.studioState?.operatingRegions || []).map(region => (
+                            <div key={region.industryId}>{industryById(region.industryId).name} · {Math.round(region.contacts)} contacts{region.home ? ' · HQ' : ''}</div>
+                        ))}
+                        {INDUSTRY_ORDER.filter(id => !(studio.studioState?.operatingRegions || []).some(region => region.industryId === id)).map(id => {
+                            const cost = INDUSTRY_ENGINE[id].regionOpenCost;
+                            const short = (studio.balance || 0) < cost;
+                            return (
+                            <button
+                                key={id}
+                                type="button"
+                                disabled={short}
+                                className={`ph-region-open${short ? ' is-short' : ''}`}
+                                onClick={() => {
+                                    if (short) return;
+                                    const result = openOperatingRegion(player, studio.id, id);
+                                    if (!result.error) onUpdatePlayer(result.player);
+                                }}
+                            >
+                                {short
+                                    ? `${INDUSTRY_ENGINE[id].name} office costs ${formatMoney(cost)}. The house has ${formatMoney(studio.balance || 0)}.`
+                                    : `Open ${INDUSTRY_ENGINE[id].name} · ${formatMoney(cost)}`}
+                            </button>
+                            );
+                        })}
                     </div>
                 </div>
                 <div className="ph-money">

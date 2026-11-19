@@ -1,5 +1,5 @@
 import { Gender, NPCActor, NPCPrestige, NPCTier } from '../types';
-import { getGenderedAvatar } from './npcLogic';
+import { cartoonAvatarUrl } from './cartoonAvatar';
 import { hydrateGenreXP } from './genreCatalog';
 import { publicPersonName } from './rights/alterName';
 import { CreatorCategory, YOUTUBE_ROSTER } from './youtubeRoster';
@@ -59,7 +59,7 @@ export const PUBLIC_CREATORS: PublicCreator[] = (() => {
             id,
             name,
             handle,
-            avatar: getGenderedAvatar(gender, `${name} ${row.country}`),
+            avatar: cartoonAvatarUrl(`${name} ${row.country}`),
             followers: Math.max(1000, Math.floor(row.subsM * M)),
             country: row.country,
             gender,
