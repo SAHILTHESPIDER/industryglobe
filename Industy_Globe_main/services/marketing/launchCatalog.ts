@@ -101,8 +101,8 @@ const fromServer = (row: ServerCity): CampaignCity => ({
 });
 
 const extra = (
-    id: string, name: string, countryId: string, lat: number, lon: number, costIndex: number, metroM: number, district: string,
-): CampaignCity => ({ id, name, countryId, regionId: 'ASIA', lat, lon, costIndex, metroM, district });
+    id: string, name: string, countryId: string, lat: number, lon: number, costIndex: number, metroM: number, district: string, regionId: CampaignCity['regionId'] = 'ASIA',
+): CampaignCity => ({ id, name, countryId, regionId, lat, lon, costIndex, metroM, district });
 
 /** Server rooms, plus Indian metros the launch map sells into and does not rack. */
 export const CAMPAIGN_CITIES: CampaignCity[] = [
@@ -110,6 +110,18 @@ export const CAMPAIGN_CITIES: CampaignCity[] = [
     extra('maa', 'Chennai', 'IN', 13.08, 80.27, 0.86, 11.5, 'T. Nagar'),
     extra('ccu', 'Kolkata', 'IN', 22.57, 88.36, 0.84, 15.1, 'Park Street'),
     extra('hyd', 'Hyderabad', 'IN', 17.39, 78.49, 0.87, 10.5, 'Banjara Hills'),
+    extra('cok', 'Kochi', 'IN', 9.93, 76.27, 0.82, 3.3, 'Marine Drive'),
+    extra('pnq', 'Pune', 'IN', 18.52, 73.86, 0.84, 7.4, 'Koregaon Park'),
+    extra('goi', 'Goa', 'IN', 15.5, 73.83, 0.86, 1.5, 'Panaji'),
+    extra('bjs', 'Beijing', 'CN', 39.9, 116.4, 0.98, 21.5, 'Sanlitun'),
+    extra('hkg', 'Hong Kong', 'HK', 22.32, 114.17, 1.08, 7.5, 'Tsim Sha Tsui'),
+    extra('pus', 'Busan', 'KR', 35.18, 129.08, 0.9, 3.4, 'Haeundae'),
+    extra('osa', 'Osaka', 'JP', 34.69, 135.5, 1.02, 19.0, 'Namba'),
+    extra('kix', 'Kyoto', 'JP', 35.01, 135.77, 0.96, 1.5, 'Gion'),
+    extra('ctu', 'Chengdu', 'CN', 30.57, 104.07, 0.86, 16.3, 'Chunxi'),
+    extra('yvr', 'Vancouver', 'CA', 49.28, -123.12, 1.02, 2.6, 'Yaletown', 'NORTH_AMERICA'),
+    extra('abv', 'Abuja', 'NG', 9.06, 7.49, 0.8, 3.6, 'Maitama', 'AFRICA'),
+    extra('man', 'Manchester', 'GB', 53.48, -2.24, 0.96, 2.8, 'Northern Quarter', 'EUROPE'),
     {
         id: 'prg',
         name: 'Prague',

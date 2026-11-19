@@ -405,6 +405,10 @@ export const createDefaultStudioState = (currentWeek: number): StudioState => ({
         hotReleases: [],
         clashes: [],
     },
+    filmIndustry: 'HOLLYWOOD',
+    hqIndustryId: 'HOLLYWOOD',
+    hqCountry: 'United States',
+    operatingRegions: [{ industryId: 'HOLLYWOOD', country: 'United States', openedWeek: currentWeek, openedYear: 1, contacts: 52, home: true }],
 });
 
 export const normalizeStudioState = (studioState: Partial<StudioState> | undefined, currentWeek: number): StudioState => {

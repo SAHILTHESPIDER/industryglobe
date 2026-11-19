@@ -55,6 +55,10 @@ import { processStockMarket, calculatePortfolioValue, getDividendPayout, initial
 import { serviceWeeklyLoans } from './loanLogic';
 import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonWinners, generateFullBallot, getAwardCeremonyYear } from './awardLogic';
 import { advanceReviewBomb, advanceScreeningWork, applyReleaseCampaignHype, hydrateReleaseWorld, lockReleaseScores, offerTestScreeningOnWrap, resolveDueFestivals, withdrawUnfinishedFestival } from './releaseGauntlet';
+import { migrateGlobalExpansion } from './migrateIndustries';
+import { growRegionContacts } from './studioRegions';
+import { INDUSTRY_ENGINE, theatricalMultiplier } from './industryEngine';
+import { linkSocialWeek } from './socialBridge';
 import { processWorldTurn, generateIndustryProject } from './worldLogic';
 import { absoluteWeek, clashFactorFor, gameCalendarYear, migrateBoxOfficeHistory, publishBoxOfficeWeekend } from './boxOfficeSim'; 
 import { generateFamousMovieOpportunity, generateCameoOffer } from './famousMovieLogic'; 
@@ -807,6 +811,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     if (!Array.isArray(nextPlayer.world.famousMoviesReleased)) nextPlayer.world.famousMoviesReleased = [];
     if (!Array.isArray(nextPlayer.world.awardHistory)) nextPlayer.world.awardHistory = [];
     if (!Array.isArray(nextPlayer.world.upcomingRivals)) nextPlayer.world.upcomingRivals = [];
+    nextPlayer = migrateGlobalExpansion(nextPlayer);
     nextPlayer = hydrateReleaseWorld(nextPlayer);
     nextPlayer = migrateBoxOfficeHistory(nextPlayer);
     if (!nextPlayer.studio) {
@@ -1150,6 +1155,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     try {
         const worldResult = processWorldTurn(nextPlayer);
         nextPlayer.world = worldResult.world;
+        nextPlayer = growRegionContacts(nextPlayer);
+        nextPlayer = linkSocialWeek(nextPlayer);
         nextPlayer = hydrateReleaseWorld(nextPlayer);
         nextPlayer.news = [...worldResult.news, ...nextPlayer.news].slice(0, 50);
         if (worldResult.logs?.length) {
@@ -3028,6 +3035,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
 	                marketDemand,
 	                studioGenreReputation
 	            )) * ytOpen;
+            const houseIndustry = releaseStudio?.studioState?.hqIndustryId || releaseStudio?.studioState?.filmIndustry;
+            const industryScale = houseIndustry && houseIndustry !== 'HOLLYWOOD' ? theatricalMultiplier(houseIndustry) : 1;
             const boxOfficeCaps = getBoxOfficeCaps(rel.projectDetails.budgetTier);
             const thinSpectaclePenalty =
                 ['ACTION', 'SCI_FI', 'SUPERHERO', 'ADVENTURE'].includes(rel.projectDetails.genre) &&
@@ -3053,7 +3062,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 });
             const weekClash = rel.weekNum === 1 ? clashFactor : (0.82 + clashFactor * 0.18);
             const marketingLegs = rel.weekNum === 1 ? 1 : Math.max(1, Math.min(1.12, Number(rel.projectDetails.hiddenStats?.marketingLegs) || 1));
-            const revenue = Math.floor(Math.min(uncappedRevenue, remainingHeadroom) * weekClash * marketingLegs);
+            const revenue = Math.floor(Math.min(uncappedRevenue * industryScale, remainingHeadroom) * weekClash * marketingLegs);
             rel.clashFactor = clashFactor;
             rel.releaseCalendarYear = rel.releaseCalendarYear || gameCalendarYear(nextPlayer.age);
             if (!rel.releaseWeek) rel.releaseWeek = ((openingAbs - 1) % 52) + 1;
@@ -3080,7 +3089,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             const studioId = rel.projectDetails.studioId;
             const playerStudio = nextPlayer.businesses?.find(b => b.id === studioId);
             if (playerStudio) {
-                const studioShare = Math.floor(revenue * 0.5); // 50% to studio
+                const tax = houseIndustry && houseIndustry !== 'HOLLYWOOD' ? INDUSTRY_ENGINE[houseIndustry].taxOnStudioShare : 0;
+                const studioShare = Math.floor(revenue * 0.5 * (1 - tax));
                 playerStudio.balance += studioShare;
                 playerStudio.stats.weeklyRevenue += studioShare;
                 playerStudio.stats.weeklyProfit += studioShare;

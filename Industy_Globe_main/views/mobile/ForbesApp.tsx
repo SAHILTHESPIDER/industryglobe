@@ -396,7 +396,7 @@ export const ForbesApp: React.FC<ForbesAppProps> = ({ player, onBack, onUpdatePl
 
                 <div className="divide-y divide-zinc-900">
 
-                    {actorRanking.map((actor, idx) => (
+                    {actorRanking.slice(0, 40).map((actor, idx) => (
 
                         <div key={actor.id} className={`flex items-center gap-4 p-4 ${actor.isPlayer ? 'bg-zinc-900/50' : ''}`}>
 

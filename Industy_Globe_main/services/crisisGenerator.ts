@@ -1,5 +1,6 @@
-import { Player, Commitment, ActorTrait, ProductionCrisis } from '../types';
+import { Player, Commitment, ActorTrait, ProductionCrisis, FilmIndustryId } from '../types';
 import { NPC_DATABASE } from './npcLogic';
+import { pickIndustryCrisis } from './industryEngine';
 
 type CrisisCategory = 'TECHNICAL' | 'INTERPERSONAL' | 'ENVIRONMENTAL' | 'FINANCIAL' | 'CREATIVE' | 'LEGAL';
 
@@ -182,6 +183,48 @@ const NOUNS = ["Failure", "Crisis", "Disaster", "Incident", "Drama", "Breakdown"
 const SUBJECTS = ["Catering", "Transportation", "Lighting", "Sound", "Security", "Publicity", "Logistics", "Scheduling"];
 
 export const generateRandomCrisis = (project: Commitment, player: Player): ProductionCrisis => {
+    const hq = (player.businesses?.find(row => row.type === 'PRODUCTION_HOUSE')?.studioState?.hqIndustryId
+        || player.homeIndustryId
+        || 'HOLLYWOOD') as FilmIndustryId;
+    if (Math.random() < 0.55) {
+        const template = pickIndustryCrisis(hq, `${project.id || project.name}:${player.currentWeek}`);
+        return {
+            id: `crisis_ind_${template.id}_${Date.now()}`,
+            title: template.title,
+            description: template.detail,
+            options: template.choices.map(choice => ({
+                label: choice.label,
+                impact: (current: Player, commitment: Commitment) => {
+                    const updatedPlayer: Player = {
+                        ...current,
+                        money: current.money + choice.money,
+                        stats: {
+                            ...current.stats,
+                            reputation: Math.max(0, Math.min(100, (current.stats?.reputation || 0) + choice.reputation)),
+                        },
+                        businesses: (current.businesses || []).map(business => {
+                            if (choice.contacts === 0 || business.type !== 'PRODUCTION_HOUSE' || !business.studioState?.operatingRegions) return business;
+                            return {
+                                ...business,
+                                studioState: {
+                                    ...business.studioState,
+                                    operatingRegions: business.studioState.operatingRegions.map(region => region.industryId === hq
+                                        ? { ...region, contacts: Math.max(0, Math.min(100, region.contacts + choice.contacts)) }
+                                        : region),
+                                },
+                            };
+                        }),
+                    };
+                    const updatedProject: Commitment = {
+                        ...commitment,
+                        productionPerformance: Math.max(0, Math.min(100, (commitment.productionPerformance || 50) + choice.quality)),
+                        promotionalBuzz: Math.max(0, (commitment.promotionalBuzz || 0) + choice.buzz),
+                    };
+                    return { updatedPlayer, updatedProject, log: choice.log };
+                },
+            })),
+        };
+    }
     const categories: CrisisCategory[] = ['TECHNICAL', 'INTERPERSONAL', 'ENVIRONMENTAL', 'FINANCIAL', 'CREATIVE', 'LEGAL'];
     const category = categories[Math.floor(Math.random() * categories.length)];
     

@@ -43,6 +43,7 @@ import { applyParenthoodAbandonment, getPregnancyFeedbackCopy } from './services
 import { APP_DISPLAY_VERSION } from './services/appVersion';
 import { WhatsNewNotes } from './components/WhatsNewNotes';
 import { applyLegacyFilmScores, hydrateReleaseWorld } from './services/releaseGauntlet';
+import { migrateGlobalExpansion } from './services/migrateIndustries';
 import { FestivalNightModal } from './views/FestivalNightModal';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
 import { normalizeUniverseMap } from './services/universeLogic';
@@ -832,7 +833,7 @@ export const App: React.FC = () => {
     const existingSave = saveSlots[slot];
     if (existingSave) {
         applyNpcEconomy(existingSave.world?.npcEconomy);
-        setPlayer(migrateBoxOfficeHistory(clone(existingSave)));
+        setPlayer(migrateGlobalExpansion(migrateBoxOfficeHistory(clone(existingSave))));
         setGameStatus('PLAYING');
     } else {
         applyNpcEconomy(null);
@@ -960,6 +961,7 @@ export const App: React.FC = () => {
           if (!Array.isArray(safePlayer.applications)) safePlayer.applications = [];
           if (!safePlayer.studioMemory) safePlayer.studioMemory = {} as any;
           if (!safePlayer.world) safePlayer.world = { ...INITIAL_PLAYER.world };
+          Object.assign(safePlayer, migrateGlobalExpansion(safePlayer));
           safePlayer.world = hydrateReleaseWorld(safePlayer).world;
           if (!safePlayer.world.npcVentures || typeof safePlayer.world.npcVentures !== 'object') safePlayer.world.npcVentures = {};
           if (!safePlayer.world.studios || typeof safePlayer.world.studios !== 'object') safePlayer.world.studios = { ...INITIAL_PLAYER.world.studios };
