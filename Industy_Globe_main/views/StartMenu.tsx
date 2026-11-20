@@ -248,7 +248,7 @@ export const StartMenu: React.FC<StartMenuProps> = ({ saveSlots, onSelectSlot, o
                     </div>
 
                     <div className="flex flex-col items-center">
-                    <IndustryGlobeMark size={84} className="mb-4 drop-shadow-[0_10px_30px_rgba(245,193,108,0.35)]" />
+                    {/* <IndustryGlobeMark size={84} className="mb-4 drop-shadow-[0_10px_30px_rgba(245,193,108,0.35)]" /> */}
                     <h1 className="text-6xl sm:text-7xl lg:text-8xl font-black tracking-tighter gold-text leading-[0.85] text-center drop-shadow-[0_10px_40px_rgba(245,158,11,0.3)]">
                         Industry<br/>Globe  
                     </h1>

@@ -145,6 +145,7 @@ export const ASIA_ROSTER_SEEDS: RosterSeed[] = [
     ['8Bit Thug', 'BOLLYWOOD', 'MALE', 'ESTABLISHED', 'STREAMER', [C], 4, 4, 'India'],
     ['Payal Gaming', 'BOLLYWOOD', 'FEMALE', 'ESTABLISHED', 'STREAMER', [C], 5, 2, 'India'],
     ['Munawar Faruqui', 'BOLLYWOOD', 'MALE', 'ESTABLISHED', 'INFLUENCER', [C], 10, 4, 'India'],
+    ['Snax Gaming', 'BOLLYWOOD', 'MALE', 'ESTABLISHED', 'STREAMER', [C], 10, 4, 'India'],
     // Korea
     ['Lee Min-ho', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [R, D], 20, 40, 'South Korea'],
     ['Song Joong-ki', 'KOREAN', 'MALE', 'A_LIST', 'ACTOR', [D, R, A], 14, 30, 'South Korea'],
