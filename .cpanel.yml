@@ -1,0 +1,7 @@
+
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/qmphjpnu/public_html/
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -R Industy_Globe_main/dist/. $DEPLOYPATH
