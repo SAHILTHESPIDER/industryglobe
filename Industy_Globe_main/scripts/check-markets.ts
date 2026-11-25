@@ -93,6 +93,37 @@ if (!migrated.flags?.ownPlatformUnlocked) fail('an opened company was not recogn
 if (migrated.ownPlatform?.books?.founderCapitalUsd) fail('migration invented a founding cheque');
 const migratedAgain = foundEmpire(migrated);
 if (migratedAgain.player.money !== 12_000_000 || migratedAgain.player.ownPlatform?.books?.cash !== 2_000_000) fail('a migrated company was charged');
+const watchedIntro = createOwnPlatform(player);
+watchedIntro.introSeen = true;
+watchedIntro.defineStep = 0;
+watchedIntro.stage = 'DEFINE';
+watchedIntro.books = { ...watchedIntro.books!, cash: 0, seedStakePct: 0, seedPartner: '', lines: [], founderCapitalUsd: undefined };
+delete watchedIntro.books.founderCapitalUsd;
+const sunkFee = { ...player, money: 40_000_000, name: 'Asha', ownPlatform: watchedIntro } as Player;
+const keptIntro = migrateOwnPlatformOnLoad(sunkFee);
+if (keptIntro.money !== 40_000_000 || (keptIntro.ownPlatform?.books?.cash || 0) !== 0) fail('an intro save was charged on load');
+if (!keptIntro.flags?.ownPlatformUnlocked) fail('an intro save was not recognized');
+if (keptIntro.ownPlatform?.books?.founderCapitalUsd) fail('an intro save gained a founding cheque');
+const introAgain = foundEmpire(keptIntro);
+if (introAgain.player.money !== 40_000_000 || (introAgain.player.ownPlatform?.books?.cash || 0) !== 0) fail('an intro save was charged again');
+const placed = createOwnPlatform(player);
+placed.introSeen = false;
+placed.defineStep = 0;
+placed.hqCityId = 'nyc';
+placed.sites = [{ cityId: 'nyc', scout: 1, workhorse: 0, titan: 0 }];
+placed.offices = [{ countryId: 'US', size: 'SMALL', localDeals: false }];
+placed.books = { ...placed.books!, cash: 0, seedStakePct: 0, seedPartner: '', lines: [] };
+delete placed.books.founderCapitalUsd;
+const footprint = { ...player, money: 90_000_000, name: 'Asha', ownPlatform: placed } as Player;
+const keptFootprint = migrateOwnPlatformOnLoad(footprint);
+if (keptFootprint.money !== 90_000_000 || (keptFootprint.ownPlatform?.books?.cash || 0) !== 0) fail('a placed company was charged on load');
+if (!keptFootprint.flags?.ownPlatformUnlocked) fail('a headquarters was not recognized');
+const footprintAgain = foundEmpire(keptFootprint);
+if (footprintAgain.player.money !== 90_000_000) fail('a placed company was charged again');
+const blank = createOwnPlatform(player);
+const blankPlayer = { ...player, money: 200_000_000, name: 'Asha', ownPlatform: blank } as Player;
+const blankFounded = foundEmpire(blankPlayer);
+if (blankFounded.error || blankFounded.player.money !== 200_000_000 - FOUNDING_CAPITAL_USD) fail('a blank slate skipped the founding cheque');
 const legacy = normalizeOwnPlatform({
     name: 'Old Stream',
     stage: 'BUILD',

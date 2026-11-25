@@ -323,10 +323,19 @@ export const ensureOwnPlatform = (player: Player): Player => {
 
 const UNLOCK_FLAG = 'ownPlatformUnlocked';
 
-/** A company the player already started, funded, or paid for. A blank DEFINE slate is not this. */
+/**
+ * A company the player already started, funded, or paid for.
+ * A fresh DEFINE slate has not seen the intro and has no headquarters, racks, or offices.
+ * Watching the intro, or placing any of those, means the old fee or seed already opened it.
+ */
 const companyAlreadyOpened = (state: OwnPlatformState): boolean => {
     if (state.stage === 'BUILD' || state.stage === 'CONSTRUCTING' || state.stage === 'LIVE') return true;
     if (state.commissioned) return true;
+    if (state.introSeen) return true;
+    if (state.hqPromptSeen) return true;
+    if (state.hqCityId) return true;
+    if ((state.sites || []).length > 0) return true;
+    if ((state.offices || []).length > 0) return true;
     if ((state.defineStep || 0) > 0) return true;
     if ((state.buildStep || 0) > 0) return true;
     if ((state.closedDeals || []).length > 0) return true;
