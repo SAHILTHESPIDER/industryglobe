@@ -837,27 +837,27 @@ export const ScriptDesk: React.FC<{
                             <p className="text-sm text-zinc-400">{stageLabel(liveScript.craft.stage)}. Week {liveScript.weeksInDevelopment} of {liveScript.totalDevelopmentWeeks}. The runtime stays. Premiere date, theatres, and streaming are production.</p>
                             <button type="button" onClick={() => setShowPage(value => !value)} className="inline-flex items-center gap-2 text-sm font-bold text-amber-200"><ScrollText size={16} /> {showPage ? 'Hide pages' : 'Read the pages'}</button>
                             {showPage && <ScreenplayPage text={liveScript.craft.pages || pageText} live={false} />}
-                            {liveScript.craft.v2 && !liveScript.craft.v2.inferred && (
+                            {liveScript.craft.v2 && (
                                 <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                                     <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Coverage</h3>
                                     <p className="mt-1 text-sm text-zinc-400">The score stays in the drawer. These are the notes a reader would actually write.</p>
                                     <ul className="mt-3 space-y-2 text-sm leading-relaxed text-zinc-200">
-                                        {(liveScript.craft.v2.coverageHints || ['The spine is clear enough to spend a draft on.']).map(hint => <li key={hint}>{hint}</li>)}
+                                        {(liveScript.craft.v2.coverageHints || [liveScript.craft.v2.inferred ? 'This draft was filed before coverage. A rewrite or a pitch is what starts the notes.' : 'The spine is clear enough to spend a draft on.']).map(hint => <li key={hint}>{hint}</li>)}
                                     </ul>
                                     {typeof liveScript.craft.v2.binge === 'number' && (
                                         <div className="mt-4 max-w-xs"><Meter label="Binge" value={liveScript.craft.v2.binge} tone="bg-violet-400" /></div>
                                     )}
                                 </section>
                             )}
-                            {liveScript.craft.v2?.risks && (
+                            {liveScript.craft.v2 && (
                                 <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                                    <Meter label="Leak" value={liveScript.craft.v2.risks.leak} tone="bg-rose-400" />
-                                    <Meter label="Plagiarism" value={liveScript.craft.v2.risks.plagiarism} tone="bg-rose-400" />
-                                    <Meter label="Credit fight" value={liveScript.craft.v2.risks.credit} tone="bg-amber-300" />
-                                    <Meter label="Boycott" value={liveScript.craft.v2.risks.boycott} tone="bg-rose-400" />
+                                    <Meter label="Leak" value={liveScript.craft.v2.risks?.leak || 8} tone="bg-rose-400" />
+                                    <Meter label="Plagiarism" value={liveScript.craft.v2.risks?.plagiarism || 6} tone="bg-rose-400" />
+                                    <Meter label="Credit fight" value={liveScript.craft.v2.risks?.credit || 8} tone="bg-amber-300" />
+                                    <Meter label="Boycott" value={liveScript.craft.v2.risks?.boycott || 6} tone="bg-rose-400" />
                                 </section>
                             )}
-                            {liveScript.craft.v2 && !liveScript.craft.v2.inferred && (
+                            {liveScript.craft.v2 && (
                                 <section className="space-y-2">
                                     <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Table read</h3>
                                     {(() => {
@@ -879,7 +879,7 @@ export const ScriptDesk: React.FC<{
                                     })()}
                                 </section>
                             )}
-                            {liveScript.craft.v2 && !liveScript.craft.v2.inferred && (
+                            {liveScript.craft.v2 && (
                                 <section className="space-y-2">
                                     <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Pitch</h3>
                                     <p className="text-sm text-zinc-400">A meeting, not a release. Theatres and streaming are still chosen in production.</p>
