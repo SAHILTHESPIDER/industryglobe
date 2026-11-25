@@ -39,6 +39,7 @@ import {
     defaultRoles,
     isFilmIndustry,
 } from './catalog';
+import { attachScriptV2 } from './v2';
 
 export { INDUSTRIES, INDUSTRY_ORDER, TONES, HOOKS, CLIMAXES, SONG_STYLES, EXTRA_ROLES, isFilmIndustry, defaultRoles };
 
@@ -1122,7 +1123,7 @@ export const attachLegacyCraft = (script: Script, industry: FilmIndustryId): Scr
 
 export const migrateScriptDeskState = (state: StudioState): StudioState => {
     const industry = isFilmIndustry(state.filmIndustry) ? state.filmIndustry : 'HOLLYWOOD';
-    const scripts = (state.scripts || []).map(script => attachLegacyCraft(script, industry));
+    const scripts = (state.scripts || []).map(script => attachScriptV2(attachLegacyCraft(script, industry)));
     const writers = (state.writers || []).map(writer => migrateWriter(writer, industry));
     const seed = `${industry}|${state.lastWriterRefreshWeek || 0}`;
     const bookShelf = state.bookShelf?.length ? state.bookShelf : generateBookShelf(industry, seed);

@@ -3003,7 +3003,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
                                                         ? 'bg-blue-500/10 text-blue-400 border-blue-500/30'
                                                         : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
                                                     }`}>
-                                                        {script.projectType}
+                                                        {script.projectType}{script.runtimeMinutes ? ` · ${script.runtimeMinutes}m` : ''}
                                                     </div>
                                                     {selectedScriptId === script.id && <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-black shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-in zoom-in"><Check size={14} strokeWidth={3} /></div>}
                                                 </div>

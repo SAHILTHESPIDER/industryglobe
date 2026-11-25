@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { getWriterTalent } from '../../../services/roleLogic';
 import { generateProceduralLogline } from '../../../src/data/generators';
 import { generateIndustryWriters, isFilmIndustry } from '../../../services/scriptDesk/logic';
+import { runtimeLine } from '../../../services/scriptDesk/v2';
 import { loadRightsShelf } from '../../../services/rights/tick';
 import { negotiateLife, optionBook, takePublicDomain } from '../../../services/rights/logic';
 import { SCRIPT_TEMPLATES, ScriptQuestion } from '../../../src/data/scriptTemplates';
@@ -862,7 +863,7 @@ const ScriptVault: React.FC<{
                             <h3 className="font-bold text-lg">{script.title}</h3>
                             <div className="flex items-center gap-2 mt-1">
                                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${script.projectType === 'SERIES' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}`}>
-                                    {script.projectType} {script.projectType === 'SERIES' && `(${script.episodes} eps)`}
+                                    {script.projectType} {runtimeLine(script) || (script.projectType === 'SERIES' && script.episodes ? `(${script.episodes} eps)` : '')}
                                 </span>
                                 {script.genres.map(g => (
                                     <span key={g} className="text-[9px] bg-zinc-800 text-zinc-300 px-1.5 py-0.5 rounded uppercase tracking-wider">{formatGenreLabel(g)}</span>

@@ -25,6 +25,8 @@ import {
     suggestName,
     INDUSTRIES,
 } from '../services/scriptDesk/logic';
+import { emptyDraft, marketLabel, scoreV2, scriptMarkets } from '../services/scriptDesk/v2';
+import { INDUSTRY_ORDER } from '../services/scriptDesk/catalog';
 
 let failed = 0;
 const need = (condition: unknown, message: string) => {
@@ -193,6 +195,34 @@ need(partNumberForRelease([
 ], 'saga-1', 'Deed: Part Two', 1) === 2, 'a later book part keeps its desk number when greenlight still says part 1');
 need(deskSagaPart({ craft: { partIndex: 1 } }) === undefined, 'a desk original does not force installment 1');
 need(deskSagaPart({ installmentNumber: 3, craft: { partIndex: 1 } }) === 3, 'a sequel number survives the desk default of part 1');
+
+need(studio.scripts[0].craft?.v2?.version === 2 && studio.scripts[0].craft?.v2?.inferred === true, 'older scripts gain a v2 block without a new draft');
+need(studio.scripts[0].quality === 63, 'v2 migration does not retune an old quality');
+const again = migrateScriptDeskState(studio);
+need(again.scripts[0] === studio.scripts[0], 'a second load does not rebuild a script that already has v2');
+need(!scriptMarkets().some(market => /hollywood/i.test(market.label)), 'the script flow has no Hollywood button');
+need(marketLabel('HOLLYWOOD') === 'United States', 'the US market is named by country');
+need(scriptMarkets().length === INDUSTRY_ORDER.length, 'every industry can be a target market');
+
+const base = emptyDraft('BOLLYWOOD', 'audit');
+base.genre = 'ROMANCE';
+base.toneId = 'masala';
+base.tracks = { songs: 70, action: 40, romance: 72, comedy: 48 };
+base.ratingId = 'UA13';
+base.violence = 30;
+base.intimacy = 28;
+base.language = 12;
+base.intervalId = 'song';
+base.openingId = 'song';
+base.climaxId = 'wedding';
+const home = scoreV2(base, 12, 60);
+const away = scoreV2({ ...base, industry: 'HOLLYWOOD', ratingId: 'PG13', violence: 30, intimacy: 28, language: 12 }, 12, 60);
+need(home.audience > away.audience, 'the same masala plays bigger in its own market than in the US');
+const over = scoreV2({ ...base, violence: 100, intimacy: 90, language: 80 }, 12, 60);
+need(over.budget > home.budget && over.censorHeat > home.censorHeat, 'writing past the certificate costs money and heat');
+need(over.notes.some(line => line.length > 20), 'the read explains the clash in words');
+const quiet = scoreV2({ ...base, tracks: { ...base.tracks, songs: 0 }, intervalId: 'silence' }, 12, 60);
+need(quiet.audience < home.audience, 'a songless interval in a song market loses the crowd');
 
 if (failed) {
     console.error(`${failed} script-desk checks failed`);

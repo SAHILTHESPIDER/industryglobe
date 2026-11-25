@@ -249,6 +249,67 @@ export enum Page {
       week: number;
   }
 
+  /**
+   * Script v2 blueprint. Optional so saves from before the rebuild still load.
+   * `inferred` marks a block filled in silently from an older draft. Those numbers stay put.
+   */
+  export interface ScriptV2 {
+      version: 2;
+      format: 'MOVIE' | 'SERIES';
+      /** Feature length, or episode length for a series. Fixed once the script is filed. */
+      runtimeMinutes: number;
+      seasons: number;
+      episodesPerSeason: number;
+      episodeMinutes: number;
+      logline: string;
+      loglineMode: 'TYPED' | 'PICKED' | 'INFERRED';
+      settingId: string;
+      settingLabel: string;
+      goalId: string;
+      goalLabel: string;
+      conflictId: string;
+      conflictLabel: string;
+      villainId: string;
+      villainLabel: string;
+      motiveId: string;
+      motiveLabel: string;
+      openingId: string;
+      openingLabel: string;
+      intervalId: string;
+      intervalLabel: string;
+      climaxId: string;
+      climaxLabel: string;
+      endingId: string;
+      endingLabel: string;
+      twistPlaceId: string;
+      twistPlaceLabel: string;
+      toneId: string;
+      toneLabel: string;
+      tracks: { songs: number; action: number; romance: number; comedy: number };
+      themeId: string;
+      themeLabel: string;
+      episodeHookId?: string;
+      episodeHookLabel?: string;
+      ratingId: string;
+      ratingLabel: string;
+      censorName: string;
+      violence: number;
+      intimacy: number;
+      language: number;
+      synopsis: string;
+      sampleScene: string;
+      ownPages?: string;
+      selfWritten: boolean;
+      protagonist: string;
+      villainName: string;
+      /** True when migration invented the block from an older script. Quality and weeks are not retuned. */
+      inferred?: boolean;
+      /** Kept off the desk. Coverage hints talk about it. The number is not shown while writing. */
+      hiddenQuality?: number;
+      coverageHints?: string[];
+      binge?: number;
+  }
+
   export interface ScriptLeakState {
       leaked: boolean;
       risk: number;
@@ -319,6 +380,8 @@ export enum Page {
       partIndex?: number;
       sagaId?: string;
       priorScore?: number;
+      /** Script v2 choices. Missing until migration or a new filing. */
+      v2?: ScriptV2;
   }
 
   export interface BookListing {
@@ -380,6 +443,8 @@ export enum Page {
       format?: ProjectFormat;
       targetAudience?: TargetAudience;
       episodes?: number;
+      /** Feature minutes, or minutes per episode. Chosen on the script desk and left alone after that. */
+      runtimeMinutes?: number;
       baseQuality?: number;
       logline?: string;
       attributes?: ScriptAttributes;

@@ -66,12 +66,20 @@ const seed = (): Player => {
 };
 
 const STEPS = {
-    source: undefined,
-    parts: 'PARTS',
-    twist: 'TWIST',
-    cast: 'CAST',
+    source: 'FORMAT',
+    format: 'FORMAT',
+    market: 'MARKET',
+    logline: 'LOGLINE',
+    story: 'STORY',
+    structure: 'STRUCTURE',
+    tracks: 'TRACKS',
+    rating: 'RATING',
+    pages: 'PAGES',
     writers: 'WRITERS',
-    page: 'LOOK',
+    parts: 'STORY',
+    twist: 'STRUCTURE',
+    cast: 'TRACKS',
+    page: 'PAGES',
 } as const;
 
 export const ScriptDeskPreview: React.FC<{ mode: string }> = ({ mode }) => {
