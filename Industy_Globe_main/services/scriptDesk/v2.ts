@@ -1199,42 +1199,48 @@ export const offerTableRead = (script: Script, seed: string) => {
     return { star, demand: chosen.demand, cost: chosen.cost, note: chosen.note };
 };
 
-export const resolvePitch = (script: Script, to: 'STUDIO' | 'OTT' | 'STAR') => {
+export const resolvePitch = (script: Script, to: 'STUDIO' | 'OTT' | 'STAR', week = 1) => {
     const v2 = script.craft?.v2;
+    const prior = (v2?.pitches || []).filter(pitch => pitch.to === to);
+    if (prior.some(pitch => pitch.week === week)) {
+        return {
+            money: 0,
+            hype: 0,
+            result: 'They already heard this pitch this week. Another meeting does not move the number.',
+        };
+    }
     const audience = script.craft?.audienceAppeal || 50;
     const critics = script.craft?.criticAppeal || 50;
     const binge = v2?.binge || 40;
     const series = script.projectType === 'SERIES' || v2?.format === 'SERIES';
+    let hype = 1;
+    let result = 'The meeting happened. Nobody is chasing the package.';
     if (to === 'STUDIO') {
         const warm = audience + critics > 110;
-        return {
-            money: 0,
-            hype: warm ? 5 : 1,
-            result: warm
-                ? 'The house will spend on this shape. The date is still not picked.'
-                : 'The house wants another pass before it spends. You can still make it.',
-        };
-    }
-    if (to === 'OTT') {
+        hype = warm ? 5 : 1;
+        result = warm
+            ? 'The house will spend on this shape. The date is still not picked.'
+            : 'The house wants another pass before it spends. You can still make it.';
+    } else if (to === 'OTT') {
         const want = series && binge >= 58;
         const money = want ? Math.round(400_000 + audience * 18_000) : Math.round(120_000 + audience * 4_000);
-        return {
-            money: 0,
-            hype: want ? 6 : 2,
-            result: want
-                ? `A platform would talk at about ${money.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}. That is interest, not a window. Production still chooses theatres or streaming.`
-                : series
-                    ? 'The platforms will read it. The binge is not strong enough for them to chase you.'
-                    : 'They asked if it could be a series. You did not have to say yes.',
-        };
-    }
-    return {
-        money: 0,
-        hype: audience > 60 ? 4 : 1,
-        result: audience > 55
+        hype = want ? 6 : 2;
+        result = want
+            ? `A platform would talk at about ${money.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}. That is interest, not a window. Production still chooses theatres or streaming.`
+            : series
+                ? 'The platforms will read it. The binge is not strong enough for them to chase you.'
+                : 'They asked if it could be a series. You did not have to say yes.';
+    } else {
+        hype = audience > 60 ? 4 : 1;
+        result = audience > 55
             ? 'A lead will read it if the part stays a lead. The fee comes at casting, not here.'
-            : 'A star passed the pages to a manager and went quiet. The draft is still yours.',
-    };
+            : 'A star passed the pages to a manager and went quiet. The draft is still yours.';
+    }
+    const faded = Math.max(0, hype - prior.length * 2);
+    if (prior.length && faded === 0) {
+        return { money: 0, hype: 0, result: 'They have heard this package often enough. The room is tired of it.' };
+    }
+    return { money: 0, hype: faded, result };
 };
 
 const BANK_TITLES = ['Paper House', 'Second Bell', 'The Wedding Ledger', 'Night Market', 'Open Ticket', 'Salt Verdict', 'Third Sister', 'Glass Platform'];
@@ -1344,12 +1350,12 @@ export const judgeFestival = (script: Script, festivalId: string) => {
     return { festival: fest.name, fee: fest.fee, result, note };
 };
 
-export const remakeInto = (script: Script, industry: FilmIndustryId, week: number): Script => {
+export const remakeInto = (script: Script, industry: FilmIndustryId, week: number, salt = 0): Script => {
     const from = script.craft?.industry || 'HOLLYWOOD';
     const rating = defaultRating(industry);
     const culture = INDUSTRIES[industry].songs;
     const v2 = script.craft?.v2;
-    const id = `script_remake_${hash(`${script.id}|${industry}|${week}`).toString(36)}_${week}`;
+    const id = `script_remake_${hash(`${script.id}|${industry}|${week}|${salt}`).toString(36)}_${week}_${salt}`;
     return {
         ...script,
         id,
@@ -1383,8 +1389,12 @@ export const remakeInto = (script: Script, industry: FilmIndustryId, week: numbe
             source: 'REMAKE',
             stage: 'IDEA',
             rewrites: 0,
-            freshness: 80,
+            rewriteWeeksLeft: 0,
+            slipHold: 0,
+            slipWeeks: 0,
             weeksAtStage: 0,
+            coverage: undefined,
+            freshness: 80,
             audienceAppeal: clamp((script.craft?.audienceAppeal || 50) - 3),
             criticAppeal: clamp((script.craft?.criticAppeal || 50) - 8),
             songs: culture === 'central' ? Math.max(4, script.craft?.songs || 0) : (script.craft?.songs || 0),

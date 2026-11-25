@@ -398,9 +398,16 @@ export const ScriptDesk: React.FC<{
         setNote(accept ? `${offer.star} stays. ${offer.note}` : `${offer.star} walks. The part is still open, and the town noticed.`);
     };
 
+    const weekNow = player.currentWeek || 1;
+    const ownedScriptIds = new Set(state.scripts.map(item => item.id));
+    const bankListings = state.scriptBankWeek === weekNow
+        ? (state.scriptBank || [])
+        : buildScriptBank(weekNow, studio.id).filter(listing => !ownedScriptIds.has(`script_${listing.id}`));
+
     const pitchTo = (to: 'STUDIO' | 'OTT' | 'STAR') => {
         if (!liveScript?.craft?.v2) return;
-        const result = resolvePitch(liveScript, to);
+        const week = player.currentWeek || 1;
+        const result = resolvePitch(liveScript, to, week);
         const next: Script = {
             ...liveScript,
             hype: Math.max(0, Math.min(100, (liveScript.hype || 40) + result.hype)),
@@ -408,7 +415,7 @@ export const ScriptDesk: React.FC<{
                 ...liveScript.craft,
                 v2: {
                     ...liveScript.craft.v2,
-                    pitches: [...(liveScript.craft.v2.pitches || []), { to, week: player.currentWeek, result: result.result, money: result.money }],
+                    pitches: [...(liveScript.craft.v2.pitches || []), { to, week, result: result.result, money: result.money }],
                 },
             },
         };
@@ -417,12 +424,17 @@ export const ScriptDesk: React.FC<{
     };
 
     const buyListing = (listing: ReturnType<typeof buildScriptBank>[number]) => {
+        const week = player.currentWeek || 1;
+        if (state.scripts.some(item => item.id === `script_${listing.id}`)) {
+            setNote(`${listing.title} is already in the vault.`);
+            return;
+        }
         if (studio.balance < listing.price) {
             setNote(`That spec is ${formatMoney(listing.price)}. The house has ${formatMoney(studio.balance)}.`);
             return;
         }
-        const bank = (state.scriptBank?.length ? state.scriptBank : buildScriptBank(player.currentWeek || 1, studio.id)).filter(item => item.id !== listing.id);
-        putScript(scriptFromListing(listing, player.currentWeek || 1), -listing.price, { scriptBank: bank });
+        const bank = bankListings.filter(item => item.id !== listing.id);
+        putScript(scriptFromListing(listing, week), -listing.price, { scriptBank: bank, scriptBankWeek: week });
         setNote(`${listing.title} is in the vault.`);
     };
 
@@ -441,6 +453,10 @@ export const ScriptDesk: React.FC<{
     const enterFestival = (id: string) => {
         if (!liveScript?.craft?.v2) return;
         const judged = judgeFestival(liveScript, id);
+        if ((liveScript.craft.v2.awards || []).some(award => award.festival === judged.festival)) {
+            setNote(`${judged.festival} already has this film. A festival takes a title once.`);
+            return;
+        }
         if (studio.balance < judged.fee) {
             setNote(`${judged.festival} wants ${formatMoney(judged.fee)} to enter.`);
             return;
@@ -467,7 +483,8 @@ export const ScriptDesk: React.FC<{
             setNote(`Clearing the pages for another market costs ${formatMoney(fee)}.`);
             return;
         }
-        putScript(remakeInto(liveScript, industry, player.currentWeek || 1), -fee);
+        const salt = state.scripts.filter(item => item.craft?.industry === industry && item.craft?.v2?.remakeOf).length;
+        putScript(remakeInto(liveScript, industry, player.currentWeek || 1, salt), -fee);
         setNote(`A ${marketLabel(industry)} version is in the vault. Critics will compare it. The release is still not chosen.`);
     };
 
@@ -888,7 +905,7 @@ export const ScriptDesk: React.FC<{
                                             <button key={to} type="button" onClick={() => pitchTo(to)} className="rounded-2xl border border-white/10 px-3 py-3 text-left text-sm font-semibold hover:border-white/30">{to === 'STUDIO' ? 'The house' : to === 'OTT' ? 'A platform' : 'A star'}</button>
                                         ))}
                                     </div>
-                                    {(liveScript.craft.v2.pitches || []).slice(-3).map(item => <p key={`${item.to}-${item.week}-${item.result}`} className="text-sm text-zinc-300">{item.result}</p>)}
+                                    {(liveScript.craft.v2.pitches || []).slice(-3).map((item, index) => <p key={`${item.to}-${item.week}-${index}`} className="text-sm text-zinc-300">{item.result}</p>)}
                                 </section>
                             )}
                             <section className="space-y-2">
@@ -897,8 +914,9 @@ export const ScriptDesk: React.FC<{
                                     <div className="font-semibold">Sell this draft · {formatMoney(salePrice(liveScript))}</div>
                                     <p className="mt-1 text-sm text-zinc-400">It leaves the vault. A script already on a call sheet cannot be sold.</p>
                                 </button>
+                                {bankListings.length === 0 && <p className="text-sm text-zinc-400">The shelf is empty this week. Another week brings another set of specs.</p>}
                                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                    {(state.scriptBank?.length ? state.scriptBank : buildScriptBank(player.currentWeek || 1, studio.id)).map(listing => (
+                                    {bankListings.map(listing => (
                                         <button key={listing.id} type="button" onClick={() => buyListing(listing)} className="rounded-2xl border border-white/10 p-4 text-left hover:border-white/30">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="font-semibold">{listing.title}</div>
@@ -930,7 +948,7 @@ export const ScriptDesk: React.FC<{
                                         </button>
                                     ))}
                                 </div>
-                                {(liveScript.craft.v2?.awards || []).map(award => <p key={`${award.festival}-${award.week}`} className="text-sm text-zinc-300">{award.festival}: {award.result}. {award.note}</p>)}
+                                {(liveScript.craft.v2?.awards || []).map((award, index) => <p key={`${award.festival}-${award.week}-${index}`} className="text-sm text-zinc-300">{award.festival}: {award.result}. {award.note}</p>)}
                             </section>
                         </div>
                     )}

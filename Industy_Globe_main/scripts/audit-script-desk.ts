@@ -25,7 +25,7 @@ import {
     suggestName,
     INDUSTRIES,
 } from '../services/scriptDesk/logic';
-import { emptyDraft, marketLabel, scoreV2, scriptMarkets } from '../services/scriptDesk/v2';
+import { emptyDraft, marketLabel, remakeInto, resolvePitch, scoreV2, scriptMarkets } from '../services/scriptDesk/v2';
 import { INDUSTRY_ORDER } from '../services/scriptDesk/catalog';
 
 let failed = 0;
@@ -223,6 +223,26 @@ need(over.budget > home.budget && over.censorHeat > home.censorHeat, 'writing pa
 need(over.notes.some(line => line.length > 20), 'the read explains the clash in words');
 const quiet = scoreV2({ ...base, tracks: { ...base.tracks, songs: 0 }, intervalId: 'silence' }, 12, 60);
 need(quiet.audience < home.audience, 'a songless interval in a song market loses the crowd');
+
+const midRewrite: Script = {
+    ...script,
+    id: 'mid-rewrite',
+    craft: { ...script.craft!, stage: 'REWRITES', rewriteWeeksLeft: 4, slipHold: 2, rewrites: 2 },
+};
+const firstRemake = remakeInto(midRewrite, 'KOREAN', 4, 0);
+const secondRemake = remakeInto(midRewrite, 'KOREAN', 4, 1);
+need(firstRemake.id !== secondRemake.id, 'a second remake in the same week is a new script');
+need(firstRemake.craft?.stage === 'IDEA' && (firstRemake.craft?.rewriteWeeksLeft || 0) === 0 && (firstRemake.craft?.slipHold || 0) === 0, 'a remake starts its own clock');
+const moved = advanceCraftScript(firstRemake, () => 1).script;
+need((moved.craft?.weeksAtStage || 0) === 1, 'a remake of a mid-rewrite draft can still advance');
+const heard = {
+    ...firstRemake,
+    craft: {
+        ...firstRemake.craft!,
+        v2: { ...firstRemake.craft!.v2!, pitches: [{ to: 'STUDIO' as const, week: 4, result: 'Heard.', money: 0 }] },
+    },
+};
+need(resolvePitch(heard, 'STUDIO', 4).hype === 0, 'a second pitch in the same week does not add hype');
 
 if (failed) {
     console.error(`${failed} script-desk checks failed`);

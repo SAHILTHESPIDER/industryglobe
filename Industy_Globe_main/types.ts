@@ -632,8 +632,10 @@ export enum Page {
       remakeShelf?: RemakeListing[];
       trueStoryShelf?: TrueStoryListing[];
       bookSagas?: BookSagaState[];
-      /** Spec scripts other houses are selling. Missing until the desk opens the bank. */
+      /** Spec scripts other houses are selling. An empty list with scriptBankWeek set means the shelf was bought out that week. */
       scriptBank?: ScriptBankListing[];
+      /** Week the current script bank belongs to. A new week builds a new shelf. */
+      scriptBankWeek?: number;
   }
 
   export type RightsRegionId =
