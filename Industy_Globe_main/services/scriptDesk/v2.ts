@@ -5,7 +5,7 @@
  * Nothing here refuses a long film, a songless masala, or a certificate the scenes outrun.
  * Those choices change the budget, the crowd, the board, and how tired the draft gets.
  */
-import type { FilmIndustryId, Genre, PlotTwistOffer, Script, ScriptV2 } from '../../types';
+import type { FilmIndustryId, Genre, PlotTwistOffer, Script, ScriptBankListing, ScriptV2 } from '../../types';
 import { INDUSTRIES, INDUSTRY_ORDER, TONES, isFilmIndustry } from './catalog';
 import { INDUSTRY_ENGINE, type RatingLabel } from '../industryEngine';
 import { formatGenreLabel } from '../genreCatalog';
@@ -223,6 +223,14 @@ export interface V2Draft {
     protagonist: string;
     villainName: string;
     adaptation?: V2Adaptation;
+    arcLead: string;
+    arcSupport: string;
+    punchline: boolean;
+    seetiId: string;
+    setPieceId: string;
+    seasonArc: string;
+    cliffhanger: string;
+    sequelHook: string;
 }
 
 export interface V2Read {
@@ -237,6 +245,7 @@ export interface V2Read {
     boycott: number;
     leak: number;
     weeks: number;
+    fatigue: number;
     notes: string[];
     hints: string[];
 }
@@ -347,6 +356,14 @@ export const emptyDraft = (industry: FilmIndustryId, seed: string): V2Draft => {
         language: Math.round(cap.language * 0.55),
         protagonist: personName(safe, 'ANY', `${seed}|lead`),
         villainName: personName(safe, 'ANY', `${seed}|villain`),
+        arcLead: 'steadfast',
+        arcSupport: 'comic',
+        punchline: false,
+        seetiId: 'none',
+        setPieceId: 'none',
+        seasonArc: 'case',
+        cliffhanger: 'question',
+        sequelHook: '',
     };
 };
 
@@ -356,7 +373,7 @@ const majority = (families: DeskOption['family'][]) => {
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
 };
 
-export const scoreV2 = (draft: V2Draft, week = 1, writerSkill = 45): V2Read => {
+export const scoreV2 = (draft: V2Draft, week = 1, writerSkill = 45, fatigueCount = 0): V2Read => {
     const industry = isFilmIndustry(draft.industry) ? draft.industry : 'HOLLYWOOD';
     const engine = INDUSTRY_ENGINE[industry];
     const culture = INDUSTRIES[industry].songs;
@@ -627,6 +644,53 @@ export const scoreV2 = (draft: V2Draft, week = 1, writerSkill = 45): V2Read => {
         if (mismatch > 0) note(5, `The rights want a ${book.preferred === 'SERIES' ? 'series' : 'film'} and this draft is the other shape. The story can survive. It starts behind.`);
     }
 
+    const fatigue = Math.max(0, fatigueCount - 1);
+    if (fatigue > 0) {
+        audience -= fatigue * 3.2;
+        freshness -= fatigue * 2.5;
+        note(6, `${marketLabel(industry)} has already heard ${formatGenreLabel(genre).toLowerCase()} from this house ${fatigueCount} times. The next one has to be sharper, not just next.`);
+    }
+    if (draft.arcLead === 'fall' && tone.id === 'masala') {
+        audience -= 3;
+        critics += 2;
+        note(3, 'A falling lead inside a masala shape. The crowd came for a rise.');
+    }
+    if (draft.arcLead === 'redemption' && (theme.id === 'family' || theme.id === 'faith')) {
+        critics += 3;
+        audience += culture === 'central' ? 3 : 1;
+    }
+    if (draft.punchline && (genre === 'COMEDY' || tone.id === 'light' || tone.id === 'satire')) {
+        audience += 3;
+        critics += tone.id === 'satire' ? 2 : 0;
+    } else if (draft.punchline && (theme.id === 'grief' || genre === 'BIOPIC')) {
+        critics -= 3;
+        note(3, 'A punchline on a story that asked to be believed. Coverage will call it a dodge.');
+    }
+    if (draft.seetiId && draft.seetiId !== 'none') {
+        const home = culture === 'central' ? 1 : culture === 'expected' ? 0.5 : 0.2;
+        audience += 6 * home;
+        critics -= (1 - home) * 3;
+        budget += 450_000 * crew;
+        if (home > 0.7) note(5, 'A seeti-maar beat where the house already whistles. It costs a setup and it pays the interval.');
+        else note(4, 'A whistle moment in a market that does not whistle. It can still play. It will be called noise.');
+    }
+    if (draft.setPieceId && draft.setPieceId !== 'none') {
+        budget += 1_200_000 * crew * (action > 50 ? 1.3 : 0.8);
+        audience += action > 45 ? 4 : 1;
+        freshness -= action < 30 ? 4 : 1;
+        if (action < 30) note(4, 'A set piece in a quiet film. The budget shows up. The story has to justify the crane.');
+    }
+    if (draft.format === 'SERIES') {
+        const cliffMatches = draft.cliffhanger === draft.episodeHookId || draft.cliffhanger === 'question';
+        binge += cliffMatches ? 7 : -4;
+        if (draft.seasonArc === 'anthology' && draft.seasons > 1) freshness -= 2;
+        if (!cliffMatches) note(4, 'The season cliffhanger and the episode hook are different promises. Binge score slips.');
+    }
+    if (draft.sequelHook.trim()) {
+        freshness -= 1;
+        note(3, 'A sequel is already hooked. If this one cools, the next one inherits the cold.');
+    }
+
     const supportNoise = (action > 70 ? 1 : 0) + (songs > 75 ? 1 : 0) + (comedy > 75 ? 1 : 0);
     if (supportNoise >= 2) {
         freshness -= 5;
@@ -682,6 +746,7 @@ export const scoreV2 = (draft: V2Draft, week = 1, writerSkill = 45): V2Read => {
         boycott,
         leak,
         weeks,
+        fatigue,
         notes: lines,
         hints: hints.slice(0, 3),
     };
@@ -811,6 +876,61 @@ export const twistOfferFor = (draft: V2Draft): PlotTwistOffer => {
     };
 };
 
+export const SEETI: DeskOption[] = [
+    opt('none', 'No whistle beat', 'The interval earns itself without a cheer.', 'plain'),
+    opt('entry', 'The hero’s entry', 'A walk, a line, a score hit. The house answers.', 'mass'),
+    opt('interval-blow', 'The interval blow', 'The fight or the reveal lands as the lights come up.', 'mass'),
+    opt('punch', 'One line they will quote', 'Dialogue as a set piece.', 'mass'),
+];
+
+export const SET_PIECES: DeskOption[] = [
+    opt('none', 'No set piece', 'The money stays in the rooms.', 'prestige'),
+    opt('chase', 'A city chase', 'Streets, vehicles, a unit that bills by the hour.', 'mass'),
+    opt('wedding', 'A wedding number', 'Crowd, costumes, a song if you have one.', 'romance'),
+    opt('storm', 'Weather', 'Rain, a stage, insurance.', 'dread'),
+    opt('arena', 'A public stage', 'Stadium, court, or a broadcast.', 'mass'),
+];
+
+export const SEASON_ARCS: DeskOption[] = [
+    opt('case', 'One case, stretched', 'The season is a single problem.', 'prestige'),
+    opt('rise', 'A rise', 'They start small and the last episode is the top.', 'mass'),
+    opt('family', 'A house across the year', 'The plot is the family.', 'romance'),
+    opt('anthology', 'Almost an anthology', 'Each episode can stand. The season is a mood.', 'plain'),
+    opt('downfall', 'A downfall', 'The last episode is the bill for the first.', 'dread'),
+];
+
+export const CLIFFHANGERS: DeskOption[] = [
+    opt('question', 'An unanswered question', 'The next episode is the reply.', 'dread'),
+    opt('betrayal', 'A betrayal freeze', 'Someone they trust is the cut.', 'dread'),
+    opt('almost', 'They almost say it', 'Romance held one line short.', 'romance'),
+    opt('next-job', 'The next job starts', 'No bow. A plan.', 'mass'),
+    opt('smile', 'The villain is fine', 'They are not worried.', 'dread'),
+];
+
+export const ARC_OPTIONS = [
+    { id: 'rise', label: 'Rise' },
+    { id: 'fall', label: 'Fall' },
+    { id: 'redemption', label: 'Redemption' },
+    { id: 'corruption', label: 'Corruption' },
+    { id: 'steadfast', label: 'Steadfast' },
+];
+
+export const SUPPORT_SLOTS = [
+    { id: 'comic', label: 'Comic' },
+    { id: 'mentor', label: 'Mentor' },
+    { id: 'parent', label: 'Parent' },
+    { id: 'friend', label: 'Friend' },
+    { id: 'rival', label: 'Rival' },
+];
+
+export const punchlineFor = (draft: V2Draft): string => {
+    const who = draft.protagonist || 'The lead';
+    const place = INDUSTRIES[draft.industry]?.place || 'town';
+    if (draft.toneId === 'satire') return `${who}: "If this is the official story, I want the unofficial one in writing."`;
+    if (draft.toneId === 'masala') return `${who}: "You brought a speech. I brought ${place}."`;
+    return `${who}: "Say it again. The cheap version was funnier."`;
+};
+
 export const blueprintFrom = (draft: V2Draft, read: V2Read, ownPages = ''): ScriptV2 => {
     const industry = isFilmIndustry(draft.industry) ? draft.industry : 'HOLLYWOOD';
     const rating = ratingsFor(industry).find(item => item.id === draft.ratingId) || defaultRating(industry);
@@ -873,6 +993,23 @@ export const blueprintFrom = (draft: V2Draft, read: V2Read, ownPages = ''): Scri
         hiddenQuality: read.quality,
         coverageHints: read.hints,
         binge: draft.format === 'SERIES' ? read.binge : undefined,
+        arcs: [
+            { name: draft.protagonist || 'Lead', role: 'Lead', arc: draft.arcLead || 'steadfast' },
+            { name: draft.villainName || 'Support', role: 'Support', arc: draft.arcSupport || 'comic' },
+        ],
+        punchline: draft.punchline ? punchlineFor(draft) : undefined,
+        seetiMaar: draft.seetiId && draft.seetiId !== 'none' ? (SEETI.find(item => item.id === draft.seetiId)?.label || draft.seetiId) : undefined,
+        setPiece: draft.setPieceId && draft.setPieceId !== 'none' ? (SET_PIECES.find(item => item.id === draft.setPieceId)?.label || draft.setPieceId) : undefined,
+        seasonArc: draft.format === 'SERIES' ? (SEASON_ARCS.find(item => item.id === draft.seasonArc)?.label || draft.seasonArc) : undefined,
+        cliffhanger: draft.format === 'SERIES' ? (CLIFFHANGERS.find(item => item.id === draft.cliffhanger)?.label || draft.cliffhanger) : undefined,
+        sequelHook: draft.sequelHook.trim() || undefined,
+        fatigue: read.fatigue,
+        risks: {
+            leak: Math.round(read.leak * 100),
+            plagiarism: draft.adaptation ? (draft.adaptation.fidelity <= 30 ? 32 : 14) : 6,
+            credit: 8,
+            boycott: read.boycott,
+        },
     };
 };
 
@@ -941,16 +1078,26 @@ export const applyV2 = (script: Script, draft: V2Draft, read: V2Read, ownPages =
             v2,
         },
     };
-    if (v2.selfWritten && (v2.ownPages || '').length < 180) {
-        next.craft = {
-            ...next.craft!,
-            v2: {
-                ...v2,
+    const names = next.craft?.writerNames || [];
+    const hired = names.filter(name => name && name !== 'You' && name !== 'Unstaffed').length;
+    const credit = hired >= 3 ? 36 : hired > 0 && names.includes('You') ? 22 : hired > 1 ? 18 : 8;
+    const plagiarism = (v2.risks?.plagiarism || 6) + (v2.remakeOf ? 24 : 0);
+    next.craft = {
+        ...next.craft!,
+        v2: {
+            ...v2,
+            risks: {
+                leak: v2.risks?.leak || 0,
+                plagiarism: clamp(plagiarism),
+                credit,
+                boycott: v2.risks?.boycott || 0,
+            },
+            ...(v2.selfWritten && (v2.ownPages || '').length < 180 ? {
                 hiddenQuality: clamp((v2.hiddenQuality || 50) - 6),
                 coverageHints: ['The pages the player wrote are still short. Coverage will treat that as a shrug until the draft grows.', ...(v2.coverageHints || [])].slice(0, 3),
-            },
-        };
-    }
+            } : {}),
+        },
+    };
     return next;
 };
 
@@ -1031,4 +1178,235 @@ export const runtimeLine = (script: Pick<Script, 'projectType' | 'episodes' | 'r
     if (script.runtimeMinutes) return `${script.runtimeMinutes} min`;
     if (script.projectType === 'SERIES' && script.episodes) return `${script.episodes} episodes`;
     return '';
+};
+
+export const genreFatigue = (scripts: Script[], industry: FilmIndustryId, genre: Genre) =>
+    scripts.filter(item => item.genres?.[0] === genre && item.craft?.industry === industry).length;
+
+export const offerTableRead = (script: Script, seed: string) => {
+    const industry = isFilmIndustry(script.craft?.industry) ? script.craft!.industry : 'HOLLYWOOD';
+    const star = personName(industry, 'ANY', `table|${script.id}|${seed}`);
+    const culture = INDUSTRIES[industry].songs;
+    const options = [
+        { demand: 'A song on the entry', cost: 700_000, note: culture === 'central' ? 'The market already whistles for an entry. Paying for it is the local grammar.' : 'An entry song in this market is a star’s habit, not the audience’s.' },
+        { demand: 'Soften the certificate', cost: 80_000, note: 'A softer certificate is a bigger Saturday and a smaller film.' },
+        { demand: 'Name above the title', cost: 1_400_000, note: 'The poster gets a name. The budget gets a new line.' },
+        { demand: 'One more set piece', cost: 1_100_000, note: 'The star wants a scene people will clip. The unit has to shoot it.' },
+        { demand: 'I will not play the villain', cost: 0, note: 'The turn has to move to someone else, or the star walks.' },
+    ];
+    const pickIndex = hash(`${script.id}|${seed}|read`) % options.length;
+    const chosen = options[pickIndex];
+    return { star, demand: chosen.demand, cost: chosen.cost, note: chosen.note };
+};
+
+export const resolvePitch = (script: Script, to: 'STUDIO' | 'OTT' | 'STAR') => {
+    const v2 = script.craft?.v2;
+    const audience = script.craft?.audienceAppeal || 50;
+    const critics = script.craft?.criticAppeal || 50;
+    const binge = v2?.binge || 40;
+    const series = script.projectType === 'SERIES' || v2?.format === 'SERIES';
+    if (to === 'STUDIO') {
+        const warm = audience + critics > 110;
+        return {
+            money: 0,
+            hype: warm ? 5 : 1,
+            result: warm
+                ? 'The house will spend on this shape. The date is still not picked.'
+                : 'The house wants another pass before it spends. You can still make it.',
+        };
+    }
+    if (to === 'OTT') {
+        const want = series && binge >= 58;
+        const money = want ? Math.round(400_000 + audience * 18_000) : Math.round(120_000 + audience * 4_000);
+        return {
+            money: 0,
+            hype: want ? 6 : 2,
+            result: want
+                ? `A platform would talk at about ${money.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}. That is interest, not a window. Production still chooses theatres or streaming.`
+                : series
+                    ? 'The platforms will read it. The binge is not strong enough for them to chase you.'
+                    : 'They asked if it could be a series. You did not have to say yes.',
+        };
+    }
+    return {
+        money: 0,
+        hype: audience > 60 ? 4 : 1,
+        result: audience > 55
+            ? 'A lead will read it if the part stays a lead. The fee comes at casting, not here.'
+            : 'A star passed the pages to a manager and went quiet. The draft is still yours.',
+    };
+};
+
+const BANK_TITLES = ['Paper House', 'Second Bell', 'The Wedding Ledger', 'Night Market', 'Open Ticket', 'Salt Verdict', 'Third Sister', 'Glass Platform'];
+
+export const buildScriptBank = (week: number, seed: string): ScriptBankListing[] => {
+    return BANK_TITLES.slice(0, 6).map((title, index) => {
+        const industry = INDUSTRY_ORDER[hash(`${seed}|${week}|${index}`) % INDUSTRY_ORDER.length];
+        const genres: Genre[] = ['DRAMA', 'ACTION', 'ROMANCE', 'THRILLER', 'COMEDY', 'CRIME'];
+        const genre = genres[index % genres.length];
+        const quality = 42 + (hash(`${title}|${week}`) % 48);
+        const trend = marketTrend(industry, genre, week);
+        const price = Math.round((80_000 + quality * quality * 90) * trend.demand);
+        return {
+            id: `bank_${hash(`${seed}|${title}|${week}`).toString(36)}`,
+            title,
+            genre,
+            industry,
+            format: index % 4 === 0 ? 'SERIES' : 'MOVIE',
+            price,
+            quality,
+            logline: `A ${formatGenreLabel(genre).toLowerCase()} for ${marketLabel(industry)}. Somebody already wrote the first draft.`,
+            seller: INDUSTRIES[industry].rivals[index % INDUSTRIES[industry].rivals.length],
+        };
+    });
+};
+
+export const scriptFromListing = (listing: ScriptBankListing, week: number): Script => {
+    const rating = defaultRating(listing.industry);
+    const draft = emptyDraft(listing.industry, listing.id);
+    draft.genre = listing.genre;
+    draft.format = listing.format;
+    draft.title = listing.title;
+    draft.logline = listing.logline;
+    const read = scoreV2(draft, week, 55, 0);
+    read.quality = listing.quality;
+    const script = applyV2({
+        id: `script_${listing.id}`,
+        title: listing.title,
+        genres: [listing.genre],
+        status: 'IN_DEVELOPMENT',
+        quality: listing.quality,
+        options: [],
+        writerId: null,
+        weeksInDevelopment: 0,
+        totalDevelopmentWeeks: 10,
+        isOriginal: false,
+        projectType: listing.format,
+        purchaseCost: listing.price,
+        createdAtWeek: week,
+        craft: {
+            industry: listing.industry,
+            source: 'ORIGINAL',
+            songs: 0,
+            stage: 'FIRST_DRAFT',
+            rewrites: 0,
+            freshness: 74,
+            audienceAppeal: 55,
+            criticAppeal: 55,
+            budgetDelta: 0,
+            characters: [],
+        },
+    }, draft, read, '');
+    script.quality = listing.quality;
+    script.hype = clamp(listing.quality * 0.6);
+    if (script.craft?.v2) {
+        script.craft.v2.risks = { leak: 12, plagiarism: 10, credit: 14, boycott: 8 };
+        script.craft.v2.coverageHints = ['Bought as a spec. The pages are someone else’s. Credit and plagiarism stay quiet unless a rival claims the premise.', ...(script.craft.v2.coverageHints || [])].slice(0, 3);
+    }
+    return script;
+};
+
+export const salePrice = (script: Script) => {
+    const industry = isFilmIndustry(script.craft?.industry) ? script.craft.industry : 'HOLLYWOOD';
+    const scale = INDUSTRY_ENGINE[industry].marketScale;
+    const quality = script.craft?.v2?.hiddenQuality || script.quality || 40;
+    const fresh = (script.craft?.freshness || 70) / 100;
+    return Math.max(25_000, Math.round(quality * quality * 70 * scale * fresh));
+};
+
+const FESTIVALS: { id: string; name: string; industries: FilmIndustryId[] | 'ALL'; taste: 'critics' | 'crowd'; fee: number }[] = [
+    { id: 'sundance', name: 'Sundance', industries: ['HOLLYWOOD'], taste: 'critics', fee: 80_000 },
+    { id: 'tiff', name: 'TIFF', industries: ['HOLLYWOOD', 'BRITISH'], taste: 'critics', fee: 90_000 },
+    { id: 'mami', name: 'MAMI', industries: ['BOLLYWOOD', 'TOLLYWOOD', 'KOLLYWOOD', 'MOLLYWOOD'], taste: 'critics', fee: 40_000 },
+    { id: 'iffi', name: 'IFFI', industries: ['BOLLYWOOD', 'TOLLYWOOD', 'KOLLYWOOD', 'MOLLYWOOD'], taste: 'critics', fee: 35_000 },
+    { id: 'busan', name: 'Busan', industries: ['KOREAN', 'JAPANESE', 'CHINESE'], taste: 'critics', fee: 70_000 },
+    { id: 'berlin', name: 'Berlin', industries: ['BRITISH', 'HOLLYWOOD', 'LATIN'], taste: 'critics', fee: 85_000 },
+    { id: 'fespaco', name: 'FESPACO', industries: ['NOLLYWOOD'], taste: 'critics', fee: 30_000 },
+    { id: 'mass-friday', name: 'A mass preview', industries: 'ALL', taste: 'crowd', fee: 25_000 },
+];
+
+export const festivalsFor = (industry: FilmIndustryId) =>
+    FESTIVALS.filter(item => item.industries === 'ALL' || item.industries.includes(industry));
+
+export const judgeFestival = (script: Script, festivalId: string) => {
+    const fest = FESTIVALS.find(item => item.id === festivalId) || FESTIVALS[FESTIVALS.length - 1];
+    const hidden = script.craft?.v2?.hiddenQuality || script.quality || 40;
+    const lean = fest.taste === 'critics' ? (script.craft?.criticAppeal || hidden) : (script.craft?.audienceAppeal || hidden);
+    const score = hidden * 0.55 + lean * 0.45;
+    const result = score >= 78 ? 'PRIZE' : score >= 64 ? 'SELECTED' : score >= 52 ? 'NOMINATED' : 'DECLINED';
+    const note = result === 'PRIZE'
+        ? `${fest.name} gives it a prize. The trade press repeats the title.`
+        : result === 'SELECTED'
+            ? `${fest.name} selects it. A smaller room, a longer life.`
+            : result === 'NOMINATED'
+                ? `${fest.name} puts it on a list and no higher.`
+                : `${fest.name} sends it back. The film can still open. The festival will not carry it.`;
+    return { festival: fest.name, fee: fest.fee, result, note };
+};
+
+export const remakeInto = (script: Script, industry: FilmIndustryId, week: number): Script => {
+    const from = script.craft?.industry || 'HOLLYWOOD';
+    const rating = defaultRating(industry);
+    const culture = INDUSTRIES[industry].songs;
+    const v2 = script.craft?.v2;
+    const id = `script_remake_${hash(`${script.id}|${industry}|${week}`).toString(36)}_${week}`;
+    return {
+        ...script,
+        id,
+        title: `${script.title} · ${marketLabel(industry)}`,
+        status: 'IN_DEVELOPMENT',
+        weeksInDevelopment: 0,
+        totalDevelopmentWeeks: Math.max(8, Math.round((script.totalDevelopmentWeeks || 12) * 0.6)),
+        isOriginal: false,
+        sourceMaterial: 'ADAPTATION',
+        sourceMaterialType: 'SCREENPLAY',
+        createdAtWeek: week,
+        purchaseCost: 0,
+        franchiseId: undefined,
+        installmentNumber: undefined,
+        returningTalent: undefined,
+        craft: {
+            ...(script.craft || {
+                industry,
+                source: 'REMAKE',
+                songs: 0,
+                stage: 'IDEA',
+                rewrites: 0,
+                freshness: 80,
+                audienceAppeal: 50,
+                criticAppeal: 50,
+                budgetDelta: 0,
+                characters: [],
+            }),
+            legacy: false,
+            industry,
+            source: 'REMAKE',
+            stage: 'IDEA',
+            rewrites: 0,
+            freshness: 80,
+            weeksAtStage: 0,
+            audienceAppeal: clamp((script.craft?.audienceAppeal || 50) - 3),
+            criticAppeal: clamp((script.craft?.criticAppeal || 50) - 8),
+            songs: culture === 'central' ? Math.max(4, script.craft?.songs || 0) : (script.craft?.songs || 0),
+            budgetDelta: Math.round((script.craft?.budgetDelta || 0) * INDUSTRY_ENGINE[industry].crewCost + (culture === 'central' ? 700_000 : 150_000)),
+            leak: undefined,
+            v2: {
+                ...(v2 || inferScriptV2(script)),
+                inferred: false,
+                ratingId: rating.id,
+                ratingLabel: rating.label,
+                censorName: INDUSTRY_ENGINE[industry].censor.name,
+                remakeOf: { title: script.title, industry: from },
+                hiddenQuality: clamp((v2?.hiddenQuality || script.quality || 50) - 6),
+                coverageHints: [
+                    `Aimed at ${marketLabel(industry)} from a ${marketLabel(from)} draft. Critics will compare.`,
+                    culture === 'central' && (script.craft?.songs || 0) < 3 ? 'The new market expects songs the old draft did not have.' : 'The length comes with the pages. Production still does not pick the date here.',
+                ],
+                risks: { leak: 22, plagiarism: 38, credit: v2?.risks?.credit || 16, boycott: Math.round((v2?.risks?.boycott || 8) * 0.8) },
+                awards: undefined,
+                pitches: undefined,
+                tableRead: undefined,
+            },
+        },
+    };
 };

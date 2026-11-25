@@ -308,6 +308,31 @@ export enum Page {
       hiddenQuality?: number;
       coverageHints?: string[];
       binge?: number;
+      arcs?: { name: string; role: string; arc: string }[];
+      punchline?: string;
+      seetiMaar?: string;
+      setPiece?: string;
+      seasonArc?: string;
+      cliffhanger?: string;
+      sequelHook?: string;
+      fatigue?: number;
+      risks?: { leak: number; plagiarism: number; credit: number; boycott: number };
+      tableRead?: { star: string; demand: string; cost: number; accepted?: boolean; note: string };
+      pitches?: { to: 'STUDIO' | 'OTT' | 'STAR'; week: number; result: string; money: number }[];
+      awards?: { festival: string; result: string; note: string; week: number }[];
+      remakeOf?: { title: string; industry: FilmIndustryId };
+  }
+
+  export interface ScriptBankListing {
+      id: string;
+      title: string;
+      genre: Genre;
+      industry: FilmIndustryId;
+      format: 'MOVIE' | 'SERIES';
+      price: number;
+      quality: number;
+      logline: string;
+      seller: string;
   }
 
   export interface ScriptLeakState {
@@ -607,6 +632,8 @@ export enum Page {
       remakeShelf?: RemakeListing[];
       trueStoryShelf?: TrueStoryListing[];
       bookSagas?: BookSagaState[];
+      /** Spec scripts other houses are selling. Missing until the desk opens the bank. */
+      scriptBank?: ScriptBankListing[];
   }
 
   export type RightsRegionId =

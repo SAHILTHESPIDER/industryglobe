@@ -33,19 +33,34 @@ import {
     TONE_OPTIONS,
     TWIST_PLACES,
     VILLAINS,
+    ARC_OPTIONS,
+    CLIFFHANGERS,
+    SEASON_ARCS,
+    SEETI,
+    SET_PIECES,
+    SUPPORT_SLOTS,
     applyV2,
     attachScriptV2,
+    buildScriptBank,
     composeLogline,
     contentCeiling,
     defaultRating,
     emptyDraft,
+    festivalsFor,
+    genreFatigue,
+    judgeFestival,
     loglineSuggestions,
     marketLabel,
     marketTrend,
+    offerTableRead,
     personName,
     ratingsFor,
+    remakeInto,
+    resolvePitch,
     runtimeLine,
+    salePrice,
     scoreV2,
+    scriptFromListing,
     scriptMarkets,
     twistOfferFor,
     writeScene,
@@ -162,7 +177,11 @@ export const ScriptDesk: React.FC<{
     const playerSkill = player.writerStats
         ? Math.round(((player.writerStats.creativity || 0) + (player.writerStats.dialogue || 0) + (player.writerStats.structure || 0) + (player.writerStats.pacing || 0)) / 4)
         : (player.stats?.skills?.writing || 0);
-    const read = useMemo(() => scoreV2(draft, player.currentWeek || 1, selfWrite ? playerSkill : 48), [draft, player.currentWeek, playerSkill, selfWrite]);
+    const fatigue = genreFatigue(state.scripts, draft.industry, draft.genre);
+    const read = useMemo(
+        () => scoreV2(draft, player.currentWeek || 1, selfWrite ? playerSkill : 48, fatigue),
+        [draft, player.currentWeek, playerSkill, selfWrite, fatigue],
+    );
     const suggestions = useMemo(() => loglineSuggestions(draft, logSalt), [draft, logSalt]);
     const rating = ratingsFor(draft.industry).find(item => item.id === draft.ratingId) || defaultRating(draft.industry);
     const cap = contentCeiling(rating);
@@ -294,7 +313,7 @@ export const ScriptDesk: React.FC<{
             week: player.currentWeek || 1,
             logline: filed.logline,
         });
-        const sealed = applyV2(built.script, filed, scoreV2(filed, player.currentWeek || 1, room.skill), useOwn ? ownPages : '');
+        const sealed = applyV2(built.script, filed, scoreV2(filed, player.currentWeek || 1, room.skill, genreFatigue(state.scripts, filed.industry, filed.genre)), useOwn ? ownPages : '');
         const library = state.rightsLibrary;
             const rightsLibrary = library && book ? {
             ...library,
@@ -346,6 +365,110 @@ export const ScriptDesk: React.FC<{
         const next = lockScript(liveScript);
         saveStudio({ scripts: state.scripts.map(item => item.id === next.id ? next : item) });
         setNote('Locked. Runtime stays what the script says. The date and the window are production’s problem.');
+    };
+
+    const putScript = (next: Script, balanceDelta = 0, extra: Partial<typeof state> = {}) => {
+        saveStudio({
+            scripts: state.scripts.some(item => item.id === next.id)
+                ? state.scripts.map(item => item.id === next.id ? next : item)
+                : [...state.scripts, next],
+            ...extra,
+        }, balanceDelta);
+    };
+
+    const acceptRead = (accept: boolean) => {
+        if (!liveScript?.craft?.v2) return;
+        const offer = liveScript.craft.v2.tableRead || offerTableRead(liveScript, 'desk');
+        if (accept && offer.cost > studio.balance) {
+            setNote(`${offer.star} wants ${formatMoney(offer.cost)}. The house does not have it.`);
+            return;
+        }
+        const next: Script = {
+            ...liveScript,
+            hype: Math.max(0, Math.min(100, (liveScript.hype || 40) + (accept ? 3 : -2))),
+            craft: {
+                ...liveScript.craft,
+                freshness: Math.max(0, liveScript.craft.freshness - (accept ? 4 : 0)),
+                audienceAppeal: Math.max(0, Math.min(100, liveScript.craft.audienceAppeal + (accept ? 2 : -3))),
+                budgetDelta: (liveScript.craft.budgetDelta || 0) + (accept ? Math.round(offer.cost * 0.35) : 0),
+                v2: { ...liveScript.craft.v2, tableRead: { ...offer, accepted: accept } },
+            },
+        };
+        putScript(next, accept ? -offer.cost : 0);
+        setNote(accept ? `${offer.star} stays. ${offer.note}` : `${offer.star} walks. The part is still open, and the town noticed.`);
+    };
+
+    const pitchTo = (to: 'STUDIO' | 'OTT' | 'STAR') => {
+        if (!liveScript?.craft?.v2) return;
+        const result = resolvePitch(liveScript, to);
+        const next: Script = {
+            ...liveScript,
+            hype: Math.max(0, Math.min(100, (liveScript.hype || 40) + result.hype)),
+            craft: {
+                ...liveScript.craft,
+                v2: {
+                    ...liveScript.craft.v2,
+                    pitches: [...(liveScript.craft.v2.pitches || []), { to, week: player.currentWeek, result: result.result, money: result.money }],
+                },
+            },
+        };
+        putScript(next);
+        setNote(result.result);
+    };
+
+    const buyListing = (listing: ReturnType<typeof buildScriptBank>[number]) => {
+        if (studio.balance < listing.price) {
+            setNote(`That spec is ${formatMoney(listing.price)}. The house has ${formatMoney(studio.balance)}.`);
+            return;
+        }
+        const bank = (state.scriptBank?.length ? state.scriptBank : buildScriptBank(player.currentWeek || 1, studio.id)).filter(item => item.id !== listing.id);
+        putScript(scriptFromListing(listing, player.currentWeek || 1), -listing.price, { scriptBank: bank });
+        setNote(`${listing.title} is in the vault.`);
+    };
+
+    const sellThis = () => {
+        if (!liveScript) return;
+        if (liveScript.status === 'PRODUCED' || (state.concepts || []).some(concept => concept.scriptId === liveScript.id)) {
+            setNote('It is already on a call sheet. Selling it now is a different fight.');
+            return;
+        }
+        const price = salePrice(liveScript);
+        saveStudio({ scripts: state.scripts.filter(item => item.id !== liveScript.id) }, price);
+        setNote(`Sold for ${formatMoney(price)}.`);
+        onBack();
+    };
+
+    const enterFestival = (id: string) => {
+        if (!liveScript?.craft?.v2) return;
+        const judged = judgeFestival(liveScript, id);
+        if (studio.balance < judged.fee) {
+            setNote(`${judged.festival} wants ${formatMoney(judged.fee)} to enter.`);
+            return;
+        }
+        const next: Script = {
+            ...liveScript,
+            hype: Math.max(0, Math.min(100, (liveScript.hype || 40) + (judged.result === 'PRIZE' ? 8 : judged.result === 'SELECTED' ? 4 : 1))),
+            craft: {
+                ...liveScript.craft,
+                v2: {
+                    ...liveScript.craft.v2,
+                    awards: [...(liveScript.craft.v2.awards || []), { festival: judged.festival, result: judged.result, note: judged.note, week: player.currentWeek }],
+                },
+            },
+        };
+        putScript(next, -judged.fee);
+        setNote(judged.note);
+    };
+
+    const spinRemake = (industry: FilmIndustryId) => {
+        if (!liveScript) return;
+        const fee = 75_000;
+        if (studio.balance < fee) {
+            setNote(`Clearing the pages for another market costs ${formatMoney(fee)}.`);
+            return;
+        }
+        putScript(remakeInto(liveScript, industry, player.currentWeek || 1), -fee);
+        setNote(`A ${marketLabel(industry)} version is in the vault. Critics will compare it. The release is still not chosen.`);
     };
 
     const go = (direction: 1 | -1) => {
@@ -484,6 +607,7 @@ export const ScriptDesk: React.FC<{
                                     );
                                 })}
                             </div>
+                            {fatigue > 1 && <p className="text-sm leading-relaxed text-amber-100/90">This house already has {fatigue} {formatGenreLabel(draft.genre).toLowerCase()} scripts aimed at {marketLabel(draft.industry)}. Taste fatigue is a bill, not a ban.</p>}
                         </div>
                     )}
 
@@ -534,6 +658,22 @@ export const ScriptDesk: React.FC<{
                             <Grid title="What stands in the way" options={CONFLICTS} selected={draft.conflictId} onPick={id => patch({ conflictId: id })} />
                             <Grid title="The villain" options={VILLAINS} selected={draft.villainId} onPick={id => patch({ villainId: id })} />
                             <Grid title="Why they do it" options={MOTIVES} selected={draft.motiveId} onPick={id => patch({ motiveId: id })} />
+                            <section>
+                                <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Lead arc</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {ARC_OPTIONS.map(item => (
+                                        <button key={item.id} type="button" onClick={() => patch({ arcLead: item.id })} className={`rounded-full px-3 py-2 text-xs font-bold ${draft.arcLead === item.id ? 'bg-amber-300 text-black' : 'bg-white/10'}`}>{item.label}</button>
+                                    ))}
+                                </div>
+                            </section>
+                            <section>
+                                <h3 className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Supporting slot</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {SUPPORT_SLOTS.map(item => (
+                                        <button key={item.id} type="button" onClick={() => patch({ arcSupport: item.id })} className={`rounded-full px-3 py-2 text-xs font-bold ${draft.arcSupport === item.id ? 'bg-white text-black' : 'bg-white/10'}`}>{item.label}</button>
+                                    ))}
+                                </div>
+                            </section>
                         </div>
                     )}
 
@@ -548,6 +688,16 @@ export const ScriptDesk: React.FC<{
                             <Grid title="Climax" options={CLIMAXES} selected={draft.climaxId} onPick={id => patch({ climaxId: id })} />
                             <Grid title="Ending" options={ENDINGS} selected={draft.endingId} onPick={id => patch({ endingId: id })} />
                             <Grid title="Where the twist sits" options={TWIST_PLACES} selected={draft.twistPlaceId} onPick={id => patch({ twistPlaceId: id })} />
+                            {draft.format === 'SERIES' && (
+                                <>
+                                    <Grid title="Season arc" options={SEASON_ARCS} selected={draft.seasonArc} onPick={id => patch({ seasonArc: id })} />
+                                    <Grid title="Cliffhanger" options={CLIFFHANGERS} selected={draft.cliffhanger} onPick={id => patch({ cliffhanger: id })} />
+                                </>
+                            )}
+                            <label className="block">
+                                <span className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Sequel hook, if you want one</span>
+                                <input value={draft.sequelHook} onChange={event => patch({ sequelHook: event.target.value })} placeholder="Leave blank if this story ends." className="mt-2 w-full rounded-xl border border-white/10 bg-black/40 px-3 py-3 outline-none focus:border-amber-300" />
+                            </label>
                         </div>
                     )}
 
@@ -573,6 +723,12 @@ export const ScriptDesk: React.FC<{
                                 </label>
                             ))}
                             <Grid title="Theme" options={THEMES} selected={draft.themeId} onPick={id => patch({ themeId: id })} />
+                            <Grid title="Seeti-maar moment" options={SEETI} selected={draft.seetiId} onPick={id => patch({ seetiId: id })} />
+                            <Grid title="Set piece" options={SET_PIECES} selected={draft.setPieceId} onPick={id => patch({ setPieceId: id })} />
+                            <button type="button" onClick={() => patch({ punchline: !draft.punchline })} className={`w-full rounded-2xl border p-4 text-left ${draft.punchline ? 'border-amber-300 bg-amber-300/10' : 'border-white/10'}`}>
+                                <div className="font-semibold">A punchline they can quote</div>
+                                <p className="mt-1 text-sm text-zinc-400">Helps a comedy. On a grief story it reads as a dodge.</p>
+                            </button>
                             {draft.format === 'SERIES' && <Grid title="Episode hook" options={EPISODE_HOOKS} selected={draft.episodeHookId} onPick={id => patch({ episodeHookId: id })} />}
                         </div>
                     )}
@@ -681,6 +837,101 @@ export const ScriptDesk: React.FC<{
                             <p className="text-sm text-zinc-400">{stageLabel(liveScript.craft.stage)}. Week {liveScript.weeksInDevelopment} of {liveScript.totalDevelopmentWeeks}. The runtime stays. Premiere date, theatres, and streaming are production.</p>
                             <button type="button" onClick={() => setShowPage(value => !value)} className="inline-flex items-center gap-2 text-sm font-bold text-amber-200"><ScrollText size={16} /> {showPage ? 'Hide pages' : 'Read the pages'}</button>
                             {showPage && <ScreenplayPage text={liveScript.craft.pages || pageText} live={false} />}
+                            {liveScript.craft.v2 && !liveScript.craft.v2.inferred && (
+                                <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Coverage</h3>
+                                    <p className="mt-1 text-sm text-zinc-400">The score stays in the drawer. These are the notes a reader would actually write.</p>
+                                    <ul className="mt-3 space-y-2 text-sm leading-relaxed text-zinc-200">
+                                        {(liveScript.craft.v2.coverageHints || ['The spine is clear enough to spend a draft on.']).map(hint => <li key={hint}>{hint}</li>)}
+                                    </ul>
+                                    {typeof liveScript.craft.v2.binge === 'number' && (
+                                        <div className="mt-4 max-w-xs"><Meter label="Binge" value={liveScript.craft.v2.binge} tone="bg-violet-400" /></div>
+                                    )}
+                                </section>
+                            )}
+                            {liveScript.craft.v2?.risks && (
+                                <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                                    <Meter label="Leak" value={liveScript.craft.v2.risks.leak} tone="bg-rose-400" />
+                                    <Meter label="Plagiarism" value={liveScript.craft.v2.risks.plagiarism} tone="bg-rose-400" />
+                                    <Meter label="Credit fight" value={liveScript.craft.v2.risks.credit} tone="bg-amber-300" />
+                                    <Meter label="Boycott" value={liveScript.craft.v2.risks.boycott} tone="bg-rose-400" />
+                                </section>
+                            )}
+                            {liveScript.craft.v2 && !liveScript.craft.v2.inferred && (
+                                <section className="space-y-2">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Table read</h3>
+                                    {(() => {
+                                        const stored = liveScript.craft?.v2?.tableRead;
+                                        const offer = stored || offerTableRead(liveScript, 'desk');
+                                        return (
+                                            <div className="rounded-2xl border border-white/10 p-4">
+                                                <div className="font-semibold">{offer.star}</div>
+                                                <p className="mt-1 text-sm text-zinc-300">{offer.demand}. {offer.note}</p>
+                                                <p className="mt-1 font-mono text-sm">{offer.cost ? formatMoney(offer.cost) : 'No fee, a different script'}</p>
+                                                {stored?.accepted == null ? (
+                                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                                        <button type="button" onClick={() => acceptRead(true)} className="rounded-xl bg-white py-2 text-sm font-bold text-black">Give them the note</button>
+                                                        <button type="button" onClick={() => acceptRead(false)} className="rounded-xl bg-white/10 py-2 text-sm font-bold">Refuse</button>
+                                                    </div>
+                                                ) : <p className="mt-2 text-sm text-zinc-400">{stored?.accepted ? 'You took the note.' : 'You refused. The part is open.'}</p>}
+                                            </div>
+                                        );
+                                    })()}
+                                </section>
+                            )}
+                            {liveScript.craft.v2 && !liveScript.craft.v2.inferred && (
+                                <section className="space-y-2">
+                                    <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Pitch</h3>
+                                    <p className="text-sm text-zinc-400">A meeting, not a release. Theatres and streaming are still chosen in production.</p>
+                                    <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                                        {(['STUDIO', 'OTT', 'STAR'] as const).map(to => (
+                                            <button key={to} type="button" onClick={() => pitchTo(to)} className="rounded-2xl border border-white/10 px-3 py-3 text-left text-sm font-semibold hover:border-white/30">{to === 'STUDIO' ? 'The house' : to === 'OTT' ? 'A platform' : 'A star'}</button>
+                                        ))}
+                                    </div>
+                                    {(liveScript.craft.v2.pitches || []).slice(-3).map(item => <p key={`${item.to}-${item.week}-${item.result}`} className="text-sm text-zinc-300">{item.result}</p>)}
+                                </section>
+                            )}
+                            <section className="space-y-2">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Script bank</h3>
+                                <button type="button" onClick={sellThis} className="w-full rounded-2xl border border-white/10 p-4 text-left">
+                                    <div className="font-semibold">Sell this draft · {formatMoney(salePrice(liveScript))}</div>
+                                    <p className="mt-1 text-sm text-zinc-400">It leaves the vault. A script already on a call sheet cannot be sold.</p>
+                                </button>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                    {(state.scriptBank?.length ? state.scriptBank : buildScriptBank(player.currentWeek || 1, studio.id)).map(listing => (
+                                        <button key={listing.id} type="button" onClick={() => buyListing(listing)} className="rounded-2xl border border-white/10 p-4 text-left hover:border-white/30">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div className="font-semibold">{listing.title}</div>
+                                                <div className="font-mono text-sm">{formatMoney(listing.price)}</div>
+                                            </div>
+                                            <p className="mt-1 text-sm text-zinc-400">{listing.logline}</p>
+                                            <p className="mt-1 text-xs uppercase tracking-wider text-zinc-500">{marketLabel(listing.industry)} · {listing.seller}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            </section>
+                            <section className="space-y-2">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Remake into another industry</h3>
+                                <div className="flex gap-2 overflow-x-auto pb-1">
+                                    {scriptMarkets().filter(market => market.id !== liveScript.craft?.industry).map(market => (
+                                        <button key={market.id} type="button" onClick={() => spinRemake(market.id)} className="shrink-0 rounded-full bg-white/10 px-3 py-2 text-xs font-bold">{market.label}</button>
+                                    ))}
+                                </div>
+                                {liveScript.craft.v2?.remakeOf && <p className="text-sm text-zinc-400">This draft already comes from {liveScript.craft.v2.remakeOf.title} ({marketLabel(liveScript.craft.v2.remakeOf.industry)}).</p>}
+                                {liveScript.craft.v2?.sequelHook && <p className="text-sm text-zinc-300">Sequel hook: {liveScript.craft.v2.sequelHook}</p>}
+                            </section>
+                            <section className="space-y-2">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500">Festivals</h3>
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                    {festivalsFor(liveScript.craft.industry).map(fest => (
+                                        <button key={fest.id} type="button" onClick={() => enterFestival(fest.id)} className="rounded-2xl border border-white/10 p-4 text-left hover:border-white/30">
+                                            <div className="font-semibold">{fest.name}</div>
+                                            <p className="mt-1 text-sm text-zinc-400">{fest.taste === 'critics' ? 'Critics carry it.' : 'A crowd preview.'} Entry {formatMoney(fest.fee)}.</p>
+                                        </button>
+                                    ))}
+                                </div>
+                                {(liveScript.craft.v2?.awards || []).map(award => <p key={`${award.festival}-${award.week}`} className="text-sm text-zinc-300">{award.festival}: {award.result}. {award.note}</p>)}
+                            </section>
                         </div>
                     )}
 

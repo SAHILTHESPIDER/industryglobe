@@ -783,6 +783,30 @@ export const advanceCraftScript = (script: Script, rng: () => number = Math.rand
             alerts.push(`"${script.title}" locked itself. The calendar ran out before another rewrite.`);
         }
     }
+    const risks = next.craft?.v2?.risks;
+    if (risks && next.craft?.v2 && !next.craft.v2.inferred && !next.craft.legacy) {
+        const roll = rng();
+        const line = risks.plagiarism / 500;
+        const creditLine = line + risks.credit / 500;
+        const boycottLine = creditLine + risks.boycott / 500;
+        if (roll < line) {
+            alerts.push(`A plagiarism claim is circling "${script.title}". The premise is in a rival's mouth.`);
+            next = {
+                ...next,
+                craft: {
+                    ...next.craft,
+                    audienceAppeal: clamp(next.craft.audienceAppeal - 4),
+                    v2: { ...next.craft.v2, risks: { ...risks, plagiarism: clamp(risks.plagiarism + 8) } },
+                },
+            };
+        } else if (roll < creditLine) {
+            alerts.push(`The writers on "${script.title}" are arguing about the credit. The draft slows.`);
+            next = { ...next, craft: { ...next.craft, freshness: clamp((next.craft.freshness || 70) - 3) } };
+        } else if (roll < boycottLine) {
+            alerts.push(`A boycott thread has named "${script.title}". Curiosity and anger are shopping for the same ticket.`);
+            next = { ...next, hype: clamp((next.hype || 40) + 2), craft: { ...next.craft, audienceAppeal: clamp(next.craft.audienceAppeal - 2) } };
+        }
+    }
     next.quality = previewQuality(next);
     next.attributes = attributesFrom(next);
     return { script: next, alerts };
