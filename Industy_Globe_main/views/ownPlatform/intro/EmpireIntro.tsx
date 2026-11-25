@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Player, RivalPlatformState } from '../../../types';
 import { formatCompact } from '../../../services/ownPlatform/logic';
-import { LAUNCH_SEED_LINE } from '../../../services/ownPlatform/studio';
+import { FOUNDING_LINE, LAUNCH_SEED_LINE } from '../../../services/ownPlatform/studio';
 import '../fonts';
 import './intro.css';
 import { publicBrandName } from '../../../services/rights/alterName';
@@ -68,9 +68,16 @@ export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
         const more = rivals.filter(rival => !top.some(row => row.id === rival.id));
         return { top, more };
     }, [rivals]);
-    const money = Math.max(0, player.ownPlatform?.books?.cash || 0);
-    const seeded = (player.ownPlatform?.books?.seedStakePct || 0) > 0;
-    const cashNote = seeded ? LAUNCH_SEED_LINE : 'Company cash. Your personal money is separate.';
+    const books = player.ownPlatform?.books;
+    const money = Math.max(0, books?.cash || 0);
+    const seeded = (books?.seedStakePct || 0) > 0;
+    const founderPaid = books?.founderCapitalUsd || 0;
+    const cashNote = seeded
+        ? LAUNCH_SEED_LINE
+        : founderPaid > 0
+            ? FOUNDING_LINE
+            : 'Company cash. Your personal money is separate.';
+    const cashHeading = seeded ? 'Cash · seed' : 'Cash · treasury';
     const rivalCount = rivals.length || 40;
 
     const finish = () => {
@@ -250,7 +257,7 @@ export const EmpireIntro: React.FC<Props> = ({ player, onDone }) => {
                             <div id="stamp">PAPER COMPANY</div>
                         </div>
                         <div id="stats">
-                            <div className="st cash"><div><div className="l">Cash · seed</div><div className="n">{cashNote}</div></div><div className="v" id="cash">$0</div></div>
+                            <div className="st cash"><div><div className="l">{cashHeading}</div><div className="n">{cashNote}</div></div><div className="v" id="cash">$0</div></div>
                             <div className="st zero"><div className="l">Homes</div><div className="v">0</div><div className="n">Nobody has heard of you.</div></div>
                             <div className="st zero"><div className="l">Titles</div><div className="v">0</div><div className="n">An empty shelf.</div></div>
                             <div className="st zero"><div className="l">Servers</div><div className="v">0</div><div className="n">Not one rack.</div></div>

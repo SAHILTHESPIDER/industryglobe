@@ -40,11 +40,14 @@ interface Seat {
 const seatOf = (player: Player): Seat[] => {
     const state = player.ownPlatform;
     const books = state?.books;
+    const founderPaid = books?.founderCapitalUsd || 0;
     const seats: Seat[] = [{
         id: 'founder',
         name: player.name || 'Founder',
         role: 'Founder',
-        detail: 'Your chair. The company is still yours to run.',
+        detail: founderPaid > 0
+            ? `Your chair. You opened the treasury with ${formatCompact(founderPaid)}.`
+            : 'Your chair. The company is still yours to run.',
         kind: 'founder',
         faceSeed: `founder:${player.id}:${player.name}`,
     }];

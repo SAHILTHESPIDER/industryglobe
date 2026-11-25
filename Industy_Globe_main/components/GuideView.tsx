@@ -26,6 +26,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
+import { formatCompact } from "../services/ownPlatform/logic";
+import { FOUNDING_CAPITAL_USD } from "../services/ownPlatform/studio";
 
 interface GuideViewProps {
   onBack: () => void;
@@ -302,7 +304,7 @@ const HANDBOOK_SECTIONS: GuideSection[] = [
         <p><strong className="text-white">Plan your catalogue:</strong> balance original productions with licensed titles, and pay attention to rights, exclusivity, territory, and contract duration.</p>
         <p><strong className="text-white">Expand market by market:</strong> local audience fit, language, pricing, payment options, and distribution all influence adoption.</p>
         <p><strong className="text-white">Track sustainability:</strong> subscriber growth matters, but so do churn, content costs, operating expenses, and cash runway.</p>
-        <p><strong className="text-white">Opening Empire+:</strong> it costs none of your personal cash. Investors seed the company with $10M. Later, the Finance desk can take your cash in, or pay a salary or dividend back out.</p>
+        <p><strong className="text-white">Opening Empire+:</strong> it takes {formatCompact(FOUNDING_CAPITAL_USD)} of your personal cash. That cheque becomes the company treasury, and you own the whole company. Later, the Finance desk can take more of your cash in, or pay a salary or dividend back out.</p>
         <GuideTagRow tags={["Content", "Rights", "Pricing", "Regions", "Operating Costs"]} />
       </div>
     ),
@@ -464,7 +466,7 @@ const FAQ_SECTIONS: GuideSection[] = [
     id: "FAQ_STREAMING",
     title: "What should I consider before launching a streaming platform?",
     icon: <Globe size={18} className="text-cyan-300" />,
-    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability. Opening Empire+ costs none of your personal cash. Investors seed the company with $10M, and the Finance desk moves money either way after that. Place server racks in real cities, or use auto-build with a company-cash budget. Test the night before you sign. A headquarters makes licences cheaper at home and the name louder there. Country offices add subscribers in that country and a weekly rent, both from company cash. Weekly server, cloud, and office costs leave the company, and a power, cooling, or outage note shows up in the week summary when a room fails.</p>,
+    content: <p className="text-xs leading-relaxed text-zinc-400">Think about content rights, catalogue depth, audience fit, pricing, regional availability, operating costs, and retention. Subscriber growth alone does not guarantee profitability. Opening Empire+ takes {formatCompact(FOUNDING_CAPITAL_USD)} of your personal cash. That cheque becomes the company treasury, and the Finance desk moves money either way after that. Place server racks in real cities, or use auto-build with a company-cash budget. Test the night before you sign. A headquarters makes licences cheaper at home and the name louder there. Country offices add subscribers in that country and a weekly rent, both from company cash. Weekly server, cloud, and office costs leave the company, and a power, cooling, or outage note shows up in the week summary when a room fails.</p>,
   },
   {
     id: "FAQ_SCRIPT",

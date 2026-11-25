@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { APP_DISPLAY_VERSION } from '../services/appVersion';
+import { formatCompact } from '../services/ownPlatform/logic';
+import { FOUNDING_CAPITAL_USD } from '../services/ownPlatform/studio';
 
 const Note: React.FC<{ kicker: string; tone: 'gold' | 'blue'; items: string[] }> = ({ kicker, tone, items }) => (
     <div className={`rounded-2xl border px-4 py-3 ${tone === 'gold' ? 'border-amber-400/30 bg-amber-400/10' : 'border-blue-400/30 bg-blue-500/10'}`}>
@@ -26,6 +28,7 @@ export const WhatsNewNotes: React.FC = () => {
                     tone="gold"
                     kicker="This update"
                     items={[
+                        `Founding Empire+ takes ${formatCompact(FOUNDING_CAPITAL_USD)} of your personal cash. The cheque becomes the company treasury. A company you already opened is left as it is.`,
                         'Localization sits on the Content desk. Each region card has a setup cost and a weekly cost. Subtitles and Dubbing each have 3 levels, and each level has 3 steps that spend company energy. Names show in the local script.',
                         'A plan that is switched off no longer changes the price, the ads, or the forecast. The last live plan stays on.',
                         'The Offer desk has membership cards, a compare table, add and remove, ad breaks, and billing periods. It stays locked until the service launches.',

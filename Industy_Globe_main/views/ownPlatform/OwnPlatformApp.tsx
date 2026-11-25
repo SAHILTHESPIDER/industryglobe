@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { OwnPlatformState, Player } from '../../types';
-import { openEmpire } from '../../services/ownPlatform/migrate';
-import { LAUNCH_SEED_LINE } from '../../services/ownPlatform/studio';
+import { ensureOwnPlatform, platformAlreadyUnlocked } from '../../services/ownPlatform/migrate';
+import { FOUNDING_LINE, LAUNCH_SEED_LINE } from '../../services/ownPlatform/studio';
+import { FoundingGate } from './FoundingGate';
 import { formatCompact, formatPeople, quoteLaunch } from '../../services/ownPlatform/logic';
 import { formatLocalAmount } from '../../services/ownPlatform/fx';
 import { publicBrandName } from '../../services/rights/alterName';
@@ -28,6 +29,12 @@ interface Props {
     initialPane?: EmpirePane;
 }
 
+const fundingNote = (state: OwnPlatformState): string => {
+    if ((state.books?.seedStakePct || 0) > 0) return LAUNCH_SEED_LINE;
+    if ((state.books?.founderCapitalUsd || 0) > 0) return FOUNDING_LINE;
+    return '';
+};
+
 const LAUNCH_TITLES = [
     'Name it',
     'Day-one markets',
@@ -40,14 +47,14 @@ const LAUNCH_TITLES = [
 ];
 
 /* Fixed X that always returns to the home screen */
-const CloseButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+const CloseButton: React.FC<{ onClick: () => void; edge?: 'left' | 'right' }> = ({ onClick, edge = 'right' }) => (
     <button
         onClick={onClick}
         aria-label="Close"
         style={{
             position: 'fixed',
             top: 'max(14px, env(safe-area-inset-top))',
-            right: 14,
+            [edge]: 14,
             zIndex: 10000,
             width: 40,
             height: 40,
@@ -76,8 +83,8 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     const playedOpenIdent = useRef(false);
 
     useEffect(() => {
-        const next = openEmpire(player);
-        if (next !== player) onUpdatePlayer(next);
+        if (player.ownPlatform || !player.flags?.ownPlatformUnlocked) return;
+        onUpdatePlayer(ensureOwnPlatform(player));
     }, [player, onUpdatePlayer]);
 
     const introBlocking = Boolean(player.ownPlatform) && (!player.ownPlatform.introSeen || replay) && pane !== 'rights';
@@ -89,6 +96,29 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
         if (player.ownPlatform?.identSound === false) return;
         setShowOpenIdent(true);
     }, [shellReady, player.ownPlatform?.identSound]);
+
+    const restoring = !player.ownPlatform && Boolean(player.flags?.ownPlatformUnlocked);
+    if (restoring) {
+        return createPortal(
+            <>
+                <CloseButton onClick={onBack} />
+                <Shell onBack={onBack} kicker="Empire+" title="Opening the books" pane="launch" onPane={setPane} name="Empire+" stage="DEFINE" money={0} defineStep={0} buildStep={0} pastDefine={false} onDefineStep={() => undefined} onBuildStep={() => undefined}>
+                    <p className="p" style={{ padding: 32 }}>Preparing the launch…</p>
+                </Shell>
+            </>,
+            document.body,
+        );
+    }
+
+    if (!platformAlreadyUnlocked(player)) {
+        return createPortal(
+            <>
+                <CloseButton onClick={onBack} />
+                <FoundingGate player={player} onFound={onUpdatePlayer} />
+            </>,
+            document.body,
+        );
+    }
 
     if (!player.ownPlatform) {
         return createPortal(
@@ -129,7 +159,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
     if ((!state.introSeen || replay) && pane !== 'rights') {
         return (
             <>
-                {createPortal(<CloseButton onClick={onBack} />, document.body)}
+                {createPortal(<CloseButton onClick={onBack} edge="left" />, document.body)}
                 <EmpireIntro
                     player={player}
                     onDone={() => {
@@ -174,8 +204,8 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                         <button type="button" className="btn gho sm" data-testid="open-brand-studio" onClick={() => setStudio(true)}>Brand studio</button>
                     </div>
                 )}
-                {(state.books?.seedStakePct || 0) > 0 && pane !== 'platform' && (
-                    <p data-testid="seed-funding-note" style={{ padding: '14px 40px 0', color: '#b7f7d4', fontSize: 14, lineHeight: 1.45 }}>{LAUNCH_SEED_LINE}</p>
+                {pane !== 'platform' && fundingNote(state) && (
+                    <p data-testid="seed-funding-note" style={{ padding: '14px 40px 0', color: '#b7f7d4', fontSize: 14, lineHeight: 1.45 }}>{fundingNote(state)}</p>
                 )}
                 {state.stage === 'CONSTRUCTING' && pane !== 'platform' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{state.constructionWeeksLeft} weeks of construction · reserve is paying the burn</div>}
                 {state.stage === 'LIVE' && pane !== 'launch' && pane !== 'platform' && <div className="pane-note" style={{ padding: '14px 40px 0' }}>{formatPeople(state.subscribers)} subscribers · week {state.weeksLive} · piracy {Math.round(state.piracyShare * 100)}%</div>}

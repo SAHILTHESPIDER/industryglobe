@@ -26,7 +26,9 @@ import { sanitizeIpoListing, sanitizeValueDrivers } from './ipo';
 import { sanitizeStreamRights } from './streamRights';
 import { sanitizePlatformDesk } from './platformDesk';
 import { sanitizeLanguageDesk } from './languageDesk';
-import { LAUNCH_INVESTORS, LAUNCH_SEED_LINE, LAUNCH_SEED_STAKE, LAUNCH_SEED_USD, defaultReleaseSlot, emptyBooks, emptyIpo, launchSeedBooks } from './studio';
+import { FOUNDING_CAPITAL_USD, FOUNDING_LINE, defaultReleaseSlot, emptyBooks, emptyIpo } from './studio';
+import { formatCompact } from './logic';
+import { appendBuzz, appendNews } from '../playerSignals';
 import { clampReleaseOffset } from './weeks';
 
 const DEFAULT_PLAN: PricingPlan = {
@@ -82,7 +84,7 @@ export const createOwnPlatform = (player: Player): OwnPlatformState => {
         closedDeals: [],
         lastWeeklyRevenue: 0,
         lastWeeklyBurn: 0,
-        books: launchSeedBooks(player),
+        books: emptyBooks(),
         releaseSlot: defaultReleaseSlot(player),
         ipo: emptyIpo('Empire+'),
         ownedStreamers: [],
@@ -217,6 +219,7 @@ const normalizeBooks = (raw: StudioBooks | undefined): StudioBooks => {
         equitySoldPct: Math.max(0, Math.min(0.8, Number(raw.equitySoldPct) || 0)),
         seedStakePct: Math.max(0, Math.min(0.8, Number(raw.seedStakePct) || 0)),
         seedPartner: typeof raw.seedPartner === 'string' ? raw.seedPartner.slice(0, 80) : '',
+        founderCapitalUsd: undefined,
         history: Array.isArray(raw.history) ? raw.history.slice(-16) : [],
         lines: Array.isArray(raw.lines) ? raw.lines.slice(0, 40) : [],
         cash: Number.isFinite(Number(raw.cash)) ? Number(raw.cash) : 0,
@@ -224,6 +227,9 @@ const normalizeBooks = (raw: StudioBooks | undefined): StudioBooks => {
     const shareholders = sanitizeShareholders(raw.shareholders);
     if (shareholders) next.shareholders = shareholders;
     else delete next.shareholders;
+    const founderCapital = Number(raw.founderCapitalUsd);
+    if (Number.isFinite(founderCapital) && founderCapital > 0) next.founderCapitalUsd = Math.round(founderCapital);
+    else delete next.founderCapitalUsd;
     return next;
 };
 
@@ -317,10 +323,19 @@ export const ensureOwnPlatform = (player: Player): Player => {
 
 const UNLOCK_FLAG = 'ownPlatformUnlocked';
 
-/** A company the player already started, funded, or paid for. A blank DEFINE slate is not this. */
+/**
+ * A company the player already started, funded, or paid for.
+ * A fresh DEFINE slate has not seen the intro and has no headquarters, racks, or offices.
+ * Watching the intro, or placing any of those, means the old fee or seed already opened it.
+ */
 const companyAlreadyOpened = (state: OwnPlatformState): boolean => {
     if (state.stage === 'BUILD' || state.stage === 'CONSTRUCTING' || state.stage === 'LIVE') return true;
     if (state.commissioned) return true;
+    if (state.introSeen) return true;
+    if (state.hqPromptSeen) return true;
+    if (state.hqCityId) return true;
+    if ((state.sites || []).length > 0) return true;
+    if ((state.offices || []).length > 0) return true;
     if ((state.defineStep || 0) > 0) return true;
     if ((state.buildStep || 0) > 0) return true;
     if ((state.closedDeals || []).length > 0) return true;
@@ -337,56 +352,100 @@ const companyAlreadyOpened = (state: OwnPlatformState): boolean => {
     return false;
 };
 
-const noteSeed = (player: Player) => {
-    player.logs = [...(player.logs || []), {
-        week: player.currentWeek,
-        year: player.age,
-        message: LAUNCH_SEED_LINE,
-        type: 'neutral',
-    }];
+/** A company the player already started, or a save flagged when Empire+ was unlocked. */
+export const platformAlreadyUnlocked = (player: Player): boolean => {
+    if (player.flags?.[UNLOCK_FLAG] && player.ownPlatform) return true;
+    if (player.ownPlatform && companyAlreadyOpened(player.ownPlatform)) return true;
+    return false;
+};
+
+/** Personal cash still required before Empire+ can be founded. Zero when the cheque is covered. */
+export const foundingShortfall = (player: Player): number => {
+    const have = Math.max(0, Math.floor(Number(player.money) || 0));
+    return Math.max(0, FOUNDING_CAPITAL_USD - have);
 };
 
 /**
- * Opens Empire+ without touching personal cash.
- * A new company receives the investor seed once.
- * A save that already has a company, including one that paid the old fee, is left as it is.
+ * Founds Empire+ by moving the founding cheque from personal cash into the company treasury.
+ * No investor takes a stake. A save that already unlocked the platform is returned unchanged,
+ * except a missing unlock flag is recorded and no money moves.
  */
-export const openEmpire = (player: Player): Player => {
-    const unlocked = Boolean(player.flags?.[UNLOCK_FLAG]);
-    if (unlocked && player.ownPlatform) return player;
-    if (!player.ownPlatform) {
-        const next = ensureOwnPlatform({
-            ...player,
-            flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
-        });
-        noteSeed(next);
-        return next;
+export const foundEmpire = (player: Player): { player: Player; error?: string } => {
+    if (player.flags?.[UNLOCK_FLAG] && !player.ownPlatform) {
+        return { player: ensureOwnPlatform(player) };
     }
-    if (companyAlreadyOpened(player.ownPlatform)) {
+    if (platformAlreadyUnlocked(player)) {
+        if (player.ownPlatform && !player.flags?.[UNLOCK_FLAG]) {
+            return { player: { ...player, flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true } } };
+        }
+        return { player };
+    }
+    const short = foundingShortfall(player);
+    if (short > 0) {
         return {
-            ...player,
-            flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+            player,
+            error: `Founding takes ${formatCompact(FOUNDING_CAPITAL_USD)}. You are short ${formatCompact(short)}.`,
         };
     }
-    const next = ensureOwnPlatform({
+    let next = ensureOwnPlatform({
         ...player,
+        money: Math.floor(Number(player.money) || 0) - FOUNDING_CAPITAL_USD,
         flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+        logs: [...(player.logs || [])],
+        finance: player.finance
+            ? { ...player.finance, history: [...(player.finance.history || [])] }
+            : player.finance,
     });
-    const state = next.ownPlatform!;
+    const state = next.ownPlatform;
+    if (!state) return { player, error: 'The company could not be opened.' };
     const books = state.books || emptyBooks();
     state.books = {
         ...books,
         lines: [...(books.lines || [])],
         history: [...(books.history || [])],
-        seedStakePct: LAUNCH_SEED_STAKE,
-        seedPartner: LAUNCH_INVESTORS,
+        cash: Number.isFinite(Number(books.cash)) ? Number(books.cash) : 0,
+        seedStakePct: 0,
+        seedPartner: '',
+        founderCapitalUsd: FOUNDING_CAPITAL_USD,
     };
-    addCompanyCash(next, LAUNCH_SEED_USD, LAUNCH_SEED_LINE, 'EQUITY');
-    noteSeed(next);
-    return next;
+    if (next.finance) {
+        next.finance.history.unshift({
+            id: `tx_found_${next.currentWeek}_${FOUNDING_CAPITAL_USD}`,
+            week: next.currentWeek,
+            year: next.age,
+            amount: -FOUNDING_CAPITAL_USD,
+            category: 'BUSINESS',
+            description: `You founded ${state.name || 'Empire+'} with your own money`,
+        });
+        if (next.finance.history.length > 200) next.finance.history.pop();
+    }
+    addCompanyCash(next, FOUNDING_CAPITAL_USD, FOUNDING_LINE, 'TRANSFER');
+    next.logs.push({
+        week: next.currentWeek,
+        year: next.age,
+        message: FOUNDING_LINE,
+        type: 'neutral',
+    });
+    const named = state.name || 'Empire+';
+    next = appendNews(next, {
+        id: `news_found_${next.currentWeek}_${named}`,
+        headline: `${next.name || 'You'} files papers for ${named}`,
+        subtext: `${formatCompact(FOUNDING_CAPITAL_USD)} of personal cash opened the treasury. The service stays private until the board takes it public.`,
+        category: 'YOU',
+        impactLevel: 'MEDIUM',
+    });
+    next = appendBuzz(next, `${next.name || 'You'} put ${formatCompact(FOUNDING_CAPITAL_USD)} into a new streaming company. That cash is the treasury.`);
+    return { player: next };
 };
 
 export const migrateOwnPlatformOnLoad = (player: Player): Player => {
     if (!player.ownPlatform) return player;
-    return { ...player, ownPlatform: normalizeOwnPlatform(player.ownPlatform, player) };
+    const normalized = normalizeOwnPlatform(player.ownPlatform, player);
+    const opened = companyAlreadyOpened(normalized) || Boolean(player.flags?.[UNLOCK_FLAG]);
+    if (!opened) return { ...player, ownPlatform: normalized };
+    return {
+        ...player,
+        flags: { ...(player.flags || {}), [UNLOCK_FLAG]: true },
+        ownPlatform: normalized,
+    };
 };
