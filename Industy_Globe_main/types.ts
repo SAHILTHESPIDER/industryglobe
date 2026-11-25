@@ -1140,6 +1140,8 @@ export enum Page {
   export type InfraPresetId = 'LEAN' | 'BALANCED' | 'OWN';
   export type OwnPlatformStage = 'DEFINE' | 'BUILD' | 'CONSTRUCTING' | 'LIVE';
   export type ClearanceStatus = 'FILED' | 'APPROVED' | 'DELAYED' | 'CONDITIONS' | 'REJECTED';
+  /** A rule a single country's regulator can attach to that country's licence. */
+  export type LicenceConditionKind = 'LOCAL_QUOTA' | 'LOCAL_OFFICE' | 'DATA_SERVER' | 'CONTENT_RULES';
   export type AudienceMode = 'QUIET' | 'LIKELY' | 'SURGE';
   export type RevenueLane = 'SUBSCRIPTION' | 'ADVERTISING' | 'RENTAL' | 'PURCHASE' | 'PREMIUM' | 'DAY_PASS' | 'SPONSORSHIP';
   export type RivalTier = 'GLOBAL' | 'REGIONAL' | 'EMERGING';
@@ -1152,6 +1154,26 @@ export enum Page {
       refileWeekAbsolute?: number;
       note: string;
       acceptedConditions: boolean;
+      /** USD paid to this country's government for the current file. Missing on older filings. */
+      feePaid?: number;
+      /** USD due each year to keep this country's licence. */
+      renewalUsd?: number;
+      /** Absolute week the next renewal is due. */
+      renewsWeekAbsolute?: number;
+      /** The treasury missed a renewal. Streaming continues at a cost. */
+      renewalOverdue?: boolean;
+      /** Always this country. A licence is never shared with a region. */
+      regulatorId?: string;
+      /** Rules attached to this file. Missing means the regulator asked for none. */
+      conditions?: LicenceConditionKind[];
+      /** The market was already on air. No cheque was taken when the licence was written in. */
+      grandfathered?: boolean;
+      /** This file is an appeal of a refusal. */
+      appeal?: boolean;
+      /** An appeal was already spent on this refusal. */
+      appealSpent?: boolean;
+      /** Absolute week a licence was granted. */
+      grantedWeekAbsolute?: number;
   }
 
   export interface CataloguePick {

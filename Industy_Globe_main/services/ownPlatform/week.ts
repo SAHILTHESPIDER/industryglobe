@@ -1,5 +1,6 @@
 import { Player, RivalPlatformState } from '../../types';
-import { MARKET_COUNTRIES, hashString } from './catalog';
+import { hashString } from './catalog';
+import { advanceStreamingReviews, isStreamingCleared, renewStreamingLicences } from './clearance';
 import { decorateRival, driftFxRates, formatLocalAmount } from './fx';
 import { publicBrandName } from '../rights/alterName';
 import { identById } from './identEffects';
@@ -32,26 +33,6 @@ export interface PlatformWeekResult {
 }
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-
-const resolveApplication = (player: Player, countryId: string, absoluteWeek: number) => {
-    const country = MARKET_COUNTRIES.find(row => row.id === countryId);
-    if (!country) return { status: 'REJECTED' as const, weeksLeft: 0, note: 'Unknown market.', refileWeekAbsolute: absoluteWeek + 8 };
-    const roll = hashString(`${player.id}:${countryId}:${absoluteWeek}`) % 100;
-    const bias = country.difficulty === 'OPEN' ? 0 : country.difficulty === 'CROWDED' ? 10 : country.difficulty === 'FOUGHT_OVER' ? 18 : 28;
-    const approveLine = 62 - bias;
-    const delayLine = approveLine + 16;
-    const conditionLine = delayLine + 14;
-    if (roll < approveLine) {
-        return { status: 'APPROVED' as const, weeksLeft: 0, note: `${country.name} cleared the file.`, refileWeekAbsolute: undefined };
-    }
-    if (roll < delayLine) {
-        return { status: 'DELAYED' as const, weeksLeft: 3, note: `${country.name} asked for another pass. Three more weeks.`, refileWeekAbsolute: undefined };
-    }
-    if (roll < conditionLine) {
-        return { status: 'CONDITIONS' as const, weeksLeft: 0, note: `${country.name} will allow the service if you accept a higher access bill and a local-content promise.`, refileWeekAbsolute: undefined };
-    }
-    return { status: 'REJECTED' as const, weeksLeft: 0, note: `${country.name} sent the file back. You can try again in eight weeks.`, refileWeekAbsolute: absoluteWeek + 8 };
-};
 
 const tickRivals = (rivals: RivalPlatformState[], weekKey: string, pulseShift: { recession: number; inflation: number; connectivity: number; fatigue: number }, fxRates?: Record<string, number>): { rivals: RivalPlatformState[]; headline: string } => {
     const next = rivals.map(rival => decorateRival(rival, fxRates));
@@ -133,6 +114,7 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
     const notes: PlatformWeekNote[] = [];
     const transactions: PlatformWeekTransaction[] = [];
     const weekKey = `${player.id}:${absoluteWeek}`;
+    notes.push(...advanceStreamingReviews(player, absoluteWeek));
 
     if (state.releaseSlot && state.releaseSlot.weekOffset > 0) {
         state.releaseSlot = { ...state.releaseSlot, weekOffset: state.releaseSlot.weekOffset - 1 };
@@ -148,27 +130,6 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
             plan: { ...state.pendingDeal.plan, weekendOffset: state.releaseSlot.weekOffset },
         };
     }
-
-    state.applications = state.applications.map(application => {
-        if (application.status !== 'FILED' && application.status !== 'DELAYED') return application;
-        if (application.weeksLeft > 1) {
-            return { ...application, weeksLeft: application.weeksLeft - 1 };
-        }
-        const resolved = resolveApplication(player, application.countryId, absoluteWeek);
-        const country = MARKET_COUNTRIES.find(row => row.id === application.countryId);
-        notes.push({
-            msg: resolved.note,
-            type: resolved.status === 'APPROVED' ? 'positive' : resolved.status === 'REJECTED' ? 'negative' : 'neutral',
-        });
-        return {
-            ...application,
-            status: resolved.status,
-            weeksLeft: resolved.weeksLeft,
-            note: resolved.note,
-            refileWeekAbsolute: resolved.refileWeekAbsolute,
-            acceptedConditions: false,
-        };
-    });
 
     const pulse = { ...state.pulse };
     state.fxRates = driftFxRates(state.fxRates, weekKey);
@@ -198,10 +159,9 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
         if (languageEnergy) notes.push(languageEnergy);
         state.weeksLive += 1;
         const quote = quoteLaunch(player);
-        const countries = selectedCountries(state).filter(country => {
-            const application = state.applications.find(row => row.countryId === country.id);
-            return application && (application.status === 'APPROVED' || (application.status === 'CONDITIONS' && application.acceptedConditions));
-        });
+        const countries = selectedCountries(state).filter(country => (
+            isStreamingCleared(state.applications.find(row => row.countryId === country.id))
+        ));
         const mods = executiveModifiers(state.boardTeam);
         const piracyRaw = countries.length
             ? countries.reduce((sum, country) => sum + countryPiracy(state, country), 0) / countries.length
@@ -277,8 +237,13 @@ export const tickOwnPlatform = (player: Player, absoluteWeek: number): PlatformW
 
     const rolled = rollWeeklyIncident(player.ownPlatform, weekKey, player.currentWeek, player.age);
     player.ownPlatform = rolled.state;
+    const renewed = renewStreamingLicences(player, absoluteWeek);
+    notes.push(...renewed.notes);
     if (payroll.paid > 0 && player.ownPlatform) {
         player.ownPlatform.lastWeeklyBurn = (player.ownPlatform.lastWeeklyBurn || 0) + payroll.paid;
+    }
+    if (renewed.spent > 0 && player.ownPlatform) {
+        player.ownPlatform.lastWeeklyBurn = (player.ownPlatform.lastWeeklyBurn || 0) + renewed.spent;
     }
     if (rolled.note) notes.push({ msg: rolled.note, type: 'negative' });
 

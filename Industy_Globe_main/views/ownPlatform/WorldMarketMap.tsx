@@ -21,6 +21,8 @@ interface Props {
     markers?: MapMarker[];
     onMarker?: (id: string) => void;
     legend?: string;
+    /** When set, a country can wear its own licence colour. Selection stays on the stroke. */
+    fillId?: (countryId: string) => string | undefined;
 }
 
 /** Largest first, so an enclave painted later sits above the country around it. */
@@ -33,7 +35,7 @@ const toneFill = (tone: MapMarker['tone']) => {
     return '#C4B5FD';
 };
 
-export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId, onPick, markers = [], onMarker, legend }) => {
+export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId, onPick, markers = [], onMarker, legend, fillId }) => {
     const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
     const dots = useMemo(
         () => COUNTRY_SEEDS.filter(seed => !WORLD_PATHS[seed[0]]).map(seed => {
@@ -67,7 +69,7 @@ export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId
                             key={id}
                             d={d}
                             data-country={id}
-                            fill={fillFor(id, country.regionId)}
+                            fill={fillId?.(id) || fillFor(id, country.regionId)}
                             fillRule={holed ? 'evenodd' : 'nonzero'}
                             stroke={focused ? '#ffffff' : selected.has(id) ? '#c4b5fd' : '#0b1020'}
                             strokeWidth={focused ? 2.2 : 0.8}
@@ -89,7 +91,7 @@ export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId
                             cx={dot.x}
                             cy={dot.y}
                             r={focused ? 7 : 5.5}
-                            fill={fillFor(dot.id, country.regionId)}
+                            fill={fillId?.(dot.id) || fillFor(dot.id, country.regionId)}
                             stroke={focused || selected.has(dot.id) ? '#ffffff' : '#94a3b8'}
                             strokeWidth={1.4}
                             className="cursor-pointer"
@@ -125,13 +127,32 @@ export const WorldMarketMap: React.FC<Props> = ({ selectedIds, focusId, regionId
                     );
                 })}
                 {focus && focusPoint && (
-                    <text x={Math.min(WORLD_MAP_WIDTH - 8, focusPoint.x + 8)} y={Math.max(14, focusPoint.y - 8)} fill="#ffffff" fontSize="14" fontWeight="700" style={{ pointerEvents: 'none' }}>
+                    <text
+                        x={focusPoint.x > WORLD_MAP_WIDTH - 140 ? Math.max(8, focusPoint.x - 10) : Math.min(WORLD_MAP_WIDTH - 8, focusPoint.x + 10)}
+                        y={Math.max(18, focusPoint.y - 10)}
+                        fill="#ffffff"
+                        fontSize="18"
+                        fontWeight="700"
+                        textAnchor={focusPoint.x > WORLD_MAP_WIDTH - 140 ? 'end' : 'start'}
+                        stroke="#070b16"
+                        strokeWidth="4"
+                        paintOrder="stroke"
+                        style={{ pointerEvents: 'none' }}
+                    >
                         {focus.name}
                     </text>
                 )}
             </svg>
             <div className="flex flex-wrap gap-3 px-2 pb-1 text-[11px] text-zinc-400">
                 <span><i className="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style={{ background: '#6d5efc' }} />On the slate</span>
+                {fillId && (
+                    <>
+                        <span><i className="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style={{ background: '#1f8f62' }} />Licensed</span>
+                        <span><i className="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style={{ background: '#c6a15a' }} />In review</span>
+                        <span><i className="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style={{ background: '#c4842a' }} />Conditions</span>
+                        <span><i className="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style={{ background: '#a33b52' }} />Refused</span>
+                    </>
+                )}
                 <span><i className="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style={{ background: '#3c4d73' }} />This region</span>
                 <span>{legend || 'Click a country to add or remove it. Dots are markets too small for the coastline.'}</span>
                 {markers.length > 0 && (

@@ -8,9 +8,10 @@ import { NetworkTab } from './NetworkTab';
 import { TechTab } from './TechTab';
 import { ProductTab, StatusTab } from './RestTabs';
 import { LaunchCampaign } from '../../marketing/launch/LaunchCampaign';
+import { ClearanceDesk } from '../ClearanceDesk';
 import './platform.css';
 
-export type PlatformTab = 'offer' | 'network' | 'tech' | 'product' | 'status';
+export type PlatformTab = 'offer' | 'network' | 'clearance' | 'tech' | 'product' | 'status';
 
 interface Props {
     player: Player;
@@ -73,6 +74,13 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
     if (!state || !desk || !stats) return null;
     const live = state.stage === 'LIVE';
     const openIncident = (state.incidents || []).some(row => row.open);
+    const licenceAlert = state.applications.some(row => (
+        row.status === 'FILED'
+        || row.status === 'DELAYED'
+        || row.status === 'REJECTED'
+        || (row.status === 'CONDITIONS' && !row.acceptedConditions)
+        || row.renewalOverdue
+    ));
 
     return (
         <div className={`plat${calm ? ' settled' : ''}`} data-testid="platform-area" data-tab={tab}>
@@ -85,6 +93,7 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
                             {([
                                 ['offer', 'Offer'],
                                 ['network', 'Network'],
+                                ['clearance', 'Clearance'],
                                 ['tech', 'Technology'],
                                 ['product', 'Product'],
                             ] as [PlatformTab, string][]).map(([id, label], index) => (
@@ -120,6 +129,7 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
                         {([
                             ['offer', 'Offer'],
                             ['network', 'Network'],
+                            ['clearance', 'Clearance'],
                             ['tech', 'Tech'],
                             ['product', 'Product'],
                             ['status', 'Status'],
@@ -127,6 +137,7 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
                             <button key={id} type="button" role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setTab(id)}>
                                 {label}
                                 {id === 'status' && openIncident ? <i className="dot" /> : null}
+                                {id === 'clearance' && licenceAlert ? <i className="dot" /> : null}
                             </button>
                         ))}
                     </div>
@@ -138,6 +149,7 @@ export const PlatformArea: React.FC<Props> = ({ player, onPlayer, onBack, onStud
             <div className="plat-body">
                 {tab === 'offer' && <OfferTab player={player} onPlayer={onPlayer} onStudio={onStudio} editing={editing} lead={lead} onOpenTech={id => { setTechFocus(id); setTab('tech'); }} />}
                 {tab === 'network' && <NetworkTab player={player} onPlayer={onPlayer} />}
+                {tab === 'clearance' && <ClearanceDesk player={player} onPlayer={onPlayer} />}
                 {tab === 'tech' && <TechTab player={player} onPlayer={onPlayer} focusId={techFocus} shot={shot} />}
                 {tab === 'product' && <ProductTab player={player} onPlayer={onPlayer} onLaunch={() => setLaunchOpen(true)} />}
                 {tab === 'status' && <StatusTab player={player} />}

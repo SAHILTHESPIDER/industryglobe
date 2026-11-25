@@ -32,6 +32,17 @@ import {
     hashString,
 } from './catalog';
 import { addCompanyCash, readCompanyCash } from './companyCash';
+import {
+    acceptLicenceConditions,
+    appealLicence,
+    applyForLicence,
+    isStreamingCleared,
+    licenceFeeSettled,
+    licenceReach,
+    payLicenceRenewal,
+    reapplyForLicence,
+    LicenceResult,
+} from './clearance';
 import { adBoostFor, enabledPlans, fundingPressure, lanesForBoost, localisationAudience, localisationWeekly, RevenueParts, rollCommercial } from './commercial';
 import { languageScaleFor, locRegionIdFor } from './languageDesk';
 import { planUsdInCountry } from './fx';
@@ -292,12 +303,9 @@ export const countryPiracy = (state: OwnPlatformState, country: MarketCountry): 
     return Number.isFinite(share) ? share : 0.06;
 };
 
-const approvedCountries = (state: OwnPlatformState): MarketCountry[] => selectedCountries(state).filter(country => {
-    const application = state.applications.find(row => row.countryId === country.id);
-    if (!application) return false;
-    if (application.status === 'APPROVED') return true;
-    return application.status === 'CONDITIONS' && application.acceptedConditions;
-});
+const approvedCountries = (state: OwnPlatformState): MarketCountry[] => selectedCountries(state).filter(country => (
+    isStreamingCleared(state.applications.find(row => row.countryId === country.id))
+));
 
 export const quoteLaunch = (player: Player): LaunchQuote => {
     const state = player.ownPlatform;
@@ -357,6 +365,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     const deposits = Math.round(construction * 0.12);
     const access = opened.reduce((sum, country) => {
         const application = state.applications.find(row => row.countryId === country.id);
+        if (licenceFeeSettled(application)) return sum;
         const premium = application?.acceptedConditions ? 1.15 : 1;
         return sum + Math.round(country.accessCost * premium);
     }, 0);
@@ -422,7 +431,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     footprint.forEach(country => {
         const row = regionRows.find(region => region.regionId === country.regionId);
         const served = row?.servedPct ?? 0;
-        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country) * countryLift(state, country.id) * uptimeFactor(state);
+        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country) * countryLift(state, country.id) * uptimeFactor(state) * licenceReach(state, country.id);
         const piracy = countryPiracy(state, country);
         reached += viewers;
         paid += viewers * (1 - piracy);
@@ -438,7 +447,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     footprint.forEach(country => {
         const row = regionRows.find(region => region.regionId === country.regionId);
         const served = row?.servedPct ?? 0;
-        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country) * countryLift(state, country.id) * uptimeFactor(state);
+        const viewers = country.audienceM * 1_000_000 * 0.025 * served * languageCoverage(state, country) * discovery * localScale(country) * countryLift(state, country.id) * uptimeFactor(state) * licenceReach(state, country.id);
         const piracy = countryPiracy(state, country);
         const paying = viewers * (1 - piracy);
         const usd = averageUsdInCountry(state, country.id);
@@ -477,7 +486,7 @@ export const quoteLaunch = (player: Player): LaunchQuote => {
     if (countries.length === 0) blockers.push('Choose at least one country.');
     countries.forEach(country => {
         const application = state.applications.find(row => row.countryId === country.id);
-        if (!application) blockers.push(`File for access in ${country.name}.`);
+        if (!application) blockers.push(`Apply for a streaming licence in ${country.name}.`);
         else if (application.status === 'FILED' || application.status === 'DELAYED') blockers.push(`${country.name} is still in review.`);
         else if (application.status === 'CONDITIONS' && !application.acceptedConditions) blockers.push(`${country.name} came back with conditions.`);
         else if (application.status === 'REJECTED') blockers.push(`${country.name} was rejected. Drop it or file again.`);
@@ -1099,6 +1108,18 @@ export const regionsFromSites = (state: OwnPlatformState, sites: CityRackPlaceme
         titan: rows.reduce((sum, row) => sum + row.titan, 0),
     };
 });
+
+const withRegions = (result: LicenceResult): LicenceResult => {
+    if (result.error || !result.player.ownPlatform) return result;
+    return { ...result, player: { ...result.player, ownPlatform: syncRegions(result.player.ownPlatform) } };
+};
+
+/** Pays this country's own licence fee from the treasury and opens its file. */
+export const applyStreamingLicence = (player: Player, countryId: string): LicenceResult => withRegions(applyForLicence(player, countryId));
+export const appealStreamingLicence = (player: Player, countryId: string): LicenceResult => withRegions(appealLicence(player, countryId));
+export const reapplyStreamingLicence = (player: Player, countryId: string): LicenceResult => withRegions(reapplyForLicence(player, countryId));
+export const acceptStreamingConditions = (player: Player, countryId: string): LicenceResult => withRegions(acceptLicenceConditions(player, countryId));
+export const payStreamingRenewal = (player: Player, countryId: string): LicenceResult => withRegions(payLicenceRenewal(player, countryId));
 
 export { storefrontEffectLine } from './storefronts';
 export { MARKET_COUNTRIES, LAUNCH_REGIONS, SERVER_CLASSES, CLOUD_PROVIDERS, STOREFRONTS, IDENTITY_PRESETS, FESTIVALS, CAMPAIGN_CHANNELS, REGION_CITIES };
