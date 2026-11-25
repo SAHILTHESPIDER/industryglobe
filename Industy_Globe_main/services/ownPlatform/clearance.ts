@@ -775,10 +775,13 @@ const outcomeFor = (
         };
     }
     const wait = 6 + Math.round(profile.strictness / 14);
+    const alreadyAppealed = Boolean(application.appeal);
     return {
         status: 'REJECTED',
         weeksLeft: 0,
-        note: `${profile.short} refused ${country.name}. Appeal for ${quote ? moneyShort(quote.appealUsd) : 'a fee'}, or apply again in ${wait} weeks.`,
+        note: alreadyAppealed
+            ? `${profile.short} refused the ${country.name} appeal. A new file can be opened in ${wait} weeks.`
+            : `${profile.short} refused ${country.name}. Appeal for ${quote ? moneyShort(quote.appealUsd) : 'a fee'}, or apply again in ${wait} weeks.`,
         refileWeekAbsolute: absoluteWeek + wait,
     };
 };
@@ -816,7 +819,7 @@ export const advanceStreamingReviews = (player: Player, absoluteWeek: number): C
             note: resolved.note,
             refileWeekAbsolute: resolved.refileWeekAbsolute,
             acceptedConditions: false,
-            appeal: false,
+            appeal: resolved.status === 'DELAYED' ? Boolean(application.appeal) : false,
             appealSpent: application.appeal ? true : application.appealSpent,
             conditions: resolved.conditions,
             regulatorId: country.id,

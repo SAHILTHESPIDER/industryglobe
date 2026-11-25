@@ -3,15 +3,17 @@
  * Run with npm run audit:clearance.
  */
 import type { Player } from '../types';
-import { MARKET_COUNTRIES, getCountry } from '../services/ownPlatform/catalog';
+import { MARKET_COUNTRIES, getCountry, hashString } from '../services/ownPlatform/catalog';
 import {
     CLEARANCE_FORMULA,
+    advanceStreamingReviews,
     allLicenceQuotes,
     appealLicence,
     applyForLicence,
     conditionMet,
     decisionOdds,
     isStreamingCleared,
+    licenceAction,
     licenceQuote,
     licenceReach,
     regulatorFor,
@@ -316,6 +318,91 @@ need(!appealed.error && appealed.player.ownPlatform?.applications.find(row => ro
 need((appealed.player.ownPlatform?.books?.cash || 0) < appealCash, 'appeal did not charge');
 const early = reapplyForLicence(first.player, 'GB');
 need(Boolean(early.error), 'a refused file was reopened during the wait');
+
+const appealRoll = (week: number) => hashString(`appeal-keep:CN:${week}:appeal`) % 100;
+const plainRoll = (week: number) => hashString(`appeal-keep:CN:${week}:file`) % 100;
+const appealOdds = decisionOdds('CN', true);
+const plainOdds = decisionOdds('CN', false);
+const inBucket = (roll: number, odds: { approve: number; delay: number; conditions: number }, bucket: 'delay' | 'reject') => {
+    const delayEnd = odds.approve + odds.delay;
+    const conditionEnd = delayEnd + odds.conditions;
+    if (bucket === 'delay') return roll >= odds.approve && roll < delayEnd;
+    return roll >= conditionEnd;
+};
+let delayWeek = 0;
+let rejectWeek = 0;
+let plainRejectWeek = 0;
+for (let week = 1; week < 500 && (!delayWeek || !rejectWeek || !plainRejectWeek); week += 1) {
+    if (!delayWeek && inBucket(appealRoll(week), appealOdds, 'delay')) delayWeek = week;
+    if (!rejectWeek && inBucket(appealRoll(week), appealOdds, 'reject')) rejectWeek = week;
+    if (!plainRejectWeek && inBucket(plainRoll(week), plainOdds, 'reject')) plainRejectWeek = week;
+}
+need(delayWeek > 0 && rejectWeek > 0 && plainRejectWeek > 0, 'could not find appeal delay and refusal rolls');
+const delayedAppeal = withCash(0, {
+    applications: [{
+        countryId: 'CN',
+        status: 'FILED',
+        weeksLeft: 1,
+        filedWeekAbsolute: 1,
+        note: 'Appeal in.',
+        acceptedConditions: false,
+        feePaid: china,
+        regulatorId: 'CN',
+        appeal: true,
+        appealSpent: true,
+    }],
+});
+delayedAppeal.id = 'appeal-keep';
+advanceStreamingReviews(delayedAppeal, delayWeek);
+const held = delayedAppeal.ownPlatform?.applications.find(row => row.countryId === 'CN');
+need(held?.status === 'DELAYED' && held.appeal === true, 'a delayed appeal dropped the paid odds');
+held && (delayedAppeal.ownPlatform!.applications = [{ ...held, weeksLeft: 1 }]);
+advanceStreamingReviews(delayedAppeal, delayWeek + 1);
+const afterDelay = delayedAppeal.ownPlatform?.applications.find(row => row.countryId === 'CN');
+if (afterDelay?.status === 'DELAYED') need(afterDelay.appeal === true, 'a second delay dropped the appeal');
+else need(afterDelay?.appeal === false, 'a finished appeal stayed marked as an appeal');
+
+const refusedAppeal = withCash(0, {
+    applications: [{
+        countryId: 'CN',
+        status: 'FILED',
+        weeksLeft: 1,
+        filedWeekAbsolute: 1,
+        note: 'Appeal in.',
+        acceptedConditions: false,
+        feePaid: china,
+        regulatorId: 'CN',
+        appeal: true,
+        appealSpent: true,
+    }],
+});
+refusedAppeal.id = 'appeal-keep';
+advanceStreamingReviews(refusedAppeal, rejectWeek);
+const refusedRow = refusedAppeal.ownPlatform?.applications.find(row => row.countryId === 'CN');
+need(refusedRow?.status === 'REJECTED', 'the appeal refusal roll did not refuse');
+need(Boolean(refusedRow?.note && !/Appeal for/.test(refusedRow.note)), `a spent appeal still offers another appeal (${refusedRow?.note})`);
+need(!licenceAction(refusedAppeal, 'CN').secondary, 'the desk still offers an appeal after the appeal was refused');
+need((refusedAppeal.news || []).every(item => !/Appeal for/.test(item.subtext || '')), 'news still tells the player to appeal');
+
+const plainRefusal = withCash(0, {
+    applications: [{
+        countryId: 'CN',
+        status: 'FILED',
+        weeksLeft: 1,
+        filedWeekAbsolute: 1,
+        note: 'In review.',
+        acceptedConditions: false,
+        feePaid: china,
+        regulatorId: 'CN',
+        appeal: false,
+        appealSpent: false,
+    }],
+});
+plainRefusal.id = 'appeal-keep';
+advanceStreamingReviews(plainRefusal, plainRejectWeek);
+const plainRow = plainRefusal.ownPlatform?.applications.find(row => row.countryId === 'CN');
+need(plainRow?.status === 'REJECTED' && /Appeal for/.test(plainRow.note), 'a first refusal hid the appeal');
+need(licenceAction(plainRefusal, 'CN').secondary?.kind === 'APPEAL', 'a first refusal has no appeal on the desk');
 
 const shown = ['US', 'IN', 'CN', 'GB', 'FR', 'NZ', 'TV'].map(id => {
     const row = licenceQuote(id);
