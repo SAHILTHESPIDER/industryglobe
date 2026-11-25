@@ -56,7 +56,7 @@ import { serviceWeeklyLoans } from './loanLogic';
 import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonWinners, generateFullBallot, getAwardCeremonyYear } from './awardLogic';
 import { advanceReviewBomb, advanceScreeningWork, applyReleaseCampaignHype, hydrateReleaseWorld, lockReleaseScores, offerTestScreeningOnWrap, resolveDueFestivals, withdrawUnfinishedFestival } from './releaseGauntlet';
 import { migrateGlobalExpansion } from './migrateIndustries';
-import { advanceCensorBoards, migrateCensorSaves, releaseBlockedByCensor, territoryOpeningBump } from './censorBoard';
+import { advanceCensorBoards, migrateCensorSaves, releaseBlockedByCensor, territoryIsDue, territoryOpeningBump } from './censorBoard';
 import { growRegionContacts } from './studioRegions';
 import { tickTalentAudience } from './talentAudience';
 import { debutTalentYear } from './talentDebut';
@@ -3110,7 +3110,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 let territoryGross = 0;
                 const filings = censor.filings.map(filing => {
                     if (filing.inOpening || filing.opened || filing.status !== 'APPROVED' || typeof filing.releaseAbsolute !== 'number') return filing;
-                    if (absNow + 1 < filing.releaseAbsolute) return filing;
+                    if (!territoryIsDue(absNow, filing.releaseAbsolute)) return filing;
                     const bump = territoryOpeningBump(rel.openingGross || revenue, filing, censor.homeTerritoryId);
                     territoryGross += bump;
                     logsToAdd.push({ msg: `🌍 "${rel.name}" opens in ${filing.country} on a ${filing.grantedRatingLabel || filing.requestedRatingLabel} certificate.`, type: 'positive' });

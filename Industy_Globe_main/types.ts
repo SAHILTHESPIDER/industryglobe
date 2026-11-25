@@ -988,7 +988,7 @@ export enum Page {
       note: string;
       /** Share of that country's crowd lost by taking a higher certificate. 0.08 is a trim, not a ban. */
       crowdCut?: number;
-      /** Absolute week (legacy calendar) this country is allowed to open. */
+      /** Absolute week of the tick that opens this country. The week number has not rolled forward yet on that pass. */
       releaseAbsolute?: number;
       /** Opens with the first wave, inside the normal gross. */
       inOpening?: boolean;
@@ -1008,6 +1008,8 @@ export enum Page {
       language: number;
       /** Script boycott and leak heat. Live social heat is read each week. */
       heat: number;
+      /** Points already cut from the political pressure after the house accepted those scenes out. */
+      politicsTrim?: number;
       genre?: Genre;
       themeId?: string;
       villainId?: string;

@@ -398,7 +398,8 @@ const overLine = (docket: CensorDocket, rating: RatingLabel, industryId: FilmInd
     const intimacy = Math.max(0, docket.intimacy - cap.intimacy);
     const language = Math.max(0, docket.language - cap.language);
     const politicsTheme = docket.themeId === 'faith' || docket.themeId === 'justice' || docket.themeId === 'class';
-    const politics = (politicsTheme ? 16 : 0) + (docket.villainId === 'system' ? 10 : 0) + (docket.toneId === 'satire' ? 6 : 0);
+    const rawPolitics = (politicsTheme ? 16 : 0) + (docket.villainId === 'system' ? 10 : 0) + (docket.toneId === 'satire' ? 6 : 0);
+    const politics = Math.max(0, rawPolitics - (docket.politicsTrim || 0));
     let wv = 1;
     let wi = 1;
     let wl = 1;
@@ -527,13 +528,15 @@ const decide = (docket: CensorDocket, filing: CensorFiling, social: number, seed
     if (prefersRating && over.steps > 0 && (over.weighted > 8 || roll < 0.55)) {
         if (over.weighted > 16 && roll < 0.28) {
             const cuts = makeCuts(docket, filing, over, seed).slice(0, 2);
-            return {
-                kind: 'CUTS',
-                cuts,
-                offered,
-                crowdCut,
-                note: `${filing.boardName} will go to ${offered.label}, or you can cut and try again for ${requested.label}.`,
-            };
+            if (cuts.length) {
+                return {
+                    kind: 'CUTS',
+                    cuts,
+                    offered,
+                    crowdCut,
+                    note: `${filing.boardName} will go to ${offered.label}, or you can cut and try again for ${requested.label}.`,
+                };
+            }
         }
         return {
             kind: 'RATING',
@@ -545,6 +548,9 @@ const decide = (docket: CensorDocket, filing: CensorFiling, social: number, seed
 
     if (over.weighted > 6 || over.politics > 14 || heat > 62) {
         const cuts = makeCuts(docket, filing, over, seed);
+        if (!cuts.length) {
+            return { kind: 'APPROVED', rating: requested, note: `${filing.boardName} sat on it while the noise was loud. The print itself is inside ${requested.label}.` };
+        }
         const alsoRating = over.steps > 0 && roll < 0.42;
         return {
             kind: 'CUTS',
@@ -600,6 +606,33 @@ const applyDecision = (player: Player, filing: CensorFiling, docket: CensorDocke
             note: decision.note,
         }, beat(player, decision.note));
     }
+    if (!decision.cuts.length) {
+        if (decision.offered) {
+            return withBeat({
+                ...filing,
+                status: 'RATING_OFFERED',
+                weeksLeft: 0,
+                offeredRatingId: decision.offered.id,
+                offeredRatingLabel: decision.offered.label,
+                crowdCut: decision.crowdCut,
+                cuts: [],
+                note: decision.note,
+            }, beat(player, decision.note));
+        }
+        const year = calendarYear(player.age);
+        const note = `${filing.boardName} passed it as ${requestedSafe(filing).label}. There was no cut list.`;
+        const rating = requestedSafe(filing);
+        return withBeat({
+            ...filing,
+            status: 'APPROVED',
+            weeksLeft: 0,
+            grantedRatingId: rating.id,
+            grantedRatingLabel: rating.label,
+            cuts: [],
+            certificateNo: certificateNo(filing.boardId, rating.id, year, `${filing.territoryId}|empty-cuts`),
+            note,
+        }, beat(player, note));
+    }
     return withBeat({
         ...filing,
         status: 'CUTS_REQUESTED',
@@ -611,6 +644,9 @@ const applyDecision = (player: Player, filing: CensorFiling, docket: CensorDocke
         note: decision.note,
     }, beat(player, decision.note));
 };
+
+const requestedSafe = (filing: CensorFiling): RatingLabel =>
+    ratingsFor(filing.industryId).find(row => row.id === filing.requestedRatingId) || ratingsFor(filing.industryId)[0];
 
 const outcomeTone = (status: CensorStatus): 'positive' | 'negative' | 'neutral' => {
     if (status === 'APPROVED') return 'positive';
@@ -927,6 +963,9 @@ const applyCutCost = (details: ProjectDetails, cuts: CensorCut[], docket: Censor
             intimacy: pull(docket.intimacy, 'intimacy', cap.intimacy),
             language: pull(docket.language, 'language', cap.language),
             heat: Math.max(0, docket.heat - 6),
+            politicsTrim: cuts.some(cut => cut.axis === 'politics')
+                ? 100
+                : (docket.politicsTrim || 0),
         },
     };
 };
@@ -1088,6 +1127,16 @@ export const territoryOpeningBump = (openingGross: number, filing: CensorFiling,
     return Math.max(0, Math.round(openingGross * Math.min(0.7, scale * 0.34) * (1 - (filing.crowdCut || 0))));
 };
 
+/**
+ * The week button opens a picture on the pass where the countdown hits zero,
+ * before the calendar number rolls forward. `waits` presses from `absNow`
+ * land on this absolute week.
+ */
+export const openingAbsolute = (absNow: number, waits: number): number => absNow + Math.max(1, waits) - 1;
+
+/** A later country opens on the tick whose absolute week has reached the stamped one. */
+export const territoryIsDue = (absNow: number, releaseAbsolute: number): boolean => absNow >= releaseAbsolute;
+
 /** Puts approved countries on a date. Unapproved countries are refused. */
 export const stampReleasePlan = (
     player: Player,
@@ -1127,7 +1176,7 @@ export const stampReleasePlan = (
             ...filing,
             inOpening: extra === 0,
             opened: false,
-            releaseAbsolute: abs + wait + extra,
+            releaseAbsolute: openingAbsolute(abs, wait) + extra,
         };
     });
     const docket: CensorDocket = {
@@ -1172,11 +1221,11 @@ export const scheduleCertifiedCountry = (
     }
     const abs = getAbsoluteWeek(player.age, player.currentWeek);
     const wait = Math.max(1, Math.round(weeksFromNow));
-    let releaseAbsolute = abs + wait;
+    let releaseAbsolute = openingAbsolute(abs, wait);
     let inOpening = false;
     if (found.commitment?.projectDetails?.releaseStrategy) {
-        const openingAbs = abs + Math.max(1, found.commitment.phaseWeeksLeft || 1);
-        releaseAbsolute = Math.max(openingAbs, abs + wait);
+        const openingAbs = openingAbsolute(abs, Math.max(1, found.commitment.phaseWeeksLeft || 1));
+        releaseAbsolute = Math.max(openingAbs, openingAbsolute(abs, wait));
         inOpening = releaseAbsolute === openingAbs;
     }
     const filings = found.details.censor.filings.map(row => row.territoryId === territoryId

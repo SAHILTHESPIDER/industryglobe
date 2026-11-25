@@ -12,8 +12,10 @@ import {
     appealCensorRefusal,
     fileWithBoards,
     migrateCensorSaves,
+    openingAbsolute,
     releaseBlockedByCensor,
     stampReleasePlan,
+    territoryIsDue,
 } from '../services/censorBoard';
 
 const need = (ok: boolean, message: string) => {
@@ -265,6 +267,54 @@ need(staggered.wait === 10, 'delaying the only country moves the opening');
 
 const fresh = player('HOLLYWOOD', 20, 10, 8, 'PG13', 'PG-13');
 need(releaseBlockedByCensor(fresh, fresh.commitments[0].projectDetails) === true, 'a house picture with no filing cannot open');
+
+const loud = player('HOLLYWOOD', 12, 8, 4, 'PG13', 'PG-13', 100, 100);
+loud.instagram = { controversy: 100 } as Player['instagram'];
+loud.youtube = { controversy: 100 } as Player['youtube'];
+const loudFiled = fileWithBoards(loud, 'proj-1', [{ territoryId: 'US', ratingId: 'PG13' }]);
+const loudDone = runToDecision(loudFiled.player, 'US');
+need(loudDone.filing?.status === 'APPROVED', `noise delays a clean print, it does not freeze it (${loudDone.filing?.status})`);
+need((loudDone.filing?.cuts.length || 0) === 0, 'a clean print does not come back with an empty cut list');
+
+const political = player('CHINESE', 10, 8, 4, 'APPROVED', 'Approved');
+const politicalFiled = fileWithBoards(political, 'proj-1', [{ territoryId: 'CHINA', ratingId: 'APPROVED' }]);
+const politicalDetails = politicalFiled.player.commitments[0].projectDetails!;
+politicalDetails.censor!.themeId = 'faith';
+politicalDetails.censor!.villainId = 'system';
+politicalDetails.censor!.toneId = 'satire';
+politicalDetails.censor!.filings[0].status = 'CUTS_REQUESTED';
+politicalDetails.censor!.filings[0].cuts = [{
+    id: 'pol',
+    axis: 'politics',
+    scene: 'The shrine',
+    detail: 'Cover it.',
+    quality: 2,
+    audience: 1,
+    slider: 14,
+}];
+const eased = acceptCensorCuts(politicalFiled.player, 'proj-1', 'CHINA');
+need(!eased.error, eased.error || 'a politics cut should be acceptable');
+need((eased.player.commitments[0].projectDetails?.censor?.politicsTrim || 0) >= 100, 'accepting the political scene takes it off the next sitting');
+const easedDone = runToDecision(eased.player, 'CHINA');
+need(easedDone.filing?.status !== 'CUTS_REQUESTED' || easedDone.filing.cuts.every(cut => cut.axis !== 'politics'), 'the same political scene does not come back');
+
+const stampedAbs = 400;
+const waitPresses = 4;
+const firstWave = openingAbsolute(stampedAbs, waitPresses);
+const oneWeekLater = firstWave + 1;
+let mainTick = -1;
+let laterTick = -1;
+let countdown = waitPresses;
+for (let press = 0; press < 8; press += 1) {
+    const absNow = stampedAbs + press;
+    countdown -= 1;
+    if (countdown <= 0 && mainTick < 0) mainTick = press;
+    if (territoryIsDue(absNow, oneWeekLater) && laterTick < 0) laterTick = press;
+}
+need(mainTick === 3, 'the first wave opens on the fourth press');
+need(laterTick === mainTick + 1, 'a one-week stagger opens the week after, not on opening weekend');
+need(territoryIsDue(stampedAbs + mainTick, firstWave), 'the first wave is due on its own tick');
+need(!territoryIsDue(stampedAbs + mainTick, oneWeekLater), 'the staggered country is not due on opening weekend');
 
 console.log('censor audit ok');
 console.log('hot CBFC outcomes:', [...hotOutcomes].join(', '));
