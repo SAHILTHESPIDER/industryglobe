@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { Player, Stock } from '../../types';
 import { formatMoney } from '../../services/formatUtils';
 import { calculatePortfolioValue, fiftyTwoWeek, marketCap, weekChangePct } from '../../services/stockLogic';
-import { platformDealForStock } from '../../services/ownPlatform/studio';
+import { FOUNDING_CAPITAL_USD, platformDealForStock } from '../../services/ownPlatform/studio';
+import { platformAlreadyUnlocked } from '../../services/ownPlatform/migrate';
 import { formatCompact } from '../../services/ownPlatform/logic';
 import { BuyFinancing } from '../../services/ownPlatform/valuation';
 import { ValuationSheet } from '../ownPlatform/ValuationSheet';
@@ -19,7 +20,7 @@ interface StocksAppProps {
   onAcquirePlatform?: (stockId: string, financing: BuyFinancing) => void;
 }
 
-export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, onFoundCompany, onOpenCompany, onAcquirePlatform }) => {
+export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, onOpenCompany, onAcquirePlatform }) => {
   const [tab, setTab] = useState<'MARKET' | 'PORTFOLIO'>('MARKET');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [valuing, setValuing] = useState(false);
@@ -285,15 +286,15 @@ export const StocksApp: React.FC<StocksAppProps> = ({ player, onBack, onTrade, o
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2">
-            <button onClick={() => { if (!player.ownPlatform) onFoundCompany?.(); onOpenCompany?.(); }} className="w-full text-left bg-zinc-900 border border-emerald-500/30 rounded-xl p-4">
+            <button onClick={() => onOpenCompany?.()} className="w-full text-left bg-zinc-900 border border-emerald-500/30 rounded-xl p-4">
                 <div className="text-[10px] uppercase tracking-widest text-emerald-400 font-bold">Your company</div>
-                <div className="font-bold text-white">{player.ownPlatform?.name || 'Found Empire+'}</div>
+                <div className="font-bold text-white">{platformAlreadyUnlocked(player) ? (player.ownPlatform?.name || 'Empire+') : 'Found Empire+'}</div>
                 <div className="text-xs text-zinc-400">
                     {player.ownPlatform?.ipo?.stage === 'LISTED'
                         ? `${player.ownPlatform.ipo.ticker} is listed. Open the company, or trade the shares below.`
-                        : player.ownPlatform
+                        : platformAlreadyUnlocked(player)
                             ? 'Open Empire+. Operations runs the money, the commissions, and the listing.'
-                            : 'Investors seed Empire+ with $10M of company cash. Your personal money stays yours until you invest it.'}
+                            : `Founding Empire+ takes ${formatCompact(FOUNDING_CAPITAL_USD)} of your cash. The cheque becomes the company treasury.`}
                 </div>
             </button>
             {tab === 'MARKET' && stocks.map(stock => renderStockRow(stock))}

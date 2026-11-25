@@ -1381,10 +1381,15 @@ export enum Page {
       funding: FundingChoice;
       debt: number;
       equitySoldPct: number;
-      /** Launch-investor stake from seed funding. Missing or 0 on older saves, which are not granted again. */
+      /** Launch-investor stake from the old $10M seed. Missing or 0 on older saves, and not granted again. */
       seedStakePct?: number;
       /** Cap-table name for seedStakePct. */
       seedPartner?: string;
+      /**
+       * Personal cash paid in when this company was founded. The same amount sits in company cash.
+       * Missing on saves founded before this cheque, including investor-seeded companies. Never backfilled.
+       */
+      founderCapitalUsd?: number;
       facilityRate: number;
       pePartner: string;
       history: { week: number; revenue: number; burn: number; profit: number }[];
@@ -3734,7 +3739,7 @@ export enum Page {
           lastTalentRefreshWeek: number;
       };
       logs: LogEntry[];
-      /** Player-owned streaming service. Absent on older saves until they open the launch. */
+      /** Player-owned streaming service. Absent until the player pays the founding cheque. Older unlocked saves already have it. */
       ownPlatform?: OwnPlatformState;
       /** Platform commissions. Missing on saves from before this desk. */
       commissionDesk?: CommissionDeskState;

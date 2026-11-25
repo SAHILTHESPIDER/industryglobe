@@ -4,8 +4,8 @@ import { WORLD_PATHS } from '../services/ownPlatform/worldPaths';
 import { defaultLocalPrice } from '../services/ownPlatform/fx';
 import { identityEffects } from '../services/ownPlatform/identEffects';
 import { applyInfraPreset, quoteLaunch, storefrontById, storefrontEffectLine } from '../services/ownPlatform/logic';
-import { createOwnPlatform, normalizeOwnPlatform } from '../services/ownPlatform/migrate';
-import { LAUNCH_SEED_USD } from '../services/ownPlatform/studio';
+import { createOwnPlatform, foundEmpire, migrateOwnPlatformOnLoad, normalizeOwnPlatform } from '../services/ownPlatform/migrate';
+import { FOUNDING_CAPITAL_USD, LAUNCH_SEED_STAKE, LAUNCH_SEED_USD, launchSeedBooks } from '../services/ownPlatform/studio';
 import { tickOwnPlatform } from '../services/ownPlatform/week';
 import { Player } from '../types';
 
@@ -59,6 +59,40 @@ const player = {
     stats: { fame: 10 },
 } as Player;
 const fresh = createOwnPlatform(player);
+if ((fresh.books?.cash || 0) !== 0) fail('a new company is funded before the founding cheque');
+if ((fresh.books?.seedStakePct || 0) !== 0) fail('a new company still grants an investor stake');
+const poor = { ...player, money: 1_000_000, name: 'Asha' } as Player;
+const refused = foundEmpire(poor);
+if (!refused.error || refused.player !== poor || poor.ownPlatform) fail('a short founding moved money');
+const rich = { ...player, money: 200_000_000, name: 'Asha', finance: { history: [] } } as Player;
+const opened = foundEmpire(rich);
+if (opened.error) fail(opened.error);
+if (opened.player.money !== 200_000_000 - FOUNDING_CAPITAL_USD) fail(`personal cash after founding is ${opened.player.money}`);
+if (opened.player.ownPlatform?.books?.cash !== FOUNDING_CAPITAL_USD) fail(`treasury after founding is ${opened.player.ownPlatform?.books?.cash}`);
+if ((opened.player.ownPlatform?.books?.seedStakePct || 0) !== 0) fail('founder cheque granted an investor stake');
+if (opened.player.ownPlatform?.books?.founderCapitalUsd !== FOUNDING_CAPITAL_USD) fail('founder capital was not recorded');
+const twice = foundEmpire(opened.player);
+if (twice.player !== opened.player || twice.player.money !== opened.player.money) fail('founding charged a company that was already open');
+const seededSave = createOwnPlatform(player);
+seededSave.books = launchSeedBooks(player);
+if (seededSave.books.cash !== LAUNCH_SEED_USD || seededSave.books.seedStakePct !== LAUNCH_SEED_STAKE) fail('historical seed books changed');
+const veteran = { ...player, money: 80_000_000, name: 'Asha', flags: { ownPlatformUnlocked: true }, ownPlatform: seededSave } as Player;
+const untouched = foundEmpire(veteran);
+if (untouched.player !== veteran || untouched.player.money !== 80_000_000) fail('an unlocked save was charged');
+if (untouched.player.ownPlatform?.books?.cash !== LAUNCH_SEED_USD) fail('an unlocked treasury changed');
+if (untouched.player.ownPlatform?.books?.seedStakePct !== LAUNCH_SEED_STAKE) fail('an old seed stake changed');
+if (untouched.player.ownPlatform?.books?.founderCapitalUsd) fail('an old save was marked as a new founding');
+const paidOldFee = createOwnPlatform(player);
+paidOldFee.stage = 'LIVE';
+paidOldFee.weeksLive = 4;
+paidOldFee.books = { ...(paidOldFee.books || seededSave.books!), cash: 2_000_000, seedStakePct: 0, seedPartner: '' };
+const oldFeePlayer = { ...player, money: 12_000_000, name: 'Asha', ownPlatform: paidOldFee } as Player;
+const migrated = migrateOwnPlatformOnLoad(oldFeePlayer);
+if (migrated.money !== 12_000_000 || migrated.ownPlatform?.books?.cash !== 2_000_000) fail('migration moved cash on an opened company');
+if (!migrated.flags?.ownPlatformUnlocked) fail('an opened company was not recognized');
+if (migrated.ownPlatform?.books?.founderCapitalUsd) fail('migration invented a founding cheque');
+const migratedAgain = foundEmpire(migrated);
+if (migratedAgain.player.money !== 12_000_000 || migratedAgain.player.ownPlatform?.books?.cash !== 2_000_000) fail('a migrated company was charged');
 const legacy = normalizeOwnPlatform({
     name: 'Old Stream',
     stage: 'BUILD',
@@ -217,10 +251,11 @@ const liveState = {
 };
 const livePlayer = { ...player, ownPlatform: liveState, age: 30, currentWeek: 2 };
 const personalBefore = livePlayer.money;
+const openingCash = livePlayer.ownPlatform?.books?.cash || 0;
 const week = tickOwnPlatform(livePlayer, 100);
 if (week.transactions.length) fail(`platform week wrote ${week.transactions.length} personal transactions`);
 if (livePlayer.money !== personalBefore) fail('personal cash changed during a platform week');
-const expectedCash = LAUNCH_SEED_USD + (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) - (livePlayer.ownPlatform?.lastWeeklyBurn || 0);
+const expectedCash = openingCash + (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) - (livePlayer.ownPlatform?.lastWeeklyBurn || 0);
 if ((livePlayer.ownPlatform?.books?.cash || 0) !== expectedCash) fail(`company cash ${livePlayer.ownPlatform?.books?.cash} expected ${expectedCash}`);
 if (!(expectedCash !== 0 || (livePlayer.ownPlatform?.lastWeeklyRevenue || 0) > 0)) fail('company books did not record the week');
 

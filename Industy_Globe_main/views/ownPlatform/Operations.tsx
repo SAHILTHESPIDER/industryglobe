@@ -15,6 +15,7 @@ import { IncidentBoard } from './PlacePanels';
 import {
     FACILITY_USD,
     LAUNCH_INVESTORS,
+    FOUNDING_LINE,
     LAUNCH_SEED_LINE,
     chooseFunding,
     drawFromCompany,
@@ -440,6 +441,7 @@ const FinanceDesk: React.FC<{ player: Player; onApply: (result: { player: Player
                     ))}
                     <div className="text-[11px] uppercase text-zinc-500 mt-4">Ownership</div>
                     {seedPct > 0 && <p className="text-sm text-zinc-300 mt-2">{LAUNCH_SEED_LINE}</p>}
+                    {seedPct <= 0 && (books?.founderCapitalUsd || 0) > 0 && <p className="text-sm text-zinc-300 mt-2">{FOUNDING_LINE}</p>}
                     <div className="text-sm mt-1 space-y-2" data-testid="cap-table">
                         <p>
                             You {showPct(founder)}

@@ -29,7 +29,18 @@ const FACILITY_RATE = 0.09;
 const PE_STAKE = 0.18;
 const PE_NAME = 'Kestrel Long Fund';
 
-/** Opening Empire+ does not spend personal cash. Investors seed the company once. */
+/**
+ * Personal cash required to found Empire+.
+ * The cheque is not a fee: it is deposited into the new company's treasury.
+ * Saves that already opened a company are not charged.
+ */
+export const FOUNDING_CAPITAL_USD = 175_000_000;
+export const FOUNDING_LINE = `You funded the launch with ${formatCompact(FOUNDING_CAPITAL_USD)} of your own cash. It is the company treasury now`;
+
+/**
+ * Investor grant from the previous unlock. New companies do not receive it.
+ * A save that already has this stake keeps the stake, the cash, and this sentence.
+ */
 export const LAUNCH_SEED_USD = 10_000_000;
 export const LAUNCH_SEED_STAKE = 0.1;
 export const LAUNCH_INVESTORS = 'Launch investors';
@@ -110,7 +121,10 @@ export const emptyBooks = (): StudioBooks => ({
     cash: 0,
 });
 
-/** Opening books for a new company. Personal cash is not moved. */
+/**
+ * Books for a company that was opened by the old investor grant.
+ * Not used for new foundings. Existing saves keep whatever books they already stored.
+ */
 export const launchSeedBooks = (player: Player): StudioBooks => ({
     ...emptyBooks(),
     cash: LAUNCH_SEED_USD,

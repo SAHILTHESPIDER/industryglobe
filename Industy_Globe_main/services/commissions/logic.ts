@@ -1367,6 +1367,10 @@ export const seedCommissionPlaytest = (playerIn: Player): Player => {
     house.studioState!.rightsLibrary = library;
     saveHouse(player, house);
     const empire = ensureOwnPlatform(player);
+    const playtestBooks = empire.ownPlatform?.books;
+    if (playtestBooks && (playtestBooks.cash || 0) === 0 && !(playtestBooks.seedStakePct) && !(playtestBooks.founderCapitalUsd)) {
+        playtestBooks.cash = 10_000_000;
+    }
     empire.ownPlatform!.stage = 'LIVE';
     empire.ownPlatform!.name = empire.ownPlatform!.name || 'Empire+';
     empire.ownPlatform!.weeksLive = Math.max(empire.ownPlatform!.weeksLive || 0, 6);

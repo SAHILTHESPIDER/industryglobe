@@ -49,12 +49,12 @@ import { FestivalNightModal } from './views/FestivalNightModal';
 import { calculateInstagramPostOutcome, clampInstagramStat, INSTAGRAM_POST_CONFIGS } from './services/instagramLogic';
 import { normalizeUniverseMap } from './services/universeLogic';
 import { hydrateGenreXP } from './services/genreCatalog';
-import { ensureOwnPlatform, migrateOwnPlatformOnLoad } from './services/ownPlatform/migrate';
+import { ensureOwnPlatform, foundEmpire, migrateOwnPlatformOnLoad, platformAlreadyUnlocked } from './services/ownPlatform/migrate';
 import { normalizeMarketing } from './services/marketing/core';
 import { MarketingPreview } from './views/marketing/MarketingPreview';
 import { ScriptDeskPreview } from './views/lifestyle/business/scriptDesk/ScriptDeskPreview';
-import { syncRegions } from './services/ownPlatform/logic';
-import { purchasePlatform } from './services/ownPlatform/studio';
+import { formatCompact, syncRegions } from './services/ownPlatform/logic';
+import { FOUNDING_CAPITAL_USD, purchasePlatform } from './services/ownPlatform/studio';
 import { BuyFinancing } from './services/ownPlatform/valuation';
 import {
   addBreadcrumb,
@@ -1928,29 +1928,32 @@ export const App: React.FC = () => {
   });
 
   const handleFoundCompany = () => {
-      setToastMessage({ title: 'Empire+ founded', subtext: 'It is private until you take it through the boardroom.' });
       handleGenericUpdate(current => {
-          if (current.ownPlatform) return current;
-          const next = ensureOwnPlatform(current);
-          const named = next.ownPlatform?.name || 'Empire+';
-          let signaled = appendNews(next, {
-              id: `news_found_${Date.now()}`,
-              headline: `${next.name} files papers for ${named}`,
-              subtext: 'The service stays private until the board takes it public. The same company is on the phone and in Lifestyle.',
-              category: 'YOU',
-              impactLevel: 'MEDIUM',
-          });
-          signaled = appendBuzz(signaled, `${signaled.name} is starting a streaming service. No listing yet. Company cash and personal cash stay separate.`);
-          return {
-              ...signaled,
-              logs: [...(current.logs || []), { week: current.currentWeek, year: current.age, message: `Founded ${named}. It stays private until the board lists it.`, type: 'neutral' as const }],
-          };
+          const result = foundEmpire(current);
+          if (result.error) {
+              setToastMessage({ title: 'Cannot found Empire+', subtext: result.error });
+              return current;
+          }
+          if (result.player === current) return current;
+          if (!platformAlreadyUnlocked(current)) {
+              setToastMessage({
+                  title: 'Empire+ founded',
+                  subtext: `${formatCompact(FOUNDING_CAPITAL_USD)} moved from your cash into the company treasury.`,
+              });
+          }
+          return result.player;
       });
   };
 
   const handleAcquirePlatform = (stockId: string, financing?: BuyFinancing) => handleGenericUpdate(current => {
-      const withPlatform = current.ownPlatform ? current : ensureOwnPlatform(current);
-      const result = purchasePlatform(withPlatform, stockId, financing);
+      if (!platformAlreadyUnlocked(current)) {
+          setToastMessage({
+              title: 'Found Empire+ first',
+              subtext: `Founding takes ${formatCompact(FOUNDING_CAPITAL_USD)} of your cash. That cheque becomes the treasury.`,
+          });
+          return current;
+      }
+      const result = purchasePlatform(current, stockId, financing);
       if (result.error) {
           setToastMessage({ title: 'Could not buy that service', subtext: result.error });
           return current;
@@ -2072,7 +2075,17 @@ export const App: React.FC = () => {
               const steps: Record<string, number> = { intro: 0, name: 0, markets: 1, clearance: 2, ident: 3, store: 4, shelf: 5, price: 6, blueprint: 7 };
               setCurrentSlot(1);
               setPlayer(current => {
-                  const seeded = ensureOwnPlatform({ ...current, money: Math.max(current.money || 0, 212_400_000) });
+                  if (empire === 'gate' || empire === 'gate-short') {
+                      const { ownPlatform: _drop, ...rest } = current;
+                      return {
+                          ...rest,
+                          money: empire === 'gate' ? 200_000_000 : 40_000_000,
+                          flags: { ...(current.flags || {}), ownPlatformUnlocked: false },
+                      };
+                  }
+                  const personalFloor = 212_400_000 + (platformAlreadyUnlocked(current) ? 0 : FOUNDING_CAPITAL_USD);
+                  const rich = { ...current, money: Math.max(current.money || 0, personalFloor) };
+                  const seeded = platformAlreadyUnlocked(rich) ? ensureOwnPlatform(rich) : foundEmpire(rich).player;
                   const state = seeded.ownPlatform!;
                   if (empire === 'legacy') {
                       const { sites: _sites, hqCityId: _hq, hqPromptSeen: _seen, offices: _offices, buildGoal: _goal, loadTest: _test, incidents: _incidents, ...rest } = state;
