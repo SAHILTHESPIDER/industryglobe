@@ -11,6 +11,8 @@ import { getPlayerLanguage, t } from '../../../services/i18n';
 import { INDUSTRY_ENGINE, hqSummary, industryById } from '../../../services/industryEngine';
 import { INDUSTRY_ORDER } from '../../../services/scriptDesk/catalog';
 import { openOperatingRegion, readHqIndustry } from '../../../services/studioRegions';
+import { approvedFilings, censorApplies, censorBadge, migrateCensorSaves } from '../../../services/censorBoard';
+import { CensorDesk } from './CensorDesk';
 
 
 import { DevelopmentLab } from './DevelopmentLab';
@@ -38,7 +40,7 @@ interface ProductionHouseGameProps {
     businessId?: string;
 }
 
-type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS' | 'OFFERS' | 'MARKETING';
+type StudioView = 'DASHBOARD' | 'DEVELOPMENT' | 'PRE_PROD' | 'PRODUCTION' | 'RELEASE' | 'RELEASES' | 'OFFICE' | 'FINANCE' | 'GREENLIGHT' | 'TALENT' | 'IP_MANAGEMENT' | 'FILMOGRAPHY' | 'RIGHTS' | 'OFFERS' | 'MARKETING' | 'CENSOR';
 
 // --- HELPERS ---
 const formatMoney = (val: number) => {
@@ -75,6 +77,7 @@ const ProductionHouseInner: React.FC<{
     onUpdatePlayer: (p: Player) => void;
 }> = ({ player, studio, onBack, onUpdatePlayer }) => {
     const [view, setView] = useState<StudioView>('DASHBOARD');
+    const [censorProjectId, setCensorProjectId] = useState<string | null>(null);
     const [campaignOpen, setCampaignOpen] = useState(false);
     const [marketingTitleId, setMarketingTitleId] = useState<string | undefined>(undefined);
     const [commissionFlow, setCommissionFlow] = useState<{ screen: 'sheet' | 'counter' | 'reply' | 'contract' | 'signed' | 'lost' | 'project'; briefId?: string; projectId?: string } | null>(null);
@@ -92,6 +95,11 @@ const ProductionHouseInner: React.FC<{
         if (brief) setCommissionFlow({ screen: openBriefScreen(brief), briefId: brief.id });
         onUpdatePlayer({ ...player, flags: { ...player.flags, openCommissionBriefId: undefined } });
     }, [player.flags?.openCommissionBriefId]);
+
+    useEffect(() => {
+        const migrated = migrateCensorSaves(player);
+        if (migrated !== player) onUpdatePlayer(migrated);
+    }, [player]);
 
     const language = getPlayerLanguage(player);
     const tr = (key: Parameters<typeof t>[1], vars?: Parameters<typeof t>[2]) => t(language, key, vars);
@@ -627,6 +635,25 @@ const ProductionHouseInner: React.FC<{
         return <IPManagement player={player} studio={studio} onUpdatePlayer={onUpdatePlayer} onBack={() => setView('DASHBOARD')} />;
     }
 
+    if (view === 'CENSOR' && censorProjectId) {
+        const censorProject = player.commitments.find(row => row.id === censorProjectId)
+            || player.activeReleases?.find(row => row.id === censorProjectId);
+        if (censorProject) {
+            return (
+                <CensorDesk
+                    player={player}
+                    project={censorProject}
+                    onBack={() => setView('DASHBOARD')}
+                    onUpdatePlayer={onUpdatePlayer}
+                    onPlanRelease={() => {
+                        setSelectedProjectDashboard(censorProject);
+                        setView('RELEASE');
+                    }}
+                />
+            );
+        }
+    }
+
     if (view === 'RELEASE' && currentProject) {
         return (
             <ReleaseWizard 
@@ -634,6 +661,10 @@ const ProductionHouseInner: React.FC<{
                 studio={studio} 
                 project={currentProject} 
                 isPostTheatricalBidding={currentProject.distributionPhase === 'STREAMING_BIDDING' || currentProject.distributionPhase === 'THEATRICAL' || currentProject.phase === 'BIDDING' || currentProject.phase === 'RELEASED' || currentProject.phase === 'IN THEATERS'}
+                onOpenCensor={() => {
+                    setCensorProjectId(currentProject.id);
+                    setView('CENSOR');
+                }}
                 onBack={() => { 
                     setView('DASHBOARD'); 
                 }} 
@@ -665,6 +696,11 @@ const ProductionHouseInner: React.FC<{
                         setSelectedProjectDashboard(null);
                         setMarketingTitleId(project?.id);
                         setView('MARKETING');
+                    }}
+                    onOpenCensor={(project) => {
+                        setSelectedProjectDashboard(null);
+                        setCensorProjectId(project.id);
+                        setView('CENSOR');
                     }}
                 />
             )}
@@ -829,7 +865,14 @@ const ProductionHouseInner: React.FC<{
                                         const screeningStatus = p.projectDetails?.testScreening?.status;
                                         const screeningOpen = screeningStatus === 'OFFERED' || screeningStatus === 'RESULTS' || screeningStatus === 'WORKING';
                                         setSelectedProjectDashboard(p);
-                                        if (!screeningOpen) setView('RELEASE');
+                                        if (screeningOpen) return;
+                                        const needsBoard = censorApplies(player, p.projectDetails) && approvedFilings(p.projectDetails).length === 0;
+                                        if (needsBoard) {
+                                            setCensorProjectId(p.id);
+                                            setView('CENSOR');
+                                        } else {
+                                            setView('RELEASE');
+                                        }
                                     } else {
                                         setSelectedProjectDashboard(p);
                                     }
@@ -1861,7 +1904,7 @@ const ActiveProjectCard: React.FC<{ project: any, onClick?: () => void, onDelete
                 )}
             </SlatePoster>
             <div className="ph-slate-meta">
-                <span>{hasImage ? project.name : `${slateKind(project.type)}${showTime ? ` · ${weeksLeft}w` : ""}`}</span>
+                <span>{hasImage ? project.name : `${slateKind(project.type)}${showTime ? ` · ${weeksLeft}w` : ""}`}{censorBadge(project.projectDetails) ? ` · ${censorBadge(project.projectDetails)}` : ""}</span>
                 <b>{slateMoney(budget)}</b>
             </div>
         </div>

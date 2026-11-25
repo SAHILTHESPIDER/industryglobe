@@ -18,6 +18,7 @@
     "audit:scenes": "node scripts/audit-scenes.mjs",
     "audit:opening": "node scripts/audit-opening.mjs",
     "audit:script-desk": "node scripts/audit-script-desk.mjs",
+    "audit:censor": "node scripts/audit-censor.mjs",
     "lint": "tsc --noEmit",
     "cap:patch:ios": "node ./scripts/patch-ios-plugins.mjs",
     "cap:sync:ios": "npx cap sync ios && node ./scripts/patch-ios-plugins.mjs"

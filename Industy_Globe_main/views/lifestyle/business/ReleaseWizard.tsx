@@ -9,6 +9,8 @@ import { scheduleClashWarnings } from '../../../services/boxOfficeSim';
 import { applyFestivalTurn, canAffordHouseCharge, chargeProductionHouse, queuePendingPremiere, releaseBeforeFestival, selectionChance, shiftCriticsFromTalkShow } from '../../../services/releaseGauntlet';
 import { createPortal } from 'react-dom';
 import { CampaignGrid } from '../../marketing/run/CampaignGrid';
+import { CensorReleaseStrip } from './CensorDesk';
+import { censorApplies, stampReleasePlan } from '../../../services/censorBoard';
 
 interface ReleaseWizardProps {
     player: Player;
@@ -18,6 +20,7 @@ interface ReleaseWizardProps {
     onUpdatePlayer: (p: Player) => void;
     onComplete: () => void;
     isPostTheatricalBidding?: boolean;
+    onOpenCensor?: () => void;
 }
 
 const CAMPAIGN_OPTIONS: CampaignItem[] = [
@@ -267,7 +270,7 @@ export const calculateStreamingAuctionOffer = (
     };
 };
 
-export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, project, onBack, onUpdatePlayer, onComplete, isPostTheatricalBidding }) => {
+export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, project, onBack, onUpdatePlayer, onComplete, isPostTheatricalBidding, onOpenCensor }) => {
     const [step, setStep] = useState(isPostTheatricalBidding ? 2 : 1);
     const [releaseType, setReleaseType] = useState<'THEATRICAL' | 'STREAMING_ONLY' | null>(
         isPostTheatricalBidding ? 'STREAMING_ONLY' : (project.projectDetails?.type === 'SERIES' ? 'STREAMING_ONLY' : null)
@@ -278,7 +281,8 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
     const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
     const [festivalPremiere, setFestivalPremiere] = useState<string | null>(null);
     const [lockError, setLockError] = useState('');
-    const [releaseWeek, setReleaseWeek] = useState<number>(player.currentWeek + 4); 
+    const [releaseWeek, setReleaseWeek] = useState<number>(player.currentWeek + 4);
+    const [territoryPlan, setTerritoryPlan] = useState<Record<string, { on: boolean; extra: number }>>({}); 
     const projectHiddenStats = project.projectDetails?.hiddenStats || {};
     const lockedPremierePlatformId = projectHiddenStats.nextSeasonFundingUsedByProjectId === project.id
         ? (projectHiddenStats.nextSeasonFundingPlatformId || projectHiddenStats.platformId || null)
@@ -514,10 +518,24 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
         return () => clearInterval(interval);
     }, [auctionState, highestBid, activePlatforms, project.projectDetails?.hiddenStats?.qualityScore]);
 
+    const releasePicks = () => {
+        const details = player.commitments.find(row => row.id === project.id)?.projectDetails || project.projectDetails;
+        return (details?.censor?.filings || [])
+            .filter(row => row.status === 'APPROVED' && territoryPlan[row.territoryId]?.on !== false)
+            .map(row => ({ territoryId: row.territoryId, extraWeeks: territoryPlan[row.territoryId]?.extra || 0 }));
+    };
+
     const handleAcceptBid = (bid: Bid | null) => {
         if (!bid) return;
+        const gateDetails = player.commitments.find(row => row.id === project.id)?.projectDetails
+            || player.activeReleases?.find(row => row.id === project.id)?.projectDetails
+            || project.projectDetails;
+        if (censorApplies(player, gateDetails) && releasePicks().length === 0) {
+            setLockError('No country has a certificate. The platform cannot open it.');
+            return;
+        }
 
-        const updatedPlayer = { ...player };
+        let updatedPlayer = { ...player };
         const platformName = PLATFORMS.find(p => p.id === bid.platformId)?.name || 'Platform';
         const isSeriesDeal = (project.projectDetails?.type || project.type) === 'SERIES';
         const lockedFunding = isSeriesDeal && bid.fundingAmount
@@ -654,6 +672,15 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
             }
         }
 
+        if (censorApplies(updatedPlayer, gateDetails)) {
+            const stamped = stampReleasePlan(updatedPlayer, project.id, 1, releasePicks(), true);
+            if (stamped.error) {
+                setLockError(stamped.error);
+                return;
+            }
+            updatedPlayer = stamped.player;
+        }
+
         onUpdatePlayer(updatedPlayer);
         
         if (isPostTheatricalBidding) {
@@ -716,6 +743,15 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
         if (festivalOnSubmission && releaseBeforeFestival(player.currentWeek, releaseWeek, festivalOnSubmission.weeks)) {
             setLockError(`Open on or after ${festivalOnSubmission.name}, or skip the festival. An earlier date drops the submission and the fee.`);
             return;
+        }
+        const primaryWait = Math.max(1, releaseWeek - player.currentWeek);
+        const streamingRelease = releaseType === 'STREAMING_ONLY';
+        if (censorApplies(player, project.projectDetails)) {
+            const preview = stampReleasePlan(player, project.id, primaryWait, releasePicks(), streamingRelease);
+            if (preview.error) {
+                setLockError(preview.error);
+                return;
+            }
         }
         const commitmentIndex = player.commitments.findIndex(item => item.id === project.id);
         if (newFestival && commitmentIndex === -1) {
@@ -797,6 +833,26 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                     }
                 } : undefined
             };
+        }
+
+        if (censorApplies(player, project.projectDetails)) {
+            const stamped = stampReleasePlan(updatedPlayer, project.id, primaryWait, releasePicks(), streamingRelease);
+            if (!stamped.error) {
+                updatedPlayer = stamped.player;
+                const index = updatedPlayer.commitments.findIndex(item => item.id === project.id);
+                if (index !== -1) {
+                    const row = updatedPlayer.commitments[index];
+                    updatedPlayer.commitments[index] = {
+                        ...row,
+                        phaseWeeksLeft: stamped.wait,
+                        totalPhaseDuration: stamped.wait,
+                        projectDetails: row.projectDetails ? {
+                            ...row.projectDetails,
+                            releaseDate: player.currentWeek + stamped.wait,
+                        } : row.projectDetails,
+                    };
+                }
+            }
         }
 
         // Update Universe Stats if applicable
@@ -1006,6 +1062,15 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                             : 'Streaming platforms are bidding for your project.'}
                                     </p>
                                 </div>
+                                {lockError && <p className="text-sm text-rose-300 text-center">{lockError}</p>}
+                                <CensorReleaseStrip
+                                    player={player}
+                                    project={project}
+                                    streaming
+                                    selected={territoryPlan}
+                                    onChange={(territoryId, next) => setTerritoryPlan(current => ({ ...current, [territoryId]: next }))}
+                                    onOpenDesk={onOpenCensor}
+                                />
 
                                 {auctionState === 'IDLE' && (
                                     <div className="flex flex-col items-center justify-center py-20 space-y-8">
@@ -1261,6 +1326,15 @@ export const ReleaseWizard: React.FC<ReleaseWizardProps> = ({ player, studio, pr
                                     <h2 className="text-5xl md:text-7xl font-serif font-light tracking-tight text-white/90">Calendar</h2>
                                     <p className="text-lg text-white/50 font-light tracking-wide">Select your opening weekend.</p>
                                 </div>
+
+                                <CensorReleaseStrip
+                                    player={player}
+                                    project={project}
+                                    streaming={releaseType === 'STREAMING_ONLY'}
+                                    selected={territoryPlan}
+                                    onChange={(territoryId, next) => setTerritoryPlan(current => ({ ...current, [territoryId]: next }))}
+                                    onOpenDesk={onOpenCensor}
+                                />
 
                                 {clashWarnings.length > 0 && (
                                     <div className="rounded-3xl border border-rose-500/40 bg-rose-500/10 px-6 py-5 text-left">

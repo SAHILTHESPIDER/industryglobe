@@ -8,6 +8,7 @@ interface ReleaseGauntletPanelsProps {
     project: any;
     onUpdatePlayer: (player: Player) => void;
     onPlanRelease?: (project: any) => void;
+    onOpenCensor?: (project: any) => void;
 }
 
 const money = (value: number) => {
@@ -16,7 +17,7 @@ const money = (value: number) => {
     return `$${Math.round(value).toLocaleString()}`;
 };
 
-export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ player, project, onUpdatePlayer, onPlanRelease }) => {
+export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ player, project, onUpdatePlayer, onPlanRelease, onOpenCensor }) => {
     const live = player.commitments.find(item => item.id === project.id);
     const details = live?.projectDetails || project.projectDetails;
     const [error, setError] = useState('');
@@ -105,6 +106,11 @@ export const ReleaseGauntletPanels: React.FC<ReleaseGauntletPanelsProps> = ({ pl
                     {phase === 'AWAITING_RELEASE' && !releaseLocked && onPlanRelease && (
                         <button onClick={() => onPlanRelease(live)} className="mt-4 rounded-full border border-white/15 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-white">
                             Plan the release
+                        </button>
+                    )}
+                    {(phase === 'POST_PRODUCTION' || phase === 'AWAITING_RELEASE') && onOpenCensor && (
+                        <button type="button" onClick={() => onOpenCensor(live)} className="mt-4 ml-0 rounded-full bg-amber-400 px-5 py-3 text-xs font-black uppercase tracking-[0.16em] text-black sm:ml-2">
+                            {phase === 'POST_PRODUCTION' ? 'Boards open after the cut' : 'Censor boards'}
                         </button>
                     )}
                 </div>
