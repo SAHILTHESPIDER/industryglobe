@@ -51,9 +51,10 @@ interface ProjectDashboardModalProps {
     onStartStreamingBidding?: (project: any) => void;
     onConfigureRelease?: (project: any) => void;
     onMarket?: (project: any) => void;
+    onOpenCensor?: (project: any) => void;
 }
 
-export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ project, player, studio, onClose, onUpdatePlayer, onMakeSequel, onMakeSpinoff, onStartStreamingBidding, onConfigureRelease, onMarket }) => {
+export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ project, player, studio, onClose, onUpdatePlayer, onMakeSequel, onMakeSpinoff, onStartStreamingBidding, onConfigureRelease, onMarket, onOpenCensor }) => {
     const [view, setView] = useState<'DETAILS'>('DETAILS');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -497,6 +498,16 @@ export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ pr
             >
                 {/* Header / Close Button */}
                 <div className="absolute top-6 right-6 z-50 flex items-center gap-2">
+                    {onOpenCensor && (project.projectPhase === 'POST_PRODUCTION' || project.projectPhase === 'AWAITING_RELEASE' || project.phase === 'POST-PRODUCTION' || project.phase === 'AWAITING RELEASE' || project.phase === 'PLANNED RELEASE' || project.phase === 'IN THEATERS' || project.phase === 'STREAMING') && (
+                        <button
+                            type="button"
+                            data-testid="open-censor-desk"
+                            onClick={() => onOpenCensor(project)}
+                            className="px-4 py-3 bg-white text-black rounded-full text-xs font-black uppercase tracking-wider"
+                        >
+                            Censor
+                        </button>
+                    )}
                     {onMarket && (
                         <button
                             type="button"
@@ -846,7 +857,7 @@ export const ProjectDashboardModal: React.FC<ProjectDashboardModalProps> = ({ pr
                                 </div>
 
 
-                                <ReleaseGauntletPanels player={player} project={project} onUpdatePlayer={onUpdatePlayer} onPlanRelease={onConfigureRelease} />
+                                <ReleaseGauntletPanels player={player} project={project} onUpdatePlayer={onUpdatePlayer} onPlanRelease={onConfigureRelease} onOpenCensor={onOpenCensor} />
 
                                  {/* Actions */}
                                 <div className="md:col-span-2 flex flex-col sm:flex-row gap-4 mt-8">

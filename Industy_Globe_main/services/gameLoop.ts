@@ -56,6 +56,7 @@ import { serviceWeeklyLoans } from './loanLogic';
 import { AWARD_CALENDAR, checkAwardEligibility, AwardDefinition, generateSeasonWinners, generateFullBallot, getAwardCeremonyYear } from './awardLogic';
 import { advanceReviewBomb, advanceScreeningWork, applyReleaseCampaignHype, hydrateReleaseWorld, lockReleaseScores, offerTestScreeningOnWrap, resolveDueFestivals, withdrawUnfinishedFestival } from './releaseGauntlet';
 import { migrateGlobalExpansion } from './migrateIndustries';
+import { advanceCensorBoards, migrateCensorSaves, releaseBlockedByCensor, territoryIsDue, territoryOpeningBump } from './censorBoard';
 import { growRegionContacts } from './studioRegions';
 import { tickTalentAudience } from './talentAudience';
 import { debutTalentYear } from './talentDebut';
@@ -814,6 +815,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     if (!Array.isArray(nextPlayer.world.awardHistory)) nextPlayer.world.awardHistory = [];
     if (!Array.isArray(nextPlayer.world.upcomingRivals)) nextPlayer.world.upcomingRivals = [];
     nextPlayer = migrateGlobalExpansion(nextPlayer);
+    nextPlayer = migrateCensorSaves(nextPlayer);
     nextPlayer = hydrateReleaseWorld(nextPlayer);
     nextPlayer = migrateBoxOfficeHistory(nextPlayer);
     if (!nextPlayer.studio) {
@@ -2619,6 +2621,11 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     nextPlayer = festivalTurn.player;
     festivalTurn.logs.forEach(message => logsToAdd.push({ msg: message, type: /passed on/i.test(message) ? 'negative' : 'positive' }));
     if (festivalTurn.news.length) nextPlayer.news = [...festivalTurn.news, ...nextPlayer.news].slice(0, 50);
+
+    const censorTurn = advanceCensorBoards(nextPlayer);
+    nextPlayer = censorTurn.player;
+    censorTurn.logs.forEach(entry => logsToAdd.push(entry));
+    if (censorTurn.news.length) nextPlayer.news = [...censorTurn.news, ...(nextPlayer.news || [])].slice(0, 50);
     
     nextPlayer.commitments.forEach(c => {
         let updatedC = { ...c };
@@ -2766,7 +2773,26 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             const isStudioProject = updatedC.projectDetails?.studioId !== undefined;
             
             if (updatedC.projectDetails?.releaseStrategy) {
-                if (weeksLeft <= 0) {
+                if (weeksLeft <= 0 && releaseBlockedByCensor(nextPlayer, updatedC.projectDetails)) {
+                    if (!updatedC.projectDetails?.censorDateHeld) {
+                        logsToAdd.push({ msg: `🛑 "${updatedC.name}" reached its date without a certificate. The opening waits.`, type: 'negative' });
+                        nextPlayer.news = [{
+                            id: `news_censor_hold_${updatedC.id}_${nextPlayer.age}_${nextPlayer.currentWeek}`,
+                            headline: `${updatedC.name} misses its date`,
+                            subtext: 'Exhibitors will not open a film that has no certificate in the countries on the calendar.',
+                            category: 'INDUSTRY',
+                            week: nextPlayer.currentWeek,
+                            year: nextPlayer.age,
+                            impactLevel: 'HIGH',
+                            projectId: updatedC.id,
+                        }, ...(nextPlayer.news || [])].slice(0, 50);
+                    }
+                    nextCommitments.push({
+                        ...updatedC,
+                        phaseWeeksLeft: 1,
+                        projectDetails: updatedC.projectDetails ? { ...updatedC.projectDetails, censorDateHeld: true } : updatedC.projectDetails,
+                    });
+                } else if (weeksLeft <= 0) {
                     const imdb = calculateIMDbRating(updatedC);
                 const estimatedBudget = updatedC.projectDetails?.estimatedBudget;
                 const budget = typeof estimatedBudget === 'number' && Number.isFinite(estimatedBudget) && estimatedBudget > 0
@@ -3072,11 +3098,42 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                 });
             const weekClash = rel.weekNum === 1 ? clashFactor : (0.82 + clashFactor * 0.18);
             const marketingLegs = rel.weekNum === 1 ? 1 : Math.max(1, Math.min(1.12, Number(rel.projectDetails.hiddenStats?.marketingLegs) || 1));
-            const revenue = Math.floor(Math.min(uncappedRevenue * industryScale, remainingHeadroom) * weekClash * marketingLegs);
+            const censorScale = rel.weekNum === 1 ? (rel.projectDetails.censor?.weekOneScale ?? 1) : 1;
+            let revenue = Math.floor(Math.min(uncappedRevenue * industryScale, remainingHeadroom) * weekClash * marketingLegs * censorScale);
             rel.clashFactor = clashFactor;
             rel.releaseCalendarYear = rel.releaseCalendarYear || gameCalendarYear(nextPlayer.age);
             if (!rel.releaseWeek) rel.releaseWeek = ((openingAbs - 1) % 52) + 1;
             if (rel.weekNum === 1) rel.openingGross = revenue;
+            const censor = rel.projectDetails.censor;
+            if (censor && !censor.grandfathered && rel.distributionPhase === 'THEATRICAL') {
+                const absNow = getAbsoluteWeek(nextPlayer.age, nextPlayer.currentWeek);
+                let territoryGross = 0;
+                const filings = censor.filings.map(filing => {
+                    if (filing.inOpening || filing.opened || filing.status !== 'APPROVED' || typeof filing.releaseAbsolute !== 'number') return filing;
+                    if (!territoryIsDue(absNow, filing.releaseAbsolute)) return filing;
+                    const bump = territoryOpeningBump(rel.openingGross || revenue, filing, censor.homeTerritoryId);
+                    territoryGross += bump;
+                    logsToAdd.push({ msg: `🌍 "${rel.name}" opens in ${filing.country} on a ${filing.grantedRatingLabel || filing.requestedRatingLabel} certificate.`, type: 'positive' });
+                    newNews.unshift({
+                        id: `news_censor_open_${rel.id}_${filing.territoryId}_${nextPlayer.currentWeek}`,
+                        headline: `${rel.name} opens in ${filing.country}`,
+                        subtext: `${filing.grantedRatingLabel || filing.requestedRatingLabel}. ${filing.certificateNo || filing.boardName}.`,
+                        category: 'INDUSTRY',
+                        week: nextPlayer.currentWeek,
+                        year: nextPlayer.age,
+                        impactLevel: 'MEDIUM',
+                        projectId: rel.id,
+                    });
+                    return { ...filing, opened: true };
+                });
+                if (territoryGross > 0) {
+                    const room = Math.max(0, remainingHeadroom - revenue);
+                    revenue += Math.min(territoryGross, room);
+                }
+                if (filings.some((filing, index) => filing !== censor.filings[index])) {
+                    rel.projectDetails = { ...rel.projectDetails, censor: { ...censor, filings } };
+                }
+            }
             rel.grossIsEstimate = false;
             const newTotal = safeTotalGross + revenue;
             const newWeeklyGross = [...rel.weeklyGross, revenue];
@@ -3376,6 +3433,8 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
             }
             const marketingStream = Number(rel.projectDetails.hiddenStats?.marketingStreamBoost) || 0;
             if (marketingStream > 0) newViews = Math.floor(newViews * (1 + Math.min(0.22, marketingStream)));
+            const censorReach = Number(rel.projectDetails.hiddenStats?.censorStreamReach);
+            if (censorReach > 0 && censorReach !== 1) newViews = Math.floor(newViews * censorReach);
             const totalViews = rel.streaming.totalViews + newViews;
             const newWeeklyViews = [...rel.streaming.weeklyViews, newViews];
             const shouldExit = checkStreamingExit(rel.streaming.platformId, newViews, rel.streaming.weekOnPlatform);

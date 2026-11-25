@@ -796,6 +796,8 @@ export enum Page {
       festivalPrizeBonus?: number;
       /** The test screening sent this film straight to streaming. */
       buriedFromScreening?: boolean;
+      /** Streaming views multiplier from the countries that actually certified the picture. Missing means unchanged. */
+      censorStreamReach?: number;
   }
   
   export interface CastMember {
@@ -936,6 +938,91 @@ export enum Page {
       };
   }
   
+  /** What a censor board has done with one country's print. */
+  export type CensorStatus = 'PENDING' | 'UNDER_REVIEW' | 'CUTS_REQUESTED' | 'RATING_OFFERED' | 'APPROVED' | 'REJECTED';
+
+  export interface CensorCut {
+      id: string;
+      axis: 'violence' | 'intimacy' | 'language' | 'politics';
+      scene: string;
+      detail: string;
+      /** Quality points lost if the cut is accepted. Small. */
+      quality: number;
+      /** Audience points lost if the cut is accepted. Small. */
+      audience: number;
+      /** How far this cut pulls that slider down. */
+      slider: number;
+  }
+
+  export interface CensorBeat {
+      week: number;
+      year: number;
+      text: string;
+  }
+
+  /** One country's board. Missing fields are filled when the player files. */
+  export interface CensorFiling {
+      territoryId: string;
+      industryId: FilmIndustryId;
+      country: string;
+      boardId: string;
+      boardName: string;
+      requestedRatingId: string;
+      requestedRatingLabel: string;
+      offeredRatingId?: string;
+      offeredRatingLabel?: string;
+      grantedRatingId?: string;
+      grantedRatingLabel?: string;
+      status: CensorStatus;
+      reviewWeeks: number;
+      weeksLeft: number;
+      cuts: CensorCut[];
+      certificateNo?: string;
+      beats: CensorBeat[];
+      appeals: number;
+      passes: number;
+      heldWeeks: number;
+      delayUsed?: boolean;
+      /** Set when an appeal is in and the weeks have not run out. The roll is fixed when the appeal is filed. */
+      pendingAppeal?: 'WON' | 'PARTIAL' | 'LOST';
+      note: string;
+      /** Share of that country's crowd lost by taking a higher certificate. 0.08 is a trim, not a ban. */
+      crowdCut?: number;
+      /** Absolute week of the tick that opens this country. The week number has not rolled forward yet on that pass. */
+      releaseAbsolute?: number;
+      /** Opens with the first wave, inside the normal gross. */
+      inOpening?: boolean;
+      opened?: boolean;
+  }
+
+  /**
+   * Censor docket on a picture. Missing on saves from before the desk.
+   * `grandfathered` means the picture already had a release plan or was already out.
+   * Those keep the old calendar. Nothing is resimulated.
+   */
+  export interface CensorDocket {
+      grandfathered?: boolean;
+      filings: CensorFiling[];
+      violence: number;
+      intimacy: number;
+      language: number;
+      /** Script boycott and leak heat. Live social heat is read each week. */
+      heat: number;
+      /** Points already cut from the political pressure after the house accepted those scenes out. */
+      politicsTrim?: number;
+      genre?: Genre;
+      themeId?: string;
+      villainId?: string;
+      toneId?: string;
+      scriptRatingId?: string;
+      scriptRatingLabel?: string;
+      scriptIndustryId?: FilmIndustryId;
+      homeTerritoryId: string;
+      /** Opening-week gross multiplier from the countries in the first wave. Missing means unchanged. */
+      weekOneScale?: number;
+      inferred?: boolean;
+  }
+
   export interface ProjectDetails {
       title: string;
       type: ProjectType;
@@ -987,6 +1074,12 @@ export enum Page {
       releaseDate?: number; // Week of release
       streamingRevenue?: number;
       customPoster?: CustomPoster;
+      /** Script this picture was greenlit from. Missing on older productions. */
+      scriptId?: string;
+      /** Per-country censor filings. Missing until the desk, or until an old release is grandfathered. */
+      censor?: CensorDocket;
+      /** Set after a date arrives with no certificate, so the hold is not a new headline every week. */
+      censorDateHeld?: boolean;
   }
   
   export interface CrewMember {

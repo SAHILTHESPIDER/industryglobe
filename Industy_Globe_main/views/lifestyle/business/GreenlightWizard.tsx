@@ -2234,6 +2234,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
             totalPhaseDuration: preProdDuration,
             projectDetails: {
                 title: selectedScript.title,
+                scriptId: selectedScript.id,
                 type: selectedScript.projectType,
                 format: selectedScript.format || 'LIVE_ACTION',
                 episodes: selectedScript.episodes,
