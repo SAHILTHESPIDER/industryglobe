@@ -6,7 +6,7 @@ import { PLAN_TEMPLATES, readDesk } from '../../../services/ownPlatform/platform
 import { PlatformArea, PlatformTab } from './PlatformArea';
 import '../fonts';
 
-export type PlatformPreviewScreen = 'plat-tech' | 'plat-tech-detail' | 'plat-tech-ladder' | 'plat-network' | 'plat-offer-pre' | 'plat-offer-post' | 'plat-deals' | 'plat-product' | 'plat-status';
+export type PlatformPreviewScreen = 'plat-tech' | 'plat-tech-detail' | 'plat-tech-ladder' | 'plat-network' | 'plat-offer-pre' | 'plat-offer-post' | 'plat-deals' | 'plat-product' | 'plat-status' | 'plat-clearance';
 
 const fixture = (screen: PlatformPreviewScreen): Player => {
     const shell = { id: 'preview-player', name: 'Ava Stone', age: 28, currentWeek: 14, money: 2_000_000, logs: [] } as Player;
@@ -34,7 +34,7 @@ const fixture = (screen: PlatformPreviewScreen): Player => {
         adIntervalMin: row.ads ? 10 : undefined,
     }));
     platform.titleStore = { rentUsd: 3.99, buyUsd: 14.99 };
-    platform.books = { ...platform.books!, cash: 86_000_000 };
+    platform.books = { ...platform.books!, cash: screen === 'plat-clearance' ? 400_000 : 86_000_000 };
     const live = screen !== 'plat-offer-pre';
     platform.stage = live ? 'LIVE' : 'BUILD';
     platform.commissioned = live;
@@ -118,6 +118,7 @@ const tabFor = (screen: PlatformPreviewScreen): PlatformTab => {
     if (screen === 'plat-network') return 'network';
     if (screen === 'plat-product') return 'product';
     if (screen === 'plat-status') return 'status';
+    if (screen === 'plat-clearance') return 'clearance';
     return 'offer';
 };
 

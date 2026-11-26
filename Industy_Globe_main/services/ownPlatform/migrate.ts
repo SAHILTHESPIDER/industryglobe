@@ -18,6 +18,7 @@ import { IDENTS, LEGACY_IDENT } from './identEffects';
 import { anchorRates, decorateRival } from './fx';
 import { sanitizeLocalisations, sanitizePasses, sanitizePlan, sanitizeTitleStore } from './commercial';
 import { REVENUE_LANES, STANDARD_PLAN_USD, finiteSticker, syncRegions } from './logic';
+import { grandfatherLaunchedLicences } from './clearance';
 import { cityById } from './serverCities';
 import { sanitizeGoal, sanitizeIncidents, sanitizeLoadTest, sanitizeOffices, sanitizeSites } from './infrastructure';
 import { addCompanyCash } from './companyCash';
@@ -203,7 +204,7 @@ export const normalizeOwnPlatform = (raw: Partial<OwnPlatformState> | undefined,
         languageDesk: sanitizeLanguageDesk(raw.languageDesk),
         openingNight: cleanOpening(raw.openingNight),
     };
-    return syncRegions(merged);
+    return grandfatherLaunchedLicences(syncRegions(merged), player);
 };
 
 const IPO_STAGES: IpoState['stage'][] = ['IDLE', 'RESOLUTION', 'PRICE', 'VOTE', 'FILING', 'BAND', 'ANCHOR', 'BOOK', 'TRADING', 'LISTED'];

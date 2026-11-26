@@ -227,6 +227,7 @@ export const OwnPlatformApp: React.FC<Props> = ({ player, onBack, onUpdatePlayer
                     <DefineLaunch
                         player={player}
                         onChange={setPlatform}
+                        onPlayer={onUpdatePlayer}
                         onBuild={() => { setPlatform({ ...state, stage: state.commissioned ? state.stage : 'BUILD', defineStep: 7 }); setPane('build'); }}
                     />
                 )}

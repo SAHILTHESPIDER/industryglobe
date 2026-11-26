@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { OwnPlatformState, Player } from '../../types';
 import { contentVeto, firstLookDiscount } from '../../services/ownPlatform/stakeSale';
-import { getCountry } from '../../services/ownPlatform/catalog';
-import { getAbsoluteWeek } from '../../services/legacyLogic';
 import {
     formatAveragePlanPrice,
     formatCompact,
@@ -21,13 +19,14 @@ import { StorefrontDesigner } from './StorefrontDesigner';
 import { DayOneMarkets } from './DayOneMarkets';
 import { NameIt } from './NameIt';
 import { PricingDesk } from './PricingDesk';
-import { BillStrip, Card, FooterBar, Pill, PreviewPanel, headingFont } from './ui';
+import { BillStrip, Card, FooterBar, PreviewPanel, headingFont } from './ui';
+import { ClearanceDesk } from './ClearanceDesk';
 
 const STEPS = ['Name it', 'Markets', 'Clearance', 'Ident', 'Storefront', 'Catalogue', 'Offer', 'Blueprint'];
 const HINTS = [
     '',
     '',
-    'Filing is free. Access fees sit on the launch bill and leave the treasury only when you commission.',
+    'Each country has its own licence fee. The cheque leaves the treasury when you apply.',
     'Each sting says what it sounds like and what it does to viewers. A clip you upload only replaces the sound.',
     'The green line is the discovery and stay rate the weekly forecast uses.',
     'A licence fee joins the launch bill. Nothing leaves the treasury today.',
@@ -38,10 +37,11 @@ const HINTS = [
 interface Props {
     player: Player;
     onChange: (next: OwnPlatformState) => void;
+    onPlayer: (next: Player) => void;
     onBuild: () => void;
 }
 
-export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => {
+export const DefineLaunch: React.FC<Props> = ({ player, onChange, onPlayer, onBuild }) => {
     const state = player.ownPlatform!;
     const step = state.defineStep;
     const quote = quoteLaunch(player);
@@ -51,38 +51,6 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
         onChange(recipe(state));
     };
     const go = (next: number) => onChange({ ...state, defineStep: Math.max(0, Math.min(7, next)) });
-
-    const fileAll = () => {
-        const absolute = getAbsoluteWeek(player.age, player.currentWeek);
-        patch(current => {
-            const applications = [...current.applications];
-            current.selectedCountryIds.forEach(id => {
-                const country = getCountry(id);
-                if (!country) return;
-                const existing = applications.find(row => row.countryId === id);
-                if (existing && existing.status !== 'REJECTED') return;
-                if (existing?.status === 'REJECTED' && (existing.refileWeekAbsolute || 0) > absolute) return;
-                const nextApp = {
-                    countryId: id,
-                    status: 'FILED' as const,
-                    weeksLeft: country.reviewWeeks,
-                    filedWeekAbsolute: absolute,
-                    note: 'Application filed. Reviews run on their own from here.',
-                    acceptedConditions: false,
-                };
-                if (existing) applications[applications.indexOf(existing)] = nextApp;
-                else applications.push(nextApp);
-            });
-            return { ...current, applications };
-        });
-    };
-
-    const acceptConditions = (id: string) => {
-        patch(current => ({
-            ...current,
-            applications: current.applications.map(row => row.countryId === id ? { ...row, acceptedConditions: true, note: 'Conditions accepted. The access bill is higher.' } : row),
-        }));
-    };
 
     const footer = (
         <FooterBar
@@ -120,59 +88,10 @@ export const DefineLaunch: React.FC<Props> = ({ player, onChange, onBuild }) => 
                     <PricingDesk player={player} state={state} locked={locked} onChange={onChange} />
                 )}
 
-                {step > 1 && step !== 3 && step !== 4 && step !== 6 && (
+                {step === 2 && <ClearanceDesk player={player} onPlayer={onPlayer} />}
+                {step > 1 && step !== 2 && step !== 3 && step !== 4 && step !== 6 && (
                 <div className="grid g-side">
                 <div className="stack">
-
-                {step === 2 && (
-                    <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
-                        <div className="space-y-3">
-                            <div className="flex items-end justify-between gap-3">
-                                <div>
-                                    <div className="text-[11px] uppercase tracking-[0.2em] text-[#8B7BFF]">Clearance</div>
-                                    <h2 className="text-4xl font-black uppercase" style={{ fontFamily: headingFont }}>File, then wait the weeks out</h2>
-                                </div>
-                                <button onClick={fileAll} disabled={locked} className="px-4 py-2 rounded-full bg-white text-black text-xs font-black uppercase tracking-wider disabled:opacity-40">File selected</button>
-                            </div>
-                            <p className="text-sm text-zinc-400 max-w-2xl">Nothing is charged for filing. Access fees sit on the launch bill and leave the treasury only when you commission. Advance the career week to hear back. A file can clear, stall, come back with conditions, or be refused.</p>
-                            <div className="grid md:grid-cols-2 gap-3">
-                                {state.selectedCountryIds.map(id => {
-                                    const country = getCountry(id);
-                                    const application = state.applications.find(row => row.countryId === id);
-                                    if (!country) return null;
-                                    return (
-                                        <Card key={id}>
-                                            <div className="flex justify-between">
-                                                <div className="font-black text-xl" style={{ fontFamily: headingFont }}>{country.flag} {country.name}</div>
-                                                <StatusPill status={application?.status} />
-                                            </div>
-                                            <p className="text-sm text-zinc-400 mt-2">{application?.note || 'Not filed.'}</p>
-                                            {application && (application.status === 'FILED' || application.status === 'DELAYED') && (
-                                                <div className="mt-3 text-sm"><span className="text-[#8B7BFF] font-bold">{application.weeksLeft} weeks</span> left on the clock</div>
-                                            )}
-                                            {application?.status === 'CONDITIONS' && !application.acceptedConditions && (
-                                                <button onClick={() => acceptConditions(id)} className="mt-3 text-xs font-black uppercase tracking-wider text-black bg-[#f5c16c] rounded-full px-3 py-2">Accept conditions</button>
-                                            )}
-                                            {application?.status === 'CONDITIONS' && application.acceptedConditions && <div className="mt-2 text-emerald-300 text-sm">Conditions accepted.</div>}
-                                        </Card>
-                                    );
-                                })}
-                                {state.selectedCountryIds.length === 0 && <Card><p className="text-zinc-400">Choose markets first.</p></Card>}
-                            </div>
-                        </div>
-                        <Card>
-                            <div className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Markets cleared</div>
-                            <div className="text-4xl font-black" style={{ fontFamily: headingFont }}>
-                                {state.applications.filter(row => row.status === 'APPROVED' || (row.status === 'CONDITIONS' && row.acceptedConditions)).length}
-                                <span className="text-zinc-500 text-2xl">/{state.selectedCountryIds.length}</span>
-                            </div>
-                            <div className="mt-4 h-2 rounded-full bg-white/10 overflow-hidden">
-                                <div className="h-full bg-emerald-400" style={{ width: `${state.selectedCountryIds.length ? (state.applications.filter(row => row.status === 'APPROVED' || row.acceptedConditions).length / state.selectedCountryIds.length) * 100 : 0}%` }} />
-                            </div>
-                            <p className="text-sm text-zinc-400 mt-4">Each market keeps its own clock. A delay is not a no. A rejection can be filed again after eight weeks.</p>
-                        </Card>
-                    </div>
-                )}
 
                 {step === 5 && (
                     <CatalogueStep player={player} state={state} locked={locked} onChange={onChange} />
@@ -288,12 +207,6 @@ const TitleRow: React.FC<{ title: string; meta: string; on: boolean; onClick: ()
         <div className="text-xs text-zinc-400">{meta}</div>
     </button>
 );
-
-const StatusPill: React.FC<{ status?: string }> = ({ status }) => {
-    const label = status === 'APPROVED' ? 'Approved' : status === 'DELAYED' ? 'Delayed' : status === 'CONDITIONS' ? 'Conditions' : status === 'REJECTED' ? 'Rejected' : status === 'FILED' ? 'Filed' : 'Not filed';
-    const tone = status === 'APPROVED' ? 'ok' : status === 'REJECTED' ? 'bad' : status === 'CONDITIONS' || status === 'DELAYED' ? 'warn' : status === 'FILED' ? 'run' : 'idle';
-    return <Pill tone={tone}>{label}</Pill>;
-};
 
 const Line: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     <div className="flex justify-between gap-3 border-b border-white/5 py-2">

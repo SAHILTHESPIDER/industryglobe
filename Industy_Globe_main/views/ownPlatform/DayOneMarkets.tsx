@@ -6,6 +6,8 @@ import { currencyFor, defaultLocalPrice, formatLocalAmount } from '../../service
 import { STANDARD_PLAN_USD, formatCompact, formatPeople } from '../../services/ownPlatform/logic';
 import { publicBrandName } from '../../services/rights/alterName';
 import { headingFont } from './ui';
+import { licenceFill } from './ClearanceDesk';
+import { formatLicenceUsd, licenceQuote, regulatorFor } from '../../services/ownPlatform/clearance';
 import { WorldMarketMap } from './WorldMarketMap';
 
 const PAGE = 8;
@@ -113,7 +115,14 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                 </div>
             </div>
 
-            <WorldMarketMap selectedIds={state.selectedCountryIds} focusId={country?.id} regionId={regionId} onPick={(id) => { reveal(id); toggleId(id); }} />
+            <WorldMarketMap
+                selectedIds={state.selectedCountryIds}
+                focusId={country?.id}
+                regionId={regionId}
+                fillId={id => licenceFill(state, id)}
+                onPick={(id) => { reveal(id); toggleId(id); }}
+                legend="Violet is on the slate. Green, gold, and red are that country’s own licence."
+            />
             <div className="relative">
                 <input
                     value={query}
@@ -168,6 +177,7 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                                     <Stat label="Yearly growth" value={`+${country.growthPct}%`} />
                                     <Stat label="Languages" value={String(country.languages.length)} />
                                     <Stat label="Market access" value={formatCompact(country.accessCost)} />
+                                    <Stat label="Licence fee" value={formatLicenceUsd(licenceQuote(country.id)?.feeUsd || 0)} />
                                 </div>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
                                     <Stat label="Population" value={populationLabel(country.populationM)} />
@@ -236,6 +246,7 @@ export const DayOneMarkets: React.FC<Props> = ({ state, locked, onPatch }) => {
                                     {country.filings.map(item => <span key={item} className="px-3 py-1 rounded-full bg-[#4F3BFF]/20 text-xs">{item}</span>)}
                                 </div>
                                 <p className="text-sm text-zinc-300 mt-3">{country.privacyNote}. {country.localContentNote}.</p>
+                                <p className="text-sm text-zinc-300 mt-2">{regulatorFor(country.id)?.name} licenses this country alone. The streaming fee is {formatLicenceUsd(licenceQuote(country.id)?.feeUsd || 0)}, paid from the treasury when you apply.</p>
                                 <div className="mt-3 text-sm text-zinc-400">Planned overhead</div>
                                 <div className="text-3xl font-black text-[#8B7BFF]">{formatCompact(compliance)}</div>
                                 <p className="text-xs text-zinc-500">Market access {formatCompact(country.accessCost)} · compliance about {formatCompact(compliance)}. Higher setup spend, but no national launch delay beyond the review.</p>
