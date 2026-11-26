@@ -1,7 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PRODUCT_CATEGORY, Purchases } from '@revenuecat/purchases-capacitor';
 import { Player, SkillPointReceipt } from '../types';
-import { ensureFirebaseUser } from './firebaseService';
+import { ensureFirebaseUser, FIREBASE_PROJECT_ID } from './firebaseService';
 import {
     packById,
     packByStoreId,
@@ -60,10 +60,8 @@ export const devSkillPurchasesEnabled = (): boolean => import.meta.env.VITE_SKIL
 
 const functionRegion = () => import.meta.env.VITE_SKILL_POINT_FUNCTION_REGION || 'us-central1';
 
-const projectId = 'actor-empire-1ff1d';
-
 const callableUrl = (name: string) =>
-    `https://${functionRegion()}-${projectId}.cloudfunctions.net/${name}`;
+    `https://${functionRegion()}-${FIREBASE_PROJECT_ID}.cloudfunctions.net/${name}`;
 
 export interface StorePurchaseResult {
     ok: boolean;

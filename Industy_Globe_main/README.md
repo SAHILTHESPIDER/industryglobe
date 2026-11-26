@@ -1,6 +1,6 @@
-# Actor Empire
+# Industry Globe
 
-Actor Empire is a Hollywood life-sim and career strategy game built by Zeesh. You start as a young aspiring actor and try to build a full entertainment empire through acting jobs, networking, relationships, money management, business expansion, and long-term family legacy.
+Industry Globe is an entertainment-industry life simulation built by Sahil. You start as a young actor and build a career through jobs, relationships, money, studios, and the family that follows.
 
 ## What the game includes
 
@@ -67,4 +67,4 @@ npm run lint
 
 ## Project vision
 
-The goal of Actor Empire is to blend career simulation, celebrity life, wealth building, and dynasty gameplay into one long-form progression game where each generation can shape the future of the family empire.
+The goal of Industry Globe is to blend career simulation, celebrity life, wealth building, and dynasty gameplay into one long-form progression game where each generation can shape the future of the family.

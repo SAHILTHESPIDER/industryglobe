@@ -1,4 +1,5 @@
-const DB_NAME = 'ActorEmpireMediaDB';
+const DB_NAME = 'IndustryGlobeMediaDB';
+const LEGACY_DB_NAME = 'ActorEmpireMediaDB';
 const STORE_NAME = 'media';
 const DB_VERSION = 1;
 
@@ -61,7 +62,28 @@ export const saveMediaBlob = async (
 };
 
 export const loadMediaBlob = async (id: string): Promise<Blob | null> => {
-    const db = await openMediaDB();
+    const current = await readMediaBlob(DB_NAME, id);
+    if (current) return current;
+    return readMediaBlob(LEGACY_DB_NAME, id);
+};
+
+const readMediaBlob = async (name: string, id: string): Promise<Blob | null> => {
+    const db = await new Promise<IDBDatabase | null>((resolve) => {
+        const request = indexedDB.open(name, DB_VERSION);
+        request.onerror = () => resolve(null);
+        request.onsuccess = () => resolve(request.result);
+        request.onupgradeneeded = () => {
+            if (name !== DB_NAME) {
+                request.transaction?.abort();
+                resolve(null);
+                return;
+            }
+            if (!request.result.objectStoreNames.contains(STORE_NAME)) {
+                request.result.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            }
+        };
+    });
+    if (!db || !db.objectStoreNames.contains(STORE_NAME)) return null;
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(STORE_NAME, 'readonly');
         const store = transaction.objectStore(STORE_NAME);

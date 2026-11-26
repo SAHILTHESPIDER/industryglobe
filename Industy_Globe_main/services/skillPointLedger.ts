@@ -230,7 +230,7 @@ export const CHARACTER_PACK_INR = 1500;
 export const SKILL_POINT_PACKS: SkillPointPack[] = [
     {
         id: 'character_creation',
-        storeProductId: 'com.zeeshapps.actorempire.character.creation',
+        storeProductId: 'com.sahil.industryglobe.character.creation',
         title: 'Character Creation',
         description: 'The studio package. Unlocks the character record and adds 150 premium skill points after the store confirms it.',
         points: 150,
@@ -242,7 +242,7 @@ export const SKILL_POINT_PACKS: SkillPointPack[] = [
     },
     {
         id: 'skillpoints_5',
-        storeProductId: 'com.zeeshapps.actorempire.skillpoints.5',
+        storeProductId: 'com.sahil.industryglobe.skillpoints.5',
         title: 'Spark Pack',
         description: '5 premium skill points for one more level on a young craft.',
         points: 5,
@@ -254,7 +254,7 @@ export const SKILL_POINT_PACKS: SkillPointPack[] = [
     },
     {
         id: 'skillpoints_15',
-        storeProductId: 'com.zeeshapps.actorempire.skillpoints.15',
+        storeProductId: 'com.sahil.industryglobe.skillpoints.15',
         title: 'Scene Pack',
         description: '15 premium skill points. Enough to push a skill through its early levels.',
         points: 15,
@@ -266,7 +266,7 @@ export const SKILL_POINT_PACKS: SkillPointPack[] = [
     },
     {
         id: 'skillpoints_40',
-        storeProductId: 'com.zeeshapps.actorempire.skillpoints.40',
+        storeProductId: 'com.sahil.industryglobe.skillpoints.40',
         title: 'Reel Pack',
         description: '40 premium skill points for a mid-career jump across acting or genre.',
         points: 40,
@@ -278,7 +278,7 @@ export const SKILL_POINT_PACKS: SkillPointPack[] = [
     },
     {
         id: 'skillpoints_100',
-        storeProductId: 'com.zeeshapps.actorempire.skillpoints.100',
+        storeProductId: 'com.sahil.industryglobe.skillpoints.100',
         title: 'Legacy Pack',
         description: '100 premium skill points. Still priced under the Character Creation package.',
         points: 100,

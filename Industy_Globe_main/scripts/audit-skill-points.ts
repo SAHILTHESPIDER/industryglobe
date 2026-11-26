@@ -92,7 +92,7 @@ const replay = spendPremiumPoints(spent.ledger, 3, 'req_1');
 assert(replay.alreadySpent && replay.ledger.premiumBalance === 147, 'a repeated spend id does not charge twice');
 
 const flagship = SKILL_POINT_PACKS.find(pack => pack.flagship);
-assert(flagship?.inr === CHARACTER_PACK_INR && flagship.storeProductId === 'com.zeeshapps.actorempire.character.creation', 'the character package is the ₹1500 product');
+assert(flagship?.inr === CHARACTER_PACK_INR && flagship.storeProductId === 'com.sahil.industryglobe.character.creation', 'the character package is the ₹1500 product');
 assert(smallerPacksAreCheaper(), 'smaller packs cost less than the character package');
 assert(displayPackPrice(flagship!, undefined, true) === '₹1,500', 'India shows ₹1,500');
 assert(displayPackPrice(flagship!, '€19.99', false) === '€19.99', 'other countries show the store price');

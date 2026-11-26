@@ -34,6 +34,7 @@ import { PROPERTY_CATALOG, CAR_CATALOG, CLOTHING_CATALOG } from './services/life
 import { showAd, initAds } from './services/adLogic';
 import { ensureTrackingPermission } from './services/trackingService';
 import { saveGameData, loadGameData, deleteGameData } from './services/storage';
+import { legacySlotSaveKey, LEGACY_SINGLE_SAVE_KEY, LEGACY_WHATS_NEW_KEY, SINGLE_SAVE_KEY, slotMetaKey, slotSaveKey, WHATS_NEW_KEY } from './services/saveKeys';
 import { createBloodlineSnapshot, getAbsoluteWeek, getLegacyInheritancePreview, getRelationshipAge, inferStreamingStartWeekAbsolute, inheritActorSkills, LEGACY_MIN_PLAYABLE_AGE } from './services/legacyLogic';
 import { applyPremiumPurchase, getRequiredPremiumProductForAsset, hasNoAds, PremiumProductId, restoreWeeklyEnergy, spendPlayerEnergy, syncEnergyDisplay, syncWeeklyEnergyForCommitments } from './services/premiumLogic';
 import { purchasePremiumProduct, restorePremiumPurchases } from './services/iapService';
@@ -91,7 +92,7 @@ type PendingBabyNaming = {
 };
 
 const PREGNANCY_TERM_WEEKS = 39;
-const WHATS_NEW_STORAGE_KEY = 'actorEmpireSeenWhatsNewVersion';
+const WHATS_NEW_STORAGE_KEY = WHATS_NEW_KEY;
 const AUTOSAVE_DEBOUNCE_MS = 750;
 const RECENT_TIMELINE_WEEKS = 104;
 const RECENT_TIMELINE_MAX_ITEMS = 180;
@@ -497,13 +498,12 @@ export const App: React.FC = () => {
       try {
           const serialized = JSON.stringify(playerToSave);
           if (serialized.length <= FULL_LOCAL_MIRROR_BUDGET_BYTES) {
-              localStorage.setItem(`actorEmpireSave_${slot}`, serialized);
+              localStorage.setItem(slotSaveKey(slot), serialized);
               if (slot === 1) {
-                  // Keep a shadow copy for migration compatibility with older builds.
-                  localStorage.setItem('actorEmpireSave', serialized);
+                  localStorage.setItem(SINGLE_SAVE_KEY, serialized);
               }
           } else {
-              localStorage.setItem(`actorEmpireSave_${slot}_meta`, JSON.stringify({
+              localStorage.setItem(slotMetaKey(slot), JSON.stringify({
                   version: APP_DISPLAY_VERSION,
                   slot,
                   playerName: playerToSave.name,
@@ -513,8 +513,12 @@ export const App: React.FC = () => {
                   storage: 'indexeddb',
                   note: 'Full save stored in IndexedDB. Local mirror skipped to avoid mobile quota pressure.',
               }));
-              localStorage.removeItem(`actorEmpireSave_${slot}`);
-              if (slot === 1) localStorage.removeItem('actorEmpireSave');
+              localStorage.removeItem(slotSaveKey(slot));
+              localStorage.removeItem(legacySlotSaveKey(slot));
+              if (slot === 1) {
+                  localStorage.removeItem(SINGLE_SAVE_KEY);
+                  localStorage.removeItem(LEGACY_SINGLE_SAVE_KEY);
+              }
           }
       } catch (error) {
           console.error("Local save mirror failed", error);
@@ -542,7 +546,7 @@ export const App: React.FC = () => {
   };
   const persistSlotSave = (slot: number, nextPlayer: Player) => {
       const playerToSave = preparePlayerForPersistence(nextPlayer);
-      saveGameData(`actorEmpireSave_${slot}`, playerToSave);
+      saveGameData(slotSaveKey(slot), playerToSave);
 
       const writeLocalMirror = () => {
           writeLocalStorageMirror(slot, playerToSave);
@@ -627,7 +631,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (isInitializing || gameStatus !== 'PLAYING') return;
     try {
-      const seenVersion = localStorage.getItem(WHATS_NEW_STORAGE_KEY);
+      const seenVersion = localStorage.getItem(WHATS_NEW_STORAGE_KEY) || localStorage.getItem(LEGACY_WHATS_NEW_KEY);
       if (seenVersion !== APP_DISPLAY_VERSION) {
         setShowWhatsNewModal(true);
       }
@@ -745,7 +749,7 @@ export const App: React.FC = () => {
             
             // 1. Check IndexedDB for all 3 slots
             for (let i = 1; i <= 3; i++) {
-                const savedData = await loadGameData(`actorEmpireSave_${i}`);
+                const savedData = await loadGameData(slotSaveKey(i)) || await loadGameData(legacySlotSaveKey(i));
                 if (savedData) {
                     slots[i] = savedData;
                 }
@@ -755,14 +759,14 @@ export const App: React.FC = () => {
             // old single-key IndexedDB, old per-slot localStorage, then old single-key localStorage.
             const hasAnySave = Object.values(slots).some(s => s !== null);
             if (!hasAnySave) {
-                const legacyIndexedDbSave = await loadGameData('actorEmpireSave');
+                const legacyIndexedDbSave = await loadGameData(SINGLE_SAVE_KEY) || await loadGameData(LEGACY_SINGLE_SAVE_KEY);
                 if (legacyIndexedDbSave) {
                     console.log("Migrating legacy IndexedDB save to Slot 1...");
                     persistSlotSave(1, legacyIndexedDbSave);
                     slots[1] = legacyIndexedDbSave;
                 } else {
                     for (let i = 1; i <= 3; i++) {
-                        const legacySlotSave = localStorage.getItem(`actorEmpireSave_${i}`);
+                        const legacySlotSave = localStorage.getItem(slotSaveKey(i)) || localStorage.getItem(legacySlotSaveKey(i));
                         if (!legacySlotSave) continue;
                         try {
                             const savedData = JSON.parse(legacySlotSave);
@@ -777,7 +781,7 @@ export const App: React.FC = () => {
 
                     const hasRecoveredSlot = Object.values(slots).some(s => s !== null);
                     if (!hasRecoveredSlot) {
-                        const legacySave = localStorage.getItem('actorEmpireSave');
+                        const legacySave = localStorage.getItem(SINGLE_SAVE_KEY) || localStorage.getItem(LEGACY_SINGLE_SAVE_KEY);
                         if (legacySave) {
                             try {
                                 const savedData = JSON.parse(legacySave);
@@ -849,9 +853,14 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteSlot = async (slot: number) => {
-    await deleteGameData(`actorEmpireSave_${slot}`);
-    localStorage.removeItem(`actorEmpireSave_${slot}`);
-    if (slot === 1) localStorage.removeItem('actorEmpireSave');
+    await deleteGameData(slotSaveKey(slot));
+    await deleteGameData(legacySlotSaveKey(slot));
+    localStorage.removeItem(slotSaveKey(slot));
+    localStorage.removeItem(legacySlotSaveKey(slot));
+    if (slot === 1) {
+        localStorage.removeItem(SINGLE_SAVE_KEY);
+        localStorage.removeItem(LEGACY_SINGLE_SAVE_KEY);
+    }
     setSaveSlots(prev => ({ ...prev, [slot]: null }));
   };
 
@@ -1974,7 +1983,7 @@ export const App: React.FC = () => {
   
   const handleRestartCareer = async () => {
     if (currentSlot) {
-        await deleteGameData(`actorEmpireSave_${currentSlot}`);
+        await deleteGameData(slotSaveKey(currentSlot));
         setSaveSlots(prev => ({ ...prev, [currentSlot]: null }));
         applyNpcEconomy(null);
         setPlayer(INITIAL_PLAYER);
@@ -2124,7 +2133,7 @@ export const App: React.FC = () => {
       const onOpen = () => openLifestyleRef.current('PRODUCTION_GAME');
       window.addEventListener('ae-open-production', onOpen);
       const startCommissions = () => {
-          try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
+          try { localStorage.setItem(WHATS_NEW_STORAGE_KEY, APP_DISPLAY_VERSION); } catch { /* private mode */ }
           setShowWhatsNewModal(false);
           setPlayer(current => seedCommissionPlaytest(current));
           setGameStatus('PLAYING');
@@ -2137,7 +2146,7 @@ export const App: React.FC = () => {
           if (params.get('commissions') === '1') startCommissions();
           const empire = params.get('empire');
           if (empire) {
-              try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
+              try { localStorage.setItem(WHATS_NEW_STORAGE_KEY, APP_DISPLAY_VERSION); } catch { /* private mode */ }
               setShowWhatsNewModal(false);
               const steps: Record<string, number> = { intro: 0, name: 0, markets: 1, clearance: 2, ident: 3, store: 4, shelf: 5, price: 6, blueprint: 7 };
               setCurrentSlot(1);

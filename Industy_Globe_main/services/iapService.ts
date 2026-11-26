@@ -2,20 +2,20 @@ import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PremiumProductId } from './premiumLogic';
 
 export const IOS_PRODUCT_IDS: Record<PremiumProductId, string> = {
-    no_ads: 'com.zeeshapps.actorempire.noads',
-    energy_100: 'com.zeeshapps.actorempire.energy100',
-    energy_250: 'com.zeeshapps.actorempire.energy250',
-    energy_500: 'com.zeeshapps.actorempire.energy500',
-    energy_1000: 'com.zeeshapps.actorempire.energy1000',
-    cash_25000: 'com.zeeshapps.actorempire.cash25000',
-    cash_75000: 'com.zeeshapps.actorempire.cash75000',
-    cash_200000: 'com.zeeshapps.actorempire.cash200000',
-    cash_500000: 'com.zeeshapps.actorempire.cash500000',
-    cash_1250000: 'com.zeeshapps.actorempire.cash1250000',
-    bundle_luxury_homes: 'com.zeeshapps.actorempire.homesbundle',
-    bundle_elite_vehicles: 'com.zeeshapps.actorempire.vehiclesbundle',
-    bundle_sky_sea: 'com.zeeshapps.actorempire.skyseabundle',
-    bundle_ultimate_lifestyle: 'com.zeeshapps.actorempire.ultimatelifestyle',
+    no_ads: 'com.sahil.industryglobe.noads',
+    energy_100: 'com.sahil.industryglobe.energy100',
+    energy_250: 'com.sahil.industryglobe.energy250',
+    energy_500: 'com.sahil.industryglobe.energy500',
+    energy_1000: 'com.sahil.industryglobe.energy1000',
+    cash_25000: 'com.sahil.industryglobe.cash25000',
+    cash_75000: 'com.sahil.industryglobe.cash75000',
+    cash_200000: 'com.sahil.industryglobe.cash200000',
+    cash_500000: 'com.sahil.industryglobe.cash500000',
+    cash_1250000: 'com.sahil.industryglobe.cash1250000',
+    bundle_luxury_homes: 'com.sahil.industryglobe.homesbundle',
+    bundle_elite_vehicles: 'com.sahil.industryglobe.vehiclesbundle',
+    bundle_sky_sea: 'com.sahil.industryglobe.skyseabundle',
+    bundle_ultimate_lifestyle: 'com.sahil.industryglobe.ultimatelifestyle',
 };
 
 interface PurchaseResult {

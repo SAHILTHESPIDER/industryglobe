@@ -36,7 +36,8 @@ const ISSUE_CATEGORIES = [
   { id: 'OTHER', label: 'Other', hint: 'Anything else that feels broken.' },
 ];
 
-const SUPPORT_DEVICE_ID_KEY = 'actorEmpire.supportDeviceId.v1';
+const SUPPORT_DEVICE_ID_KEY = 'industryGlobe.supportDeviceId.v1';
+const LEGACY_SUPPORT_DEVICE_ID_KEY = 'actorEmpire.supportDeviceId.v1';
 const SUPPORT_EMAIL = 'support.empirestudioz@gmail.com';
 
 const createSupportDeviceId = () => {
@@ -48,7 +49,7 @@ const createSupportDeviceId = () => {
 
 const getSupportDeviceId = () => {
   try {
-    const storedId = localStorage.getItem(SUPPORT_DEVICE_ID_KEY);
+    const storedId = localStorage.getItem(SUPPORT_DEVICE_ID_KEY) || localStorage.getItem(LEGACY_SUPPORT_DEVICE_ID_KEY);
     if (storedId) return storedId;
     const nextId = createSupportDeviceId();
     localStorage.setItem(SUPPORT_DEVICE_ID_KEY, nextId);
@@ -810,17 +811,17 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
         {renderSubpageHeader('Links', 'Community')}
 
         <div className="space-y-3">
-          <a href="https://x.com/ActorEmpire" target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 bg-zinc-900/55 rounded-2xl hover:bg-zinc-800 transition-colors border border-white/5">
+          <a href="https://github.com/SAHILTHESPIDER" target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 bg-zinc-900/55 rounded-2xl hover:bg-zinc-800 transition-colors border border-white/5">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-black rounded-lg text-white"><Twitter size={20}/></div>
               <div>
                 <div className="font-bold text-white">{tr('settings.followX')}</div>
-                <div className="text-xs text-zinc-500">@ActorEmpire</div>
+                <div className="text-xs text-zinc-500">Sahil</div>
               </div>
             </div>
           </a>
 
-          <a href="https://t.me/actorempire" target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 bg-zinc-900/55 rounded-2xl hover:bg-zinc-800 transition-colors border border-white/5">
+          <a href="https://github.com/SAHILTHESPIDER" target="_blank" rel="noreferrer" className="flex items-center justify-between p-4 bg-zinc-900/55 rounded-2xl hover:bg-zinc-800 transition-colors border border-white/5">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-blue-500 rounded-lg text-white"><Send size={20}/></div>
               <div>
@@ -830,7 +831,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
             </div>
           </a>
 
-          <a href="https://apps.apple.com/us/app/actor-empire/id6757667257" target="_blank" rel="noreferrer" className="w-full flex items-center justify-between p-4 bg-zinc-900/55 rounded-2xl hover:bg-zinc-800 transition-colors border border-white/5">
+          <a href="https://github.com/SAHILTHESPIDER/industryglobe" target="_blank" rel="noreferrer" className="w-full flex items-center justify-between p-4 bg-zinc-900/55 rounded-2xl hover:bg-zinc-800 transition-colors border border-white/5">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-amber-500 rounded-lg text-black"><Star size={20}/></div>
               <div className="text-left">
@@ -840,7 +841,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
             </div>
           </a>
 
-          <a href="https://buymeacoffee.com/actorempire" target="_blank" rel="noreferrer" className="w-full flex items-center justify-between p-4 bg-[#FFDD00] rounded-2xl hover:opacity-90 transition-all border border-black/10">
+          <a href="https://github.com/SAHILTHESPIDER" target="_blank" rel="noreferrer" className="w-full flex items-center justify-between p-4 bg-[#FFDD00] rounded-2xl hover:opacity-90 transition-all border border-black/10">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-black rounded-lg text-[#FFDD00]"><Coffee size={20}/></div>
               <div className="text-left">

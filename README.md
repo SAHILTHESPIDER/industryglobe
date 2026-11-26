@@ -153,11 +153,11 @@ Premium points are credited only after a Cloud Function confirms the store trans
 
 | Pack | Product ID | Points | India price | Web fallback |
 |---|---|---|---|---|
-| Character Creation | `com.zeeshapps.actorempire.character.creation` | 150, and the character package | **₹1,500** | $17.99 |
-| Spark Pack | `com.zeeshapps.actorempire.skillpoints.5` | 5 | ₹99 | $0.99 |
-| Scene Pack | `com.zeeshapps.actorempire.skillpoints.15` | 15 | ₹299 | $2.99 |
-| Reel Pack | `com.zeeshapps.actorempire.skillpoints.40` | 40 | ₹699 | $6.99 |
-| Legacy Pack | `com.zeeshapps.actorempire.skillpoints.100` | 100 | ₹1,299 | $14.99 |
+| Character Creation | `com.sahil.industryglobe.character.creation` | 150, and the character package | **₹1,500** | $17.99 |
+| Spark Pack | `com.sahil.industryglobe.skillpoints.5` | 5 | ₹99 | $0.99 |
+| Scene Pack | `com.sahil.industryglobe.skillpoints.15` | 15 | ₹299 | $2.99 |
+| Reel Pack | `com.sahil.industryglobe.skillpoints.40` | 40 | ₹699 | $6.99 |
+| Legacy Pack | `com.sahil.industryglobe.skillpoints.100` | 100 | ₹1,299 | $14.99 |
 
 The smaller packs are priced under the ₹1,500 Character Creation package. On a phone in India the character package displays **₹1,500**. Everywhere else the store's localized price is shown. On web, before a store price exists, the fallback is about **$17.99**. The prices charged are the ones you set in Play Console and App Store Connect. The table is the list to create there.
 
@@ -180,6 +180,18 @@ Do not put secret keys in the repo.
    - `SKILL_POINT_DEV_GRANTS=true` — only on a test project. Production must leave this unset.
 5. The functions are `creditSkillPointPack`, `spendPremiumSkillPoints`, `readSkillPointWallet`, and `restoreSkillPointPurchases` in `us-central1`. Override the region with `VITE_SKILL_POINT_FUNCTION_REGION` if you deploy elsewhere.
 6. On web, or on a build with no store, the Store still shows the packs and says purchases are available in the mobile app. The dev button appears only when `VITE_SKILL_POINT_IAP_DEV=true`, and it still waits for the function to accept the grant.
+
+6. On web, or on a build with no store, the Store still shows the packs and says purchases are available in the mobile app. The dev button appears only when `VITE_SKILL_POINT_IAP_DEV=true`, and it still waits for the function to accept the grant.
+
+### Firebase config the owner must replace
+
+The native app id is now `com.sahil.industryglobe`, published as **Industry Globe** by **Sahil**. The files `Industy_Globe_main/android/app/google-services.json` and `Industy_Globe_main/ios/App/App/GoogleService-Info.plist` still carry the previous Firebase mobile app registration. Their `mobilesdk_app_id` / `GOOGLE_APP_ID` and the project id `actor-empire-1ff1d` were not rewritten, because a new config cannot be invented in git.
+
+1. In the Firebase console, open the project you want Industry Globe to use.
+2. Add an Android app with package name `com.sahil.industryglobe`. Download the new `google-services.json` and replace `Industy_Globe_main/android/app/google-services.json`.
+3. Add an iOS app with bundle id `com.sahil.industryglobe`. Download `GoogleService-Info.plist` and replace `Industy_Globe_main/ios/App/App/GoogleService-Info.plist`.
+4. If that Firebase project is new, copy its `projectId`, `authDomain`, and `storageBucket` into `Industy_Globe_main/services/firebaseService.ts`. Until you do, the web client still uses project `actor-empire-1ff1d`.
+5. In Play Console and App Store Connect, create the app with the same id. Recreate every in-app product. Skill points use `com.sahil.industryglobe.character.creation` and `com.sahil.industryglobe.skillpoints.5`, `.15`, `.40`, and `.100`. The older cash, energy, and collection products now use the same `com.sahil.industryglobe.` prefix.
 
 Check the crediting rules locally with:
 

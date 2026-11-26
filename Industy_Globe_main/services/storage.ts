@@ -1,7 +1,8 @@
 
 import { addBreadcrumb, markTraceAction, recordNonFatal, startPerformanceTrace, stopPerformanceTrace } from './firebaseService';
 
-const DB_NAME = 'ActorEmpireDB';
+const DB_NAME = 'IndustryGlobeDB';
+const LEGACY_DB_NAME = 'ActorEmpireDB';
 const STORE_NAME = 'saves';
 const DB_VERSION = 1;
 
@@ -15,6 +16,50 @@ const getSaveStats = (data: any) => ({
   releases: data?.activeReleases?.length || 0,
 });
 
+const openNamed = (name: string): Promise<IDBDatabase | null> => {
+  return new Promise((resolve) => {
+    const request = indexedDB.open(name, DB_VERSION);
+    request.onerror = () => resolve(null);
+    request.onsuccess = () => resolve(request.result);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+    };
+  });
+};
+
+let legacyCopyStarted = false;
+const copyLegacySaves = async (current: IDBDatabase) => {
+  if (legacyCopyStarted || typeof indexedDB.databases !== 'function') return;
+  legacyCopyStarted = true;
+  const known = await indexedDB.databases();
+  if (!known.some(entry => entry.name === LEGACY_DB_NAME)) return;
+  const legacy = await openNamed(LEGACY_DB_NAME);
+  if (!legacy || !legacy.objectStoreNames.contains(STORE_NAME)) return;
+  const rows = await new Promise<{ key: IDBValidKey; value: unknown }[]>((resolve) => {
+    const transaction = legacy.transaction(STORE_NAME, 'readonly');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.getAll();
+    const keys = store.getAllKeys();
+    request.onerror = () => resolve([]);
+    keys.onerror = () => resolve([]);
+    transaction.oncomplete = () => {
+      const values = request.result || [];
+      resolve((keys.result || []).map((key, index) => ({ key, value: values[index] })));
+    };
+  });
+  if (!rows.length) return;
+  await new Promise<void>((resolve) => {
+    const transaction = current.transaction(STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    rows.forEach(row => {
+      if (row.value !== undefined) store.put(row.value, row.key);
+    });
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => resolve();
+  });
+};
+
 // Open (or create) the database
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
@@ -25,7 +70,10 @@ const openDB = (): Promise<IDBDatabase> => {
         reject(request.error);
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      copyLegacySaves(db).finally(() => resolve(db));
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
