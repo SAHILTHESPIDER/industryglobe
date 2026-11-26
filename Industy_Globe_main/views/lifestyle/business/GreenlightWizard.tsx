@@ -3,7 +3,8 @@ import { motion } from 'motion/react';
 import { Player, BudgetTier, Genre, ProjectDetails, ActiveRelease, Commitment, Business, LocationDetails, NewsItem, XPost, StudioEquipment, CrewMember, Universe, UniverseId } from '../../../types';
 import { ArrowLeft, Film, DollarSign, Users, TrendingUp, Calendar, Check, Plus, Star, Award, Zap, Briefcase, LayoutGrid, MapPin, PenTool, Globe, Camera, Clapperboard, ChevronRight, Lock, Building2, BarChart3, ShieldAlert, Crown, LogOut, AlertTriangle, Sparkles, BookOpen, Video, X, Clock, Palette, Lightbulb, Mic, Box, Info, CheckCircle, XCircle, Layers, Loader2 } from 'lucide-react';
 import { NPC_DATABASE, getAvailableTalent, calculateProjectFameMultiplier } from '../../../services/npcLogic';
-import { findHireable } from '../../../services/talentHire';
+import { findHireable, quoteBooking } from '../../../services/talentHire';
+import { isCustomTalent, saveTalentPool } from '../../../services/playerTalent';
 import { calculateCastDepthScore, getDirectorTalent } from '../../../services/roleLogic';
 import { buildUniverseRoster, getFallbackCharacterName, getUniverseCharacterKeyAliases, getUniverseDashboardProjects, normalizeUniverseCharacterKey, normalizeUniverseForSave, normalizeUniverseMap } from '../../../services/universeLogic';
 import { getEquipmentStageName } from './FacilitiesView';
@@ -290,6 +291,11 @@ const CrewSelector: React.FC<{
                                     <div className="text-left">
                                         <div className={`text-sm font-black uppercase tracking-tight flex items-center gap-2 ${isSelected ? 'text-white' : 'group-hover:text-white transition-colors'}`}>
                                             {c.name}
+                                            {(c.custom || isCustomTalent(c)) && (
+                                                <span className="text-[8px] px-1.5 py-0.5 bg-amber-500/20 text-amber-200 rounded-full border border-amber-500/30">
+                                                    Custom
+                                                </span>
+                                            )}
                                             {isReturning && (
                                                 <span className="text-[8px] px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30">
                                                     Returning
@@ -1326,6 +1332,9 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
     const availableActors = useMemo(() => {
         const seedWeek = Math.floor(player.currentWeek / 3);
         const talent = getAvailableTalent(player.currentWeek, 'ACTOR', player.flags.extraNPCs || [], player.world?.npcEconomy ?? null);
+        saveTalentPool(player).forEach(actor => {
+            if (!talent.some(entry => entry.id === actor.id)) talent.unshift(actor);
+        });
 
         // Ensure all selected actors are in the list
         const selectedActorIds = castList.map(c => c.actorId).filter(id => id && id !== 'PLAYER_SELF');
@@ -1346,6 +1355,10 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
         });
 
         return talent.map(t => {
+            if (t.custom || t.id === 'PLAYER_CAST') {
+                const quote = quoteBooking(t, 'PROJECT', 1);
+                return { ...t, salary: quote.totalAmount };
+            }
             const seed = t.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
             const rand = (seed % 100) / 100;
 
@@ -1365,7 +1378,7 @@ export const GreenlightWizard: React.FC<GreenlightWizardProps> = ({ player, stud
 
             return { ...t, salary, stats: { ...t.stats, fame: currentFame, talent: currentTalent } };
         });
-    }, [Math.floor(player.currentWeek / 3), castList, player.studio?.talentRoster, player.flags.extraNPCs, player.world?.npcEconomy]);
+    }, [Math.floor(player.currentWeek / 3), castList, player.studio?.talentRoster, player.flags.extraNPCs, player.world?.npcEconomy, player.customTalent, player.character, player.name, player.avatar, player.stats.fame, player.stats.skills, player.stats.genreXP]);
 
     const contractedActors = useMemo(() => {
         return Array.from(contractedTalentIds)

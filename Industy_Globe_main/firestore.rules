@@ -13,5 +13,43 @@ service cloud.firestore {
 
       allow read, update, delete: if false;
     }
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function walletFields() {
+      return [
+        'premium',
+        'premiumBalance',
+        'premiumSkillPoints',
+        'lifetimePremium',
+        'lifetimeCredited',
+        'lifetimeSpent',
+        'characterUnlock',
+        'skillPoints',
+        'receipts',
+        'spends'
+      ];
+    }
+
+    match /players/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && !request.resource.data.keys().hasAny(walletFields());
+      allow update: if isOwner(uid)
+        && !request.resource.data.keys().hasAny(walletFields())
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(walletFields());
+      allow delete: if false;
+
+      match /wallet/{docId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+
+      match /receipts/{receiptId} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+    }
   }
 }

@@ -351,6 +351,60 @@ const refreshAnonymousAuthViaRest = async (storedAuth: StoredAnonymousAuth): Pro
   return refreshedAuth;
 };
 
+/** Anonymous auth on web and native, used only for the skill-point wallet and character profile. */
+export const ensureFirebaseUser = async (): Promise<StoredAnonymousAuth | null> => {
+  try {
+    if (Capacitor.isNativePlatform() && !firebaseAuthBootstrapped) {
+      await bootstrapFirebaseAuth();
+    }
+    let stored = readStoredAnonymousAuth();
+    if (!stored?.localId) {
+      stored = await createAnonymousAuthViaRest();
+      writeStoredAnonymousAuth(stored);
+    } else {
+      const shouldRefresh = !stored.idToken
+        || !stored.expiresAt
+        || stored.expiresAt - Date.now() < FIREBASE_AUTH_REFRESH_SAFETY_MS;
+      if (shouldRefresh) stored = await refreshAnonymousAuthViaRest(stored);
+    }
+    if (!stored?.idToken || !stored.localId) return null;
+    firebaseAuthUserId = stored.localId;
+    setFirebaseAuthStatus({ state: 'ready', userId: stored.localId, error: undefined });
+    return stored;
+  } catch (error) {
+    console.warn('[Firebase] wallet auth skipped', error);
+    return null;
+  }
+};
+
+const FORBIDDEN_PROFILE_KEYS = ['premium', 'premiumBalance', 'premiumSkillPoints', 'lifetimePremium', 'characterUnlock', 'skillPoints'];
+
+/** Writes the public character sheet. Wallet fields are stripped before the request. */
+export const savePlayerCharacterProfile = async (profile: Record<string, unknown>): Promise<boolean> => {
+  const auth = await ensureFirebaseUser();
+  if (!auth?.idToken) return false;
+  const safe = Object.fromEntries(
+    Object.entries(profile).filter(([key]) => !FORBIDDEN_PROFILE_KEYS.includes(key))
+  );
+  const fields = toFirestoreFields(safe);
+  const mask = Object.keys(fields).map(key => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join('&');
+  const endpoint = `https://firestore.googleapis.com/v1/projects/${FIREBASE_WEB_CONFIG.projectId}/databases/(default)/documents/players/${encodeURIComponent(auth.localId)}?${mask}`;
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${auth.idToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.warn('[Firebase] character profile skipped', error);
+    return false;
+  }
+};
+
 const getFreshAnonymousAuth = async (): Promise<StoredAnonymousAuth | null> => {
   if (!Capacitor.isNativePlatform()) return null;
   if (!firebaseAuthBootstrapped) {

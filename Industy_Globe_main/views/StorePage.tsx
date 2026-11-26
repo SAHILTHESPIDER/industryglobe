@@ -2,10 +2,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Player, ActorSkills, Genre, Stats } from '../types';
 import { formatMoney } from '../services/formatUtils';
-import { ArrowLeft, Zap, DollarSign, Heart, Brain, Clapperboard, PlayCircle, ShieldAlert, Crown, Gem, Home, CarFront, Plane, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Zap, DollarSign, Heart, Brain, Clapperboard, PlayCircle, ShieldAlert, Crown, Gem, Home, CarFront, Plane, CheckCircle2, Sparkles } from 'lucide-react';
 import { hasPremiumProduct, PREMIUM_PRODUCTS, PremiumProductId } from '../services/premiumLogic';
 import { getPremiumCatalogProducts } from '../services/iapService';
 import { ALL_GENRES, formatGenreLabel } from '../services/genreCatalog';
+import { displayPackPrice, SKILL_POINT_PACKS, SkillPointProductId } from '../services/skillPointLedger';
+import { devSkillPurchasesEnabled, isIndiaLocale, loadSkillStorePrices, readPremiumWallet } from '../services/skillPointClient';
+import { ensureSkillState } from '../services/playerTalent';
 
 const PREMIUM_STORE_ENABLED = true;
 
@@ -15,13 +18,21 @@ interface StorePageProps {
     onWatchAd: (type: 'REWARDED_CASH' | 'REWARDED_ENERGY' | 'REWARDED_STATS' | 'REWARDED_SKILL' | 'REWARDED_GENRE', data?: any) => void;
     onPremiumPurchase: (productId: PremiumProductId) => void;
     onRestorePurchases: () => void;
+    onSkillPointPurchase: (productId: SkillPointProductId) => void;
+    onRestoreSkillPoints: () => void;
+    onSyncWallet?: (premiumBalance: number, characterUnlock: boolean) => void;
 }
 
-export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd, onPremiumPurchase, onRestorePurchases }) => {
+export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd, onPremiumPurchase, onRestorePurchases, onSkillPointPurchase, onRestoreSkillPoints, onSyncWallet }) => {
     const [selectedSkill, setSelectedSkill] = useState<keyof ActorSkills>('delivery');
     const [selectedGenre, setSelectedGenre] = useState<Genre>('ACTION');
     const [activeTab, setActiveTab] = useState<'REWARDS' | 'PREMIUM'>('REWARDS');
     const [pendingProduct, setPendingProduct] = useState<PremiumProductId | null>(null);
+    const [pendingSkill, setPendingSkill] = useState<SkillPointProductId | null>(null);
+    const [skillPrices, setSkillPrices] = useState<Record<string, string>>({});
+    const inIndia = isIndiaLocale();
+    const wallet = ensureSkillState(player);
+    const showMobilePurchaseNote = typeof navigator !== 'undefined' && !/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const [catalogPrices, setCatalogPrices] = useState<Record<PremiumProductId, string>>({} as Record<PremiumProductId, string>);
     const isIOSDevice = typeof navigator !== 'undefined' && (
         /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -44,6 +55,15 @@ export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd,
             setCatalogPrices(nextPrices);
         });
     }, [showPremiumStore]);
+
+    useEffect(() => {
+        loadSkillStorePrices().then(setSkillPrices);
+        readPremiumWallet().then(wallet => {
+            if (wallet?.ok) onSyncWallet?.(wallet.premiumBalance, wallet.characterUnlock);
+        });
+        // Read the server wallet once when the store opens. The callback updates state.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const premiumProductsById = useMemo(() => {
         const map = new Map<PremiumProductId, typeof PREMIUM_PRODUCTS[number]>();
@@ -118,6 +138,63 @@ export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd,
                 </div>
                 <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 font-black text-sm">
                     {player.energy.current} Ready
+                </div>
+            </div>
+
+            <div id="skill-points" className="glass-card p-5 rounded-2xl border border-zinc-800 space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-500/15 rounded-xl text-amber-300"><Sparkles size={18}/></div>
+                    <div>
+                        <h3 className="font-bold text-white text-lg">Skill Points</h3>
+                        <p className="text-xs text-zinc-500">Earned {wallet.earned} · Premium {wallet.premium}{wallet.characterUnlock ? ' · Character package owned' : ''}</p>
+                    </div>
+                    <button onClick={onRestoreSkillPoints} className="ml-auto px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-300">Restore</button>
+                </div>
+                {showMobilePurchaseNote && (
+                    <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
+                        Purchases are available in the Industry Globe mobile app. Prices below are the store list until the device returns a localized price.
+                    </div>
+                )}
+                {devSkillPurchasesEnabled() && (
+                    <div className="rounded-2xl border border-sky-500/30 bg-sky-500/10 px-4 py-3 text-xs text-sky-100">
+                        Dev test mode is on. A pack is credited only after the server accepts it. Nothing is added on this device first.
+                    </div>
+                )}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                    {SKILL_POINT_PACKS.map(pack => {
+                        const owned = pack.flagship && wallet.characterUnlock;
+                        const price = displayPackPrice(pack, skillPrices[pack.id], inIndia);
+                        return (
+                            <div key={pack.id} className="rounded-2xl border border-zinc-800 bg-black/20 p-4">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300">
+                                        <Sparkles size={18}/>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <div className="font-bold text-white">{pack.title}</div>
+                                            {owned && (
+                                                <div className="inline-flex items-center gap-1 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                                                    <CheckCircle2 size={12}/> Owned
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="text-xs text-zinc-400 mt-1 leading-relaxed">{pack.description}</div>
+                                    </div>
+                                    <div className="text-right shrink-0">
+                                        <div className="text-white font-black">{price}</div>
+                                        <button
+                                            onClick={() => setPendingSkill(pack.id)}
+                                            disabled={owned}
+                                            className={`mt-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${owned ? 'bg-zinc-900 text-zinc-500 cursor-not-allowed border border-zinc-800' : 'bg-white text-black hover:bg-zinc-200'}`}
+                                        >
+                                            {pack.kind === 'consumable' ? 'Add' : owned ? 'Unlocked' : 'Unlock'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -292,7 +369,7 @@ export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd,
                     onClick={() => onWatchAd('REWARDED_SKILL', selectedSkill)}
                     className="w-full py-3 bg-indigo-600/20 border border-indigo-500/50 rounded-xl text-indigo-300 font-bold text-sm hover:bg-indigo-600 hover:text-white transition-all flex items-center justify-center gap-2"
                 >
-                    <PlayCircle size={16}/> Boost {selectedSkill} (+10)
+                    <PlayCircle size={16}/> Bank 1 skill point
                 </button>
             </div>
 
@@ -319,7 +396,7 @@ export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd,
                     onClick={() => onWatchAd('REWARDED_GENRE', selectedGenre)}
                     className="w-full py-3 bg-purple-600/20 border border-purple-500/50 rounded-xl text-purple-300 font-bold text-sm hover:bg-purple-600 hover:text-white transition-all flex items-center justify-center gap-2"
                 >
-                    <PlayCircle size={16}/> Study {formatGenreLabel(selectedGenre)} (+10 XP)
+                    <PlayCircle size={16}/> Bank 1 skill point
                 </button>
             </div>
 
@@ -327,6 +404,22 @@ export const StorePage: React.FC<StorePageProps> = ({ player, onBack, onWatchAd,
                 Watch ads to support the game and get rewards.
             </div>
             </>
+            )}
+
+            {pendingSkill && (
+                <div className="fixed inset-0 z-[160] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+                    <div className="w-full max-w-sm rounded-3xl border border-zinc-800 bg-zinc-950 p-6 space-y-4 shadow-2xl">
+                        <div className="text-xl font-black text-white">Confirm Purchase</div>
+                        <div className="text-sm text-zinc-400 leading-relaxed">
+                            Buy <span className="text-white font-bold">{SKILL_POINT_PACKS.find(pack => pack.id === pendingSkill)?.title}</span> for <span className="text-white font-bold">{displayPackPrice(SKILL_POINT_PACKS.find(pack => pack.id === pendingSkill)!, skillPrices[pendingSkill], inIndia)}</span>?
+                            Skill points are added only after the store confirms the purchase.
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setPendingSkill(null)} className="flex-1 py-3 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 font-bold">Cancel</button>
+                            <button onClick={() => { onSkillPointPurchase(pendingSkill); setPendingSkill(null); }} className="flex-1 py-3 rounded-xl bg-white text-black font-bold">Continue</button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {pendingProduct && (

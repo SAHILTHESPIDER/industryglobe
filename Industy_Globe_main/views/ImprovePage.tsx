@@ -6,6 +6,7 @@ import { rewardGenreExperience, calculateGlobalTalent } from '../services/roleLo
 import { formatGenreLabel } from '../services/genreCatalog';
 import { getPlayerLanguage, t } from '../services/i18n';
 import { Dumbbell, BookOpen, Brain, Drama, Check, ChevronDown, ChevronUp, Zap, DollarSign, Activity, Smile, Heart, Lock, Sparkles, HeartPulse, X, Clapperboard, Monitor, Skull, Ghost, Sword, Rocket, Map, Shield, Mic, Camera, FlaskConical, Award, Users } from 'lucide-react';
+import { SkillPointDesk } from './SkillPointDesk';
 import './improveDesk.css';
 
 interface ImprovePageProps {
@@ -14,9 +15,11 @@ interface ImprovePageProps {
   onEnroll: (commitment: Commitment) => void;
   onCancel: (id: string) => void;
   onPerformAction?: (category: string, activityName: string, option: ImprovementOption) => void;
+  onSpendEarned?: (target: import('../services/skillPointLedger').SkillTarget) => void;
+  onSpendPremium?: (target: import('../services/skillPointLedger').SkillTarget) => void;
 }
 
-export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCancel, onTrain, onPerformAction }) => {
+export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCancel, onTrain, onPerformAction, onSpendEarned, onSpendPremium }) => {
   const [isTalentExpanded, setIsTalentExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'WELLBEING' | 'WORKSHOPS' | 'GENRE'>('WELLBEING');
   const [workshopFilter, setWorkshopFilter] = useState<'ALL' | 'ACTING' | 'WRITING' | 'DIRECTING'>('ALL');
@@ -109,6 +112,11 @@ export const ImprovePage: React.FC<ImprovePageProps> = ({ player, onEnroll, onCa
   return (
     <div className="ig-improve pb-8 pt-2">
       <h2 className="ig-title">{tr('improve.title')}</h2>
+      {onSpendEarned && onSpendPremium && (
+        <div className="mb-4">
+          <SkillPointDesk player={player} onSpendEarned={onSpendEarned} onSpendPremium={onSpendPremium} />
+        </div>
+      )}
 
       <div className="ig-tabs">
           <button type="button" onClick={() => setActiveTab('WELLBEING')} className={`ig-tab ${activeTab === 'WELLBEING' ? 'is-on' : ''}`}>{tr('improve.wellbeing')}</button>

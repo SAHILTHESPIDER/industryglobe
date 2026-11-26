@@ -2,22 +2,28 @@
 import React, { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, Twitter, Send, Star, Globe, LogOut, Coffee, Bug, Puzzle, Lock, CheckCircle2, Users, ChevronRight, Sparkles, SlidersHorizontal, ShieldCheck, Gauge, Database, Copy, Smartphone, MessageCircle, LifeBuoy, Bell } from 'lucide-react';
-import { GameLanguage, Player } from '../types';
+import { CartoonFace, GameLanguage, Player } from '../types';
 import { APP_DISPLAY_VERSION } from '../services/appVersion';
 import { WhatsNewNotes } from '../components/WhatsNewNotes';
 import { createGlobalActorPackNPCs, GLOBAL_ACTOR_PACKS } from '../services/npcLogic';
 import { getGlobalCreatorCountForPack } from '../services/youtubeLogic';
 import { getPlayerLanguage, SUPPORTED_LANGUAGES, t } from '../services/i18n';
 import { addBreadcrumb, enableManualPushNotifications, getFirebaseAuthStatus, getFirebasePushStatus, markTraceAction, onFirebaseAuthStatusChanged, onFirebasePushStatusChanged, submitPlayerIssueReport, trackGameEvent } from '../services/firebaseService';
+import { CharacterStudio } from './CharacterStudio';
+import { CharacterDraft, CustomTalentDraft } from '../services/playerTalent';
 
 interface SettingsPageProps {
   player: Player;
   onUpdatePlayer: (updater: (player: Player) => Player) => void;
   onBack: () => void;
   onMainMenu: () => void;
+  onOpenStore?: () => void;
+  onCreateCharacter?: (draft: CharacterDraft) => void;
+  onEditLook?: (face: CartoonFace) => void;
+  onAddTalent?: (draft: CustomTalentDraft) => void;
 }
 
-type SettingsMode = 'SETTINGS' | 'PERFORMANCE' | 'GAMEPLAY' | 'SUPPORT' | 'COMMUNITY' | 'MODS' | 'EXTERNAL_ACTORS' | 'WHATS_NEW';
+type SettingsMode = 'SETTINGS' | 'PERFORMANCE' | 'GAMEPLAY' | 'SUPPORT' | 'COMMUNITY' | 'MODS' | 'EXTERNAL_ACTORS' | 'WHATS_NEW' | 'CHARACTER';
 type SettingsIcon = React.ComponentType<{ size?: number; className?: string }>;
 
 const ISSUE_CATEGORIES = [
@@ -52,8 +58,9 @@ const getSupportDeviceId = () => {
   }
 };
 
-export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlayer, onBack, onMainMenu }) => {
+export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlayer, onBack, onMainMenu, onOpenStore, onCreateCharacter, onEditLook, onAddTalent }) => {
   const [mode, setMode] = useState<SettingsMode>('SETTINGS');
+  const [studioMode, setStudioMode] = useState<'look' | 'existing' | 'talent'>('existing');
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [reportCategory, setReportCategory] = useState(ISSUE_CATEGORIES[0].id);
   const [reportDetails, setReportDetails] = useState('');
@@ -847,6 +854,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
     );
   }
 
+  if (mode === 'CHARACTER') {
+    const created = player.character?.created;
+    return (
+      <div className="space-y-4 pb-8">
+        <button onClick={() => setMode('MODS')} className="p-2 bg-zinc-900 rounded-full hover:bg-zinc-800 transition-colors">
+          <ArrowLeft size={20} className="text-white"/>
+        </button>
+        <CharacterStudio
+          mode={studioMode === 'talent' ? 'talent' : created && studioMode === 'look' ? 'look' : 'existing'}
+          player={player}
+          onCancel={() => setMode('MODS')}
+          onOpenStore={onOpenStore}
+          onComplete={(draft) => onCreateCharacter?.(draft)}
+          onAppearance={(face) => onEditLook?.(face)}
+          onTalent={(draft) => onAddTalent?.(draft)}
+        />
+      </div>
+    );
+  }
+
   if (mode === 'MODS') {
     return (
       <div className="space-y-5 pb-8 pt-2">
@@ -875,6 +902,28 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] bg-amber-500/15 px-2 py-1 rounded text-amber-300 font-bold uppercase">{enabledPackIds.length} {tr('common.active')}</span>
+                <ChevronRight size={18} className="text-zinc-500"/>
+              </div>
+            </div>
+          </button>
+
+          <button
+            onClick={() => {
+              setStudioMode(player.character?.created ? 'look' : 'existing');
+              setMode('CHARACTER');
+            }}
+            className="w-full rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5 text-left hover:bg-amber-500/15 transition-all"
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-black flex items-center justify-center shrink-0">
+                <Sparkles size={22}/>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-black text-white">{tr('settings.characterCreation')}</div>
+                <div className="text-xs text-zinc-400 mt-1">{tr('settings.characterCreationSub')}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-amber-500/15 px-2 py-1 rounded text-amber-300 font-bold uppercase">{player.character?.created ? tr('settings.ready') : tr('settings.setUp')}</span>
                 <ChevronRight size={18} className="text-zinc-500"/>
               </div>
             </div>
@@ -921,6 +970,34 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ player, onUpdatePlay
             <div className="text-[10px] text-amber-400 font-black uppercase tracking-[0.28em]">{tr('settings.mods')}</div>
             <h2 className="text-3xl font-bold text-white">{tr('settings.externalTalent')}</h2>
           </div>
+        </div>
+
+        <div className="glass-card p-5 rounded-3xl border border-amber-500/20 bg-amber-500/5 space-y-3">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-2xl bg-amber-500 text-black"><Sparkles size={18}/></div>
+            <div>
+              <div className="font-black text-white">Custom talent</div>
+              <p className="text-xs text-zinc-400 leading-relaxed mt-1">
+                Missing a real actor? Add them here. They stay on this save, show up as Custom, and use the same casting pools and offers.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => { setStudioMode('talent'); setMode('CHARACTER'); }}
+            className="w-full rounded-2xl bg-white py-3 text-xs font-black uppercase tracking-widest text-black"
+          >
+            Add a missing actor
+          </button>
+          {(player.customTalent || []).map(actor => (
+            <div key={actor.id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/30 p-3">
+              <img src={actor.avatar} alt="" className="h-10 w-10 rounded-full bg-zinc-900" />
+              <div className="min-w-0 flex-1">
+                <div className="font-bold text-white">{actor.name} <span className="ml-1 text-[10px] uppercase text-amber-300">Custom</span></div>
+                <div className="text-[11px] text-zinc-500">{actor.country} · fame {Math.round(actor.stats?.fame || 0)} · talent {Math.round(actor.stats?.talent || 0)}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="glass-card p-5 rounded-3xl border border-amber-500/20 bg-amber-500/5">

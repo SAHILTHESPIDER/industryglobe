@@ -505,7 +505,12 @@ export const generateDirectOffer = (player: Player): AuditionOpportunity | null 
     const creatorScore = calculateYoutubeCreatorScore(player);
     const publicImage = getYoutubePublicImageLabel(player);
     const creatorOpensDoors = creatorScore >= 76 && publicImage !== 'Volatile';
-    if (player.stats.fame < 50 && player.stats.reputation < 60 && !creatorOpensDoors) return null;
+    const craft = (player.stats?.skills
+        ? (['delivery', 'memorization', 'expression', 'improvisation', 'discipline', 'presence', 'charisma'] as const)
+            .reduce((sum, key) => sum + (player.stats.skills[key] || 0), 0) / 7
+        : 0);
+    const genrePeak = Math.max(0, ...Object.values(player.stats?.genreXP || {}).filter(value => typeof value === 'number'));
+    if (player.stats.fame < 50 && player.stats.reputation < 60 && !creatorOpensDoors && craft < 55 && genrePeak < 60) return null;
 
     // Cooldown Check (9 Weeks)
     const lastOffer = player.flags.lastDirectOfferWeek || 0;
@@ -544,7 +549,7 @@ export const generateDirectOffer = (player: Player): AuditionOpportunity | null 
     }
 
     // --- STANDARD DIRECT OFFER ---
-    const tier = player.stats.fame > 80 || (creatorScore >= 82 && player.stats.reputation >= 45) ? 'HIGH' : 'MID';
+    const tier = player.stats.fame > 80 || craft > 70 || (creatorScore >= 82 && player.stats.reputation >= 45) ? 'HIGH' : 'MID';
     const usedTitles = [...player.commitments.map(c => c.name)];
     
     // Direct offers usually follow the player's trend or random

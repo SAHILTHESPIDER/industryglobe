@@ -235,7 +235,8 @@ export const useGameActions = ({ player, setPlayer, setToastMessage, setActivePr
                if ((c.productionPerformance || 0) >= 100) return prev;
 
                const isOverworked = prev.commitments.filter(com => com.type === 'ACTING_GIG' && com.projectPhase === 'PRODUCTION').length > 1 || prev.commitments.some(com => com.type === 'JOB');
-               const gain = calculateProductionGain(prev, c.roleType || 'MINOR', c.productionPerformance || 0, isOverworked, c.type);
+               const genreSkill = c.projectDetails?.genre ? (prev.stats.genreXP?.[c.projectDetails.genre] || 0) : 0;
+               const gain = calculateProductionGain(prev, c.roleType || 'MINOR', c.productionPerformance || 0, isOverworked, c.type, genreSkill);
                updatedC.productionPerformance = Math.min(100, (c.productionPerformance || 0) + gain);
                msg = `Rehearsed scene. Perf: ${Math.round(updatedC.productionPerformance)}%`;
                

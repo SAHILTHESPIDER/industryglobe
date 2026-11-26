@@ -2591,6 +2591,8 @@ export enum Page {
       subscriptions?: string[];
       /** Last absolute week the rival slate was simulated. Missing on older saves. */
       rivalSimWeekAbs?: number;
+      /** Channel description written when the character is created. Missing on older saves. */
+      about?: string;
       /** Person and creator channels. Missing until the first sync. */
       creatorChannels?: CreatorYoutubeChannel[];
       /** Last absolute week creator channels were aged. */
@@ -2791,6 +2793,8 @@ export enum Page {
       feeTier?: TalentFeeTier;
       /** Stable id in the swappable roster file, when this person came from it. */
       rosterId?: string;
+      /** Created on this save. Never shipped with the game data. */
+      custom?: boolean;
   }
   
   export interface NPCState {
@@ -3799,6 +3803,34 @@ export enum Page {
       lastRollWeek?: number;
   }
   
+  /** Cartoon identity. Missing on saves made before character creation. */
+  export interface PlayerCharacter {
+      version: 1;
+      appearance: CartoonFace;
+      birthplace: string;
+      background: string;
+      trait: string;
+      created: true;
+  }
+
+  export interface SkillPointReceipt {
+      transactionId: string;
+      productId: string;
+      points: number;
+      platform: string;
+      at: string;
+  }
+
+  /** Earned points live on the save. Premium points are a cache of the server balance. */
+  export interface SkillPointState {
+      earned: number;
+      weeksTowardNext: number;
+      /** Replaced only by a server snapshot. The client does not add to this. */
+      premium: number;
+      characterUnlock: boolean;
+      receipts: SkillPointReceipt[];
+  }
+
   export interface Player {
       id: string;
       name: string;
@@ -3930,6 +3962,12 @@ export enum Page {
       commissionDesk?: CommissionDeskState;
       /** Campaigns for the streaming company and the production house. Missing on older saves. */
       marketing?: MarketingState;
+      /** Identity from character creation. Older saves omit this and keep playing. */
+      character?: PlayerCharacter;
+      /** Skill-point wallet. Older saves omit this until the next week tick. */
+      skillPoints?: SkillPointState;
+      /** Actors added on this save. They are not part of the shipped cast. */
+      customTalent?: NPCActor[];
       activePregnancy?: {
           partnerId: string;
           partnerName?: string;

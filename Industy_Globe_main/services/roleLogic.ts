@@ -11,6 +11,8 @@ import { selectStudioForProject } from './studioLogic';
 import { NPC_DATABASE, syncNpcRoster } from './npcLogic';
 import { generateFamousMovieOpportunity, generateFamousSeriesOpportunity } from './famousMovieLogic';
 import { ALL_GENRES } from './genreCatalog';
+import { actingScore, genreScore, offerPayMultiplier } from './skillPointLedger';
+import { preferredGenre } from './playerTalent';
 
 // --- CONSTANTS ---
 
@@ -159,19 +161,7 @@ export const calculateGlobalTalent = (skills: ActorSkills, writerStats?: WriterS
     return isNaN(totalTalent) ? 0 : totalTalent / count;
 };
 
-export const getActorTalent = (skills: ActorSkills): number => {
-    const actorValues = [
-        skills?.delivery || 0, 
-        skills?.memorization || 0, 
-        skills?.expression || 0, 
-        skills?.improvisation || 0, 
-        skills?.discipline || 0, 
-        skills?.presence || 0, 
-        skills?.charisma || 0
-    ].map(v => isNaN(v) ? 0 : v);
-    const talent = actorValues.reduce((sum, val) => sum + val, 0) / actorValues.length;
-    return isNaN(talent) ? 0 : talent;
-};
+export const getActorTalent = (skills: ActorSkills): number => actingScore(skills);
 
 export const getWriterTalent = (writerStats: WriterStats): number => {
     const talent = (
@@ -204,7 +194,7 @@ export const calculateAuditionGain = (player: Player, roleType: RoleType, curren
 };
 
 // NERFED: Reduced base gain for production rehearsals
-export const calculateProductionGain = (player: Player, roleType: RoleType, currentPerf: number, isOverworked: boolean, commitmentType: string = 'ACTING_GIG'): number => {
+export const calculateProductionGain = (player: Player, roleType: RoleType, currentPerf: number, isOverworked: boolean, commitmentType: string = 'ACTING_GIG', genreSkill = 0): number => {
     let skill = 0;
     
     if (commitmentType === 'DIRECTOR_GIG') {
@@ -216,8 +206,8 @@ export const calculateProductionGain = (player: Player, roleType: RoleType, curr
         skill = (player.stats.skills.expression + player.stats.skills.presence) / 2;
     }
 
-    // Reduced base from 4 to 3
-    let gain = 3 + (skill * 0.08); 
+    // Reduced base from 4 to 3. Genre craft is the same 0–100 score casting already uses.
+    let gain = 3 + (skill * 0.08) + (Math.max(0, Math.min(100, genreSkill)) * 0.04); 
     if (isOverworked) gain *= 0.5;
     const diminishing = Math.max(0.1, 1 - (currentPerf / 100));
     const minimumGain = currentPerf >= 70 ? 2 : 1;
@@ -481,7 +471,13 @@ export const generateAudition = (
 ): AuditionOpportunity => {
     const type: ProjectType = forcedType || (Math.random() > 0.4 ? 'MOVIE' : 'SERIES');
     const project = generateProjectDetails(tier, type, usedTitles, player);
-    const income = calculateProjectPay(roleType, tier, type);
+    const favourite = preferredGenre(player.stats?.genreXP);
+    if (favourite && Math.random() < 0.7) project.genre = favourite;
+    const income = Math.floor(calculateProjectPay(roleType, tier, type) * offerPayMultiplier(
+        actingScore(player.stats?.skills),
+        genreScore(player.stats?.genreXP, project.genre),
+        player.stats?.fame || 0,
+    ));
     
     let energyCost = ROLE_DEFINITIONS[roleType].energyCost;
     if (tier === 'HIGH' && roleType === 'LEAD') {
@@ -546,12 +542,14 @@ export const generateAuditions = (player: Player, usedTitles: string[]): Auditio
         if (player.stats.fame > 60 && Math.random() > 0.7) tier = 'HIGH';
         
         let role: RoleType = 'MINOR';
+        const craft = actingScore(player.stats?.skills);
         const r = Math.random();
         if (r > 0.9) role = 'SUPPORTING';
         else if (r > 0.6) role = 'CAMEO';
         else role = 'MINOR';
         
-        if (player.stats.fame > 30 && r > 0.8) role = 'LEAD';
+        if ((player.stats.fame > 30 || craft > 48) && r > 0.8) role = 'LEAD';
+        if (craft < 12 && player.stats.fame < 10 && (role === 'LEAD' || role === 'SUPPORTING')) role = 'CAMEO';
 
         opps.push(generateAudition(role, tier, usedTitles, player, 'CASTING_APP'));
     }

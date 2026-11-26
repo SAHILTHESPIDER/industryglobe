@@ -309,6 +309,7 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <h3 className="font-bold text-white truncate">{npc.name}</h3>
+                                                {npc.custom && <span className="text-[10px] px-1.5 py-0.5 bg-amber-500/15 text-amber-300 rounded-md font-black uppercase">Custom</span>}
                                                 <span className="text-[10px] px-1.5 py-0.5 bg-zinc-800 text-zinc-400 rounded-md font-black uppercase">{npc.tier}</span>
                                                 {expiring && <span className="text-[10px] px-1.5 py-0.5 bg-red-500/15 text-red-400 rounded-md font-black uppercase">Last Film</span>}
                                             </div>
@@ -400,6 +401,8 @@ export const StudioPage: React.FC<StudioPageProps> = ({ player, onUpdatePlayer, 
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <h3 className="font-bold text-white truncate">{npc.name}</h3>
+                                            {npc.custom && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase bg-amber-500/15 text-amber-300">Custom</span>}
+                                            {npc.id === 'PLAYER_CAST' && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase bg-white text-black">You</span>}
                                             <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase bg-zinc-800 text-zinc-300">{talentLabel(npc)}</span>
                                             <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase ${npc.tier === 'UNKNOWN' ? 'bg-zinc-800 text-zinc-500' : 'bg-amber-500/20 text-amber-500'}`}>{npc.tier}</span>
                                             {npc.homeIndustryId && <span className="text-[10px] px-1.5 py-0.5 rounded-md font-black uppercase bg-zinc-950 text-zinc-500">{industryById(npc.homeIndustryId).name}</span>}
