@@ -1,6 +1,6 @@
 # Global film-industry expansion plan
 
-This is an investigation and design plan. It does not change gameplay. The goal is to turn Actor Empire from a Hollywood career sim into a sim where the player's career, studios, box office, awards, talent, news, market trends, and streaming can operate across several world film industries.
+This is an investigation and design plan. It does not change gameplay. The goal is to turn Industry Globe from a Hollywood career sim into a sim where the player's career, studios, box office, awards, talent, news, market trends, and streaming can operate across several world film industries.
 
 The recommended shape is: **one career, many industries**. The player has a home industry, fame that is stronger at home and weaker abroad, and projects that can travel. Hollywood stays the default so every existing save keeps working.
 
@@ -43,7 +43,7 @@ There is no `Industry` type. "The industry" is one shared `WorldState`, one fame
 - `LocationDetails.region` (lines 509–518) is a string. It is not an industry id.
 - `INITIAL_PLAYER` (lines 1678–1771) builds a Hollywood world: MCU / DCU / Star Wars, the US studio list, and the log line `"Welcome to Hollywood. Your journey starts today."`
 
-Saves are the whole `Player` object. `services/storage.ts` writes it to IndexedDB database `ActorEmpireDB`, store `saves`, `DB_VERSION = 1`. There is no `schemaVersion` on the player. Old fields are filled in by hand:
+Saves are the whole `Player` object. `services/storage.ts` writes it to IndexedDB database `IndustryGlobeDB`, store `saves`, `DB_VERSION = 1`. Older installs may still have `ActorEmpireDB`; the game copies those saves across. There is no `schemaVersion` on the player. Old fields are filled in by hand:
 
 - `App.tsx` hydration, starting around line 825, merges `world.universes` and `world.platforms` over `INITIAL_PLAYER.world`, then forces `settings.language = 'en'` (line 862).
 - `processGameWeek` in `services/gameLoop.ts` (around lines 696–746) creates a world, `extraNPCs`, and stocks when they are missing.

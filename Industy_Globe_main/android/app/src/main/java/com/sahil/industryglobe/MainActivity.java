@@ -1,4 +1,4 @@
-package com.zeeshapps.actorempire;
+package com.sahil.industryglobe;
 
 import com.getcapacitor.BridgeActivity;
 

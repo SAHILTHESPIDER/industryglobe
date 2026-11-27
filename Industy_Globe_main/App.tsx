@@ -34,9 +34,15 @@ import { PROPERTY_CATALOG, CAR_CATALOG, CLOTHING_CATALOG } from './services/life
 import { showAd, initAds } from './services/adLogic';
 import { ensureTrackingPermission } from './services/trackingService';
 import { saveGameData, loadGameData, deleteGameData } from './services/storage';
+import { legacySlotSaveKey, LEGACY_SINGLE_SAVE_KEY, LEGACY_WHATS_NEW_KEY, SINGLE_SAVE_KEY, slotMetaKey, slotSaveKey, WHATS_NEW_KEY } from './services/saveKeys';
 import { createBloodlineSnapshot, getAbsoluteWeek, getLegacyInheritancePreview, getRelationshipAge, inferStreamingStartWeekAbsolute, inheritActorSkills, LEGACY_MIN_PLAYABLE_AGE } from './services/legacyLogic';
 import { applyPremiumPurchase, getRequiredPremiumProductForAsset, hasNoAds, PremiumProductId, restoreWeeklyEnergy, spendPlayerEnergy, syncEnergyDisplay, syncWeeklyEnergyForCommitments } from './services/premiumLogic';
 import { purchasePremiumProduct, restorePremiumPurchases } from './services/iapService';
+import { confirmSkillPointCredit, requestSkillPointPurchase, restoreSkillPointPurchases, saveCharacterProfile, spendPremiumOnServer } from './services/skillPointClient';
+import { SkillPointProductId, costForNextLevel, levelOf } from './services/skillPointLedger';
+import { applyAppearance, applyCharacterDraft, buildCustomTalent, ensureSkillState, raisePlayerSkill, raiseWithConfirmedPremium, rememberPremiumSnapshot } from './services/playerTalent';
+import { CharacterDraft, CustomTalentDraft } from './services/playerTalent';
+import { CartoonFace } from './types';
 import { sanitizeAwardRecords } from './services/awardLogic';
 import { RoleType } from './types';
 import { applyParenthoodAbandonment, getPregnancyFeedbackCopy } from './services/familyLogic';
@@ -86,7 +92,7 @@ type PendingBabyNaming = {
 };
 
 const PREGNANCY_TERM_WEEKS = 39;
-const WHATS_NEW_STORAGE_KEY = 'actorEmpireSeenWhatsNewVersion';
+const WHATS_NEW_STORAGE_KEY = WHATS_NEW_KEY;
 const AUTOSAVE_DEBOUNCE_MS = 750;
 const RECENT_TIMELINE_WEEKS = 104;
 const RECENT_TIMELINE_MAX_ITEMS = 180;
@@ -492,13 +498,12 @@ export const App: React.FC = () => {
       try {
           const serialized = JSON.stringify(playerToSave);
           if (serialized.length <= FULL_LOCAL_MIRROR_BUDGET_BYTES) {
-              localStorage.setItem(`actorEmpireSave_${slot}`, serialized);
+              localStorage.setItem(slotSaveKey(slot), serialized);
               if (slot === 1) {
-                  // Keep a shadow copy for migration compatibility with older builds.
-                  localStorage.setItem('actorEmpireSave', serialized);
+                  localStorage.setItem(SINGLE_SAVE_KEY, serialized);
               }
           } else {
-              localStorage.setItem(`actorEmpireSave_${slot}_meta`, JSON.stringify({
+              localStorage.setItem(slotMetaKey(slot), JSON.stringify({
                   version: APP_DISPLAY_VERSION,
                   slot,
                   playerName: playerToSave.name,
@@ -508,8 +513,12 @@ export const App: React.FC = () => {
                   storage: 'indexeddb',
                   note: 'Full save stored in IndexedDB. Local mirror skipped to avoid mobile quota pressure.',
               }));
-              localStorage.removeItem(`actorEmpireSave_${slot}`);
-              if (slot === 1) localStorage.removeItem('actorEmpireSave');
+              localStorage.removeItem(slotSaveKey(slot));
+              localStorage.removeItem(legacySlotSaveKey(slot));
+              if (slot === 1) {
+                  localStorage.removeItem(SINGLE_SAVE_KEY);
+                  localStorage.removeItem(LEGACY_SINGLE_SAVE_KEY);
+              }
           }
       } catch (error) {
           console.error("Local save mirror failed", error);
@@ -537,7 +546,7 @@ export const App: React.FC = () => {
   };
   const persistSlotSave = (slot: number, nextPlayer: Player) => {
       const playerToSave = preparePlayerForPersistence(nextPlayer);
-      saveGameData(`actorEmpireSave_${slot}`, playerToSave);
+      saveGameData(slotSaveKey(slot), playerToSave);
 
       const writeLocalMirror = () => {
           writeLocalStorageMirror(slot, playerToSave);
@@ -622,7 +631,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (isInitializing || gameStatus !== 'PLAYING') return;
     try {
-      const seenVersion = localStorage.getItem(WHATS_NEW_STORAGE_KEY);
+      const seenVersion = localStorage.getItem(WHATS_NEW_STORAGE_KEY) || localStorage.getItem(LEGACY_WHATS_NEW_KEY);
       if (seenVersion !== APP_DISPLAY_VERSION) {
         setShowWhatsNewModal(true);
       }
@@ -740,7 +749,7 @@ export const App: React.FC = () => {
             
             // 1. Check IndexedDB for all 3 slots
             for (let i = 1; i <= 3; i++) {
-                const savedData = await loadGameData(`actorEmpireSave_${i}`);
+                const savedData = await loadGameData(slotSaveKey(i)) || await loadGameData(legacySlotSaveKey(i));
                 if (savedData) {
                     slots[i] = savedData;
                 }
@@ -750,14 +759,14 @@ export const App: React.FC = () => {
             // old single-key IndexedDB, old per-slot localStorage, then old single-key localStorage.
             const hasAnySave = Object.values(slots).some(s => s !== null);
             if (!hasAnySave) {
-                const legacyIndexedDbSave = await loadGameData('actorEmpireSave');
+                const legacyIndexedDbSave = await loadGameData(SINGLE_SAVE_KEY) || await loadGameData(LEGACY_SINGLE_SAVE_KEY);
                 if (legacyIndexedDbSave) {
                     console.log("Migrating legacy IndexedDB save to Slot 1...");
                     persistSlotSave(1, legacyIndexedDbSave);
                     slots[1] = legacyIndexedDbSave;
                 } else {
                     for (let i = 1; i <= 3; i++) {
-                        const legacySlotSave = localStorage.getItem(`actorEmpireSave_${i}`);
+                        const legacySlotSave = localStorage.getItem(slotSaveKey(i)) || localStorage.getItem(legacySlotSaveKey(i));
                         if (!legacySlotSave) continue;
                         try {
                             const savedData = JSON.parse(legacySlotSave);
@@ -772,7 +781,7 @@ export const App: React.FC = () => {
 
                     const hasRecoveredSlot = Object.values(slots).some(s => s !== null);
                     if (!hasRecoveredSlot) {
-                        const legacySave = localStorage.getItem('actorEmpireSave');
+                        const legacySave = localStorage.getItem(SINGLE_SAVE_KEY) || localStorage.getItem(LEGACY_SINGLE_SAVE_KEY);
                         if (legacySave) {
                             try {
                                 const savedData = JSON.parse(legacySave);
@@ -844,9 +853,14 @@ export const App: React.FC = () => {
   };
 
   const handleDeleteSlot = async (slot: number) => {
-    await deleteGameData(`actorEmpireSave_${slot}`);
-    localStorage.removeItem(`actorEmpireSave_${slot}`);
-    if (slot === 1) localStorage.removeItem('actorEmpireSave');
+    await deleteGameData(slotSaveKey(slot));
+    await deleteGameData(legacySlotSaveKey(slot));
+    localStorage.removeItem(slotSaveKey(slot));
+    localStorage.removeItem(legacySlotSaveKey(slot));
+    if (slot === 1) {
+        localStorage.removeItem(SINGLE_SAVE_KEY);
+        localStorage.removeItem(LEGACY_SINGLE_SAVE_KEY);
+    }
     setSaveSlots(prev => ({ ...prev, [slot]: null }));
   };
 
@@ -1538,14 +1552,10 @@ export const App: React.FC = () => {
               p.stats.body = Math.max(90, p.stats.body);
               toastSub = "Full Wellness Restoration";
           }
-          else if (type === 'REWARDED_SKILL' && data) {
-              const skillKey = data as keyof ActorSkills;
-              p.stats.skills[skillKey] = Math.min(100, p.stats.skills[skillKey] + 10);
-              toastSub = `+10 ${skillKey}`;
-          }
-          else if (type === 'REWARDED_GENRE' && data) {
-              rewardGenreExperience(p, data, 10);
-              toastSub = `+10 XP in ${data}`;
+          else if (type === 'REWARDED_SKILL' || type === 'REWARDED_GENRE') {
+              const wallet = ensureSkillState(p);
+              p.skillPoints = { ...wallet, earned: wallet.earned + 1 };
+              toastSub = '+1 skill point';
           }
           
           setToastMessage({ title: toastTitle, subtext: toastSub });
@@ -1706,32 +1716,98 @@ export const App: React.FC = () => {
   };
 
   // --- HANDLERS ---
-  const handleStartGame = (name: string, age: number, gender: any, avatar: string, handle: string, industry: FilmIndustryId = 'HOLLYWOOD') => { 
+  const handleStartGame = (draft: CharacterDraft) => {
       const parentRelationships = INITIAL_PLAYER.relationships.map((rel, index) => ({
           ...rel,
-          age: age + (index === 0 ? 28 : 31),
+          age: draft.age + (index === 0 ? 28 : 31),
       }));
-      const newPlayer = { 
-          ...INITIAL_PLAYER, 
-          name, 
-          age, 
-          gender, 
-          avatar,
-          relationships: parentRelationships,
-          // Set specific handle for all platforms
-          instagram: { ...INITIAL_PLAYER.instagram, handle: handle },
-          x: { ...INITIAL_PLAYER.x, handle: handle, followers: 0 },
-          youtube: { ...INITIAL_PLAYER.youtube, handle: handle },
-          homeIndustryId: industry,
-          languages: [...INDUSTRY_ENGINE[industry].languages],
-          fameByIndustry: { [industry]: 0 },
-      };
+      const seeded = applyCharacterDraft({ ...INITIAL_PLAYER, relationships: parentRelationships }, draft, 'new');
       applyNpcEconomy(null);
       if (currentSlot) {
-          setSaveSlots(prev => ({ ...prev, [currentSlot]: newPlayer }));
+          setSaveSlots(prev => ({ ...prev, [currentSlot]: seeded }));
       }
-      setPlayer(newPlayer); 
-      setGameStatus('PLAYING'); 
+      setPlayer(seeded);
+      setGameStatus('PLAYING');
+      void saveCharacterProfile(seeded);
+  };
+
+  const handleCreateCharacter = (draft: CharacterDraft) => {
+      handleGenericUpdate(prev => {
+          const next = applyCharacterDraft(prev, draft, 'existing');
+          void saveCharacterProfile(next);
+          return next;
+      });
+      setToastMessage({ title: 'Character saved', subtext: 'Profiles on X, Instagram, and YouTube were created with this star.' });
+  };
+
+  const handleEditLook = (face: CartoonFace) => {
+      handleGenericUpdate(prev => {
+          const next = applyAppearance(prev, face);
+          void saveCharacterProfile(next);
+          return next;
+      });
+  };
+
+  const handleAddTalent = (draft: CustomTalentDraft) => {
+      const built = buildCustomTalent(draft);
+      if (!built.npc) {
+          setToastMessage({ title: 'Could not add actor', subtext: built.error || 'Check the sheet.' });
+          return;
+      }
+      handleGenericUpdate(prev => ({
+          ...prev,
+          customTalent: [...(prev.customTalent || []), built.npc!],
+      }));
+      setToastMessage({ title: 'Custom talent added', subtext: `${built.npc.name} is in the casting pools.` });
+  };
+
+  const handleSpendEarned = (target: Parameters<typeof raisePlayerSkill>[1]) => {
+      handleGenericUpdate(prev => {
+          const result = raisePlayerSkill(prev, target);
+          if (result.error) setToastMessage({ title: 'Not spent', subtext: result.error });
+          return result.player;
+      });
+  };
+
+  const handleSpendPremium = async (target: Parameters<typeof raisePlayerSkill>[1]) => {
+      const current = player;
+      const skills = current.stats.skills;
+      const value = target.kind === 'acting' ? (skills?.[target.key] || 0) : (current.stats.genreXP?.[target.key] || 0);
+      const cost = costForNextLevel(levelOf(value));
+      if (cost <= 0) return;
+      const requestId = `spend_${target.kind}_${target.key}_${Date.now()}`;
+      const confirmed = await spendPremiumOnServer(cost, requestId);
+      if (!confirmed.ok) {
+          setToastMessage({ title: 'Premium points stayed put', subtext: confirmed.message });
+          return;
+      }
+      handleGenericUpdate(prev => raiseWithConfirmedPremium(prev, target, confirmed.premiumBalance, confirmed.characterUnlock));
+      setToastMessage({ title: 'Level bought', subtext: confirmed.message });
+  };
+
+  const handleSkillPointPurchase = async (productId: SkillPointProductId) => {
+      const purchase = await requestSkillPointPurchase(productId);
+      if (!purchase.ok) {
+          setToastMessage({ title: purchase.cancelled ? 'Purchase cancelled' : 'Purchase not completed', subtext: purchase.message });
+          return;
+      }
+      const credit = await confirmSkillPointCredit(purchase);
+      if (!credit.ok) {
+          setToastMessage({ title: 'Not credited', subtext: credit.message });
+          return;
+      }
+      handleGenericUpdate(prev => rememberPremiumSnapshot(prev, credit.premiumBalance, credit.characterUnlock, credit.receipt));
+      setToastMessage({ title: 'Purchase confirmed', subtext: credit.message });
+  };
+
+  const handleRestoreSkillPoints = async () => {
+      const credit = await restoreSkillPointPurchases();
+      if (!credit.ok) {
+          setToastMessage({ title: 'Restore failed', subtext: credit.message });
+          return;
+      }
+      handleGenericUpdate(prev => rememberPremiumSnapshot(prev, credit.premiumBalance, credit.characterUnlock, credit.receipt));
+      setToastMessage({ title: 'Wallet updated', subtext: credit.message });
   };
 
   const handleOpenDeathSummaryPreview = () => {
@@ -1907,7 +1983,7 @@ export const App: React.FC = () => {
   
   const handleRestartCareer = async () => {
     if (currentSlot) {
-        await deleteGameData(`actorEmpireSave_${currentSlot}`);
+        await deleteGameData(slotSaveKey(currentSlot));
         setSaveSlots(prev => ({ ...prev, [currentSlot]: null }));
         applyNpcEconomy(null);
         setPlayer(INITIAL_PLAYER);
@@ -2057,7 +2133,7 @@ export const App: React.FC = () => {
       const onOpen = () => openLifestyleRef.current('PRODUCTION_GAME');
       window.addEventListener('ae-open-production', onOpen);
       const startCommissions = () => {
-          try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
+          try { localStorage.setItem(WHATS_NEW_STORAGE_KEY, APP_DISPLAY_VERSION); } catch { /* private mode */ }
           setShowWhatsNewModal(false);
           setPlayer(current => seedCommissionPlaytest(current));
           setGameStatus('PLAYING');
@@ -2070,7 +2146,7 @@ export const App: React.FC = () => {
           if (params.get('commissions') === '1') startCommissions();
           const empire = params.get('empire');
           if (empire) {
-              try { localStorage.setItem('actorEmpireSeenWhatsNewVersion', APP_DISPLAY_VERSION); } catch { /* private mode */ }
+              try { localStorage.setItem(WHATS_NEW_STORAGE_KEY, APP_DISPLAY_VERSION); } catch { /* private mode */ }
               setShowWhatsNewModal(false);
               const steps: Record<string, number> = { intro: 0, name: 0, markets: 1, clearance: 2, ident: 3, store: 4, shelf: 5, price: 6, blueprint: 7 };
               setCurrentSlot(1);
@@ -2486,13 +2562,13 @@ export const App: React.FC = () => {
                 onDeleteSlot={handleDeleteSlot}
             />
         )}
-        {gameStatus === 'CREATION' && <CreationMenu onStartGame={handleStartGame} />}
+        {gameStatus === 'CREATION' && <CreationMenu onStartGame={handleStartGame} onCancel={() => setGameStatus('START_MENU')} />}
         {gameStatus === 'PLAYING' && (
             <GameNavProvider value={{ openPage, openPhone, openLifestyle }}>
                 <div className={`ae-scroll mx-auto w-full max-w-[1280px] min-h-0 flex-1 px-4 sm:px-5 lg:px-8 pt-4 pb-nav-safe overflow-y-auto custom-scrollbar ${player.money < 0 ? 'pt-8' : ''}`}>
                     {activePage === Page.HOME && (<HomePage player={player} onNextWeek={handleNextWeek} isProcessing={isProcessing} onUpdatePlayer={handleUpdatePlayer} setPage={openPage} onOpenProductionHouseCheat={() => openLifestyle('PRODUCTION_GAME')} onQueueBabyNamingCheat={handleQueueBabyNamingCheat} onOpenDeathSummaryPreview={handleOpenDeathSummaryPreview} onShowWhatsNewCheat={handleShowWhatsNewCheat} />)}
                     {activePage === Page.CAREER && (<CareerPage player={player} onQuitJob={handleQuitJob} onRehearse={handleRehearse} />)}
-                    {activePage === Page.IMPROVE && (<ImprovePage player={player} onTrain={()=>{}} onEnroll={(c)=>handleGenericUpdate(p=>{ const previousCommitments = p.commitments; const next: Player = { ...p, money: p.money- (c.upfrontCost||0), commitments: [...p.commitments, {...c, id: `c_${Date.now()}`, weeksCompleted:0}] }; syncWeeklyEnergyForCommitments(next, previousCommitments); return next; })} onCancel={(id)=>handleGenericUpdate(p=>{ const previousCommitments = p.commitments; const next: Player = { ...p, commitments: p.commitments.filter(c=>c.id!==id)}; syncWeeklyEnergyForCommitments(next, previousCommitments); return next; })} onPerformAction={handleImproveAction} />)}
+                    {activePage === Page.IMPROVE && (<ImprovePage player={player} onTrain={()=>{}} onSpendEarned={handleSpendEarned} onSpendPremium={handleSpendPremium} onEnroll={(c)=>handleGenericUpdate(p=>{ const previousCommitments = p.commitments; const next: Player = { ...p, money: p.money- (c.upfrontCost||0), commitments: [...p.commitments, {...c, id: `c_${Date.now()}`, weeksCompleted:0}] }; syncWeeklyEnergyForCommitments(next, previousCommitments); return next; })} onCancel={(id)=>handleGenericUpdate(p=>{ const previousCommitments = p.commitments; const next: Player = { ...p, commitments: p.commitments.filter(c=>c.id!==id)}; syncWeeklyEnergyForCommitments(next, previousCommitments); return next; })} onPerformAction={handleImproveAction} />)}
                     {activePage === Page.SOCIAL && (<SocialPage player={player} onInteract={handleSocialInteract} onContinueAsChild={handleContinueAsChild} />)}
                     {activePage === Page.LIFESTYLE && (<LifestylePage player={player} onBuyItem={handleBuyLifestyleItem} onSellItem={handleSellLifestyleItem} onSetResidence={(id)=>handleGenericUpdate(p=>({ ...p, residenceId: id }))} onSetActiveStyle={(s)=>handleGenericUpdate(p=>({ ...p, activeClothingStyle: s }))} onStartBusiness={()=>{}} onShutdownBusiness={()=>{}} onUpdatePlayer={handleUpdatePlayer} onPremiumPurchase={handlePremiumPurchase} onNavVisibilityChange={setIsBottomNavVisible} initialView={lifestyleInitialView ?? undefined} onInitialViewConsumed={() => setLifestyleInitialView(null)} />)}
                     {activePage === Page.MOBILE && (
@@ -2779,6 +2855,10 @@ export const App: React.FC = () => {
                                 setGameStatus('START_MENU');
                                 setActivePage(Page.HOME);
                             }}
+                            onOpenStore={() => openPage(Page.STORE)}
+                            onCreateCharacter={handleCreateCharacter}
+                            onEditLook={handleEditLook}
+                            onAddTalent={handleAddTalent}
                         />
                     )}
                     {activePage === Page.STORE && (
@@ -2788,6 +2868,9 @@ export const App: React.FC = () => {
                             onWatchAd={handleTriggerRewardAd} 
                             onPremiumPurchase={handlePremiumPurchase}
                             onRestorePurchases={handleRestorePurchases}
+                            onSkillPointPurchase={handleSkillPointPurchase}
+                            onRestoreSkillPoints={handleRestoreSkillPoints}
+                            onSyncWallet={(premiumBalance, characterUnlock) => handleGenericUpdate(prev => rememberPremiumSnapshot(prev, premiumBalance, characterUnlock))}
                         />
                     )}
                 </div>

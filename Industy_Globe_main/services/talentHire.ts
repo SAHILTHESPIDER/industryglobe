@@ -4,6 +4,7 @@ import { followersOf } from './talentAudience';
 import { calculateNPCAsk } from './talentService';
 import { getEnabledGlobalCreatorSocialProfiles } from './youtubeLogic';
 import { canonicalKey } from './data/creatorAliases';
+import { isPlayerTalent, saveTalentPool } from './playerTalent';
 
 /** What a studio can book today. REALITY is intentionally not offered here. */
 export type BookingKind = 'PROJECT' | 'PROMOTION' | 'APPEARANCE';
@@ -42,9 +43,10 @@ const withLiveFollowers = (player: Player, npc: NPCActor): NPCActor => ({
 export const hireablePeople = (player: Player): NPCActor[] => {
     const generated = Array.isArray(player.flags?.generatedTalent) ? player.flags.generatedTalent as NPCActor[] : [];
     const creators = getEnabledGlobalCreatorSocialProfiles(player).filter(npc => npc.forbesCategory !== 'Brand');
+    const saveTalent = saveTalentPool(player);
     const seen = new Set<string>();
     const rows: NPCActor[] = [];
-    [...NPC_DATABASE, ...generated, ...creators].forEach(npc => {
+    [...saveTalent, ...NPC_DATABASE, ...generated, ...creators].forEach(npc => {
         if (!npc || npc.retired) return;
         if (npc.forbesCategory === 'Official') return;
         if (npc.occupation === 'DIRECTOR' && !creatorKind(npc)) return;
@@ -78,21 +80,23 @@ export const marketShelf = (people: NPCActor[], week: number, query: string, fil
     if (q) {
         return people
             .filter(matchKind)
-            .filter(npc => npc.name.toLowerCase().includes(q) || (npc.country || '').toLowerCase().includes(q) || (npc.homeIndustryId || '').toLowerCase().includes(q))
-            .slice(0, 36);
+            .filter(npc => npc.name.toLowerCase().includes(q) || (npc.country || '').toLowerCase().includes(q) || (npc.homeIndustryId || '').toLowerCase().includes(q) || (npc.custom ? 'custom' : '').includes(q))
+            .slice(0, 48);
     }
     const seed = Math.floor(week / 3);
+    const pinned = people.filter(npc => matchKind(npc) && (npc.custom || isPlayerTalent(npc.id)));
     const ranked = people
-        .filter(matchKind)
+        .filter(npc => matchKind(npc) && !npc.custom && !isPlayerTalent(npc.id))
         .map(npc => ({ npc, sort: hash(`${npc.id}:${seed}`) }))
         .sort((a, b) => a.sort - b.sort)
         .map(row => row.npc);
+    const room = Math.max(20, pinned.length);
     if (filter === 'ALL') {
         const actors = ranked.filter(npc => !creatorKind(npc)).slice(0, 10);
         const creators = ranked.filter(creatorKind).slice(0, 10);
-        return [...actors, ...creators];
+        return [...pinned, ...actors, ...creators].slice(0, room + 20);
     }
-    return ranked.slice(0, 20);
+    return [...pinned, ...ranked].slice(0, room);
 };
 
 export interface TalentQuote {

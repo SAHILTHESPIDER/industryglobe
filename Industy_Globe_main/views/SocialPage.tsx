@@ -309,10 +309,23 @@ export const SocialPage: React.FC<SocialPageProps> = ({ player, onInteract, onCo
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <button onClick={() => nav?.openPhone({ app: 'INSTAGRAM' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-left">
+            <img src={player.avatar} alt="" className="mb-2 h-8 w-8 rounded-full object-cover" />
+            <div className="text-xs font-bold text-white">Instagram</div>
+            <div className="truncate text-[10px] text-zinc-500">{player.instagram.handle} · {(player.instagram.followers || 0).toLocaleString()}</div>
+          </button>
+          <button onClick={() => nav?.openPhone({ app: 'X' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-left">
+            <img src={player.avatar} alt="" className="mb-2 h-8 w-8 rounded-full object-cover" />
+            <div className="text-xs font-bold text-white">X</div>
+            <div className="truncate text-[10px] text-zinc-500">{player.x.handle} · {(player.x.followers || 0).toLocaleString()}</div>
+          </button>
+          <button onClick={() => nav?.openPhone({ app: 'YOUTUBE' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-left">
+            <img src={player.avatar} alt="" className="mb-2 h-8 w-8 rounded-full object-cover" />
+            <div className="text-xs font-bold text-white">YouTube</div>
+            <div className="truncate text-[10px] text-zinc-500">{player.youtube.handle} · {(player.youtube.subscribers || 0).toLocaleString()}</div>
+          </button>
           <button onClick={() => nav?.openPhone({ app: 'DATING_FOLDER' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">Dating apps</button>
-          <button onClick={() => nav?.openPhone({ app: 'INSTAGRAM' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">Instagram</button>
-          <button onClick={() => nav?.openPhone({ app: 'X' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">X</button>
           <button onClick={() => nav?.openPhone({ app: 'MESSAGES' })} className="min-h-11 rounded-2xl border border-white/10 bg-zinc-900 px-3 py-3 text-xs font-bold text-white">Messages</button>
       </div>
 

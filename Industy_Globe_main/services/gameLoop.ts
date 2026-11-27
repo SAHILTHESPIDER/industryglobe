@@ -28,6 +28,8 @@ import {
     getBoxOfficeCaps,
     rewardGenreExperience
 } from './roleLogic';
+import { craftModifiers, genreScore, tickEarnedPoints } from './skillPointLedger';
+import { ensureSkillState } from './playerTalent';
 import { 
     determineStreamingAcquisition, 
     PLATFORMS, 
@@ -2403,19 +2405,17 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     if (nextPlayer.instagram?.posts) nextPlayer.instagram.posts = processPassiveEngagement(nextPlayer.instagram.posts) as InstaPost[];
     if (nextPlayer.x?.posts) nextPlayer.x.posts = processPassiveEngagement(nextPlayer.x.posts) as XPost[];
 
-    // Process Skills
+    // Process Skills. Workshops now bank earned skill points instead of raising the craft directly.
     let newSkills = { ...nextPlayer.stats.skills };
     let newWriterStats = nextPlayer.writerStats ? { ...nextPlayer.writerStats } : { creativity: 0, dialogue: 0, structure: 0, pacing: 0 };
     let newDirectorStats = nextPlayer.directorStats ? { ...nextPlayer.directorStats } : { vision: 0, technical: 0, leadership: 0, style: 0 };
+    let workshopProgress = 0;
     
     nextPlayer.commitments = nextPlayer.commitments.map(c => {
         if (c.type === 'COURSE') {
             if (c.skillGains) {
-                Object.entries(c.skillGains).forEach(([key, baseGain]) => {
-                    const skillKey = key as keyof ActorSkills;
-                    const currentVal = newSkills[skillKey];
-                    const actualGain = (baseGain as number) * (1 - (currentVal / 120));
-                    newSkills[skillKey] = Math.min(100, currentVal + actualGain);
+                Object.values(c.skillGains).forEach(baseGain => {
+                    workshopProgress += Number(baseGain) || 0;
                 });
             }
             if (c.writerGains) {
@@ -2450,12 +2450,7 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
         if (c.type === 'COURSE' && c.weeksCompleted !== undefined && c.totalDuration !== undefined) {
             if (c.weeksCompleted >= c.totalDuration) {
                 logsToAdd.push({ msg: `🎓 Completed "${c.name}"!`, type: 'positive' });
-                if (c.skillGains) {
-                    Object.keys(c.skillGains).forEach((key) => {
-                         const skillKey = key as keyof ActorSkills;
-                         newSkills[skillKey] = Math.min(100, newSkills[skillKey] + 2);
-                    });
-                }
+                if (c.skillGains) workshopProgress += 1.2;
                 if (c.writerGains) {
                     Object.keys(c.writerGains).forEach((key) => {
                          const statKey = key as keyof WriterStats;
@@ -2475,6 +2470,18 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
     });
 
     nextPlayer.stats.skills = newSkills;
+    const wallet = ensureSkillState(nextPlayer);
+    const trait = nextPlayer.character?.trait;
+    const ticked = tickEarnedPoints(wallet.earned, wallet.weeksTowardNext, trait);
+    const fromClass = workshopProgress >= 1.2 ? 1 : 0;
+    nextPlayer.skillPoints = {
+        ...wallet,
+        earned: ticked.earned + fromClass,
+        weeksTowardNext: ticked.weeksTowardNext,
+    };
+    if (ticked.gained || fromClass) {
+        logsToAdd.push({ msg: `🎬 Skill point banked. You have ${nextPlayer.skillPoints.earned} to spend.`, type: 'positive' });
+    }
     nextPlayer.writerStats = newWriterStats;
     nextPlayer.directorStats = newDirectorStats;
     nextPlayer.stats.talent = calculateGlobalTalent(newSkills, nextPlayer.writerStats, nextPlayer.directorStats);
@@ -2793,6 +2800,18 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                         projectDetails: updatedC.projectDetails ? { ...updatedC.projectDetails, censorDateHeld: true } : updatedC.projectDetails,
                     });
                 } else if (weeksLeft <= 0) {
+                    const onCamera = updatedC.type === 'ACTING_GIG'
+                        || Boolean(updatedC.projectDetails?.castList?.some(member => member.npcId === 'PLAYER_CAST' || member.isPlayer || member.actorId === 'PLAYER_SELF'));
+                    const craft = onCamera && updatedC.projectDetails
+                        ? craftModifiers(getActorTalent(nextPlayer.stats.skills), genreScore(nextPlayer.stats.genreXP, updatedC.projectDetails.genre))
+                        : null;
+                    if (craft && updatedC.projectDetails) {
+                        updatedC.productionPerformance = Math.min(100, (updatedC.productionPerformance || 50) + craft.performanceBonus);
+                        updatedC.projectDetails.hiddenStats = {
+                            ...updatedC.projectDetails.hiddenStats,
+                            castingStrength: Math.min(100, (updatedC.projectDetails.hiddenStats.castingStrength || 50) + craft.castingBonus),
+                        };
+                    }
                     const imdb = calculateIMDbRating(updatedC);
                 const estimatedBudget = updatedC.projectDetails?.estimatedBudget;
                 const budget = typeof estimatedBudget === 'number' && Number.isFinite(estimatedBudget) && estimatedBudget > 0
@@ -2812,12 +2831,16 @@ export const processGameWeek = async (player: Player): Promise<{ player: Player,
                     else if (updatedC.type === 'DIRECTOR_GIG') talentValue = getDirectorTalent(nextPlayer.directorStats || { vision: 0, technical: 0, leadership: 0, style: 0 });
                     else if (updatedC.type === 'WRITER_GIG') talentValue = getWriterTalent(nextPlayer.writerStats || { creativity: 0, dialogue: 0, structure: 0, pacing: 0 });
 
+                    if (onCamera && updatedC.type !== 'DIRECTOR_GIG' && updatedC.type !== 'WRITER_GIG') {
+                        talentValue = Math.max(talentValue, getActorTalent(nextPlayer.stats.skills));
+                    }
+
                     updatedC.projectDetails.hiddenStats.fameMultiplier = calculateProjectFameMultiplier(
                         castIds, 
                         updatedC.projectDetails.directorName, 
                         nextPlayer.stats.fame,
                         talentValue
-                    );
+                    ) + (craft?.boxOfficeCraft || 0);
 
                     const castDepth = calculateCastDepthScore(
                         updatedC.projectDetails.castList.length,

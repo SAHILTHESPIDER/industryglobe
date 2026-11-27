@@ -9,6 +9,7 @@ import { ALL_GENRES } from './genreCatalog';
 import { absoluteWeek, attachRunSkeleton, creditName, gameCalendarYear, simulateIndustryWeek, weekParts } from './boxOfficeSim';
 import { INDUSTRY_ENGINE, calendarImpact, industryById, pickWeightedGenre, ratingForRoll, theatricalMultiplier } from './industryEngine';
 import { INDUSTRY_ORDER } from './scriptDesk/catalog';
+import { saveTalentPool } from './playerTalent';
 
 // Helpers
 const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
@@ -40,6 +41,7 @@ export const generateIndustryProject = (
     year: number, 
     forcedLead?: NPCActor,
     industryId?: FilmIndustryId,
+    extraActors: NPCActor[] = [],
 ): IndustryProject => {
     const industry: FilmIndustryId = industryId && INDUSTRY_ENGINE[industryId] ? industryId : 'HOLLYWOOD';
     const engine = industryById(industry);
@@ -68,7 +70,7 @@ export const generateIndustryProject = (
         lead = forcedLead;
         if ((forcedLead.homeIndustryId || 'HOLLYWOOD') !== industry) partnerIndustryId = forcedLead.homeIndustryId;
     } else {
-        const actors = screenActors();
+        const actors = [...screenActors(), ...extraActors.filter(actor => actor.occupation === 'ACTOR' && !actor.retired && actor.id !== 'PLAYER_CAST')];
         const local = actors.filter(n => (n.homeIndustryId || 'HOLLYWOOD') === industry);
         const outside = actors.filter(n => (n.homeIndustryId || 'HOLLYWOOD') !== industry);
         const cross = outside.length > 0 && Math.random() < engine.crossoverOpenness * 0.28;
@@ -99,7 +101,14 @@ export const generateIndustryProject = (
     const quality = Math.min(100, Math.floor((leadTalent + directorSkill + budgetBonus + rng) / 3) + 5);
 
     const budget = getEstimatedBudget(tier);
-    const fameMultiplier = calculateProjectFameMultiplier([lead.id], director.name, 0);
+    const knownLead = NPC_DATABASE.some(npc => npc.id === lead.id);
+    const fameMultiplier = calculateProjectFameMultiplier(
+        [lead.id],
+        director.name,
+        0,
+        knownLead ? undefined : lead.stats?.talent,
+        knownLead ? 0 : (lead.stats?.fame || 0),
+    );
     const qualityMod = quality / 50;
     
     let luck = 0.5 + Math.random();
@@ -149,6 +158,7 @@ export const generateIndustryProject = (
 // 2. Process World Turn (Runs Weekly)
 export const processWorldTurn = (player: Player): { world: WorldState, news: NewsItem[], logs: string[] } => {
     syncNpcRoster(player.world?.npcEconomy ?? null);
+    const customCast = saveTalentPool(player);
     let newWorld = { ...player.world };
     const news: NewsItem[] = [];
     const logs: string[] = [];
@@ -203,7 +213,7 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         INDUSTRY_ORDER[(Math.abs(Math.trunc(abs)) + slot) % INDUSTRY_ORDER.length];
 
     while (openingThisWeek.length < targetNow) {
-        openingThisWeek.push(stampOpening(generateIndustryProject(player.currentWeek, player.age, undefined, industryForSlot(nowAbs, openingThisWeek.length)), nowAbs));
+        openingThisWeek.push(stampOpening(generateIndustryProject(player.currentWeek, player.age, undefined, industryForSlot(nowAbs, openingThisWeek.length), customCast), nowAbs));
     }
     const releasing = [...overdue, ...openingThisWeek];
 
@@ -213,7 +223,7 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         let scheduled = newWorld.upcomingRivals.filter(project => rivalAbs(project) === openAbs).length;
         while (scheduled < target) {
             const parts = weekParts(openAbs);
-            newWorld.upcomingRivals.push(stampOpening(generateIndustryProject(parts.week, parts.age, undefined, industryForSlot(openAbs, scheduled)), openAbs));
+            newWorld.upcomingRivals.push(stampOpening(generateIndustryProject(parts.week, parts.age, undefined, industryForSlot(openAbs, scheduled), customCast), openAbs));
             scheduled += 1;
         }
     }
@@ -226,7 +236,7 @@ export const processWorldTurn = (player: Player): { world: WorldState, news: New
         if (seenIndustries.has(id) || extra >= 4) return;
         const openAbs = nowAbs + 1 + extra;
         const parts = weekParts(openAbs);
-        newWorld.upcomingRivals.push(stampOpening(generateIndustryProject(parts.week, parts.age, undefined, id), openAbs));
+        newWorld.upcomingRivals.push(stampOpening(generateIndustryProject(parts.week, parts.age, undefined, id, customCast), openAbs));
         extra += 1;
     });
 

@@ -44,7 +44,8 @@ const RESERVED_ANALYTICS_PREFIXES = ['firebase_', 'google_', 'ga_'];
 const checkpointLastSentAt = new Map<string, number>();
 const CHECKPOINT_EVENT_THROTTLE_MS = 5000;
 const AUTH_BOOTSTRAP_TIMEOUT_MS = 12000;
-const FIREBASE_AUTH_STORAGE_KEY = 'actorEmpire.firebaseAnonymousAuth.v1';
+const FIREBASE_AUTH_STORAGE_KEY = 'industryGlobe.firebaseAnonymousAuth.v1';
+const LEGACY_FIREBASE_AUTH_STORAGE_KEY = 'actorEmpire.firebaseAnonymousAuth.v1';
 const FIREBASE_AUTH_REFRESH_SAFETY_MS = 5 * 60 * 1000;
 const FIRESTORE_ISSUE_REPORT_COLLECTION = 'issueReports';
 const TRACE_CONTEXT_LIMIT = 18;
@@ -259,7 +260,8 @@ const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, label: st
 
 const readStoredAnonymousAuth = (): StoredAnonymousAuth | null => {
   try {
-    const raw = globalThis.localStorage?.getItem(FIREBASE_AUTH_STORAGE_KEY);
+    const raw = globalThis.localStorage?.getItem(FIREBASE_AUTH_STORAGE_KEY)
+      || globalThis.localStorage?.getItem(LEGACY_FIREBASE_AUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredAnonymousAuth>;
     if (!parsed.localId || typeof parsed.localId !== 'string') return null;
@@ -351,6 +353,60 @@ const refreshAnonymousAuthViaRest = async (storedAuth: StoredAnonymousAuth): Pro
   return refreshedAuth;
 };
 
+/** Anonymous auth on web and native, used only for the skill-point wallet and character profile. */
+export const ensureFirebaseUser = async (): Promise<StoredAnonymousAuth | null> => {
+  try {
+    if (Capacitor.isNativePlatform() && !firebaseAuthBootstrapped) {
+      await bootstrapFirebaseAuth();
+    }
+    let stored = readStoredAnonymousAuth();
+    if (!stored?.localId) {
+      stored = await createAnonymousAuthViaRest();
+      writeStoredAnonymousAuth(stored);
+    } else {
+      const shouldRefresh = !stored.idToken
+        || !stored.expiresAt
+        || stored.expiresAt - Date.now() < FIREBASE_AUTH_REFRESH_SAFETY_MS;
+      if (shouldRefresh) stored = await refreshAnonymousAuthViaRest(stored);
+    }
+    if (!stored?.idToken || !stored.localId) return null;
+    firebaseAuthUserId = stored.localId;
+    setFirebaseAuthStatus({ state: 'ready', userId: stored.localId, error: undefined });
+    return stored;
+  } catch (error) {
+    console.warn('[Firebase] wallet auth skipped', error);
+    return null;
+  }
+};
+
+const FORBIDDEN_PROFILE_KEYS = ['premium', 'premiumBalance', 'premiumSkillPoints', 'lifetimePremium', 'characterUnlock', 'skillPoints'];
+
+/** Writes the public character sheet. Wallet fields are stripped before the request. */
+export const savePlayerCharacterProfile = async (profile: Record<string, unknown>): Promise<boolean> => {
+  const auth = await ensureFirebaseUser();
+  if (!auth?.idToken) return false;
+  const safe = Object.fromEntries(
+    Object.entries(profile).filter(([key]) => !FORBIDDEN_PROFILE_KEYS.includes(key))
+  );
+  const fields = toFirestoreFields(safe);
+  const mask = Object.keys(fields).map(key => `updateMask.fieldPaths=${encodeURIComponent(key)}`).join('&');
+  const endpoint = `https://firestore.googleapis.com/v1/projects/${FIREBASE_WEB_CONFIG.projectId}/databases/(default)/documents/players/${encodeURIComponent(auth.localId)}?${mask}`;
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${auth.idToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ fields }),
+    });
+    return response.ok;
+  } catch (error) {
+    console.warn('[Firebase] character profile skipped', error);
+    return false;
+  }
+};
+
 const getFreshAnonymousAuth = async (): Promise<StoredAnonymousAuth | null> => {
   if (!Capacitor.isNativePlatform()) return null;
   if (!firebaseAuthBootstrapped) {
@@ -365,6 +421,8 @@ const getFreshAnonymousAuth = async (): Promise<StoredAnonymousAuth | null> => {
   if (!shouldRefresh) return storedAuth;
   return refreshAnonymousAuthViaRest(storedAuth);
 };
+
+export const FIREBASE_PROJECT_ID = FIREBASE_WEB_CONFIG.projectId;
 
 const getPlayerSnapshot = (player?: Player | null) => ({
   age: player?.age,
@@ -426,7 +484,7 @@ const getReportSaveSlot = (player?: Player | null) => {
   if (traceContext.save_slot !== undefined && traceContext.save_slot !== null && traceContext.save_slot !== '') {
     return traceContext.save_slot;
   }
-  const match = String(traceContext.save_key || '').match(/actorEmpireSave_(\d+)/);
+  const match = String(traceContext.save_key || '').match(/(?:industryGlobeSave_|actorEmpireSave_)(\d+)/);
   return match?.[1] ? Number(match[1]) : '';
 };
 
@@ -592,7 +650,7 @@ export const bootstrapFirebase = async () => {
     runSafely('analytics', () => FirebaseAnalytics.setEnabled({ enabled: true })),
     runSafely('crashlytics', async () => {
       await FirebaseCrashlytics.setEnabled({ enabled: true });
-      await FirebaseCrashlytics.log({ message: 'Actor Empire Firebase bootstrapped' });
+      await FirebaseCrashlytics.log({ message: 'Industry Globe Firebase bootstrapped' });
     }),
     runSafely('performance', () => FirebasePerformance.setEnabled({ enabled: true })),
     bootstrapFirebaseAuth(),
@@ -813,7 +871,7 @@ export const recordNonFatal = (
   void runSafely(`nonfatal:${label}`, () =>
     FirebaseCrashlytics.recordException({
       message: `${label}: ${message}`.slice(0, 900),
-      domain: 'ActorEmpire',
+      domain: 'IndustryGlobe',
       keysAndValues,
     })
   );
@@ -878,7 +936,7 @@ const createIssueId = () => {
 const persistLocalIssueReport = (report: Record<string, unknown>) => {
   if (typeof window === 'undefined') return;
   try {
-    const key = 'actorEmpireIssueReports';
+    const key = 'industryGlobeIssueReports';
     const existing = JSON.parse(window.localStorage.getItem(key) || '[]');
     const reports = Array.isArray(existing) ? existing : [];
     window.localStorage.setItem(key, JSON.stringify([report, ...reports].slice(0, 10)));
@@ -1052,9 +1110,9 @@ export const submitPlayerIssueReport = (
 
 export const installGlobalTelemetryHandlers = () => {
   if (typeof window === 'undefined' || !isNativeTelemetry()) return;
-  const globalWindow = window as typeof window & { __actorEmpireTelemetryInstalled?: boolean };
-  if (globalWindow.__actorEmpireTelemetryInstalled) return;
-  globalWindow.__actorEmpireTelemetryInstalled = true;
+  const globalWindow = window as typeof window & { __industryGlobeTelemetryInstalled?: boolean };
+  if (globalWindow.__industryGlobeTelemetryInstalled) return;
+  globalWindow.__industryGlobeTelemetryInstalled = true;
 
   window.addEventListener('error', (event) => {
     recordNonFatal(event.error || event.message, 'global_js_error', {

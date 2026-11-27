@@ -776,6 +776,7 @@ export const ChannelScreen: React.FC = () => {
                     <div>
                         <div className="h2">{displayName}</div>
                         <div className="dim">{handle} · {formatCompact(subs)} subs · {videos.length} videos · {formatCompact(api.channel.members)} members</div>
+                        {api.kind === 'personal' && api.channel.about && <div className="dim" style={{ marginTop: 6, maxWidth: 520 }}>{api.channel.about}</div>}
                     </div>
                 </div>
                 <div className="row">
